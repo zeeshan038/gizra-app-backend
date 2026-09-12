@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+//Test Connection
 export const testConnection = async () => {
   try {
     await prisma.$connect();
