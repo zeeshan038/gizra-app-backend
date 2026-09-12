@@ -4,7 +4,7 @@ services:
     container_name: gizra-backend
     restart: always
     ports:
-      - "3001:3000"
+      - "3002:3000"   # 3001 may be in use by other local containers
     environment:
       - PORT=3000
       - DATABASE_URL=postgresql://postgres:mysecretpassword@postgres:5432/gizra_db?schema=public
@@ -23,7 +23,7 @@ services:
       POSTGRES_PASSWORD: mysecretpassword
       POSTGRES_DB: gizra_db
     ports:
-      - "5432:5432" 
+      - "5433:5432"   # 5432 may be in use by other local containers
     volumes:
       - pgdata:/var/lib/postgresql/data
 
@@ -43,7 +43,7 @@ services:
     restart: always
     command: redis-server --appendonly yes
     ports:
-      - "6379:6379"
+      - "6380:6379"   # 6379 may be in use by other local containers
     volumes:
       - redisdata:/data
 
