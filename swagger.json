@@ -1419,7 +1419,28 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Guest verified successfully"
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "1043"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -1516,7 +1537,45 @@
         "description": "",
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Registration successful"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "token": {
+                          "type": "string",
+                          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                        },
+                        "is_phone_verified": {
+                          "type": "number",
+                          "example": 1
+                        },
+                        "is_email_verified": {
+                          "type": "number",
+                          "example": 1
+                        },
+                        "login_type": {
+                          "type": "string",
+                          "example": "manual"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -1628,11 +1687,42 @@
         "description": "",
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Login success"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "token": {
+                          "type": "string",
+                          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                        },
+                        "is_phone_verified": {
+                          "type": "number",
+                          "example": 1
+                        },
+                        "is_email_verified": {
+                          "type": "number",
+                          "example": 1
+                        },
+                        "login_type": {
+                          "type": "string",
+                          "example": "manual"
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -1742,7 +1832,81 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "total_size": {
+                          "type": "number",
+                          "example": 1
+                        },
+                        "limit": {
+                          "type": "number",
+                          "example": 20
+                        },
+                        "offset": {
+                          "type": "number",
+                          "example": 1
+                        },
+                        "restaurants": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "example": "13"
+                              },
+                              "name": {
+                                "type": "string",
+                                "example": "Hell's Kitchen"
+                              },
+                              "logo": {
+                                "type": "string",
+                                "example": "default_logo.png"
+                              },
+                              "cover_photo": {
+                                "type": "string",
+                                "example": "default_cover.png"
+                              },
+                              "delivery_time": {
+                                "type": "string",
+                                "example": "30-45-min"
+                              },
+                              "minimum_order": {
+                                "type": "number",
+                                "example": 0
+                              },
+                              "tax": {
+                                "type": "number",
+                                "example": 8.5
+                              },
+                              "rating": {
+                                "type": "number",
+                                "example": 0
+                              },
+                              "address": {
+                                "type": "string",
+                                "example": "123 Vegas Blvd, Las Vegas"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
