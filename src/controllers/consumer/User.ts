@@ -248,17 +248,23 @@ export const login = async (req: Request, res: Response): Promise<any> => {
                 data: {
                     token,
                     is_phone_verified: user.is_phone_verified ? 1 : 0,
-                    is_email_verified: 1, // default based on PHP
+                    is_email_verified: 1, 
                     login_type: 'manual'
                 }
             });
 
         } else if (payload.login_type === 'otp') {
             // OTP login implementation stub
-            return res.status(501).json({ status: false, msg: 'OTP Login not yet fully migrated.' });
+            return res.status(501).json({
+                status: false,
+                msg: 'OTP Login not yet fully migrated.'
+            });
         } else if (payload.login_type === 'social') {
             // Social login implementation stub
-            return res.status(501).json({ status: false, msg: 'Social Login not yet fully migrated.' });
+            return res.status(501).json({
+                status: false,
+                msg: 'Social Login not yet fully migrated.'
+            });
         }
 
     } catch (error: any) {
@@ -289,17 +295,20 @@ export const guestRequest = async (req: Request, res: Response): Promise<any> =>
 
         if (guest) {
             return res.status(200).json({
-                message: 'Guest verified successfully',
-                guest_id: guest.id.toString(),
+                status: true,
+                msg: 'Guest verified successfully',
+                data: guest.id.toString(),
             });
         }
 
         return res.status(404).json({
-            message: 'Failed to create guest'
+            status: false,
+            msg: 'Failed to create guest'
         });
     } catch (error: any) {
         return res.status(500).json({
-            message: error.message
+            status: false,
+            msg: error.message
         });
     }
 };
