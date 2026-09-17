@@ -1,0 +1,4227 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Gizra API",
+    "description": "Backend API for Gizra application",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "Main API endpoints"
+    }
+  ],
+  "paths": {
+    "/swagger.json": {
+      "get": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vendor/login": {
+      "post": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "example": "any"
+                  },
+                  "password": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
+    "/vendor/register": {
+      "post": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "example": "any"
+                  },
+                  "phone": {
+                    "example": "any"
+                  },
+                  "password": {
+                    "example": "any"
+                  },
+                  "f_name": {
+                    "example": "any"
+                  },
+                  "l_name": {
+                    "example": "any"
+                  },
+                  "restaurant_name": {
+                    "example": "any"
+                  },
+                  "restaurant_address": {
+                    "example": "any"
+                  },
+                  "lat": {
+                    "example": "any"
+                  },
+                  "lng": {
+                    "example": "any"
+                  },
+                  "zone_id": {
+                    "example": "any"
+                  },
+                  "tax": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
+    "/vendor/catalog/category": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "example": "any"
+                  },
+                  "image": {
+                    "example": "any"
+                  },
+                  "parent_id": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      },
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      }
+    },
+    "/vendor/catalog/addon": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "example": "any"
+                  },
+                  "price": {
+                    "example": "any"
+                  },
+                  "restaurant_id": {
+                    "example": "any"
+                  },
+                  "stock_type": {
+                    "example": "any"
+                  },
+                  "addon_stock": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      },
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      }
+    },
+    "/vendor/catalog/food": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "example": "any"
+                  },
+                  "description": {
+                    "example": "any"
+                  },
+                  "image": {
+                    "example": "any"
+                  },
+                  "category_id": {
+                    "example": "any"
+                  },
+                  "price": {
+                    "example": "any"
+                  },
+                  "restaurant_id": {
+                    "example": "any"
+                  },
+                  "variations": {
+                    "example": "any"
+                  },
+                  "add_ons": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      },
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      }
+    },
+    "/vendor/catalog/ai/parse-pdf": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      }
+    },
+    "/vendor/catalog/ai/description": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      }
+    },
+    "/vendor/catalog/ai/generate-image": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      }
+    },
+    "/vendor/catalog/ai/generate-category-image": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      }
+    },
+    "/consumer/guest/request": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "x-forwarded-for",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fcm_token": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Auth"
+        ]
+      }
+    },
+    "/consumer/register": {
+      "post": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phone": {
+                    "example": "any"
+                  },
+                  "email": {
+                    "example": "any"
+                  },
+                  "ref_code": {
+                    "example": "any"
+                  },
+                  "password": {
+                    "example": "any"
+                  },
+                  "f_name": {
+                    "example": "any"
+                  },
+                  "l_name": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Auth"
+        ]
+      }
+    },
+    "/consumer/login": {
+      "post": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Auth"
+        ]
+      }
+    },
+    "/consumer/restaurants/all": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search restaurant by name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Discover"
+        ]
+      }
+    },
+    "/consumer/restaurants/{id}/foods": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "data": {
+                    "total_size": 2,
+                    "limit": 20,
+                    "offset": 1,
+                    "foods": [
+                      {
+                        "id": "386",
+                        "name": "Spicy Zinger Burger",
+                        "description": "Crispy fried chicken breast with spicy mayo.",
+                        "image": "zinger.png",
+                        "category_id": "1",
+                        "restaurant_id": "1",
+                        "price": 15.99,
+                        "discount": 0,
+                        "veg": false,
+                        "status": true,
+                        "variations": [
+                          {
+                            "type": "Size",
+                            "values": [
+                              "Small",
+                              "Large"
+                            ]
+                          }
+                        ],
+                        "add_ons": [
+                          "1",
+                          "2"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Discover"
+        ]
+      }
+    },
+    "/consumer/cart/": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "is_guest",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "example": "839"
+                          },
+                          "user_id": {
+                            "type": "string",
+                            "example": "1"
+                          },
+                          "item_id": {
+                            "type": "string",
+                            "example": "1"
+                          },
+                          "is_guest": {
+                            "type": "boolean",
+                            "example": false
+                          },
+                          "add_on_ids": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            },
+                            "example": [
+                              1
+                            ]
+                          },
+                          "add_on_qtys": {
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            },
+                            "example": [
+                              1
+                            ]
+                          },
+                          "item_type": {
+                            "type": "string",
+                            "example": "Food"
+                          },
+                          "price": {
+                            "type": "number",
+                            "example": 15.99
+                          },
+                          "quantity": {
+                            "type": "number",
+                            "example": 2
+                          },
+                          "variations": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "type": {
+                                  "type": "string"
+                                },
+                                "value": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "example": [
+                              {
+                                "type": "Size",
+                                "value": "Large"
+                              }
+                            ]
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "nullable": true,
+                            "example": null
+                          },
+                          "updated_at": {
+                            "type": "string",
+                            "nullable": true,
+                            "example": null
+                          },
+                          "variation_options": {
+                            "type": "array",
+                            "items": {
+                              "type": "object"
+                            },
+                            "example": []
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Cart"
+        ]
+      }
+    },
+    "/consumer/cart/add": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Added to cart successfully"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "839"
+                        },
+                        "user_id": {
+                          "type": "string",
+                          "example": "1"
+                        },
+                        "item_id": {
+                          "type": "string",
+                          "example": "1"
+                        },
+                        "is_guest": {
+                          "type": "boolean",
+                          "example": false
+                        },
+                        "add_on_ids": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          },
+                          "example": [
+                            1
+                          ]
+                        },
+                        "add_on_qtys": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          },
+                          "example": [
+                            1
+                          ]
+                        },
+                        "item_type": {
+                          "type": "string",
+                          "example": "Food"
+                        },
+                        "price": {
+                          "type": "number",
+                          "example": 15.99
+                        },
+                        "quantity": {
+                          "type": "number",
+                          "example": 2
+                        },
+                        "variations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string"
+                              },
+                              "value": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "example": [
+                            {
+                              "type": "Size",
+                              "value": "Large"
+                            }
+                          ]
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "nullable": true,
+                          "example": null
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "nullable": true,
+                          "example": null
+                        },
+                        "variation_options": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          },
+                          "example": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "user_id": {
+                    "example": "any"
+                  },
+                  "item_id": {
+                    "example": "any"
+                  },
+                  "is_guest": {
+                    "example": "any"
+                  },
+                  "variations": {
+                    "example": "any"
+                  },
+                  "item_type": {
+                    "example": "any"
+                  },
+                  "price": {
+                    "example": "any"
+                  },
+                  "quantity": {
+                    "example": "any"
+                  },
+                  "add_on_ids": {
+                    "example": "any"
+                  },
+                  "add_on_qtys": {
+                    "example": "any"
+                  },
+                  "variation_options": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Cart"
+        ]
+      }
+    },
+    "/consumer/cart/update": {
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "is_guest",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Pass 'true' if guest"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Cart updated successfully"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "839"
+                        },
+                        "user_id": {
+                          "type": "string",
+                          "example": "1"
+                        },
+                        "item_id": {
+                          "type": "string",
+                          "example": "1"
+                        },
+                        "is_guest": {
+                          "type": "boolean",
+                          "example": false
+                        },
+                        "add_on_ids": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          },
+                          "example": [
+                            1
+                          ]
+                        },
+                        "add_on_qtys": {
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          },
+                          "example": [
+                            1
+                          ]
+                        },
+                        "item_type": {
+                          "type": "string",
+                          "example": "Food"
+                        },
+                        "price": {
+                          "type": "number",
+                          "example": 15.99
+                        },
+                        "quantity": {
+                          "type": "number",
+                          "example": 3
+                        },
+                        "variations": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string"
+                              },
+                              "value": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "example": [
+                            {
+                              "type": "Size",
+                              "value": "Large"
+                            }
+                          ]
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "nullable": true,
+                          "example": null
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "nullable": true,
+                          "example": null
+                        },
+                        "variation_options": {
+                          "type": "array",
+                          "items": {
+                            "type": "object"
+                          },
+                          "example": []
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cart_id": {
+                    "example": "any"
+                  },
+                  "quantity": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Cart"
+        ]
+      }
+    },
+    "/consumer/cart/remove-item/{id}": {
+      "delete": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "is_guest",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Pass 'true' if guest"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Item removed from cart"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Cart"
+        ]
+      }
+    },
+    "/consumer/cart/clear/{user_id}": {
+      "delete": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "is_guest",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Cart cleared completely"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Cart"
+        ]
+      }
+    },
+    "/consumer/order/place": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "user_id": {
+                    "example": "any"
+                  },
+                  "restaurant_id": {
+                    "example": "any"
+                  },
+                  "order_amount": {
+                    "example": "any"
+                  },
+                  "payment_method": {
+                    "example": "any"
+                  },
+                  "order_type": {
+                    "example": "any"
+                  },
+                  "delivery_charge": {
+                    "example": "any"
+                  },
+                  "total_tax_amount": {
+                    "example": "any"
+                  },
+                  "order_note": {
+                    "example": "any"
+                  },
+                  "delivery_address_id": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Orders"
+        ]
+      }
+    },
+    "/consumer/order/history": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Orders"
+        ]
+      }
+    },
+    "/delivery-man/login": {
+      "post": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phone": {
+                    "example": "any"
+                  },
+                  "password": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Auth"
+        ]
+      }
+    },
+    "/delivery-man/register": {
+      "post": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phone": {
+                    "example": "any"
+                  },
+                  "password": {
+                    "example": "any"
+                  },
+                  "fName": {
+                    "example": "any"
+                  },
+                  "lName": {
+                    "example": "any"
+                  },
+                  "email": {
+                    "example": "any"
+                  },
+                  "identity_type": {
+                    "example": "any"
+                  },
+                  "identity_number": {
+                    "example": "any"
+                  },
+                  "zone_id": {
+                    "example": "any"
+                  },
+                  "earning": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Auth"
+        ]
+      }
+    },
+    "/delivery-man/profile/": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dm_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Profile"
+        ]
+      }
+    },
+    "/delivery-man/profile/status": {
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "dm_id": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Profile"
+        ]
+      }
+    },
+    "/delivery-man/orders/latest": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dm_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Orders"
+        ]
+      }
+    },
+    "/delivery-man/orders/{id}/accept": {
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "dm_id": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Orders"
+        ]
+      }
+    },
+    "/delivery-man/orders/{id}/status": {
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "dm_id": {
+                    "example": "any"
+                  },
+                  "status": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Orders"
+        ]
+      }
+    },
+    "/admin/auth/login": {
+      "post": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "example": "any"
+                  },
+                  "password": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin Auth"
+        ]
+      }
+    },
+    "/admin/vendors/approve/{vendor_id}": {
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "vendor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin Vendors"
+        ]
+      }
+    },
+    "/consumer/foods/search": {
+      "get": {
+        "description": "Search foods globally",
+        "tags": [
+          "Consumer Discover"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search food by name"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "data": {
+                    "total_size": 1,
+                    "limit": 20,
+                    "offset": 1,
+                    "foods": [
+                      {
+                        "id": "386",
+                        "name": "Spicy Zinger Burger",
+                        "description": "Crispy fried chicken breast with spicy mayo.",
+                        "image": "zinger.png",
+                        "category_id": "1",
+                        "restaurant_id": "1",
+                        "price": 15.99,
+                        "discount": 0,
+                        "veg": false,
+                        "status": true,
+                        "variations": [
+                          {
+                            "type": "Size",
+                            "values": [
+                              "Small",
+                              "Large"
+                            ]
+                          }
+                        ],
+                        "add_ons": [
+                          "1",
+                          "2"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": false
+          },
+          "msg": {
+            "type": "string",
+            "example": "Something went wrong"
+          }
+        }
+      },
+      "ApiResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Operation successful"
+          },
+          "data": {
+            "type": "object",
+            "nullable": true
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Consumer Auth"
+    },
+    {
+      "name": "Consumer Discover"
+    },
+    {
+      "name": "Consumer Cart"
+    },
+    {
+      "name": "Consumer Orders"
+    },
+    {
+      "name": "Vendor Auth"
+    },
+    {
+      "name": "Vendor Catalog"
+    },
+    {
+      "name": "Delivery Man Auth"
+    },
+    {
+      "name": "Delivery Man Profile"
+    },
+    {
+      "name": "Delivery Man Orders"
+    },
+    {
+      "name": "Admin Auth"
+    },
+    {
+      "name": "Admin Vendors"
+    }
+  ]
+}
