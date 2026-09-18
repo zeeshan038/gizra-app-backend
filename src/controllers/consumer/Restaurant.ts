@@ -3,7 +3,8 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-/**
+
+/* 
  * @Description Get all active restaurants (Globally, ignoring zones for now)
  * @Route GET api/consumer/restaurants/all
  * @Access Public
@@ -15,10 +16,21 @@ export const getRestaurants = async (req: Request, res: Response): Promise<any> 
         const skip = (page - 1) * limit;
 
         const name = req.query.name as string;
+        const veg = req.query.veg === 'true' || req.query.veg === '1';
+        const non_veg = req.query.non_veg === 'true' || req.query.non_veg === '1';
+        const top_rated = req.query.top_rated === 'true' || req.query.top_rated === '1';
+        const discounted = req.query.discounted === 'true' || req.query.discounted === '1'; // Placeholder if needed
 
         const whereClause: any = { status: true };
         if (name) {
             whereClause.name = { contains: name, mode: 'insensitive' };
+        }
+        if (veg) whereClause.veg = true;
+        if (non_veg) whereClause.non_veg = true;
+
+        let orderBy: any = { id: 'desc' };
+        if (top_rated) {
+            orderBy = { rating: 'desc' };
         }
 
         const [total, restaurants] = await Promise.all([
@@ -38,7 +50,7 @@ export const getRestaurants = async (req: Request, res: Response): Promise<any> 
                 },
                 skip,
                 take: limit,
-                orderBy: { id: 'desc' }
+                orderBy
             })
         ]);
 
@@ -133,6 +145,7 @@ export const getRestaurantFoods = async (req: Request, res: Response): Promise<a
     }
 };
 
+
 /**
  * @Description Search all active foods globally by name
  * @Route GET api/consumer/foods/search
@@ -202,3 +215,54 @@ export const searchFoods = async (req: Request, res: Response): Promise<any> => 
         return res.status(500).json({ status: false, msg: error.message });
     }
 };
+
+
+/**
+ * @Description Specific Restaurant Details
+ * @Route GET api/consumer/restaurants/specfic/:id
+ * @Access Public
+ */
+export const getRestaurantDetails = async (req: Request, res: Response): Promise<any> => {
+    const id = Number(req.params.id);
+    if (isNaN(id)) {
+        return res.status(400).json({ status: false, msg: 'Invalid restaurant ID' });
+    }
+    try {
+        const restaurant = await prisma.restaurants.findUnique({
+            where: { id: id, status: true },
+            select: {
+                id: true,
+                name: true,
+                logo: true,
+                cover_photo: true,
+                delivery_time: true,
+                minimum_order: true,
+                rating: true,
+                address: true,
+                veg: true,
+                non_veg: true,
+                active: true,
+                latitude: true,
+                longitude: true
+            }
+        });
+
+        if (!restaurant) {
+            return res.status(404).json({ status: false, msg: 'Restaurant not found' });
+        }
+
+        return res.status(200).json({
+            status: true,
+            data: {
+                ...restaurant,
+                id: restaurant.id.toString(),
+                minimum_order: restaurant.minimum_order ? Number(restaurant.minimum_order) : 0,
+                rating: restaurant.rating ? Number(restaurant.rating) : 0
+            }
+        });
+
+    } catch (error: any) {
+        return res.status(500).json({ status: false, msg: error.message });
+    }
+};
+
