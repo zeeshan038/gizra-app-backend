@@ -1828,6 +1828,38 @@
               "type": "string"
             },
             "description": "Search restaurant by name"
+          },
+          {
+            "name": "veg",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by veg (true/false or 1/0)"
+          },
+          {
+            "name": "non_veg",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by non_veg (true/false or 1/0)"
+          },
+          {
+            "name": "top_rated",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by top_rated (true/false or 1/0)"
+          },
+          {
+            "name": "discounted",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by discounted (true/false or 1/0)"
           }
         ],
         "responses": {
@@ -3052,18 +3084,76 @@
     "/consumer/order/place": {
       "post": {
         "description": "",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "parameters": [],
         "responses": {
           "201": {
-            "description": "Created"
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Order placed successfully"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "100167"
+                        },
+                        "user_id": {
+                          "type": "string",
+                          "example": "120"
+                        },
+                        "restaurant_id": {
+                          "type": "string",
+                          "example": "840"
+                        },
+                        "order_amount": {
+                          "type": "number",
+                          "example": 45.99
+                        },
+                        "delivery_charge": {
+                          "type": "number",
+                          "example": 5
+                        },
+                        "total_tax_amount": {
+                          "type": "number",
+                          "example": 4.5
+                        },
+                        "payment_status": {
+                          "type": "string",
+                          "example": "unpaid"
+                        },
+                        "order_status": {
+                          "type": "string",
+                          "example": "pending"
+                        },
+                        "payment_method": {
+                          "type": "string",
+                          "example": "cash_on_delivery"
+                        },
+                        "order_type": {
+                          "type": "string",
+                          "example": "delivery"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -3137,37 +3227,43 @@
           }
         },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
-                  "user_id": {
-                    "example": "any"
-                  },
                   "restaurant_id": {
-                    "example": "any"
+                    "type": "number",
+                    "example": 13
                   },
                   "order_amount": {
-                    "example": "any"
+                    "type": "number",
+                    "example": 45.99
                   },
                   "payment_method": {
-                    "example": "any"
-                  },
-                  "order_type": {
-                    "example": "any"
-                  },
-                  "delivery_charge": {
-                    "example": "any"
-                  },
-                  "total_tax_amount": {
-                    "example": "any"
-                  },
-                  "order_note": {
-                    "example": "any"
+                    "type": "string",
+                    "example": "cash_on_delivery"
                   },
                   "delivery_address_id": {
-                    "example": "any"
+                    "type": "number",
+                    "example": 1
+                  },
+                  "order_note": {
+                    "type": "string",
+                    "example": "Please include extra napkins"
+                  },
+                  "order_type": {
+                    "type": "string",
+                    "example": "delivery"
+                  },
+                  "delivery_charge": {
+                    "type": "number",
+                    "example": 5
+                  },
+                  "total_tax_amount": {
+                    "type": "number",
+                    "example": 4.5
                   }
                 }
               }
@@ -3176,31 +3272,67 @@
         },
         "tags": [
           "Consumer Orders"
+        ],
+        "summary": "Place a new order",
+        "security": [
+          {
+            "BearerAuth": []
+          }
         ]
       }
     },
     "/consumer/order/history": {
       "get": {
         "description": "",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "user_id",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "parameters": [],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "example": "100072"
+                          },
+                          "restaurant_id": {
+                            "type": "string",
+                            "example": "840"
+                          },
+                          "restaurant_name": {
+                            "type": "string",
+                            "example": "Burger King"
+                          },
+                          "restaurant_logo": {
+                            "type": "string",
+                            "example": "burger_king_logo.png"
+                          },
+                          "order_status": {
+                            "type": "string",
+                            "example": "Confirmed"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -3275,6 +3407,12 @@
         },
         "tags": [
           "Consumer Orders"
+        ],
+        "summary": "Get user order history",
+        "security": [
+          {
+            "BearerAuth": []
+          }
         ]
       }
     },
@@ -4310,6 +4448,263 @@
           }
         }
       }
+    },
+    "/consumer/restaurants/specfic/{id}": {
+      "get": {
+        "tags": [
+          "Consumer Discover"
+        ],
+        "summary": "Get specific restaurant details",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Restaurant ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "13"
+                        },
+                        "name": {
+                          "type": "string",
+                          "example": "Hell's Kitchen"
+                        },
+                        "logo": {
+                          "type": "string",
+                          "example": "default_logo.png"
+                        },
+                        "cover_photo": {
+                          "type": "string",
+                          "example": "default_cover.png"
+                        },
+                        "delivery_time": {
+                          "type": "string",
+                          "example": "30-45-min"
+                        },
+                        "minimum_order": {
+                          "type": "number",
+                          "example": 0
+                        },
+                        "rating": {
+                          "type": "number",
+                          "example": 4.5
+                        },
+                        "address": {
+                          "type": "string",
+                          "example": "123 Vegas Blvd"
+                        },
+                        "veg": {
+                          "type": "boolean",
+                          "example": true
+                        },
+                        "non_veg": {
+                          "type": "boolean",
+                          "example": true
+                        },
+                        "active": {
+                          "type": "boolean",
+                          "example": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/consumer/home-slider": {
+      "get": {
+        "tags": [
+          "Consumer Discover"
+        ],
+        "summary": "Get home sliders / banners",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Home sliders fetched successfully"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "example": "1"
+                          },
+                          "title": {
+                            "type": "string",
+                            "example": "Burger Offer"
+                          },
+                          "type": {
+                            "type": "string",
+                            "example": "restaurant_wise"
+                          },
+                          "image": {
+                            "type": "string",
+                            "example": "burger_banner.png"
+                          },
+                          "data": {
+                            "type": "string",
+                            "example": "10"
+                          },
+                          "zone_id": {
+                            "type": "number",
+                            "example": 1
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/banners": {
+      "get": {
+        "tags": [
+          "Admin Banners"
+        ],
+        "summary": "Get all banners",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Banners fetched successfully"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Admin Banners"
+        ],
+        "summary": "Create a banner",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "example": "New Offer"
+                  },
+                  "type": {
+                    "type": "string",
+                    "example": "restaurant_wise"
+                  },
+                  "image": {
+                    "type": "string",
+                    "example": "image.png"
+                  },
+                  "data": {
+                    "type": "string",
+                    "example": "15"
+                  },
+                  "zone_id": {
+                    "type": "number",
+                    "example": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Banner created successfully"
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4386,6 +4781,14 @@
     },
     {
       "name": "Admin Vendors"
+    },
+    {
+      "name": "Admin Banners",
+      "description": "Admin Banner Management"
+    },
+    {
+      "name": "Consumer Order",
+      "description": "Consumer Order Management"
     }
   ]
 }

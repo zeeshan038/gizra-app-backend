@@ -1,7 +1,6 @@
 import Joi from 'joi';
 
 export const addToCartSchema = Joi.object({
-  user_id: Joi.number().required(),
   item_id: Joi.number().required(),
   is_guest: Joi.boolean().default(false),
   item_type: Joi.string().valid('Food', 'ItemCampaign').default('Food'),

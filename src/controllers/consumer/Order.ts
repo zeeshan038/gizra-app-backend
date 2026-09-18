@@ -11,7 +11,13 @@ const prisma = new PrismaClient();
  */
 export const placeOrder = async (req: Request, res: Response): Promise<any> => {
     const payload = req.body;
-    const result = placeOrderSchema.validate(payload);
+    const user_id = Number(req.user?.id);
+    
+    if (!user_id) {
+        return res.status(401).json({ status: false, msg: "Unauthorized" });
+    }
+
+    const result = placeOrderSchema.validate(payload, { stripUnknown: true });
     
     if (result.error) {
         return res.status(400).json({ status: false, msg: result.error.details.map((d: any) => d.message).join(',') });
@@ -20,7 +26,7 @@ export const placeOrder = async (req: Request, res: Response): Promise<any> => {
     try {
         // 1. Fetch Cart Items
         const cartItems = await prisma.carts.findMany({
-            where: { user_id: payload.user_id, is_guest: false }
+            where: { user_id: user_id, is_guest: false }
         });
 
         if (cartItems.length === 0) {
@@ -33,7 +39,7 @@ export const placeOrder = async (req: Request, res: Response): Promise<any> => {
             // Create Order
             const order = await tx.orders.create({
                 data: {
-                    user_id: payload.user_id,
+                    user_id: user_id,
                     restaurant_id: payload.restaurant_id,
                     order_amount: payload.order_amount,
                     payment_method: payload.payment_method,
@@ -68,16 +74,30 @@ export const placeOrder = async (req: Request, res: Response): Promise<any> => {
 
             // Delete Cart
             await tx.carts.deleteMany({
-                where: { user_id: payload.user_id, is_guest: false }
+                where: { user_id: user_id, is_guest: false }
             });
 
             return order;
         });
 
+        const mappedOrder = {
+            id: orderResult.id.toString(),
+            user_id: orderResult.user_id?.toString() || null,
+            restaurant_id: orderResult.restaurant_id?.toString() || null,
+            order_amount: Number(orderResult.order_amount) || 0,
+            delivery_charge: Number(orderResult.delivery_charge) || 0,
+            total_tax_amount: Number(orderResult.total_tax_amount) || 0,
+            payment_status: orderResult.payment_status,
+            order_status: orderResult.order_status,
+            payment_method: orderResult.payment_method,
+            order_type: orderResult.order_type,
+            created_at: orderResult.created_at
+        };
+
         return res.status(201).json({ 
             status: true, 
             msg: 'Order placed successfully', 
-            data: { ...orderResult, id: orderResult.id.toString() } 
+            data: mappedOrder 
         });
 
     } catch (e: any) {
@@ -91,10 +111,10 @@ export const placeOrder = async (req: Request, res: Response): Promise<any> => {
  * @Access Public
  */
 export const getOrderHistory = async (req: Request, res: Response): Promise<any> => {
-    const user_id = req.query.user_id ? Number(req.query.user_id) : null;
+    const user_id = Number(req.user?.id);
     
     if (!user_id) {
-        return res.status(400).json({ status: false, msg: 'user_id is required' });
+        return res.status(401).json({ status: false, msg: 'Unauthorized' });
     }
 
     try {
@@ -103,10 +123,26 @@ export const getOrderHistory = async (req: Request, res: Response): Promise<any>
             orderBy: { id: 'desc' }
         });
 
-        const mappedOrders = orders.map(order => ({
-            ...order,
-            id: order.id.toString()
-        }));
+        // Get unique restaurant IDs
+        const restaurantIds = [...new Set(orders.map(o => Number(o.restaurant_id)))];
+
+        // Fetch related restaurants
+        const restaurants = await prisma.restaurants.findMany({
+            where: { id: { in: restaurantIds } },
+            select: { id: true, name: true, logo: true }
+        });
+
+        const mappedOrders = orders.map(order => {
+            const restaurant = restaurants.find(r => Number(r.id) === Number(order.restaurant_id));
+            return {
+                id: order.id.toString(),
+                restaurant_id: order.restaurant_id?.toString() || null,
+                restaurant_name: restaurant?.name || 'Unknown',
+                restaurant_logo: restaurant?.logo || 'default_logo.png',
+                order_status: order.order_status,
+                created_at: order.created_at
+            };
+        });
 
         return res.status(200).json({ status: true, data: mappedOrders });
     } catch (e: any) {

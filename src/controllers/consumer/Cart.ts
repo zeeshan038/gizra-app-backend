@@ -10,11 +10,15 @@ const prisma = new PrismaClient();
  * @Access Public
  */
 export const getCart = async (req: Request, res: Response): Promise<any> => {
-    const user_id = req.query.user_id ? Number(req.query.user_id) : null;
     const is_guest = req.query.is_guest === 'true';
+    let user_id;
 
-    if (!user_id) {
-        return res.status(400).json({ status: false, msg: 'user_id is required' });
+    if (is_guest) {
+        user_id = req.query.guest_id ? Number(req.query.guest_id) : null;
+        if (!user_id) return res.status(400).json({ status: false, msg: 'guest_id is required' });
+    } else {
+        user_id = Number(req.user?.id);
+        if (!user_id) return res.status(401).json({ status: false, msg: 'Unauthorized' });
     }
 
     try {
@@ -51,7 +55,18 @@ export const getCart = async (req: Request, res: Response): Promise<any> => {
  */
 export const addToCart = async (req: Request, res: Response): Promise<any> => {
     const payload = req.body;
-    const result = addToCartSchema.validate(payload);
+    
+    // Securely resolve user_id based on whether they are a guest
+    let user_id;
+    if (payload.is_guest) {
+        user_id = Number(payload.guest_id);
+        if (!user_id) return res.status(400).json({ status: false, msg: 'guest_id is required for guest users' });
+    } else {
+        user_id = Number(req.user?.id);
+        if (!user_id) return res.status(401).json({ status: false, msg: 'Unauthorized' });
+    }
+
+    const result = addToCartSchema.validate(payload, { stripUnknown: true });
     
     if (result.error) {
         return res.status(400).json({ 
@@ -64,7 +79,7 @@ export const addToCart = async (req: Request, res: Response): Promise<any> => {
         // Check if item already exists in cart with same variations
         const existingCartItem = await prisma.carts.findFirst({
             where: {
-                user_id: payload.user_id,
+                user_id: user_id,
                 item_id: payload.item_id,
                 is_guest: payload.is_guest,
                 variations: JSON.stringify(payload.variations)
@@ -73,44 +88,46 @@ export const addToCart = async (req: Request, res: Response): Promise<any> => {
 
         if (existingCartItem) {
             return res.status(400).json({ status: false, msg: 'Item with these variations already exists in cart' });
+        } else {
+            // Create new cart item
+            const cart = await prisma.carts.create({
+                data: {
+                    user_id: user_id,
+                    item_id: payload.item_id,
+                    is_guest: payload.is_guest,
+                    item_type: payload.item_type,
+                    price: payload.price,
+                    quantity: payload.quantity,
+                    add_on_ids: JSON.stringify(payload.add_on_ids),
+                    add_on_qtys: JSON.stringify(payload.add_on_qtys),
+                    variations: JSON.stringify(payload.variations),
+                    variation_options: JSON.stringify(payload.variation_options)
+                }
+            });
+
+            const mappedCart = {
+                ...cart,
+                id: cart.id.toString(),
+                user_id: cart.user_id?.toString() || null,
+                item_id: cart.item_id?.toString() || null,
+                price: Number(cart.price),
+                add_on_ids: cart.add_on_ids ? JSON.parse(cart.add_on_ids) : [],
+                add_on_qtys: cart.add_on_qtys ? JSON.parse(cart.add_on_qtys) : [],
+                variations: cart.variations ? JSON.parse(cart.variations) : [],
+                variation_options: cart.variation_options ? JSON.parse(cart.variation_options) : []
+            };
+
+            return res.status(201).json({ 
+                status: true, 
+                msg: 'Added to cart successfully',
+                data: mappedCart 
+            });
         }
-
-        const cart = await prisma.carts.create({
-            data: {
-                user_id: payload.user_id,
-                item_id: payload.item_id,
-                is_guest: payload.is_guest,
-                item_type: payload.item_type,
-                price: payload.price,
-                quantity: payload.quantity,
-                add_on_ids: JSON.stringify(payload.add_on_ids),
-                add_on_qtys: JSON.stringify(payload.add_on_qtys),
-                variations: JSON.stringify(payload.variations),
-                variation_options: JSON.stringify(payload.variation_options)
-            }
-        });
-
-        const mappedCart = {
-            ...cart,
-            id: cart.id.toString(),
-            user_id: cart.user_id?.toString() || null,
-            item_id: cart.item_id?.toString() || null,
-            price: Number(cart.price),
-            add_on_ids: cart.add_on_ids ? JSON.parse(cart.add_on_ids) : [],
-            add_on_qtys: cart.add_on_qtys ? JSON.parse(cart.add_on_qtys) : [],
-            variations: cart.variations ? JSON.parse(cart.variations) : [],
-            variation_options: cart.variation_options ? JSON.parse(cart.variation_options) : []
-        };
-
-        return res.status(201).json({ 
-            status: true, 
-            msg: 'Added to cart successfully',
-            data: mappedCart 
-        });
     } catch (e: any) {
         return res.status(500).json({ status: false, msg: e.message });
     }
 };
+
 
 /**
  * @Description Update cart item quantity

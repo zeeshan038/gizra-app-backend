@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
+import cors from 'cors';
 import apiRouter from './routes/index'
 import { connectDB } from './config/database';
 import swaggerUi from 'swagger-ui-express';
@@ -9,6 +10,16 @@ import path from 'path';
 dotenv.config();
 
 const app = express();
+const origins =[
+  "http://localhost:5174",
+  "http://localhost:5173",
+  "https://vendor.gizra.app",
+  "https://www.gizra.app"
+]
+app.use(cors({
+  origin: origins,
+  credentials: true
+}));
 
 // Patch BigInt toJSON to prevent serialization errors globally
 (BigInt.prototype as any).toJSON = function () {
