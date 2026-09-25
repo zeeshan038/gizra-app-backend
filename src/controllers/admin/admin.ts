@@ -6,7 +6,7 @@ import { adminLoginSchema } from '../../schemas/admin/User';
 
 /**
  * @Description Admin Login
- * @Route POST /api/v1/admin/auth/login
+ * @Route POST /api/admin/auth/login
  * @Access Public
  */
 export const login = async (req: Request, res: Response): Promise<any> => {

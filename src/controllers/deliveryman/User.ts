@@ -9,7 +9,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_here';
 
 /**
  * @Description Register Delivery Man
- * @Route POST /api/v1/auth/delivery-man/register
+ * @Route POST /api/delivery-man/register
  * @Access Public
  */
 export const register = async (req: Request, res: Response): Promise<any> => {
@@ -72,7 +72,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
 
 /**
  * @Description Login Delivery Man
- * @Route POST /api/v1/auth/delivery-man/login
+ * @Route POST /api/delivery-man/login
  * @Access Public
  */
 export const login = async (req: Request, res: Response): Promise<any> => {

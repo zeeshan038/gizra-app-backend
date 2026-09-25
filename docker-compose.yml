@@ -22,7 +22,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: mysecretpassword
       POSTGRES_DB: gizra_db
-      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - "5434:5432"   # 5432 may be in use by other local containers
     volumes:

@@ -57,8 +57,19 @@ swaggerAutogen(outputFile, endpointsFiles, doc).then(() => {
     { name: 'Consumer Discover' },
     { name: 'Consumer Cart' },
     { name: 'Consumer Orders' },
+    {
+      name: 'Consumer Addresses',
+      description:
+        'Saved delivery locations for checkout. Use delivery_address_id on POST /consumer/order/place.'
+    },
+    { name: 'Consumer Favourites', description: 'Wish list for foods and restaurants (legacy PHP wish-list).' },
     { name: 'Vendor Auth' },
     { name: 'Vendor Catalog' },
+    {
+      name: 'Vendor Orders (Web Panel & POS)',
+      description:
+        'Marketplace order APIs shared by the Restaurant Web Panel (vendor.gizra.app) and the Vendor POS app. Authenticate with POST /vendor/login (Bearer JWT). Lists consumer-placed orders only (excludes order_type=pos counter sales). POS uses the same endpoints for live orders, status updates, and FCM new_order payloads after POST /consumer/order/place.'
+    },
     { name: 'Delivery Man Auth' },
     { name: 'Delivery Man Profile' },
     { name: 'Delivery Man Orders' },
@@ -82,9 +93,12 @@ swaggerAutogen(outputFile, endpointsFiles, doc).then(() => {
       if (newPath.startsWith('/consumer/cart')) endpoint.tags = ['Consumer Cart'];
       else if (newPath.startsWith('/consumer/restaurants')) endpoint.tags = ['Consumer Discover'];
       else if (newPath.startsWith('/consumer/order')) endpoint.tags = ['Consumer Orders'];
+      else if (newPath.startsWith('/consumer/addresses')) endpoint.tags = ['Consumer Addresses'];
+      else if (newPath.startsWith('/consumer/favourites')) endpoint.tags = ['Consumer Favourites'];
       else if (newPath.startsWith('/consumer')) endpoint.tags = ['Consumer Auth'];
       // Vendor
       else if (newPath.startsWith('/vendor/catalog')) endpoint.tags = ['Vendor Catalog'];
+      else if (newPath.startsWith('/vendor/orders')) endpoint.tags = ['Vendor Orders (Web Panel & POS)'];
       else if (newPath.startsWith('/vendor')) endpoint.tags = ['Vendor Auth'];
       // Delivery Man
       else if (newPath.startsWith('/delivery-man/profile')) endpoint.tags = ['Delivery Man Profile'];
@@ -94,6 +108,7 @@ swaggerAutogen(outputFile, endpointsFiles, doc).then(() => {
       else if (newPath.startsWith('/admin/auth')) endpoint.tags = ['Admin Auth'];
       else if (newPath.startsWith('/admin/vendors')) endpoint.tags = ['Admin Vendors'];
       else if (newPath.startsWith('/admin')) endpoint.tags = ['Admin'];
+      else if (newPath.startsWith('/upload')) endpoint.tags = ['Upload'];
 
       // Add standard error codes and responses
       const standardResponses = {

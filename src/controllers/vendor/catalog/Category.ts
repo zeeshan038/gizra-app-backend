@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 
 /**
  * @Description Create a new Menu Category
- * @Route POST /api/v1/vendor/catalog/category
+ * @Route POST /api/vendor/catalog/category
  * @Access Private (Vendor)
  */
 export const createCategory = async (req: Request, res: Response): Promise<any> => {
@@ -43,12 +43,12 @@ export const createCategory = async (req: Request, res: Response): Promise<any> 
 
 /**
  * @Description Get all Categories
- * @Route GET /api/v1/vendor/catalog/category
+ * @Route GET /api/vendor/catalog/category
  * @Access Private (Vendor)
  */
 export const getCategories = async (req: Request, res: Response): Promise<any> => {
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
+    const limit = parseInt(req.query.limit as string) || 200;
     const skip = (page - 1) * limit;
 
     try {

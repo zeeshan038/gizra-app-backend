@@ -535,6 +535,86 @@
         ]
       }
     },
+    "/vendor/catalog/food/bulk-publish": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      }
+    },
+    "/vendor/catalog/food/bulk-delete": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      }
+    },
     "/vendor/catalog/addon": {
       "post": {
         "description": "",
@@ -887,6 +967,12 @@
                   },
                   "add_ons": {
                     "example": "any"
+                  },
+                  "status": {
+                    "example": "any"
+                  },
+                  "is_draft": {
+                    "example": "any"
                   }
                 }
               }
@@ -1016,9 +1102,217 @@
         ]
       }
     },
+    "/vendor/catalog/food/{id}": {
+      "patch": {
+        "description": "Update Food item",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "description": { "type": "string" },
+                  "price": { "type": "number" },
+                  "category_id": { "type": "integer" },
+                  "image": { "type": "string" },
+                  "variations": { "type": "array", "items": { "type": "object" } },
+                  "add_ons": { "type": "array", "items": { "type": "integer" } },
+                  "status": { "type": "boolean" },
+                  "is_draft": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      },
+      "delete": {
+        "description": "Delete Food",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      }
+    },
     "/vendor/catalog/ai/parse-pdf": {
       "post": {
         "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      }
+    },
+    "/vendor/catalog/ai/description": {
+      "post": {
+        "description": "",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "name": "authorization",
@@ -1108,108 +1402,22 @@
         ]
       }
     },
-    "/vendor/catalog/ai/description": {
+    "/vendor/catalog/ai/generate-image": {
       "post": {
         "description": "",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful operation",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Bad Request"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - Invalid or missing authentication token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Unauthorized"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Forbidden"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found - The requested resource could not be found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Not Found"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error - Something went wrong on the server",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Internal Server Error"
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" }
                 }
               }
             }
           }
         },
-        "tags": [
-          "Vendor Catalog"
-        ]
-      }
-    },
-    "/vendor/catalog/ai/generate-image": {
-      "post": {
-        "description": "",
         "parameters": [
           {
             "name": "authorization",
@@ -1221,14 +1429,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful operation",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            }
+            "description": "OK"
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -1309,6 +1510,19 @@
     "/vendor/catalog/ai/generate-category-image": {
       "post": {
         "description": "",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "name": "authorization",
@@ -1320,14 +1534,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Successful operation",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }
-              }
-            }
+            "description": "OK"
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -1405,6 +1612,407 @@
         ]
       }
     },
+    "/vendor/orders/counts": {
+      "get": {
+        "description": "Sidebar order counts by status. **Clients:** Restaurant Web Panel + Vendor POS app (same vendor JWT).",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Bearer token from POST /vendor/login"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order counts per status tab",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VendorOrderCountsResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Not authorized, no token" }
+              }
+            }
+          },
+          "403": {
+            "description": "Restaurant context not found for vendor",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Restaurant context not found for vendor" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Internal Server Error" }
+              }
+            }
+          }
+        },
+        "tags": ["Vendor Orders (Web Panel & POS)"]
+      }
+    },
+    "/vendor/orders/events": {
+      "get": {
+        "description": "Server-Sent Events stream for new marketplace orders. **Web Panel:** open one long-lived connection (Bearer header); listen for `new_order` events + `: ping` keepalive. **Replaces** 8s polling for alerts.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Bearer token from POST /vendor/login"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "text/event-stream — events: `connected`, `new_order` (JSON data: order_id, order_amount, order_type, payment_method)",
+            "content": {
+              "text/event-stream": {
+                "schema": { "type": "string" },
+                "example": "event: new_order\ndata: {\"order_id\":\"100275\",\"order_amount\":45.99,\"order_type\":\"delivery\",\"payment_method\":\"cash_on_delivery\"}\n\n"
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Not authorized, no token" }
+              }
+            }
+          },
+          "403": {
+            "description": "Restaurant context not found for vendor",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Restaurant context not found for vendor" }
+              }
+            }
+          }
+        },
+        "tags": ["Vendor Orders (Web Panel & POS)"]
+      }
+    },
+    "/vendor/orders/recent": {
+      "get": {
+        "description": "Optional poll fallback after `after_id`. **Web Panel** uses SSE `/events`. **POS:** optional polling alongside FCM `new_order`.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Bearer token from POST /vendor/login"
+          },
+          {
+            "name": "after_id",
+            "in": "query",
+            "schema": { "type": "integer", "default": 0 },
+            "description": "Return orders with id greater than this value"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "New pending/confirmed orders since after_id",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VendorOrderRecentResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "after_id must be a number" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Not authorized, token failed" }
+              }
+            }
+          },
+          "403": {
+            "description": "Restaurant context not found for vendor",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Restaurant context not found for vendor" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Internal Server Error" }
+              }
+            }
+          }
+        },
+        "tags": ["Vendor Orders (Web Panel & POS)"]
+      }
+    },
+    "/vendor/orders": {
+      "get": {
+        "description": "Paginated order list for a status tab. **Clients:** Restaurant Web Panel order table + Vendor POS order queue. Excludes `order_type=pos`.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Bearer token from POST /vendor/login"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "all",
+              "enum": [
+                "all",
+                "pending",
+                "confirmed",
+                "accepted",
+                "cooking",
+                "ready_for_delivery",
+                "food_on_the_way",
+                "delivered",
+                "dine_in",
+                "refunded",
+                "refund_requested",
+                "scheduled",
+                "payment_failed",
+                "canceled"
+              ]
+            }
+          },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20, "maximum": 100 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0, "minimum": 0 } },
+          { "name": "search", "in": "query", "schema": { "type": "string" }, "description": "Numeric order ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated order list",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VendorOrderListResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "status must be one of [...]" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Not authorized, no token" }
+              }
+            }
+          },
+          "403": {
+            "description": "Restaurant context not found for vendor",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Restaurant context not found for vendor" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Internal Server Error" }
+              }
+            }
+          }
+        },
+        "tags": ["Vendor Orders (Web Panel & POS)"]
+      }
+    },
+    "/vendor/orders/{id}": {
+      "get": {
+        "description": "Order detail + line items. **Clients:** Web Panel drawer + POS order detail screen.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Bearer token from POST /vendor/login"
+          },
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Order ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order detail with line items",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VendorOrderDetailResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid order id",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Order id required" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Not authorized, token failed" }
+              }
+            }
+          },
+          "403": {
+            "description": "Restaurant context not found for vendor",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Restaurant context not found for vendor" }
+              }
+            }
+          },
+          "404": {
+            "description": "Order not found for this restaurant",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Order not found" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Internal Server Error" }
+              }
+            }
+          }
+        },
+        "tags": ["Vendor Orders (Web Panel & POS)"]
+      }
+    },
+    "/vendor/orders/{id}/status": {
+      "put": {
+        "description": "Update workflow status (confirm, cooking, handover, delivered, cancel). **Clients:** Web Panel actions + POS status buttons.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Bearer token from POST /vendor/login"
+          },
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Order ID" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/VendorOrderStatusUpdateBody" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Order status updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VendorOrderStatusUpdateResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed or invalid status transition",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Cannot change status after order was picked up by delivery" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Not authorized, no token" }
+              }
+            }
+          },
+          "403": {
+            "description": "Restaurant context not found for vendor",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Restaurant context not found for vendor" }
+              }
+            }
+          },
+          "404": {
+            "description": "Order not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Order not found" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Internal Server Error" }
+              }
+            }
+          }
+        },
+        "tags": ["Vendor Orders (Web Panel & POS)"]
+      }
+    },
     "/consumer/guest/request": {
       "post": {
         "description": "",
@@ -1419,28 +2027,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "Guest verified successfully"
-                    },
-                    "data": {
-                      "type": "string",
-                      "example": "1043"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "OK"
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -1537,45 +2124,7 @@
         "description": "",
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "Registration successful"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "token": {
-                          "type": "string",
-                          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                        },
-                        "is_phone_verified": {
-                          "type": "number",
-                          "example": 1
-                        },
-                        "is_email_verified": {
-                          "type": "number",
-                          "example": 1
-                        },
-                        "login_type": {
-                          "type": "string",
-                          "example": "manual"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "description": "OK"
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -1687,42 +2236,11 @@
         "description": "",
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Successful operation",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "Login success"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "token": {
-                          "type": "string",
-                          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                        },
-                        "is_phone_verified": {
-                          "type": "number",
-                          "example": 1
-                        },
-                        "is_email_verified": {
-                          "type": "number",
-                          "example": 1
-                        },
-                        "login_type": {
-                          "type": "string",
-                          "example": "manual"
-                        }
-                      }
-                    }
-                  }
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -1826,119 +2344,40 @@
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "Search restaurant by name"
+            }
           },
           {
             "name": "veg",
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "Filter by veg (true/false or 1/0)"
+            }
           },
           {
             "name": "non_veg",
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "Filter by non_veg (true/false or 1/0)"
+            }
           },
           {
             "name": "top_rated",
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "Filter by top_rated (true/false or 1/0)"
+            }
           },
           {
             "name": "discounted",
             "in": "query",
             "schema": {
               "type": "string"
-            },
-            "description": "Filter by discounted (true/false or 1/0)"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "total_size": {
-                          "type": "number",
-                          "example": 1
-                        },
-                        "limit": {
-                          "type": "number",
-                          "example": 20
-                        },
-                        "offset": {
-                          "type": "number",
-                          "example": 1
-                        },
-                        "restaurants": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string",
-                                "example": "13"
-                              },
-                              "name": {
-                                "type": "string",
-                                "example": "Hell's Kitchen"
-                              },
-                              "logo": {
-                                "type": "string",
-                                "example": "default_logo.png"
-                              },
-                              "cover_photo": {
-                                "type": "string",
-                                "example": "default_cover.png"
-                              },
-                              "delivery_time": {
-                                "type": "string",
-                                "example": "30-45-min"
-                              },
-                              "minimum_order": {
-                                "type": "number",
-                                "example": 0
-                              },
-                              "tax": {
-                                "type": "number",
-                                "example": 8.5
-                              },
-                              "rating": {
-                                "type": "number",
-                                "example": 0
-                              },
-                              "address": {
-                                "type": "string",
-                                "example": "123 Vegas Blvd, Las Vegas"
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "description": "OK"
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -2045,46 +2484,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "example": {
-                  "status": true,
-                  "data": {
-                    "total_size": 2,
-                    "limit": 20,
-                    "offset": 1,
-                    "foods": [
-                      {
-                        "id": "386",
-                        "name": "Spicy Zinger Burger",
-                        "description": "Crispy fried chicken breast with spicy mayo.",
-                        "image": "zinger.png",
-                        "category_id": "1",
-                        "restaurant_id": "1",
-                        "price": 15.99,
-                        "discount": 0,
-                        "veg": false,
-                        "status": true,
-                        "variations": [
-                          {
-                            "type": "Size",
-                            "values": [
-                              "Small",
-                              "Large"
-                            ]
-                          }
-                        ],
-                        "add_ons": [
-                          "1",
-                          "2"
-                        ]
-                      }
-                    ]
-                  }
-                }
-              }
-            }
+            "description": "OK"
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -2162,6 +2562,205 @@
         ]
       }
     },
+    "/consumer/restaurants/specfic/{id}": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Discover"
+        ]
+      }
+    },
+    "/consumer/foods/search": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Auth"
+        ]
+      }
+    },
     "/consumer/cart/": {
       "get": {
         "description": "",
@@ -2174,14 +2773,14 @@
             }
           },
           {
-            "name": "user_id",
+            "name": "is_guest",
             "in": "query",
             "schema": {
               "type": "string"
             }
           },
           {
-            "name": "is_guest",
+            "name": "guest_id",
             "in": "query",
             "schema": {
               "type": "string"
@@ -2190,111 +2789,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "example": "839"
-                          },
-                          "user_id": {
-                            "type": "string",
-                            "example": "1"
-                          },
-                          "item_id": {
-                            "type": "string",
-                            "example": "1"
-                          },
-                          "is_guest": {
-                            "type": "boolean",
-                            "example": false
-                          },
-                          "add_on_ids": {
-                            "type": "array",
-                            "items": {
-                              "type": "number"
-                            },
-                            "example": [
-                              1
-                            ]
-                          },
-                          "add_on_qtys": {
-                            "type": "array",
-                            "items": {
-                              "type": "number"
-                            },
-                            "example": [
-                              1
-                            ]
-                          },
-                          "item_type": {
-                            "type": "string",
-                            "example": "Food"
-                          },
-                          "price": {
-                            "type": "number",
-                            "example": 15.99
-                          },
-                          "quantity": {
-                            "type": "number",
-                            "example": 2
-                          },
-                          "variations": {
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {
-                                "type": {
-                                  "type": "string"
-                                },
-                                "value": {
-                                  "type": "string"
-                                }
-                              }
-                            },
-                            "example": [
-                              {
-                                "type": "Size",
-                                "value": "Large"
-                              }
-                            ]
-                          },
-                          "created_at": {
-                            "type": "string",
-                            "nullable": true,
-                            "example": null
-                          },
-                          "updated_at": {
-                            "type": "string",
-                            "nullable": true,
-                            "example": null
-                          },
-                          "variation_options": {
-                            "type": "array",
-                            "items": {
-                              "type": "object"
-                            },
-                            "example": []
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "description": "OK"
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -2386,112 +2881,7 @@
         ],
         "responses": {
           "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "Added to cart successfully"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "example": "839"
-                        },
-                        "user_id": {
-                          "type": "string",
-                          "example": "1"
-                        },
-                        "item_id": {
-                          "type": "string",
-                          "example": "1"
-                        },
-                        "is_guest": {
-                          "type": "boolean",
-                          "example": false
-                        },
-                        "add_on_ids": {
-                          "type": "array",
-                          "items": {
-                            "type": "number"
-                          },
-                          "example": [
-                            1
-                          ]
-                        },
-                        "add_on_qtys": {
-                          "type": "array",
-                          "items": {
-                            "type": "number"
-                          },
-                          "example": [
-                            1
-                          ]
-                        },
-                        "item_type": {
-                          "type": "string",
-                          "example": "Food"
-                        },
-                        "price": {
-                          "type": "number",
-                          "example": 15.99
-                        },
-                        "quantity": {
-                          "type": "number",
-                          "example": 2
-                        },
-                        "variations": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "type": {
-                                "type": "string"
-                              },
-                              "value": {
-                                "type": "string"
-                              }
-                            }
-                          },
-                          "example": [
-                            {
-                              "type": "Size",
-                              "value": "Large"
-                            }
-                          ]
-                        },
-                        "created_at": {
-                          "type": "string",
-                          "nullable": true,
-                          "example": null
-                        },
-                        "updated_at": {
-                          "type": "string",
-                          "nullable": true,
-                          "example": null
-                        },
-                        "variation_options": {
-                          "type": "array",
-                          "items": {
-                            "type": "object"
-                          },
-                          "example": []
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Created"
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -2570,13 +2960,13 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "user_id": {
+                  "is_guest": {
+                    "example": "any"
+                  },
+                  "guest_id": {
                     "example": "any"
                   },
                   "item_id": {
-                    "example": "any"
-                  },
-                  "is_guest": {
                     "example": "any"
                   },
                   "variations": {
@@ -2620,124 +3010,11 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "is_guest",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "description": "Pass 'true' if guest"
           }
         ],
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "Cart updated successfully"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "example": "839"
-                        },
-                        "user_id": {
-                          "type": "string",
-                          "example": "1"
-                        },
-                        "item_id": {
-                          "type": "string",
-                          "example": "1"
-                        },
-                        "is_guest": {
-                          "type": "boolean",
-                          "example": false
-                        },
-                        "add_on_ids": {
-                          "type": "array",
-                          "items": {
-                            "type": "number"
-                          },
-                          "example": [
-                            1
-                          ]
-                        },
-                        "add_on_qtys": {
-                          "type": "array",
-                          "items": {
-                            "type": "number"
-                          },
-                          "example": [
-                            1
-                          ]
-                        },
-                        "item_type": {
-                          "type": "string",
-                          "example": "Food"
-                        },
-                        "price": {
-                          "type": "number",
-                          "example": 15.99
-                        },
-                        "quantity": {
-                          "type": "number",
-                          "example": 3
-                        },
-                        "variations": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "type": {
-                                "type": "string"
-                              },
-                              "value": {
-                                "type": "string"
-                              }
-                            }
-                          },
-                          "example": [
-                            {
-                              "type": "Size",
-                              "value": "Large"
-                            }
-                          ]
-                        },
-                        "created_at": {
-                          "type": "string",
-                          "nullable": true,
-                          "example": null
-                        },
-                        "updated_at": {
-                          "type": "string",
-                          "nullable": true,
-                          "example": null
-                        },
-                        "variation_options": {
-                          "type": "array",
-                          "items": {
-                            "type": "object"
-                          },
-                          "example": []
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "description": "OK"
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -2850,36 +3127,11 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "is_guest",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "description": "Pass 'true' if guest"
           }
         ],
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "Item removed from cart"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "OK"
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -2986,24 +3238,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "Cart cleared completely"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "OK"
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -3081,79 +3316,12 @@
         ]
       }
     },
-    "/consumer/order/place": {
-      "post": {
+    "/consumer/home-slider": {
+      "get": {
         "description": "",
-        "parameters": [],
         "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "Order placed successfully"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "example": "100167"
-                        },
-                        "user_id": {
-                          "type": "string",
-                          "example": "120"
-                        },
-                        "restaurant_id": {
-                          "type": "string",
-                          "example": "840"
-                        },
-                        "order_amount": {
-                          "type": "number",
-                          "example": 45.99
-                        },
-                        "delivery_charge": {
-                          "type": "number",
-                          "example": 5
-                        },
-                        "total_tax_amount": {
-                          "type": "number",
-                          "example": 4.5
-                        },
-                        "payment_status": {
-                          "type": "string",
-                          "example": "unpaid"
-                        },
-                        "order_status": {
-                          "type": "string",
-                          "example": "pending"
-                        },
-                        "payment_method": {
-                          "type": "string",
-                          "example": "cash_on_delivery"
-                        },
-                        "order_type": {
-                          "type": "string",
-                          "example": "delivery"
-                        },
-                        "created_at": {
-                          "type": "string",
-                          "format": "date-time"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+          "200": {
+            "description": "OK"
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -3222,6 +3390,73 @@
                   "status": false,
                   "msg": "Internal Server Error"
                 }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Auth"
+        ]
+      }
+    },
+    "/consumer/order/place": {
+      "post": {
+        "description": "Place a marketplace order (Figma checkout / legacy PHP parity). Default: line items loaded from server `carts` for the authenticated user or guest (`guest_id`). Buy-now: set `is_buy_now` true and send `cart` or `items`. Delivery requires `distance` plus either `delivery_address_id` (from GET /consumer/addresses) or inline `address`, `latitude`, `longitude`. Totals (tax, delivery, platform fee, tips) are calculated server-side. Triggers vendor FCM for Web Panel & POS.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Order created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConsumerPlaceOrderResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "\"items\" must contain at least 1 items" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - consumer JWT required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Unauthorized" }
+              }
+            }
+          },
+          "403": {
+            "description": "Business rule failed (empty cart, coupon, closed restaurant, guest checkout disabled, etc.)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConsumerPlaceOrderError" },
+                "example": {
+                  "status": false,
+                  "msg": "You cannot place an empty order",
+                  "errors": [{ "code": "empty_order", "message": "You cannot place an empty order" }]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Internal Server Error" }
               }
             }
           }
@@ -3230,190 +3465,545 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "restaurant_id": {
-                    "type": "number",
-                    "example": 13
-                  },
-                  "order_amount": {
-                    "type": "number",
-                    "example": 45.99
-                  },
-                  "payment_method": {
-                    "type": "string",
-                    "example": "cash_on_delivery"
-                  },
-                  "delivery_address_id": {
-                    "type": "number",
-                    "example": 1
-                  },
-                  "order_note": {
-                    "type": "string",
-                    "example": "Please include extra napkins"
-                  },
-                  "order_type": {
-                    "type": "string",
-                    "example": "delivery"
-                  },
-                  "delivery_charge": {
-                    "type": "number",
-                    "example": 5
-                  },
-                  "total_tax_amount": {
-                    "type": "number",
-                    "example": 4.5
-                  }
-                }
-              }
+              "schema": { "$ref": "#/components/schemas/ConsumerPlaceOrderBody" }
             }
           }
         },
         "tags": [
           "Consumer Orders"
-        ],
-        "summary": "Place a new order",
-        "security": [
-          {
-            "BearerAuth": []
-          }
         ]
+      }
+    },
+    "/consumer/order/running": {
+      "get": {
+        "description": "Figma Orders — Running tab. Active marketplace orders (not delivered/canceled/refunded). Each row includes food thumbnail, status badge label, and track_order=true.",
+        "parameters": [
+          { "$ref": "#/components/parameters/ConsumerOrderListAuthHeader" },
+          { "$ref": "#/components/parameters/ConsumerOrderListLimit" },
+          { "$ref": "#/components/parameters/ConsumerOrderListOffset" },
+          { "$ref": "#/components/parameters/ConsumerOrderListGuestId" },
+          { "$ref": "#/components/parameters/ConsumerOrderListSearch" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Running orders page",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConsumerOrderListResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error (limit/offset required)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Unauthorized" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          }
+        },
+        "tags": ["Consumer Orders"]
       }
     },
     "/consumer/order/history": {
       "get": {
-        "description": "",
-        "parameters": [],
+        "description": "Figma Orders — History tab. Completed/canceled/refunded orders (PHP order/list). offset is page number (1-based), same as legacy API.",
+        "parameters": [
+          { "$ref": "#/components/parameters/ConsumerOrderListAuthHeader" },
+          { "$ref": "#/components/parameters/ConsumerOrderListLimit" },
+          { "$ref": "#/components/parameters/ConsumerOrderListOffset" },
+          { "$ref": "#/components/parameters/ConsumerOrderListGuestId" },
+          { "$ref": "#/components/parameters/ConsumerOrderListSearch" }
+        ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Order history page",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConsumerOrderListResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Unauthorized" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Internal Server Error" }
+              }
+            }
+          }
+        },
+        "tags": ["Consumer Orders"]
+      }
+    },
+    "/consumer/order/subscription": {
+      "get": {
+        "description": "Figma Orders — Subscription tab. Orders linked to subscription_id (recurring).",
+        "parameters": [
+          { "$ref": "#/components/parameters/ConsumerOrderListAuthHeader" },
+          { "$ref": "#/components/parameters/ConsumerOrderListLimit" },
+          { "$ref": "#/components/parameters/ConsumerOrderListOffset" },
+          { "$ref": "#/components/parameters/ConsumerOrderListGuestId" },
+          { "$ref": "#/components/parameters/ConsumerOrderListSearch" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subscription orders page",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConsumerOrderListResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          }
+        },
+        "tags": ["Consumer Orders"]
+      }
+    },
+    "/consumer/addresses": {
+      "get": {
+        "description": "List saved delivery addresses for the logged-in customer (Home / Work / Other from checkout).",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Bearer token from POST /consumer/login"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 10, "maximum": 100 }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": { "type": "integer", "default": 1, "minimum": 1 },
+            "description": "Page number (1-based)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Address list",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConsumerAddressListResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Unauthorized" }
+              }
+            }
+          }
+        },
+        "tags": ["Consumer Addresses"]
+      },
+      "post": {
+        "description": "Save a new delivery address (map pin, floor, label). Resolves `zone_id` from coordinates when omitted.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ConsumerAddressBody" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Address created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConsumerAddressCreateResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          },
+          "403": {
+            "description": "Outside delivery zone",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Service not available in this area", "code": "coordinates" }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          }
+        },
+        "tags": ["Consumer Addresses"]
+      }
+    },
+    "/consumer/addresses/{id}": {
+      "put": {
+        "description": "Update a saved address owned by the current user.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ConsumerAddressBody" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Address updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConsumerAddressUpdateResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Address not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Address not found" }
+              }
+            }
+          }
+        },
+        "tags": ["Consumer Addresses"]
+      },
+      "delete": {
+        "description": "Delete a saved address owned by the current user.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Address deleted",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "example": "100072"
-                          },
-                          "restaurant_id": {
-                            "type": "string",
-                            "example": "840"
-                          },
-                          "restaurant_name": {
-                            "type": "string",
-                            "example": "Burger King"
-                          },
-                          "restaurant_logo": {
-                            "type": "string",
-                            "example": "burger_king_logo.png"
-                          },
-                          "order_status": {
-                            "type": "string",
-                            "example": "Confirmed"
-                          },
-                          "created_at": {
-                            "type": "string",
-                            "format": "date-time"
-                          }
-                        }
-                      }
-                    }
+                    "status": { "type": "boolean", "example": true },
+                    "msg": { "type": "string", "example": "Address deleted" }
                   }
                 }
               }
             }
           },
-          "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
+          "404": {
+            "description": "Address not found",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Bad Request"
-                }
+                "schema": { "$ref": "#/components/schemas/ApiError" }
               }
             }
+          }
+        },
+        "tags": ["Consumer Addresses"]
+      }
+    },
+    "/consumer/favourites/list": {
+      "get": {
+        "description": "Favorites screen: Foods tab (`type=food`) and Restaurants tab (`type=restaurant`). Optional `search` matches item/restaurant name. Send latitude/longitude headers for distance badge on restaurant cards.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
           },
-          "401": {
-            "description": "Unauthorized - Invalid or missing authentication token",
+          {
+            "name": "type",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["all", "food", "restaurant"], "default": "all" },
+            "description": "Figma tab: food = Foods, restaurant = Restaurants"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": { "type": "string" },
+            "description": "Filter by name (search bar)"
+          },
+          {
+            "name": "zoneId",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "JSON array of zone ids, e.g. `[1]`"
+          },
+          {
+            "name": "latitude",
+            "in": "header",
+            "schema": { "type": "string" },
+            "description": "User location for distance on restaurant favourites"
+          },
+          {
+            "name": "longitude",
+            "in": "header",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Wish list — Foods tab uses data.foods, Restaurants tab uses data.restaurants",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
+                "schema": { "$ref": "#/components/schemas/ConsumerFavouriteListResponse" },
                 "example": {
-                  "status": false,
-                  "msg": "Unauthorized"
+                  "status": true,
+                  "msg": "Success",
+                  "data": {
+                    "foods": [
+                      {
+                        "id": "101",
+                        "wishlist_id": "55",
+                        "name": "Variable Burger",
+                        "image": "burger.png",
+                        "restaurant_id": "3",
+                        "restaurant_name": "Nickel Barn & Coffee",
+                        "restaurant_logo": "logo.png",
+                        "restaurant_address": "1631 W 2nd St, Owens, WI",
+                        "price": 30,
+                        "price_after_discount": 30,
+                        "discount": 0,
+                        "discount_type": "percent",
+                        "avg_rating": 4.5,
+                        "rating_count": 213,
+                        "veg": false,
+                        "status": true,
+                        "is_favourite": true,
+                        "variations": [],
+                        "add_ons": []
+                      }
+                    ],
+                    "restaurants": [
+                      {
+                        "id": "3",
+                        "wishlist_id": "56",
+                        "name": "Nickel Barn & Coffee",
+                        "logo": "logo.png",
+                        "cover_photo": "cover.jpg",
+                        "delivery_time": "30-45 min",
+                        "minimum_order": 0,
+                        "tax": 0,
+                        "rating": 4.9,
+                        "address": "1631 W 2nd St, Owens, WI 54760, USA",
+                        "latitude": "44.123",
+                        "longitude": "-90.456",
+                        "zone_id": "1",
+                        "foods_count": 42,
+                        "distance": 0.93,
+                        "distance_text": "0.93 km",
+                        "is_favourite": true
+                      }
+                    ]
+                  }
                 }
               }
             }
           },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Missing zoneId",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
+                "schema": { "$ref": "#/components/schemas/ApiError" },
                 "example": {
                   "status": false,
-                  "msg": "Forbidden"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found - The requested resource could not be found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Not Found"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error - Something went wrong on the server",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Internal Server Error"
+                  "msg": "Zone id is required",
+                  "errors": [{ "code": "zoneId", "message": "Zone id is required!" }]
                 }
               }
             }
           }
         },
-        "tags": [
-          "Consumer Orders"
-        ],
-        "summary": "Get user order history",
-        "security": [
+        "tags": ["Consumer Favourites"]
+      }
+    },
+    "/consumer/favourites/add": {
+      "post": {
+        "description": "Add a food OR restaurant to favourites (not both).",
+        "parameters": [
           {
-            "BearerAuth": []
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ConsumerFavouriteBody" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Added",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConsumerFavouriteActionResponse" }
+              }
+            }
+          },
+          "409": {
+            "description": "Already in wishlist",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          }
+        },
+        "tags": ["Consumer Favourites"]
+      }
+    },
+    "/consumer/favourites/remove": {
+      "delete": {
+        "description": "Remove a food OR restaurant from favourites (query or JSON body).",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "food_id",
+            "in": "query",
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Removed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConsumerFavouriteActionResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Not in wishlist",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          }
+        },
+        "tags": ["Consumer Favourites"]
       }
     },
     "/delivery-man/login": {
@@ -4372,316 +4962,250 @@
         ]
       }
     },
-    "/consumer/foods/search": {
-      "get": {
-        "description": "Search foods globally",
-        "tags": [
-          "Consumer Discover"
-        ],
-        "parameters": [
-          {
-            "name": "name",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "Search food by name"
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "example": {
-                  "status": true,
-                  "data": {
-                    "total_size": 1,
-                    "limit": 20,
-                    "offset": 1,
-                    "foods": [
-                      {
-                        "id": "386",
-                        "name": "Spicy Zinger Burger",
-                        "description": "Crispy fried chicken breast with spicy mayo.",
-                        "image": "zinger.png",
-                        "category_id": "1",
-                        "restaurant_id": "1",
-                        "price": 15.99,
-                        "discount": 0,
-                        "veg": false,
-                        "status": true,
-                        "variations": [
-                          {
-                            "type": "Size",
-                            "values": [
-                              "Small",
-                              "Large"
-                            ]
-                          }
-                        ],
-                        "add_ons": [
-                          "1",
-                          "2"
-                        ]
-                      }
-                    ]
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/consumer/restaurants/specfic/{id}": {
-      "get": {
-        "tags": [
-          "Consumer Discover"
-        ],
-        "summary": "Get specific restaurant details",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "Restaurant ID"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "example": "13"
-                        },
-                        "name": {
-                          "type": "string",
-                          "example": "Hell's Kitchen"
-                        },
-                        "logo": {
-                          "type": "string",
-                          "example": "default_logo.png"
-                        },
-                        "cover_photo": {
-                          "type": "string",
-                          "example": "default_cover.png"
-                        },
-                        "delivery_time": {
-                          "type": "string",
-                          "example": "30-45-min"
-                        },
-                        "minimum_order": {
-                          "type": "number",
-                          "example": 0
-                        },
-                        "rating": {
-                          "type": "number",
-                          "example": 4.5
-                        },
-                        "address": {
-                          "type": "string",
-                          "example": "123 Vegas Blvd"
-                        },
-                        "veg": {
-                          "type": "boolean",
-                          "example": true
-                        },
-                        "non_veg": {
-                          "type": "boolean",
-                          "example": true
-                        },
-                        "active": {
-                          "type": "boolean",
-                          "example": true
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/consumer/home-slider": {
-      "get": {
-        "tags": [
-          "Consumer Discover"
-        ],
-        "summary": "Get home sliders / banners",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "Home sliders fetched successfully"
-                    },
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "example": "1"
-                          },
-                          "title": {
-                            "type": "string",
-                            "example": "Burger Offer"
-                          },
-                          "type": {
-                            "type": "string",
-                            "example": "restaurant_wise"
-                          },
-                          "image": {
-                            "type": "string",
-                            "example": "burger_banner.png"
-                          },
-                          "data": {
-                            "type": "string",
-                            "example": "10"
-                          },
-                          "zone_id": {
-                            "type": "number",
-                            "example": 1
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/admin/banners": {
-      "get": {
-        "tags": [
-          "Admin Banners"
-        ],
-        "summary": "Get all banners",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "Banners fetched successfully"
-                    },
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "type": "object"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
+    "/admin/banners/": {
       "post": {
-        "tags": [
-          "Admin Banners"
-        ],
-        "summary": "Create a banner",
-        "security": [
+        "description": "",
+        "parameters": [
           {
-            "BearerAuth": []
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
+        "responses": {
+          "201": {
+            "description": "Created"
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
                 "properties": {
                   "title": {
-                    "type": "string",
-                    "example": "New Offer"
+                    "example": "any"
                   },
                   "type": {
-                    "type": "string",
-                    "example": "restaurant_wise"
+                    "example": "any"
                   },
                   "image": {
-                    "type": "string",
-                    "example": "image.png"
+                    "example": "any"
                   },
                   "data": {
-                    "type": "string",
-                    "example": "15"
+                    "example": "any"
                   },
                   "zone_id": {
-                    "type": "number",
-                    "example": 1
+                    "example": "any"
                   }
                 }
               }
             }
           }
         },
+        "tags": [
+          "Admin"
+        ]
+      },
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
-          "201": {
-            "description": "Created",
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/upload/": {
+      "post": {
+        "tags": [
+          "Upload"
+        ],
+        "description": "Upload a file (image or video) to Cloudflare R2",
+        "parameters": [
+          {
+            "name": "file",
+            "in": "formData",
+            "required": true,
+            "description": "The file to upload",
+            "schema": {
+              "type": "file"
+            }
+          },
+          {
+            "name": "subfolder",
+            "in": "formData",
+            "required": false,
+            "description": "Optional subfolder path e.g. vendors/abc/assets",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File uploaded successfully",
             "content": {
               "application/json": {
                 "schema": {
@@ -4693,11 +5217,121 @@
                     },
                     "msg": {
                       "type": "string",
-                      "example": "Banner created successfully"
+                      "example": "File uploaded successfully"
                     },
-                    "data": {
-                      "type": "object"
+                    "url": {
+                      "type": "string",
+                      "example": "https://pub-xxxx.r2.dev/assets/abc-123.png"
                     }
+                  },
+                  "xml": {
+                    "name": "main"
+                  }
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "File uploaded successfully"
+                    },
+                    "url": {
+                      "type": "string",
+                      "example": "https://pub-xxxx.r2.dev/assets/abc-123.png"
+                    }
+                  },
+                  "xml": {
+                    "name": "main"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "subfolder": {
+                    "example": "any"
                   }
                 }
               }
@@ -4713,6 +5347,42 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT"
+      }
+    },
+    "parameters": {
+      "ConsumerOrderListAuthHeader": {
+        "name": "authorization",
+        "in": "header",
+        "required": false,
+        "schema": { "type": "string" },
+        "description": "Bearer token from POST /consumer/login. For guest orders use query is_guest=true and guest_id instead."
+      },
+      "ConsumerOrderListLimit": {
+        "name": "limit",
+        "in": "query",
+        "required": true,
+        "schema": { "type": "integer", "minimum": 1, "maximum": 100, "example": 10 }
+      },
+      "ConsumerOrderListOffset": {
+        "name": "offset",
+        "in": "query",
+        "required": true,
+        "schema": { "type": "integer", "minimum": 1, "example": 1 },
+        "description": "Page number (1-based), not row skip"
+      },
+      "ConsumerOrderListGuestId": {
+        "name": "guest_id",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "integer" },
+        "description": "Required when calling without JWT (with is_guest=true)"
+      },
+      "ConsumerOrderListSearch": {
+        "name": "search",
+        "in": "query",
+        "required": false,
+        "schema": { "type": "string" },
+        "description": "Figma search — order id or restaurant name"
       }
     },
     "schemas": {
@@ -4745,6 +5415,490 @@
             "nullable": true
           }
         }
+      },
+      "ConsumerPlaceOrderLineItem": {
+        "type": "object",
+        "required": ["item_id", "quantity"],
+        "properties": {
+          "item_id": { "type": "number", "example": 101 },
+          "item_type": { "type": "string", "enum": ["Food", "ItemCampaign"], "default": "Food" },
+          "price": { "type": "number", "description": "Optional for buy-now; server uses menu price when loading from cart DB" },
+          "quantity": { "type": "integer", "minimum": 1, "example": 2 },
+          "add_on_ids": { "type": "array", "items": { "type": "number" } },
+          "add_on_qtys": { "type": "array", "items": { "type": "number" } },
+          "variations": { "type": "array", "items": { "type": "object" } },
+          "variation_options": { "type": "array", "items": { "type": "object" } }
+        }
+      },
+      "ConsumerPlaceOrderBody": {
+        "type": "object",
+        "required": ["restaurant_id"],
+        "properties": {
+          "restaurant_id": { "type": "number", "example": 3 },
+          "order_amount": { "type": "number", "minimum": 0, "description": "Optional; server recalculates final amount" },
+          "payment_method": {
+            "type": "string",
+            "enum": ["cash_on_delivery", "digital_payment", "wallet", "offline_payment"],
+            "default": "cash_on_delivery"
+          },
+          "order_type": {
+            "type": "string",
+            "enum": ["delivery", "take_away", "dine_in"],
+            "default": "delivery"
+          },
+          "distance": { "type": "number", "minimum": 0, "example": 3.2, "description": "Required when order_type is delivery" },
+          "delivery_address_id": { "type": "number", "description": "Saved address id from /consumer/addresses" },
+          "address": { "type": "string", "description": "Required for delivery if delivery_address_id omitted" },
+          "latitude": { "oneOf": [{ "type": "string" }, { "type": "number" }] },
+          "longitude": { "oneOf": [{ "type": "string" }, { "type": "number" }] },
+          "address_type": { "type": "string", "example": "Home" },
+          "floor": { "type": "string" },
+          "road": { "type": "string" },
+          "house": { "type": "string" },
+          "contact_person_name": { "type": "string" },
+          "contact_person_number": { "type": "string" },
+          "contact_person_email": { "type": "string" },
+          "schedule_at": { "type": "string", "format": "date-time", "description": "Preference time / scheduled slot" },
+          "dm_tips": { "type": "number", "minimum": 0, "example": 10 },
+          "coupon_code": { "type": "string" },
+          "order_note": { "type": "string" },
+          "delivery_instruction": { "type": "string" },
+          "unavailable_item_note": { "type": "string" },
+          "cutlery": { "type": "boolean" },
+          "extra_packaging_amount": { "type": "number", "minimum": 0 },
+          "partial_payment": { "type": "boolean" },
+          "is_buy_now": { "type": "boolean", "default": false },
+          "cart_id": { "type": "number", "description": "Order only this cart row when not buy-now" },
+          "cart": { "type": "array", "items": { "$ref": "#/components/schemas/ConsumerPlaceOrderLineItem" } },
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/ConsumerPlaceOrderLineItem" } },
+          "guest_id": { "type": "number", "description": "Required for guest checkout when no Bearer token" },
+          "is_guest": { "type": "boolean" }
+        }
+      },
+      "ConsumerPlaceOrderData": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "100275" },
+          "user_id": { "type": "string", "nullable": true, "example": "12" },
+          "restaurant_id": { "type": "string", "nullable": true, "example": "3" },
+          "order_amount": { "type": "number", "example": 52.5 },
+          "delivery_charge": { "type": "number", "example": 5 },
+          "total_tax_amount": { "type": "number", "example": 2.5 },
+          "additional_charge": { "type": "number", "example": 2 },
+          "dm_tips": { "type": "number", "example": 10 },
+          "payment_status": { "type": "string", "example": "unpaid" },
+          "order_status": { "type": "string", "example": "pending" },
+          "payment_method": { "type": "string", "example": "cash_on_delivery" },
+          "order_type": { "type": "string", "example": "delivery" },
+          "scheduled": { "type": "boolean", "example": false },
+          "schedule_at": { "type": "string", "format": "date-time", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "ConsumerPlaceOrderResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "boolean", "example": true },
+          "msg": { "type": "string", "example": "Order placed successfully" },
+          "message": { "type": "string", "example": "Order placed successfully" },
+          "order_id": { "type": "string", "example": "100275" },
+          "total_ammount": { "type": "number", "description": "Legacy PHP field name (subtotal + tax + delivery before tips in response helper)" },
+          "data": { "$ref": "#/components/schemas/ConsumerPlaceOrderData" }
+        }
+      },
+      "ConsumerPlaceOrderError": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "boolean", "example": false },
+          "msg": { "type": "string" },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "ConsumerAddress": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "42" },
+          "address_type": { "type": "string", "example": "Home" },
+          "contact_person_name": { "type": "string", "example": "Jane Doe" },
+          "contact_person_number": { "type": "string", "example": "0501234567" },
+          "address": { "type": "string", "example": "123 Main St, Tel Aviv" },
+          "latitude": { "type": "string", "example": "32.0853" },
+          "longitude": { "type": "string", "example": "34.7818" },
+          "floor": { "type": "string", "nullable": true },
+          "road": { "type": "string", "nullable": true },
+          "house": { "type": "string", "nullable": true },
+          "zone_id": { "type": "string", "nullable": true },
+          "user_id": { "type": "string", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time", "nullable": true },
+          "updated_at": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "ConsumerAddressBody": {
+        "type": "object",
+        "required": ["contact_person_name", "address_type", "contact_person_number", "address", "latitude", "longitude"],
+        "properties": {
+          "contact_person_name": { "type": "string" },
+          "address_type": { "type": "string", "example": "Home" },
+          "contact_person_number": { "type": "string" },
+          "address": { "type": "string" },
+          "latitude": { "oneOf": [{ "type": "string" }, { "type": "number" }] },
+          "longitude": { "oneOf": [{ "type": "string" }, { "type": "number" }] },
+          "floor": { "type": "string" },
+          "road": { "type": "string" },
+          "house": { "type": "string" },
+          "zone_id": { "type": "number", "description": "Optional; resolved from coordinates if omitted" }
+        }
+      },
+      "ConsumerAddressListResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "boolean", "example": true },
+          "data": {
+            "type": "object",
+            "properties": {
+              "total_size": { "type": "integer", "example": 2 },
+              "limit": { "type": "integer", "example": 10 },
+              "offset": { "type": "integer", "example": 1 },
+              "addresses": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/ConsumerAddress" }
+              }
+            }
+          }
+        }
+      },
+      "ConsumerAddressCreateResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "boolean", "example": true },
+          "msg": { "type": "string", "example": "New address added" },
+          "data": { "$ref": "#/components/schemas/ConsumerAddress" },
+          "zone_ids": { "type": "array", "items": { "type": "integer" }, "example": [1] }
+        }
+      },
+      "ConsumerAddressUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "boolean", "example": true },
+          "msg": { "type": "string", "example": "Address updated" },
+          "data": { "$ref": "#/components/schemas/ConsumerAddress" }
+        }
+      },
+      "ConsumerFavouriteBody": {
+        "type": "object",
+        "properties": {
+          "food_id": { "type": "integer", "example": 101 },
+          "restaurant_id": { "type": "integer", "example": 3 }
+        },
+        "description": "Provide exactly one of food_id or restaurant_id"
+      },
+      "ConsumerFavouriteActionResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "boolean", "example": true },
+          "msg": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      },
+      "ConsumerFavouriteFoodItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "101" },
+          "wishlist_id": { "type": "string", "example": "55" },
+          "name": { "type": "string", "example": "Variable Burger" },
+          "description": { "type": "string", "nullable": true },
+          "image": { "type": "string", "nullable": true, "example": "burger.png" },
+          "category_id": { "type": "string", "nullable": true },
+          "restaurant_id": { "type": "string", "example": "3" },
+          "restaurant_name": { "type": "string", "example": "Nickel Barn & Coffee" },
+          "restaurant_logo": { "type": "string", "nullable": true },
+          "restaurant_address": { "type": "string", "nullable": true },
+          "price": { "type": "number", "example": 30 },
+          "price_after_discount": { "type": "number", "example": 30 },
+          "discount": { "type": "number", "example": 0 },
+          "discount_type": { "type": "string", "example": "percent" },
+          "avg_rating": { "type": "number", "example": 4.5 },
+          "rating_count": { "type": "integer", "example": 213 },
+          "veg": { "type": "boolean", "example": false },
+          "status": { "type": "boolean", "example": true },
+          "is_favourite": { "type": "boolean", "example": true },
+          "variations": { "type": "array", "items": { "type": "object" } },
+          "add_ons": { "type": "array", "items": { "type": "object" } }
+        }
+      },
+      "ConsumerFavouriteRestaurantItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "3" },
+          "wishlist_id": { "type": "string", "example": "56" },
+          "name": { "type": "string", "example": "Nickel Barn & Coffee" },
+          "logo": { "type": "string", "nullable": true },
+          "cover_photo": { "type": "string", "nullable": true },
+          "delivery_time": { "type": "string", "example": "30-45 min" },
+          "minimum_order": { "type": "number", "example": 0 },
+          "tax": { "type": "number", "example": 0 },
+          "rating": { "type": "number", "example": 4.9 },
+          "address": { "type": "string", "nullable": true },
+          "latitude": { "type": "string", "nullable": true },
+          "longitude": { "type": "string", "nullable": true },
+          "zone_id": { "type": "string", "nullable": true },
+          "foods_count": { "type": "integer", "example": 42 },
+          "distance": { "type": "number", "nullable": true, "example": 0.93 },
+          "distance_text": { "type": "string", "nullable": true, "example": "0.93 km" },
+          "is_favourite": { "type": "boolean", "example": true }
+        }
+      },
+      "ConsumerFavouriteListData": {
+        "type": "object",
+        "properties": {
+          "foods": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ConsumerFavouriteFoodItem" }
+          },
+          "restaurants": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ConsumerFavouriteRestaurantItem" }
+          }
+        },
+        "required": ["foods", "restaurants"]
+      },
+      "ConsumerFavouriteListResponse": {
+        "type": "object",
+        "required": ["status", "msg", "data"],
+        "properties": {
+          "status": { "type": "boolean", "example": true },
+          "msg": { "type": "string", "example": "Success" },
+          "data": { "$ref": "#/components/schemas/ConsumerFavouriteListData" }
+        },
+        "example": {
+          "status": true,
+          "msg": "Success",
+          "data": {
+            "foods": [
+              {
+                "id": "101",
+                "wishlist_id": "55",
+                "name": "Variable Burger",
+                "image": "burger.png",
+                "restaurant_id": "3",
+                "restaurant_name": "Nickel Barn & Coffee",
+                "price": 30,
+                "price_after_discount": 30,
+                "is_favourite": true
+              }
+            ],
+            "restaurants": [
+              {
+                "id": "3",
+                "wishlist_id": "56",
+                "name": "Nickel Barn & Coffee",
+                "cover_photo": "cover.jpg",
+                "logo": "logo.png",
+                "delivery_time": "30-45 min",
+                "distance": 0.93,
+                "distance_text": "0.93 km",
+                "is_favourite": true
+              }
+            ]
+          }
+        }
+      },
+      "ConsumerOrderListItem": {
+        "type": "object",
+        "description": "Single row on Orders Running/History/Subscription tabs (Figma card).",
+        "properties": {
+          "id": { "type": "string", "example": "100072" },
+          "order_id": { "type": "string", "example": "100072" },
+          "order_number": { "type": "string", "example": "100072" },
+          "restaurant_id": { "type": "string", "nullable": true, "example": "3" },
+          "restaurant_name": { "type": "string", "example": "Pizza House" },
+          "restaurant_logo": { "type": "string", "example": "logo.png" },
+          "image": { "type": "string", "example": "food-thumb.jpg", "description": "First line item image (Figma card thumbnail)" },
+          "order_amount": { "type": "number", "example": 45.5 },
+          "order_status": { "type": "string", "example": "confirmed" },
+          "status_label": { "type": "string", "example": "Confirmed", "description": "Badge text — e.g. Confirmed, Handover, Completed" },
+          "payment_status": { "type": "string", "example": "unpaid" },
+          "created_at": { "type": "string", "format": "date-time", "nullable": true },
+          "order_date": { "type": "string", "example": "11 Aug 2026" },
+          "order_time": { "type": "string", "example": "17:55" },
+          "track_order": { "type": "boolean", "example": true, "description": "true on Running tab — show Track Order CTA" }
+        }
+      },
+      "ConsumerOrderListData": {
+        "type": "object",
+        "properties": {
+          "total_size": { "type": "integer", "example": 42 },
+          "limit": { "type": "integer", "example": 10 },
+          "offset": { "type": "integer", "example": 1, "description": "Page number (1-based), legacy PHP semantics" },
+          "orders": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ConsumerOrderListItem" }
+          }
+        }
+      },
+      "ConsumerOrderListResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "boolean", "example": true },
+          "msg": { "type": "string", "example": "Success" },
+          "data": { "$ref": "#/components/schemas/ConsumerOrderListData" }
+        }
+      },
+      "ConsumerOrderHistoryItem": {
+        "deprecated": true,
+        "description": "Use ConsumerOrderListItem",
+        "allOf": [{ "$ref": "#/components/schemas/ConsumerOrderListItem" }]
+      },
+      "ConsumerOrderHistoryResponse": {
+        "deprecated": true,
+        "description": "Use ConsumerOrderListResponse",
+        "allOf": [{ "$ref": "#/components/schemas/ConsumerOrderListResponse" }]
+      },
+      "VendorOrderSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "100274" },
+          "user_id": { "type": "string", "nullable": true, "example": "12" },
+          "restaurant_id": { "type": "string", "example": "3" },
+          "order_amount": { "type": "number", "example": 45.5 },
+          "order_status": { "type": "string", "example": "pending" },
+          "payment_status": { "type": "string", "example": "unpaid" },
+          "payment_method": { "type": "string", "example": "cash_on_delivery" },
+          "order_type": { "type": "string", "example": "delivery" },
+          "scheduled": { "type": "boolean", "example": false },
+          "checked": { "type": "boolean", "example": false },
+          "created_at": { "type": "string", "format": "date-time", "nullable": true },
+          "customer_name": { "type": "string", "example": "John Doe" },
+          "customer_phone": { "type": "string", "nullable": true, "example": "+972501234567" }
+        }
+      },
+      "VendorOrderLineItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "501" },
+          "food_id": { "type": "string", "nullable": true, "example": "101" },
+          "food_name": { "type": "string", "example": "Cheese Burger" },
+          "food_image": { "type": "string", "nullable": true },
+          "price": { "type": "number", "example": 20.25 },
+          "quantity": { "type": "integer", "example": 2 },
+          "variation": { "type": "string", "nullable": true },
+          "add_ons": { "type": "string", "nullable": true },
+          "tax_amount": { "type": "number", "example": 0 },
+          "total_add_on_price": { "type": "number", "example": 3 }
+        }
+      },
+      "VendorOrderDetail": {
+        "allOf": [
+          { "$ref": "#/components/schemas/VendorOrderSummary" },
+          {
+            "type": "object",
+            "properties": {
+              "order_note": { "type": "string", "nullable": true },
+              "delivery_address": { "type": "string", "nullable": true },
+              "delivery_charge": { "type": "number", "example": 5 },
+              "total_tax_amount": { "type": "number", "example": 2.5 },
+              "items": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/VendorOrderLineItem" }
+              }
+            }
+          }
+        ]
+      },
+      "VendorOrderCountsResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "boolean", "example": true },
+          "data": {
+            "type": "object",
+            "additionalProperties": { "type": "integer" },
+            "example": {
+              "all": 42,
+              "pending": 0,
+              "confirmed": 9,
+              "accepted": 0,
+              "cooking": 0,
+              "ready_for_delivery": 9,
+              "food_on_the_way": 1,
+              "delivered": 23,
+              "dine_in": 0,
+              "refunded": 0,
+              "refund_requested": 0,
+              "scheduled": 1,
+              "payment_failed": 2,
+              "canceled": 15
+            }
+          }
+        }
+      },
+      "VendorOrderListResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "boolean", "example": true },
+          "data": {
+            "type": "object",
+            "properties": {
+              "total": { "type": "integer", "example": 42 },
+              "limit": { "type": "integer", "example": 20 },
+              "offset": { "type": "integer", "example": 0 },
+              "orders": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/VendorOrderSummary" }
+              }
+            }
+          }
+        }
+      },
+      "VendorOrderRecentResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "boolean", "example": true },
+          "data": {
+            "type": "object",
+            "properties": {
+              "orders": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/VendorOrderSummary" }
+              },
+              "latest_id": { "type": "integer", "example": 100274 }
+            }
+          }
+        }
+      },
+      "VendorOrderDetailResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "boolean", "example": true },
+          "data": { "$ref": "#/components/schemas/VendorOrderDetail" }
+        }
+      },
+      "VendorOrderStatusUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "boolean", "example": true },
+          "msg": { "type": "string", "example": "Order status updated to confirmed" },
+          "data": { "$ref": "#/components/schemas/VendorOrderSummary" }
+        }
+      },
+      "VendorOrderStatusUpdateBody": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["confirmed", "processing", "handover", "delivered", "canceled"]
+          },
+          "cancellation_reason": { "type": "string" }
+        }
       }
     }
   },
@@ -4762,10 +5916,22 @@
       "name": "Consumer Orders"
     },
     {
+      "name": "Consumer Addresses",
+      "description": "Saved delivery locations for checkout (map, Home/Work/Other). Use delivery_address_id on POST /consumer/order/place."
+    },
+    {
+      "name": "Consumer Favourites",
+      "description": "Wish list (PHP /api/v1/customer/wish-list). Favourite a food or a restaurant."
+    },
+    {
       "name": "Vendor Auth"
     },
     {
       "name": "Vendor Catalog"
+    },
+    {
+      "name": "Vendor Orders (Web Panel & POS)",
+      "description": "Marketplace orders from consumer app (POST /consumer/order/place). Shared by Restaurant Web Panel and Vendor POS/kitchen app — same Bearer JWT from POST /vendor/login. Web Panel: SSE GET /vendor/orders/events for instant new-order alerts (no polling). Does not include in-store POS sales (order_type=pos). POS also receives FCM push type=new_order when configured."
     },
     {
       "name": "Delivery Man Auth"
@@ -4781,14 +5947,6 @@
     },
     {
       "name": "Admin Vendors"
-    },
-    {
-      "name": "Admin Banners",
-      "description": "Admin Banner Management"
-    },
-    {
-      "name": "Consumer Order",
-      "description": "Consumer Order Management"
     }
   ]
 }
