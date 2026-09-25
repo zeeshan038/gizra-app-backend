@@ -6,8 +6,6 @@ async function main() {
   console.log('Starting data seeding...');
 
   try {
-    // 1. Create Zone using Raw SQL because Prisma doesn't support 'polygon' natively
-    console.log('Creating Zone...');
     await prisma.$executeRawUnsafe(`
       INSERT INTO zones (name, coordinates, status, created_at, updated_at)
       VALUES (
@@ -17,7 +15,6 @@ async function main() {
       ) ON CONFLICT (name) DO NOTHING;
     `);
 
-    // Fetch the zone id
     const zone: any[] = await prisma.$queryRawUnsafe(`SELECT id FROM zones WHERE name = 'Main City Zone' LIMIT 1;`);
     const zoneId = zone.length > 0 ? zone[0].id : 1;
 

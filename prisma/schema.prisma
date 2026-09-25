@@ -115,6 +115,7 @@ model admins {
   role_id        Decimal   @db.Decimal
   zone_id        Decimal?  @db.Decimal
   is_logged_in   Boolean   @default(true)
+  cloudflareId   String?   @unique
 }
 
 model advertisements {
@@ -463,6 +464,7 @@ model delivery_men {
   shift_id             Decimal?                        @db.Decimal
   additional_data      String?
   additional_documents String?
+  cloudflareId         String?                         @unique
 }
 
 model disbursement_details {
@@ -591,7 +593,7 @@ model food {
   id                    BigInt    @id(map: "idx_16971_primary") @default(autoincrement())
   name                  String?   @db.VarChar(191)
   description           String?
-  image                 String?   @db.VarChar(30)
+  image                 String?   @db.VarChar(255)
   category_id           Decimal?  @db.Decimal
   category_ids          String?   @db.VarChar(191)
   variations            String?
@@ -1638,6 +1640,7 @@ model users {
   temp_token           String?   @db.VarChar(255)
   current_language_key String?   @default("en") @db.VarChar(255)
   is_email_verified    Boolean   @default(false)
+  cloudflareId         String?   @unique
 
   @@index([zone_id], map: "idx_17697_users_zone_id_index")
 }
@@ -1717,6 +1720,7 @@ model vendors {
   firebase_token    String?   @db.VarChar(191)
   auth_token        String?   @db.Text
   fcm_token_web     String?   @db.VarChar(191)
+  cloudflareId      String?   @unique
 }
 
 model visitor_logs {

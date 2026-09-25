@@ -1,0 +1,19 @@
+---
+description: JSDoc block format for controllers and route handlers
+globs: src/controllers/**/*.ts,src/routes/**/*.ts
+alwaysApply: false
+---
+
+# Controller & route comment format
+
+When creating or modifying controller functions (and route handlers when documented at the route layer), add a JSDoc block **directly above** the exported handler using this exact format:
+
+```typescript
+/**
+ * @Description [Brief description of what the handler does]
+ * @Route [HTTP_METHOD] [Full route path including /api prefix if mounted]
+ * @Access [Public | Private]
+ */
+```
+
+Match existing controllers (e.g. booking): use the real mounted path such as `POST /api/booking/book-companion/:id`, not only the router-relative segment.

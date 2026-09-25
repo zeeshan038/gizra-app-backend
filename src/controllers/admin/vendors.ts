@@ -3,7 +3,7 @@ import prisma from '../../config/database';
 
 /**
  * @Description Approve a pending vendor registration
- * @Route PUT /api/v1/admin/vendors/approve/:vendor_id
+ * @Route PUT /api/admin/vendors/approve/:vendor_id
  * @Access Private (Admin)
  */
 export const approveVendor = async (req: Request, res: Response): Promise<any> => {

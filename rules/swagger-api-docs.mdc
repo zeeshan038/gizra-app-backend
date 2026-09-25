@@ -1,0 +1,20 @@
+---
+description: Keep swagger.json in sync when adding or changing API endpoints
+globs: swagger.json,src/routes/**/*.ts,src/controllers/**/*.ts
+alwaysApply: false
+---
+
+# Swagger documentation
+
+This project serves OpenAPI from **`swagger.json`** at the repo root (`/swagger` and `/swagger.json` in `src/index.ts`).
+
+Whenever you add or change an API route or controller behavior that affects the public contract, **update `swagger.json`** in the same change.
+
+Document each endpoint with:
+
+1. **Path & method** — Exact URL and HTTP verb as exposed to clients.
+2. **Request body** — Required and optional fields with types (use `components.schemas` for reuse when appropriate).
+3. **Success response** — Full JSON shape the API returns. **Do not use empty `{}` placeholders**; mirror real fields (`status`, `msg`, `data`, etc.).
+4. **Errors** — Status codes the handler can return (400, 401, 403, 404, 500, …) with representative response bodies/messages.
+
+After edits, ensure paths match how routers are mounted in `src/index.ts` and nested route files under `src/routes/`.

@@ -2,7 +2,7 @@ import express from 'express';
 const router = express.Router();
 
 import { createCategory, getCategories } from '../../controllers/vendor/catalog/Category';
-import { createFood, getFoods } from '../../controllers/vendor/catalog/Food';
+import { createFood, getFoods, deleteFood, bulkPublishFoods, bulkDeleteFoods, updateFood } from '../../controllers/vendor/catalog/Food';
 import { parsePdf, generateDescription, generateFoodImage, generateCategoryImage } from '../../controllers/vendor/catalog/AI';
 import { createAddon, getAddons } from '../../controllers/vendor/catalog/Addon';
 import { verifyVendor } from '../../middlewares/verifyVendor';
@@ -21,6 +21,10 @@ router.get('/addon', getAddons);
 // Foods
 router.post('/food', createFood);
 router.get('/food', getFoods);
+router.patch('/food/:id', updateFood);
+router.delete('/food/:id', deleteFood);
+router.post('/food/bulk-publish', bulkPublishFoods);
+router.post('/food/bulk-delete', bulkDeleteFoods);
 
 // AI Tools
 import multer from 'multer';

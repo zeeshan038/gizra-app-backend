@@ -163,7 +163,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
                     updated_at: new Date()
                 }
             });
-        });
+        }, { maxWait: 10000, timeout: 30000 });
 
         return res.status(200).json({
             status: true,

@@ -18,6 +18,9 @@ export const verifyVendor = async (req: Request, res: Response, next: NextFuncti
       );
 
       const vendorId = decoded.id || decoded._id;
+      const tokenRestaurantId = decoded.restaurant_id
+        ? Number(decoded.restaurant_id)
+        : null;
       
       const vendor = await prisma.vendors.findUnique({
         where: { id: Number(vendorId) },
@@ -47,9 +50,19 @@ export const verifyVendor = async (req: Request, res: Response, next: NextFuncti
         });
       }
 
+      let restaurantId = tokenRestaurantId;
+      if (!restaurantId) {
+        const restaurant = await prisma.restaurants.findFirst({
+          where: { vendor_id: Number(vendor.id) },
+          select: { id: true },
+        });
+        restaurantId = restaurant ? Number(restaurant.id) : null;
+      }
+
       req.user = {
         ...vendor,
         id: vendor.id.toString(),
+        restaurant_id: restaurantId,
       };
       
       return next();
