@@ -1,6 +1,7 @@
 import prisma from '../../config/database';
+import { findZonesContainingPoint } from '../zone/db';
 
-/** Resolve delivery zone from coordinates (PostGIS), matching legacy Laravel behavior. */
+/** Resolve one active delivery zone from coordinates (PostGIS). */
 export async function findZoneIdByCoordinates(
   latitude: string | number,
   longitude: string | number
@@ -11,22 +12,13 @@ export async function findZoneIdByCoordinates(
     return null;
   }
 
-  try {
-    const rows = await prisma.$queryRaw<{ id: bigint }[]>`
-      SELECT id FROM zones
-      WHERE status = true
-      AND ST_Contains(
-        coordinates::geometry,
-        ST_SetSRID(ST_MakePoint(${lng}::float8, ${lat}::float8), 4326)
-      )
-      LIMIT 1
-    `;
-    return rows[0] ? Number(rows[0].id) : null;
-  } catch {
-    return null;
-  }
+  const zones = await findZonesContainingPoint(lat, lng);
+  const active = zones.find((z) => z.status);
+  return active ? Number(active.id) : null;
 }
 
 export async function getZoneById(zoneId: number) {
   return prisma.zones.findUnique({ where: { id: BigInt(zoneId) } });
 }
+
+export { findZonesContainingPoint, formatZoneDataRow, isPointInZone } from '../zone/db';

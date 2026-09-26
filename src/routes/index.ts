@@ -16,6 +16,7 @@ import dmOrderRoutes from './deliveryman/order';
 import adminAuthRoutes from './admin/auth';
 import adminVendorRoutes from './admin/vendors';
 import adminBannerRoutes from './admin/banners';
+import adminZoneRoutes from './admin/zones';
 
 //vendor
 router.use('/vendor',vendorUserRoutes);
@@ -30,6 +31,8 @@ import consumerFoodRoutes from './consumer/food';
 import consumerDashboardRoutes from './consumer/dashboard';
 import consumerAddressRoutes from './consumer/address';
 import consumerFavouriteRoutes from './consumer/favourite';
+import consumerZoneRoutes from './consumer/zone';
+import consumerConfigRoutes from './consumer/config';
 
 //consumer
 router.use('/consumer',consumerUserRoutes);
@@ -40,6 +43,8 @@ router.use('/consumer', consumerDashboardRoutes);
 router.use('/consumer/order', consumerOrderRoutes);
 router.use('/consumer/addresses', consumerAddressRoutes);
 router.use('/consumer/favourites', consumerFavouriteRoutes);
+router.use('/consumer/zone', consumerZoneRoutes);
+router.use('/consumer/config', consumerConfigRoutes);
 
 //general upload
 import uploadRouter from './upload';
@@ -53,6 +58,7 @@ router.use('/delivery-man/orders', dmOrderRoutes);
 router.use('/admin/auth', adminAuthRoutes);
 router.use('/admin/vendors', adminVendorRoutes);
 router.use('/admin/banners', adminBannerRoutes);
+router.use('/admin/zones', adminZoneRoutes);
 
 
 router.use('/upload', uploadRouter);

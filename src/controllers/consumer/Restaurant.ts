@@ -1,15 +1,19 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { requireZoneIds } from '../../utils/consumer/zoneHeaders';
 
 const prisma = new PrismaClient();
 
 
 /* 
- * @Description Get all active restaurants (Globally, ignoring zones for now)
+ * @Description Get active restaurants in the customer zone(s) (header zoneId, e.g. "[1]")
  * @Route GET api/consumer/restaurants/all
  * @Access Public
  */
 export const getRestaurants = async (req: Request, res: Response): Promise<any> => {
+    const zoneIds = requireZoneIds(req, res);
+    if (!zoneIds) return;
+
     try {
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 20;
@@ -21,7 +25,10 @@ export const getRestaurants = async (req: Request, res: Response): Promise<any> 
         const top_rated = req.query.top_rated === 'true' || req.query.top_rated === '1';
         const discounted = req.query.discounted === 'true' || req.query.discounted === '1'; // Placeholder if needed
 
-        const whereClause: any = { status: true };
+        const whereClause: any = {
+            status: true,
+            zone_id: { in: zoneIds },
+        };
         if (name) {
             whereClause.name = { contains: name, mode: 'insensitive' };
         }

@@ -15,7 +15,7 @@ services:
       - redis
 
   postgres:
-    image: postgres:16
+    image: postgis/postgis:16-3.4
     container_name: gizra-postgres
     restart: always
     environment:
@@ -26,6 +26,7 @@ services:
       - "5434:5432"   # 5432 may be in use by other local containers
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./docker/postgis-init.sql:/docker-entrypoint-initdb.d/01-postgis.sql:ro
 
   cloudflared:
     image: cloudflare/cloudflared:latest

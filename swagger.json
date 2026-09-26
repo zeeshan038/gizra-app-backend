@@ -2323,8 +2323,15 @@
     },
     "/consumer/restaurants/all": {
       "get": {
-        "description": "",
+        "description": "Active restaurants in the customer zone(s). Requires header zoneId e.g. `[1]`.",
         "parameters": [
+          {
+            "name": "zoneId",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string", "example": "[1]" },
+            "description": "JSON array string of zone ids from GET /consumer/config/zone-id"
+          },
           {
             "name": "page",
             "in": "query",
@@ -3318,7 +3325,15 @@
     },
     "/consumer/home-slider": {
       "get": {
-        "description": "",
+        "description": "Home banners for the customer zone(s). Requires header zoneId e.g. `[1]`.",
+        "parameters": [
+          {
+            "name": "zoneId",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string", "example": "[1]" }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK"
@@ -4962,6 +4977,127 @@
         ]
       }
     },
+    "/admin/zones/list": {
+      "get": {
+        "description": "List all delivery zones with formated_coordinates (admin JWT).",
+        "parameters": [
+          { "name": "authorization", "in": "header", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Zone list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AdminZoneListResponse" } } } }
+        },
+        "tags": ["Admin Zones"]
+      }
+    },
+    "/admin/zones/create": {
+      "post": {
+        "description": "Create zone — polygon as coordinates [[lng, lat], ...] closed ring optional (auto-closed).",
+        "parameters": [
+          { "name": "authorization", "in": "header", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AdminCreateZoneBody" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Zone created" }
+        },
+        "tags": ["Admin Zones"]
+      }
+    },
+    "/admin/zones/restaurant/{restaurantId}": {
+      "put": {
+        "description": "Assign restaurant to a zone (Postman ops).",
+        "parameters": [
+          { "name": "authorization", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "restaurantId", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["zone_id"],
+                "properties": { "zone_id": { "type": "integer", "example": 1 } }
+              }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Updated" } },
+        "tags": ["Admin Zones"]
+      }
+    },
+    "/admin/zones/detail/{id}": {
+      "get": {
+        "description": "Get one zone by id.",
+        "parameters": [
+          { "name": "authorization", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "Zone detail" } },
+        "tags": ["Admin Zones"]
+      }
+    },
+    "/admin/zones/update/{id}": {
+      "put": {
+        "description": "Update zone metadata and/or polygon.",
+        "parameters": [
+          { "name": "authorization", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/AdminCreateZoneBody" } }
+          }
+        },
+        "responses": { "200": { "description": "Updated" } },
+        "tags": ["Admin Zones"]
+      }
+    },
+    "/consumer/config/zone-id": {
+      "get": {
+        "description": "Resolve active zone(s) at lat/lng (legacy PHP config/get-zone-id).",
+        "parameters": [
+          { "name": "lat", "in": "query", "required": true, "schema": { "type": "number", "example": 32.08 } },
+          { "name": "lng", "in": "query", "required": true, "schema": { "type": "number", "example": 34.78 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "zone_id JSON string and zone_data",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConsumerGetZoneIdResponse" }
+              }
+            }
+          }
+        },
+        "tags": ["Consumer Zones"]
+      }
+    },
+    "/consumer/zone/list": {
+      "get": {
+        "description": "Active zones with map coordinates (legacy zone/list).",
+        "responses": { "200": { "description": "Array of zones" } },
+        "tags": ["Consumer Zones"]
+      }
+    },
+    "/consumer/zone/check": {
+      "get": {
+        "description": "True if lat/lng is inside zone_id (legacy zone/check).",
+        "parameters": [
+          { "name": "lat", "in": "query", "required": true, "schema": { "type": "number" } },
+          { "name": "lng", "in": "query", "required": true, "schema": { "type": "number" } },
+          { "name": "zone_id", "in": "query", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "boolean" } },
+        "tags": ["Consumer Zones"]
+      }
+    },
     "/admin/banners/": {
       "post": {
         "description": "",
@@ -5762,6 +5898,74 @@
         "deprecated": true,
         "description": "Use ConsumerOrderListResponse",
         "allOf": [{ "$ref": "#/components/schemas/ConsumerOrderListResponse" }]
+      },
+      "AdminCreateZoneBody": {
+        "type": "object",
+        "required": ["name", "coordinates"],
+        "properties": {
+          "name": { "type": "string", "example": "Tel Aviv Core" },
+          "display_name": { "type": "string", "example": "Tel Aviv" },
+          "status": { "type": "boolean", "default": true },
+          "coordinates": {
+            "type": "array",
+            "description": "[[lng, lat], ...] WGS84; ring auto-closed",
+            "items": {
+              "type": "array",
+              "items": { "type": "number" },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "example": [[34.75, 32.05], [34.80, 32.05], [34.80, 32.10], [34.75, 32.10]]
+          },
+          "per_km_shipping_charge": { "type": "number", "example": 2.5 },
+          "minimum_shipping_charge": { "type": "number", "example": 10 },
+          "maximum_shipping_charge": { "type": "number", "example": 50 },
+          "max_cod_order_amount": { "type": "number", "example": 500 }
+        }
+      },
+      "AdminZoneListResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "boolean" },
+          "msg": { "type": "string" },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "name": { "type": "string" },
+                "formated_coordinates": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "lat": { "type": "number" },
+                      "lng": { "type": "number" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "ConsumerGetZoneIdResponse": {
+        "type": "object",
+        "properties": {
+          "zone_id": { "type": "string", "example": "[1]" },
+          "zone_data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "minimum_shipping_charge": { "type": "number" },
+                "per_km_shipping_charge": { "type": "number" }
+              }
+            }
+          }
+        }
       },
       "VendorOrderSummary": {
         "type": "object",

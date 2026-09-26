@@ -1,17 +1,24 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { requireZoneIds } from '../../utils/consumer/zoneHeaders';
 
 const prisma = new PrismaClient();
 
 /**
- * @Description Home Slider
+ * @Description Home Slider (banners in customer zone(s); header zoneId required)
  * @Route GET api/consumer/home-slider
  * @Access Public
  */ 
 export const getHomeSlider = async (req: Request, res: Response): Promise<any> => {
+    const zoneIds = requireZoneIds(req, res);
+    if (!zoneIds) return;
+
     try {
         const banners = await prisma.banners.findMany({
-            where: { status: true },
+            where: {
+                status: true,
+                zone_id: { in: zoneIds },
+            },
             select: {
                 id: true,
                 title: true,
