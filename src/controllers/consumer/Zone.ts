@@ -11,6 +11,7 @@ import {
   listZonesWithGeo,
 } from '../../utils/zone/db';
 
+
 /**
  * @Description Resolve zone(s) at lat/lng (legacy config/get-zone-id)
  * @Route GET /api/consumer/config/zone-id
@@ -18,12 +19,8 @@ import {
 export const getZoneIdFromCoordinates = async (req: Request, res: Response): Promise<any> => {
   const validated = consumerZoneIdQuerySchema.validate(req.query, { stripUnknown: true });
   if (validated.error) {
-    return res.status(403).json({
-      errors: validated.error.details.map((d) => ({
-        code: 'coordinates',
-        message: d.message,
-      })),
-    });
+    const msg = validated.error.details[0]?.message ?? 'Invalid coordinates';
+    return res.status(403).json({ status: false, msg });
   }
 
   const { lat, lng } = validated.value as { lat: number; lng: number };
@@ -32,24 +29,16 @@ export const getZoneIdFromCoordinates = async (req: Request, res: Response): Pro
     const zones = await findZonesContainingPoint(lat, lng);
     if (!zones.length) {
       return res.status(404).json({
-        errors: [
-          {
-            code: 'coordinates',
-            message: 'Service not available in this area',
-          },
-        ],
+        status: false,
+        msg: 'Service not available in this area',
       });
     }
 
     const active = zones.filter((z) => z.status);
     if (!active.length) {
       return res.status(403).json({
-        errors: [
-          {
-            code: 'coordinates',
-            message: 'We are temporarily unavailable in this area',
-          },
-        ],
+        status: false,
+        msg: 'We are temporarily unavailable in this area',
       });
     }
 
@@ -93,12 +82,8 @@ export const listConsumerZones = async (_req: Request, res: Response): Promise<a
 export const checkConsumerZone = async (req: Request, res: Response): Promise<any> => {
   const validated = consumerZoneCheckQuerySchema.validate(req.query, { stripUnknown: true });
   if (validated.error) {
-    return res.status(403).json({
-      errors: validated.error.details.map((d) => ({
-        code: 'coordinates',
-        message: d.message,
-      })),
-    });
+    const msg = validated.error.details[0]?.message ?? 'Invalid coordinates';
+    return res.status(403).json({ status: false, msg });
   }
 
   const { lat, lng, zone_id } = validated.value as {

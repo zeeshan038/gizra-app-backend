@@ -48,8 +48,7 @@ export const listFavourites = async (req: Request, res: Response): Promise<any> 
   if (!zoneIds?.length) {
     return res.status(403).json({
       status: false,
-      msg: 'Zone id is required',
-      errors: [{ code: 'zoneId', message: 'Zone id is required!' }],
+      msg: 'Zone id is required!',
     });
   }
 
