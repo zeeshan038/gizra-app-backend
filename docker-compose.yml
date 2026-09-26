@@ -7,7 +7,7 @@ services:
       - "3002:3000"   # 3001 may be in use by other local containers
     environment:
       - PORT=3000
-      - DATABASE_URL=postgresql://postgres:mysecretpassword@postgres:5432/gizra_db?schema=public
+      - DATABASE_URL=postgresql://postgres:Gizra_Secure_2026_DB@postgres:5432/gizra_db?schema=public
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=your_jwt_secret_here 
     depends_on:
