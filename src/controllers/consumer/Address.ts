@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../../config/database';
 import { createAddressSchema, updateAddressSchema } from '../../schemas/consumer/Address';
-import { findZoneIdByCoordinates } from '../../utils/consumer/zone';
+import { resolveZoneIdForAddress } from '../../utils/consumer/zone';
 
 function formatCustomerAddress(row: {
   id: bigint;
@@ -100,15 +100,15 @@ export const createAddress = async (req: Request, res: Response): Promise<any> =
   }
 
   const body = result.value;
-  let zoneId = body.zone_id as number | undefined;
-  if (!zoneId) {
-    zoneId = (await findZoneIdByCoordinates(body.latitude, body.longitude)) ?? undefined;
-  }
+  const zoneId = await resolveZoneIdForAddress(
+    body.latitude,
+    body.longitude,
+    body.zone_id as number | undefined
+  );
   if (!zoneId) {
     return res.status(403).json({
       status: false,
       msg: 'Service not available in this area',
-      code: 'coordinates',
     });
   }
 
@@ -164,15 +164,15 @@ export const updateAddress = async (req: Request, res: Response): Promise<any> =
   }
 
   const body = result.value;
-  let zoneId = body.zone_id as number | undefined;
-  if (!zoneId) {
-    zoneId = (await findZoneIdByCoordinates(body.latitude, body.longitude)) ?? undefined;
-  }
+  const zoneId = await resolveZoneIdForAddress(
+    body.latitude,
+    body.longitude,
+    body.zone_id as number | undefined
+  );
   if (!zoneId) {
     return res.status(403).json({
       status: false,
       msg: 'Service not available in this area',
-      code: 'coordinates',
     });
   }
 

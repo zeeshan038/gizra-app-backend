@@ -3,7 +3,7 @@ import {
   geoJsonPolygonToRing,
   LngLatPair,
   ringToFormattedCoordinates,
-  ringToPolygonWkt,
+  ringToPgPolygonLiteral,
 } from './geometry';
 
 export type ZoneSummaryRow = {
@@ -49,25 +49,21 @@ export async function findZonesContainingPoint(
   lat: number,
   lng: number
 ): Promise<ZoneAtPointRow[]> {
-  try {
-    return await prisma.$queryRaw<ZoneAtPointRow[]>`
-      SELECT
-        id, name, display_name, status,
-        per_km_shipping_charge, minimum_shipping_charge, maximum_shipping_charge,
-        max_cod_order_amount, increased_delivery_fee, increased_delivery_fee_status,
-        increase_delivery_charge_message,
-        restaurant_wise_topic, customer_wise_topic, deliveryman_wise_topic,
-        created_at, updated_at
-      FROM zones
-      WHERE ST_Contains(
-        coordinates::geometry,
-        ST_SetSRID(ST_MakePoint(${lng}::float8, ${lat}::float8), 4326)
-      )
-      ORDER BY id DESC
-    `;
-  } catch {
-    return [];
-  }
+  return prisma.$queryRaw<ZoneAtPointRow[]>`
+    SELECT
+      id, name, display_name, status,
+      per_km_shipping_charge, minimum_shipping_charge, maximum_shipping_charge,
+      max_cod_order_amount, increased_delivery_fee, increased_delivery_fee_status,
+      increase_delivery_charge_message,
+      restaurant_wise_topic, customer_wise_topic, deliveryman_wise_topic,
+      created_at, updated_at
+    FROM zones
+    WHERE ST_Covers(
+      ST_SetSRID(coordinates::geometry, 4326),
+      ST_SetSRID(ST_MakePoint(${lng}::float8, ${lat}::float8), 4326)
+    )
+    ORDER BY id DESC
+  `;
 }
 
 export async function isPointInZone(
@@ -75,21 +71,17 @@ export async function isPointInZone(
   lat: number,
   lng: number
 ): Promise<boolean> {
-  try {
-    const rows = await prisma.$queryRaw<{ ok: boolean }[]>`
-      SELECT EXISTS(
-        SELECT 1 FROM zones
-        WHERE id = ${BigInt(zoneId)}
-        AND ST_Contains(
-          coordinates::geometry,
-          ST_SetSRID(ST_MakePoint(${lng}::float8, ${lat}::float8), 4326)
-        )
-      ) AS ok
-    `;
-    return Boolean(rows[0]?.ok);
-  } catch {
-    return false;
-  }
+  const rows = await prisma.$queryRaw<{ ok: boolean }[]>`
+    SELECT EXISTS(
+      SELECT 1 FROM zones
+      WHERE id = ${BigInt(zoneId)}
+      AND ST_Covers(
+        ST_SetSRID(coordinates::geometry, 4326),
+        ST_SetSRID(ST_MakePoint(${lng}::float8, ${lat}::float8), 4326)
+      )
+    ) AS ok
+  `;
+  return Boolean(rows[0]?.ok);
 }
 
 export async function listZonesWithGeo(): Promise<ZoneWithGeoJson[]> {
@@ -149,7 +141,7 @@ export async function insertZone(params: {
   increased_delivery_fee_status: boolean;
   increase_delivery_charge_message: string | null;
 }): Promise<number> {
-  const wkt = ringToPolygonWkt(params.coordinates);
+  const pgPolygon = ringToPgPolygonLiteral(params.coordinates);
   const now = new Date();
 
   const inserted = await prisma.$queryRaw<{ id: bigint }[]>`
@@ -162,7 +154,7 @@ export async function insertZone(params: {
       ${params.name},
       ${params.display_name},
       ${params.status},
-      ST_GeomFromText(${wkt}, 4326),
+      ${pgPolygon}::polygon,
       ${params.per_km_shipping_charge},
       ${params.minimum_shipping_charge},
       ${params.maximum_shipping_charge},
@@ -190,10 +182,10 @@ export async function insertZone(params: {
 }
 
 export async function updateZonePolygon(id: number, coordinates: LngLatPair[]): Promise<void> {
-  const wkt = ringToPolygonWkt(coordinates);
+  const pgPolygon = ringToPgPolygonLiteral(coordinates);
   await prisma.$executeRaw`
     UPDATE zones
-    SET coordinates = ST_GeomFromText(${wkt}, 4326),
+    SET coordinates = ${pgPolygon}::polygon,
         updated_at = ${new Date()}
     WHERE id = ${BigInt(id)}
   `;

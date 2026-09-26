@@ -28,6 +28,13 @@ export function ringToPolygonWkt(ring: LngLatPair[]): string {
   return `POLYGON((${pairs}))`;
 }
 
+/** PostgreSQL native `polygon` column literal: `((x,y),(x,y),...)`. */
+export function ringToPgPolygonLiteral(ring: LngLatPair[]): string {
+  const closed = normalizePolygonRing(ring);
+  const points = closed.map(([lng, lat]) => `(${lng},${lat})`).join(',');
+  return `(${points})`;
+}
+
 /** Legacy mobile-friendly ring: array of { lat, lng } */
 export function ringToFormattedCoordinates(ring: LngLatPair[]): { lat: number; lng: number }[] {
   const closed = normalizePolygonRing(ring);

@@ -10,8 +10,7 @@ export function requireZoneIds(req: Request, res: Response): number[] | null {
   if (!zoneIds?.length) {
     res.status(403).json({
       status: false,
-      msg: 'Zone id is required',
-      errors: [{ code: 'zoneId', message: 'Zone id is required!' }],
+      msg: 'Zone id is required!',
     });
     return null;
   }

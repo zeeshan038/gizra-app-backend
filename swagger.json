@@ -2323,15 +2323,9 @@
     },
     "/consumer/restaurants/all": {
       "get": {
-        "description": "Active restaurants in the customer zone(s). Requires header zoneId e.g. `[1]`.",
+        "description": "Active restaurants assigned to the customer zone(s). **Flow:** 1) GET /consumer/config/zone-id?lat=&lng= 2) send returned ids in header **zoneId** (not query). Public; no Bearer token.",
         "parameters": [
-          {
-            "name": "zoneId",
-            "in": "header",
-            "required": true,
-            "schema": { "type": "string", "example": "[1]" },
-            "description": "JSON array string of zone ids from GET /consumer/config/zone-id"
-          },
+          { "$ref": "#/components/parameters/ConsumerZoneIdHeader" },
           {
             "name": "page",
             "in": "query",
@@ -2384,75 +2378,60 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
-          },
-          "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
+            "description": "Paginated active restaurants in the zone(s) from header zoneId",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
+                "schema": { "$ref": "#/components/schemas/ConsumerRestaurantListResponse" },
                 "example": {
-                  "status": false,
-                  "msg": "Bad Request"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - Invalid or missing authentication token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Unauthorized"
+                  "status": true,
+                  "data": {
+                    "total_size": 2,
+                    "limit": 20,
+                    "offset": 1,
+                    "restaurants": [
+                      {
+                        "id": "12",
+                        "name": "Nickel Barn & Coffee",
+                        "logo": "https://cdn.example.com/logo.png",
+                        "cover_photo": "https://cdn.example.com/cover.jpg",
+                        "delivery_time": "30-45 min",
+                        "minimum_order": 25,
+                        "tax": 17,
+                        "rating": 4.9,
+                        "address": "1631 W 2nd St, Example City"
+                      },
+                      {
+                        "id": "8",
+                        "name": "Pizza Hub",
+                        "logo": null,
+                        "cover_photo": null,
+                        "delivery_time": "25-40 min",
+                        "minimum_order": 0,
+                        "tax": 0,
+                        "rating": 4.2,
+                        "address": "Main Street 10"
+                      }
+                    ]
+                  }
                 }
               }
             }
           },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Missing or empty zoneId header (send after GET /consumer/config/zone-id)",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Forbidden"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found - The requested resource could not be found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Not Found"
-                }
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Zone id is required!" }
               }
             }
           },
           "500": {
-            "description": "Internal Server Error - Something went wrong on the server",
+            "description": "Server error",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Internal Server Error"
-                }
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Internal server error" }
               }
             }
           }
@@ -3325,72 +3304,20 @@
     },
     "/consumer/home-slider": {
       "get": {
-        "description": "Home banners for the customer zone(s). Requires header zoneId e.g. `[1]`.",
+        "description": "Home banners for the customer zone(s). Same **zoneId** header as GET /consumer/restaurants/all.",
         "parameters": [
-          {
-            "name": "zoneId",
-            "in": "header",
-            "required": true,
-            "schema": { "type": "string", "example": "[1]" }
-          }
+          { "$ref": "#/components/parameters/ConsumerZoneIdHeader" }
         ],
         "responses": {
           "200": {
             "description": "OK"
           },
-          "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Bad Request"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - Invalid or missing authentication token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Unauthorized"
-                }
-              }
-            }
-          },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Missing zoneId header",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Forbidden"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found - The requested resource could not be found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Not Found"
-                }
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Zone id is required!" }
               }
             }
           },
@@ -3678,7 +3605,7 @@
         "tags": ["Consumer Addresses"]
       },
       "post": {
-        "description": "Save a new delivery address (map pin, floor, label). Resolves `zone_id` from coordinates when omitted.",
+        "description": "Save a new delivery address (map pin, floor, label). **Phase 1:** send `zone_id` from GET /consumer/config/zone-id plus the same `latitude`/`longitude` as the map pin; server validates the pin is in that zone, else resolves from coordinates.",
         "parameters": [
           {
             "name": "authorization",
@@ -3717,7 +3644,7 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/ApiError" },
-                "example": { "status": false, "msg": "Service not available in this area", "code": "coordinates" }
+                "example": { "status": false, "msg": "Service not available in this area" }
               }
             }
           },
@@ -3844,13 +3771,7 @@
             "schema": { "type": "string" },
             "description": "Filter by name (search bar)"
           },
-          {
-            "name": "zoneId",
-            "in": "header",
-            "required": true,
-            "schema": { "type": "string" },
-            "description": "JSON array of zone ids, e.g. `[1]`"
-          },
+          { "$ref": "#/components/parameters/ConsumerZoneIdHeader" },
           {
             "name": "latitude",
             "in": "header",
@@ -3929,8 +3850,7 @@
                 "schema": { "$ref": "#/components/schemas/ApiError" },
                 "example": {
                   "status": false,
-                  "msg": "Zone id is required",
-                  "errors": [{ "code": "zoneId", "message": "Zone id is required!" }]
+                  "msg": "Zone id is required!"
                 }
               }
             }
@@ -5061,17 +4981,50 @@
     },
     "/consumer/config/zone-id": {
       "get": {
-        "description": "Resolve active zone(s) at lat/lng (legacy PHP config/get-zone-id).",
+        "description": "Resolve active zone(s) at lat/lng (legacy PHP GET /config/get-zone-id). Call on app open and when the user changes location. **Query:** WGS84 `lat` (e.g. 31.75 Israel), `lng` (e.g. 34.75). No auth.",
         "parameters": [
-          { "name": "lat", "in": "query", "required": true, "schema": { "type": "number", "example": 32.08 } },
-          { "name": "lng", "in": "query", "required": true, "schema": { "type": "number", "example": 34.78 } }
+          { "name": "lat", "in": "query", "required": true, "schema": { "type": "number", "example": 31.75 }, "description": "Latitude (-90 to 90)" },
+          { "name": "lng", "in": "query", "required": true, "schema": { "type": "number", "example": 34.75 }, "description": "Longitude (-180 to 180)" }
         ],
         "responses": {
           "200": {
-            "description": "zone_id JSON string and zone_data",
+            "description": "zone_id JSON string and zone_data — cache locally; pass zone_id as zoneId header on catalog APIs",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/ConsumerGetZoneIdResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Invalid coordinates or all matching zones inactive",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "examples": {
+                  "validation": {
+                    "value": { "status": false, "msg": "\"lat\" is required" }
+                  },
+                  "inactive": {
+                    "value": { "status": false, "msg": "We are temporarily unavailable in this area" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No delivery zone contains this point",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Service not available in this area" }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
               }
             }
           }
@@ -5081,20 +5034,65 @@
     },
     "/consumer/zone/list": {
       "get": {
-        "description": "Active zones with map coordinates (legacy zone/list).",
-        "responses": { "200": { "description": "Array of zones" } },
+        "description": "Active zones with map polygons (legacy zone/list). Optional for drawing service areas; catalog still uses zone-id + zoneId header.",
+        "responses": {
+          "200": {
+            "description": "Array of zones",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/ConsumerZoneMapItem" }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          }
+        },
         "tags": ["Consumer Zones"]
       }
     },
     "/consumer/zone/check": {
       "get": {
-        "description": "True if lat/lng is inside zone_id (legacy zone/check).",
+        "description": "True if lat/lng is inside zone_id polygon (legacy zone/check). Use before checkout if location may have changed.",
         "parameters": [
-          { "name": "lat", "in": "query", "required": true, "schema": { "type": "number" } },
-          { "name": "lng", "in": "query", "required": true, "schema": { "type": "number" } },
-          { "name": "zone_id", "in": "query", "required": true, "schema": { "type": "integer" } }
+          { "name": "lat", "in": "query", "required": true, "schema": { "type": "number", "example": 31.75 } },
+          { "name": "lng", "in": "query", "required": true, "schema": { "type": "number", "example": 34.75 } },
+          { "name": "zone_id", "in": "query", "required": true, "schema": { "type": "integer", "example": 2 } }
         ],
-        "responses": { "200": { "description": "boolean" } },
+        "responses": {
+          "200": {
+            "description": "boolean",
+            "content": {
+              "application/json": {
+                "schema": { "type": "boolean", "example": true }
+              }
+            }
+          },
+          "403": {
+            "description": "Invalid query",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          }
+        },
         "tags": ["Consumer Zones"]
       }
     },
@@ -5519,6 +5517,13 @@
         "required": false,
         "schema": { "type": "string" },
         "description": "Figma search — order id or restaurant name"
+      },
+      "ConsumerZoneIdHeader": {
+        "name": "zoneId",
+        "in": "header",
+        "required": true,
+        "schema": { "type": "string", "example": "[2]" },
+        "description": "JSON array string of zone ids. Parse `zone_id` from GET /consumer/config/zone-id (e.g. response `\"[2]\"` → header value `[2]`). Not a query param."
       }
     },
     "schemas": {
@@ -5691,7 +5696,7 @@
           "floor": { "type": "string" },
           "road": { "type": "string" },
           "house": { "type": "string" },
-          "zone_id": { "type": "number", "description": "Optional; resolved from coordinates if omitted" }
+          "zone_id": { "type": "number", "example": 2, "description": "Recommended: first id from JSON.parse(zone_id) after GET /consumer/config/zone-id; must match pin lat/lng" }
         }
       },
       "ConsumerAddressListResponse": {
@@ -5953,18 +5958,84 @@
       "ConsumerGetZoneIdResponse": {
         "type": "object",
         "properties": {
-          "zone_id": { "type": "string", "example": "[1]" },
+          "zone_id": {
+            "type": "string",
+            "description": "JSON-encoded array of zone ids; use JSON.parse() then JSON.stringify for the zoneId header",
+            "example": "[2]"
+          },
           "zone_data": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ConsumerZoneDataItem" }
+          }
+        }
+      },
+      "ConsumerZoneDataItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 2 },
+          "status": { "type": "integer", "example": 1 },
+          "name": { "type": "string" },
+          "display_name": { "type": "string", "nullable": true },
+          "minimum_shipping_charge": { "type": "number", "nullable": true },
+          "per_km_shipping_charge": { "type": "number", "nullable": true },
+          "maximum_shipping_charge": { "type": "number", "nullable": true },
+          "max_cod_order_amount": { "type": "number", "nullable": true },
+          "increased_delivery_fee": { "type": "number" },
+          "increased_delivery_fee_status": { "type": "integer" },
+          "increase_delivery_charge_message": { "type": "string", "nullable": true }
+        }
+      },
+      "ConsumerZoneMapItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "display_name": { "type": "string", "nullable": true },
+          "status": { "type": "boolean" },
+          "formated_coordinates": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "id": { "type": "integer" },
-                "minimum_shipping_charge": { "type": "number" },
-                "per_km_shipping_charge": { "type": "number" }
+                "lat": { "type": "number" },
+                "lng": { "type": "number" }
               }
             }
           }
+        }
+      },
+      "ConsumerRestaurantListResponse": {
+        "type": "object",
+        "required": ["status", "data"],
+        "properties": {
+          "status": { "type": "boolean", "example": true },
+          "data": {
+            "type": "object",
+            "required": ["total_size", "limit", "offset", "restaurants"],
+            "properties": {
+              "total_size": { "type": "integer", "description": "Total matching restaurants (all pages)" },
+              "limit": { "type": "integer", "description": "Page size from query limit" },
+              "offset": { "type": "integer", "description": "Current page number (1-based), from query page" },
+              "restaurants": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/ConsumerRestaurantSummary" }
+              }
+            }
+          }
+        }
+      },
+      "ConsumerRestaurantSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "logo": { "type": "string", "nullable": true },
+          "cover_photo": { "type": "string", "nullable": true },
+          "delivery_time": { "type": "string", "nullable": true },
+          "minimum_order": { "type": "number" },
+          "tax": { "type": "number" },
+          "rating": { "type": "number" },
+          "address": { "type": "string", "nullable": true }
         }
       },
       "VendorOrderSummary": {
@@ -6151,6 +6222,14 @@
     },
     {
       "name": "Admin Vendors"
+    },
+    {
+      "name": "Admin Zones",
+      "description": "Delivery zones (PostGIS polygons). Admin JWT. Assign restaurants via PUT /admin/zones/restaurant/{restaurantId}."
+    },
+    {
+      "name": "Consumer Zones",
+      "description": "Zone resolve and map. **Frontend flow:** GET /consumer/config/zone-id → parse zone_id → header zoneId on GET /consumer/restaurants/all, GET /consumer/home-slider, favourites."
     }
   ]
 }
