@@ -1,23 +1,58 @@
 import { Request } from 'express';
 
-/**
- * Legacy mobile apps send header `zoneId` as JSON array string, e.g. `"[1,2]"`.
- */
-export function parseZoneIdsFromRequest(req: Request): number[] | null {
-  const raw = req.headers.zoneid ?? req.headers.zoneId;
+function parseZoneIdsFromRaw(raw: unknown): number[] | null {
   if (raw == null || raw === '') return null;
-  const str = String(raw);
+
+  if (Array.isArray(raw)) {
+    const ids = raw.map((z) => Number(z)).filter((z) => Number.isFinite(z));
+    return ids.length ? ids : null;
+  }
+
+  const str = String(raw).trim();
+  if (!str) return null;
+
   try {
     const parsed = JSON.parse(str);
     if (Array.isArray(parsed)) {
-      return parsed.map((z) => Number(z)).filter((z) => Number.isFinite(z));
+      const ids = parsed.map((z) => Number(z)).filter((z) => Number.isFinite(z));
+      return ids.length ? ids : null;
     }
     const single = Number(parsed);
     return Number.isFinite(single) ? [single] : null;
   } catch {
+    if (str.includes(',')) {
+      const ids = str
+        .split(',')
+        .map((part) => Number(part.trim()))
+        .filter((z) => Number.isFinite(z));
+      return ids.length ? ids : null;
+    }
     const single = Number(str);
     return Number.isFinite(single) ? [single] : null;
   }
+}
+
+/**
+ * Zone id(s) for catalog / profile: prefer query `zone_id`, then body; header `zoneId` is legacy only.
+ * Examples: `?zone_id=2`, `?zone_id=[1,2]`, body `{ "zone_id": 2 }`.
+ */
+export function parseZoneIdsFromRequest(req: Request): number[] | null {
+  const candidates = [
+    req.query.zone_id,
+    req.query.zoneId,
+    req.query.zone_ids,
+    req.body?.zone_id,
+    req.body?.zoneId,
+    req.body?.zone_ids,
+    req.headers.zoneid,
+    req.headers.zoneId,
+  ];
+
+  for (const raw of candidates) {
+    const ids = parseZoneIdsFromRaw(raw);
+    if (ids?.length) return ids;
+  }
+  return null;
 }
 
 /** Customer location from headers (same as legacy customer APIs). */

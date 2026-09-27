@@ -5,6 +5,7 @@ const router = express.Router();
 import vendorUserRoutes from './vendor/user';
 import vendorCatalogRoutes from './vendor/catalog';
 import vendorOrderRoutes from './vendor/order';
+import vendorRestaurantRoutes from './vendor/restaurant';
 //consumer
 import consumerUserRoutes from './consumer/user';
 //deliveryman
@@ -22,6 +23,7 @@ import adminZoneRoutes from './admin/zones';
 router.use('/vendor',vendorUserRoutes);
 router.use('/vendor/catalog', vendorCatalogRoutes);
 router.use('/vendor/orders', vendorOrderRoutes);
+router.use('/vendor/restaurant', vendorRestaurantRoutes);
 
 //consumer
 import consumerCartRoutes from './consumer/cart';

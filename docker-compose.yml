@@ -7,9 +7,11 @@ services:
       - "3002:3000"   # 3001 may be in use by other local containers
     environment:
       - PORT=3000
-      - DATABASE_URL=postgresql://postgres:mysecretpassword@postgres:5432/gizra_db?schema=public
-      - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=your_jwt_secret_here 
+      # Loaded from project .env (Compose substitutes ${DATABASE_URL}). Host MUST be `postgres`, port 5432 — not localhost.
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - JWT_SECRET=${JWT_SECRET:-your_jwt_secret_here}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     depends_on:
       - postgres
       - redis
@@ -20,10 +22,11 @@ services:
     restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: mysecretpassword
+      # Only applied on first volume init; existing pgdata keeps the original password.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mysecretpassword}
       POSTGRES_DB: gizra_db
     ports:
-      - "5434:5432"   # 5432 may be in use by other local containers
+      - "5434:5432"   # host tools: localhost:5434
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./docker/postgis-init.sql:/docker-entrypoint-initdb.d/01-postgis.sql:ro

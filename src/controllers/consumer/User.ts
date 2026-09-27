@@ -8,7 +8,14 @@ import crypto from 'crypto';
 const prisma = new PrismaClient();
 
 //Schema
-import { consumerLoginSchema, consumerRegisterSchema } from '../../schemas/consumer/User';
+import {
+  consumerApplyDeliveryManSchema,
+  consumerApplyRestaurantSchema,
+  consumerLoginSchema,
+  consumerRegisterSchema,
+} from '../../schemas/consumer/User';
+import { parseZoneIdsFromRequest } from '../../utils/consumer/favouriteHelpers';
+import { verifyResetToken } from '../../utils/consumer/passwordResetDb';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_here';
 
@@ -311,4 +318,178 @@ export const guestRequest = async (req: Request, res: Response): Promise<any> =>
             msg: error.message
         });
     }
+};
+
+
+/**
+ * @Description Apply as restaurant partner (customer app — Figma restaurant screen)
+ * @Route POST /api/consumer/apply/restaurant
+ * @Access Bearer consumer (owner name/phone/email from profile; no password on this step)
+ */
+export const applyForRestaurant = async (req: Request, res: Response): Promise<any> => {
+  const result = consumerApplyRestaurantSchema.validate(req.body, { stripUnknown: true });
+  if (result.error) {
+    const errors = result.error.details.map((d) => d.message).join(',');
+    return res.status(400).json({ status: false, msg: errors });
+  }
+
+  const payload = result.value;
+  const user = req.user;
+  if (!user?.phone) {
+    return res.status(400).json({ status: false, msg: 'Complete your profile phone before applying.' });
+  }
+  if (!user.email) {
+    return res.status(400).json({
+      status: false,
+      msg: 'Add an email on your profile before applying as a restaurant.',
+    });
+  }
+
+  try {
+    const existingVendor = await prisma.vendors.findFirst({
+      where: { OR: [{ email: user.email }, { phone: user.phone }] },
+    });
+    if (existingVendor) {
+      return res.status(400).json({ status: false, msg: 'You already have a vendor application on this account.' });
+    }
+
+    const tempPassword = crypto.randomBytes(16).toString('hex');
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    await prisma.$transaction(async (prismaTx) => {
+      const vendor = await prismaTx.vendors.create({
+        data: {
+          f_name: user.f_name || 'Owner',
+          l_name: user.l_name || '',
+          email: user.email,
+          phone: user.phone,
+          password: hashedPassword,
+          status: false,
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+      });
+
+      const restaurant = await prismaTx.restaurants.create({
+        data: {
+          name: payload.restaurant_name,
+          address: payload.restaurant_address,
+          phone: user.phone,
+          email: user.email,
+          latitude: payload.lat != null ? String(payload.lat) : '0',
+          longitude: payload.lng != null ? String(payload.lng) : '0',
+          vendor_id: Number(vendor.id),
+          zone_id: payload.zone_id,
+          tax: payload.tax,
+          delivery_time: '30-45-min',
+          status: false,
+          restaurant_model: 'none',
+          logo: payload.logo?.trim() || 'default_logo.png',
+          cover_photo: payload.cover_photo?.trim() || 'default_cover.png',
+          additional_data: JSON.stringify({ default_language: payload.language || 'en' }),
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+      });
+
+      const cuisineIds: number[] = Array.isArray(payload.cuisines)
+        ? payload.cuisines.map((id: unknown) => Number(id)).filter((n: number) => Number.isFinite(n))
+        : [];
+      if (cuisineIds.length) {
+        await prismaTx.cuisine_restaurant.createMany({
+          data: cuisineIds.map((cuisine_id) => ({
+            restaurant_id: Number(restaurant.id),
+            cuisine_id,
+          })),
+        });
+      }
+    });
+
+    return res.status(200).json({
+      status: true,
+      msg: 'Application submitted! Please wait for admin approval.',
+      data: { application_status: 'pending' },
+    });
+  } catch (error: any) {
+    return res.status(500).json({ status: false, msg: error.message });
+  }
+};
+
+/**
+ * @Description Apply as delivery driver (customer app — Figma delivery man screen)
+ * @Route POST /api/consumer/apply/delivery-man
+ * @Access Public
+ */
+export const applyForDeliveryMan = async (req: Request, res: Response): Promise<any> => {
+  const result = consumerApplyDeliveryManSchema.validate(req.body, { stripUnknown: true });
+  if (result.error) {
+    const errors = result.error.details.map((d) => d.message).join(',');
+    return res.status(400).json({ status: false, msg: errors });
+  }
+
+  const data = result.value as {
+    f_name: string;
+    l_name: string;
+    phone: string;
+    email: string;
+    password: string;
+    identity_image?: string | null;
+    otp: string;
+    zone_id?: number;
+  };
+
+  const zoneFromHeader = parseZoneIdsFromRequest(req)?.[0];
+  const zone_id = data.zone_id ?? zoneFromHeader;
+  if (!zone_id) {
+    return res.status(400).json({
+      status: false,
+      msg: 'zone_id is required (query, body, or legacy zoneId header).',
+    });
+  }
+
+  const otpValid = await verifyResetToken('phone', data.phone, data.otp);
+  if (!otpValid) {
+    return res.status(400).json({ status: false, msg: 'Invalid or expired OTP.' });
+  }
+
+  try {
+    const existingDriver = await prisma.delivery_men.findFirst({
+      where: { OR: [{ phone: data.phone }, { email: data.email }] },
+    });
+    if (existingDriver) {
+      return res.status(400).json({ status: false, msg: 'Phone or email already exists.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+
+    await prisma.delivery_men.create({
+      data: {
+        f_name: data.f_name,
+        l_name: data.l_name,
+        email: data.email,
+        phone: data.phone,
+        password: hashedPassword,
+        identity_type: 'nid',
+        identity_number: '',
+        zone_id,
+        earning: true,
+        application_status: 'pending',
+        status: false,
+        active: false,
+        type: 'zone_wise',
+        identity_image: data.identity_image?.trim() || 'placeholder_id.png',
+        image: 'placeholder_profile.png',
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+    });
+
+    return res.status(200).json({
+      status: true,
+      msg: 'Application submitted! Please wait for admin approval.',
+      data: { application_status: 'pending' },
+    });
+  } catch (error: any) {
+    return res.status(500).json({ status: false, msg: error.message });
+  }
 };

@@ -19,3 +19,4 @@ router.get('/detail/:id', getAdminZone);
 router.put('/update/:id', updateAdminZone);
 
 export default router;
+ 
