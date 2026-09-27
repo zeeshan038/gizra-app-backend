@@ -5,8 +5,8 @@ import { requireZoneIds } from '../../utils/consumer/zoneHeaders';
 const prisma = new PrismaClient();
 
 
-/* 
- * @Description Get active restaurants in the customer zone(s) (header zoneId, e.g. "[1]")
+/*
+ * @Description Get active restaurants in the customer zone(s) (query zone_id, e.g. ?zone_id=2)
  * @Route GET api/consumer/restaurants/all
  * @Access Public
  */

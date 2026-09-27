@@ -29,8 +29,18 @@ import { parseOrderIdParam } from '../../utils/vendor/order/params';
 import {
   orderListQuerySchema,
   pollOrdersQuerySchema,
+  posOrderHistoryQuerySchema,
   updateOrderStatusSchema,
 } from '../../schemas/vendor/Order';
+import {
+  applyPosHistorySearch,
+  buildPosHistorySourceFilter,
+  buildPosHistoryStatusFilter,
+  countPosHistorySummary,
+  mapPosHistoryOrders,
+  PosHistorySource,
+  PosHistoryStatus,
+} from '../../utils/vendor/order/posHistory';
 
 
 /**
@@ -353,6 +363,79 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
       status: true,
       msg: `Order status updated to ${status}`,
       data: mapOrderSummary(updated, null),
+    });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message });
+  }
+};
+
+
+/**
+ * @Description Order history api for POS app
+ * @Route GET /api/vendor/orders/pos-history
+ * @Access Vendor
+ */
+export const getPosOrderHistory = async (req: Request, res: Response): Promise<any> => {
+  const ctx = getVendorContext(req);
+  if (!ctx) {
+    return res.status(403).json({ status: false, msg: 'Restaurant context not found for vendor' });
+  }
+
+  const validated = posOrderHistoryQuerySchema.validate(req.query, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(', '),
+    });
+  }
+
+  const raw = validated.value as {
+    source: PosHistorySource;
+    status: PosHistoryStatus;
+    limit: number;
+    offset: number;
+    search?: string;
+    include_summary: boolean | string;
+  };
+  const { source, status, limit, offset, search } = raw;
+  const include_summary =
+    raw.include_summary === true ||
+    raw.include_summary === 'true' ||
+    raw.include_summary === '1';
+
+  try {
+    let where: any = {
+      ...restaurantOrdersBase(ctx.restaurantId),
+      ...buildPosHistorySourceFilter(source),
+      ...buildPosHistoryStatusFilter(status, source),
+    };
+    where = applyPosHistorySearch(where, search);
+
+    const [total, orders, summary] = await Promise.all([
+      prisma.orders.count({ where }),
+      prisma.orders.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        skip: offset,
+        take: limit,
+      }),
+      include_summary ? countPosHistorySummary(ctx.restaurantId, source) : Promise.resolve(null),
+    ]);
+
+    const customers = await loadCustomersForOrders(orders);
+    const orderRows = await mapPosHistoryOrders(orders, customers);
+
+    return res.status(200).json({
+      status: true,
+      data: {
+        source,
+        status,
+        summary: summary ?? undefined,
+        total,
+        limit,
+        offset,
+        orders: orderRows,
+      },
     });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });

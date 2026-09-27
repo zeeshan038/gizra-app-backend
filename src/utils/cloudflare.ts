@@ -66,7 +66,8 @@ export async function generateUniqueCloudflareId(userType: UserType): Promise<st
         } else if (userType === 'deliveryman') {
             exists = await prisma.delivery_men.findFirst({ where: { cloudflareId: id } });
         } else if (userType === 'customer') {
-            exists = await prisma.users.findFirst({ where: { cloudflareId: id } });
+            // Legacy `users` table has no cloudflareId column; id is random-only for R2 paths.
+            return id;
         }
 
         if (!exists) return id;

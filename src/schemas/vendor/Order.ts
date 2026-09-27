@@ -20,3 +20,16 @@ export const updateOrderStatusSchema = Joi.object({
 export const pollOrdersQuerySchema = Joi.object({
   after_id: Joi.number().integer().min(0).default(0),
 });
+
+export const posOrderHistoryQuerySchema = Joi.object({
+  source: Joi.string().valid('online', 'manual').default('online'),
+  status: Joi.string()
+    .valid('all', 'delivered', 'refunded', 'canceled', 'failed', 'pending', 'handover')
+    .default('all'),
+  limit: Joi.number().integer().min(1).max(100).default(20),
+  offset: Joi.number().integer().min(0).default(0),
+  search: Joi.string().optional().allow(''),
+  include_summary: Joi.alternatives()
+    .try(Joi.boolean(), Joi.string().valid('true', 'false', '1', '0'))
+    .default(true),
+});

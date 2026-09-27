@@ -5,8 +5,8 @@ import { requireZoneIds } from '../../utils/consumer/zoneHeaders';
 const prisma = new PrismaClient();
 
 /**
- * @Description Home Slider (banners in customer zone(s); header zoneId required)
- * @Route GET api/consumer/home-slider
+ * @Description Home Slider (banners in customer zone(s); query zone_id required)
+ * @Route GET api/consumer/home-slider?zone_id=2
  * @Access Public
  */ 
 export const getHomeSlider = async (req: Request, res: Response): Promise<any> => {

@@ -1640,7 +1640,6 @@ model users {
   temp_token           String?   @db.VarChar(255)
   current_language_key String?   @default("en") @db.VarChar(255)
   is_email_verified    Boolean   @default(false)
-  cloudflareId         String?   @unique
 
   @@index([zone_id], map: "idx_17697_users_zone_id_index")
 }
