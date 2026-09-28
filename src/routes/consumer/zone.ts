@@ -8,6 +8,7 @@ import {
 const router = express.Router();
 
 router.get('/list', listConsumerZones);
+router.get('/zone-id', getZoneIdFromCoordinates);
 router.get('/check', checkConsumerZone);
 
 export default router;
