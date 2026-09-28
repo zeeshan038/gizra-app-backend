@@ -1,5 +1,8 @@
 const swaggerAutogen = require('swagger-autogen')({ openapi: '3.0.0' });
 const fs = require('fs');
+const { buildExampleMap, exampleToOpenApiSchema } = require('./swagger-controller-examples');
+const { applyRequestBodies } = require('./swagger-request-bodies');
+const { applyOpenApiOverlay } = require('./swagger-merge-overlay');
 
 const doc = {
   info: {
@@ -102,6 +105,65 @@ const standardResponses = {
   }
 };
 
+const genericSuccessExample = {
+  status: true,
+  msg: 'Operation successful'
+};
+
+const defaultSuccessContent = {
+  'application/json': {
+    schema: { $ref: '#/components/schemas/ApiResponse' },
+    example: genericSuccessExample
+  }
+};
+
+/** Swagger UI needs content + example; autogen often leaves 200 as description-only. */
+function ensureJsonResponseBody(response, kind, successExample) {
+  if (!response || typeof response !== 'object') return;
+  const isSuccess = kind === 'success';
+  const template = isSuccess
+    ? {
+        'application/json': {
+          schema: { $ref: '#/components/schemas/ApiResponse' },
+          example: successExample || genericSuccessExample
+        }
+      }
+    : standardResponses[kind]?.content;
+  if (!template) return;
+
+  if (!response.content || !response.content['application/json']) {
+    response.content = JSON.parse(JSON.stringify(template));
+    return;
+  }
+  const json = response.content['application/json'];
+  if (!json.schema) {
+    json.schema = isSuccess
+      ? { $ref: '#/components/schemas/ApiResponse' }
+      : { $ref: '#/components/schemas/ApiError' };
+  }
+  if (!json.example && !json.examples) {
+    json.example = isSuccess
+      ? successExample || genericSuccessExample
+      : standardResponses[kind]?.content?.['application/json']?.example;
+  }
+}
+
+function applyControllerSuccessExample(endpoint, method, routePath, exampleMap) {
+  const key = `${method.toLowerCase()} ${routePath}`;
+  const example = exampleMap.get(key);
+  if (!example) return;
+
+  for (const code of ['200', '201']) {
+    const response = endpoint.responses?.[code];
+    if (!response) continue;
+    if (!response.content) response.content = {};
+    if (!response.content['application/json']) response.content['application/json'] = {};
+    const json = response.content['application/json'];
+    json.example = example;
+    json.schema = exampleToOpenApiSchema(example);
+  }
+}
+
 function pathMatches(routePath, prefixes) {
   return prefixes.some((prefix) => routePath === prefix || routePath.startsWith(`${prefix}/`));
 }
@@ -165,9 +227,21 @@ swaggerAutogen(outputFile, endpointsFiles, doc).then(() => {
     properties: {
       status: { type: 'boolean', example: true },
       msg: { type: 'string', example: 'Operation successful' },
-      data: { type: 'object', nullable: true }
+      data: {
+        nullable: true,
+        oneOf: [
+          { type: 'object' },
+          { type: 'array' },
+          { type: 'string' },
+          { type: 'number' },
+          { type: 'boolean' }
+        ]
+      }
     }
   };
+
+  const controllerExamples = buildExampleMap();
+  console.log(`Controller success examples: ${controllerExamples.size} endpoints`);
 
   swaggerDoc.tags = [
     { name: 'Consumer Auth' },
@@ -252,16 +326,44 @@ swaggerAutogen(outputFile, endpointsFiles, doc).then(() => {
       if (!endpoint.responses['200'] && !endpoint.responses['201']) {
         endpoint.responses['200'] = {
           description: 'Successful operation',
-          content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiResponse' } } }
+          content: JSON.parse(JSON.stringify(defaultSuccessContent))
         };
       }
 
+      applyControllerSuccessExample(endpoint, method, newPath, controllerExamples);
+
+      for (const code of ['200', '201']) {
+        if (endpoint.responses[code]) {
+          if (!endpoint.responses[code].description) {
+            endpoint.responses[code].description = 'Successful operation';
+          }
+          const key = `${method.toLowerCase()} ${newPath}`;
+          ensureJsonResponseBody(
+            endpoint.responses[code],
+            'success',
+            controllerExamples.get(key)
+          );
+        }
+      }
+
       for (const [code, res] of Object.entries(standardResponses)) {
-        if (!endpoint.responses[code] || !endpoint.responses[code].content) {
-          endpoint.responses[code] = res;
+        if (!endpoint.responses[code]) {
+          endpoint.responses[code] = JSON.parse(JSON.stringify(res));
+        } else {
+          if (!endpoint.responses[code].description && res.description) {
+            endpoint.responses[code].description = res.description;
+          }
+          ensureJsonResponseBody(endpoint.responses[code], code);
         }
       }
     }
+  }
+
+  applyRequestBodies(newPaths, swaggerDoc.components);
+
+  const overlayMerged = applyOpenApiOverlay(swaggerDoc, newPaths);
+  if (overlayMerged) {
+    console.log(`OpenAPI overlay merged: ${overlayMerged} operations`);
   }
 
   swaggerDoc.paths = newPaths;

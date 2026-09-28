@@ -93,7 +93,6 @@ IO.Socket connectRealtime({
 | `watch_order` | User opens order **detail** or **tracking** for a specific order |
 | `unwatch_order` | User leaves that screen (route dispose) |
 
----
 
 ## 5. Payloads
 

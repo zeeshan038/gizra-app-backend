@@ -20,9 +20,6 @@
     },
     {
       "name": "Delivery Man Orders"
-    },
-    {
-      "name": "Upload"
     }
   ],
   "components": {
@@ -63,6 +60,3321 @@
             "nullable": true
           }
         }
+      },
+      "PlaceOrderLineItem": {
+        "type": "object",
+        "required": [
+          "item_id",
+          "quantity"
+        ],
+        "properties": {
+          "item_id": {
+            "type": "number",
+            "example": 101
+          },
+          "item_type": {
+            "type": "string",
+            "enum": [
+              "Food",
+              "ItemCampaign"
+            ],
+            "default": "Food"
+          },
+          "price": {
+            "type": "number",
+            "example": 12.99
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 2
+          },
+          "add_on_ids": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "example": []
+          },
+          "add_on_qtys": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "example": []
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "example": []
+          },
+          "variation_options": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "example": []
+          }
+        }
+      },
+      "PlaceOrderRequest": {
+        "type": "object",
+        "required": [
+          "restaurant_id"
+        ],
+        "description": "Checkout payload. Use saved address via delivery_address_id, or inline address fields when no id. For delivery, distance (km) is required. Cart checkout: omit items/cart and use DB cart; buy-now: set is_buy_now true with items (or cart array). Guest checkout: send guest_id from POST /consumer/guest/request when not using Bearer token.",
+        "properties": {
+          "restaurant_id": {
+            "type": "number",
+            "example": 12
+          },
+          "order_type": {
+            "type": "string",
+            "enum": [
+              "delivery",
+              "take_away",
+              "dine_in"
+            ],
+            "default": "delivery"
+          },
+          "payment_method": {
+            "type": "string",
+            "enum": [
+              "cash_on_delivery",
+              "digital_payment",
+              "wallet",
+              "offline_payment"
+            ],
+            "default": "cash_on_delivery"
+          },
+          "order_amount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "delivery_charge": {
+            "type": "number",
+            "minimum": 0
+          },
+          "total_tax_amount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "distance": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Required when order_type is delivery",
+            "example": 2.5
+          },
+          "delivery_address_id": {
+            "type": "number",
+            "description": "Saved address from GET /consumer/addresses/list"
+          },
+          "address": {
+            "type": "string"
+          },
+          "latitude": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "longitude": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "address_type": {
+            "type": "string"
+          },
+          "floor": {
+            "type": "string"
+          },
+          "road": {
+            "type": "string"
+          },
+          "house": {
+            "type": "string"
+          },
+          "contact_person_name": {
+            "type": "string"
+          },
+          "contact_person_number": {
+            "type": "string"
+          },
+          "contact_person_email": {
+            "type": "string"
+          },
+          "order_note": {
+            "type": "string"
+          },
+          "delivery_instruction": {
+            "type": "string"
+          },
+          "unavailable_item_note": {
+            "type": "string"
+          },
+          "coupon_code": {
+            "type": "string"
+          },
+          "schedule_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dm_tips": {
+            "type": "number",
+            "minimum": 0
+          },
+          "cutlery": {
+            "type": "boolean"
+          },
+          "extra_packaging_amount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "partial_payment": {
+            "type": "boolean"
+          },
+          "is_buy_now": {
+            "type": "boolean",
+            "default": false
+          },
+          "cart_id": {
+            "type": "number"
+          },
+          "cart": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlaceOrderLineItem"
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlaceOrderLineItem"
+            }
+          },
+          "guest_id": {
+            "type": "number",
+            "description": "Guest id when placing without login"
+          },
+          "is_guest": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ConsumerPlaceOrderLineItem": {
+        "type": "object",
+        "required": [
+          "item_id",
+          "quantity"
+        ],
+        "properties": {
+          "item_id": {
+            "type": "number",
+            "example": 101
+          },
+          "item_type": {
+            "type": "string",
+            "enum": [
+              "Food",
+              "ItemCampaign"
+            ],
+            "default": "Food"
+          },
+          "price": {
+            "type": "number",
+            "description": "Optional for buy-now; server uses menu price when loading from cart DB"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 2
+          },
+          "add_on_ids": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "add_on_qtys": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "variation_options": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "ConsumerPlaceOrderBody": {
+        "type": "object",
+        "required": [
+          "restaurant_id"
+        ],
+        "properties": {
+          "restaurant_id": {
+            "type": "number",
+            "example": 3
+          },
+          "order_amount": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Optional; server recalculates final amount"
+          },
+          "payment_method": {
+            "type": "string",
+            "enum": [
+              "cash_on_delivery",
+              "digital_payment",
+              "wallet",
+              "offline_payment"
+            ],
+            "default": "cash_on_delivery"
+          },
+          "order_type": {
+            "type": "string",
+            "enum": [
+              "delivery",
+              "take_away",
+              "dine_in"
+            ],
+            "default": "delivery"
+          },
+          "distance": {
+            "type": "number",
+            "minimum": 0,
+            "example": 3.2,
+            "description": "Required when order_type is delivery"
+          },
+          "delivery_address_id": {
+            "type": "number",
+            "description": "Saved address id from /consumer/addresses"
+          },
+          "address": {
+            "type": "string",
+            "description": "Required for delivery if delivery_address_id omitted"
+          },
+          "latitude": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "longitude": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "address_type": {
+            "type": "string",
+            "example": "Home"
+          },
+          "floor": {
+            "type": "string"
+          },
+          "road": {
+            "type": "string"
+          },
+          "house": {
+            "type": "string"
+          },
+          "contact_person_name": {
+            "type": "string"
+          },
+          "contact_person_number": {
+            "type": "string"
+          },
+          "contact_person_email": {
+            "type": "string"
+          },
+          "schedule_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Preference time / scheduled slot"
+          },
+          "dm_tips": {
+            "type": "number",
+            "minimum": 0,
+            "example": 10
+          },
+          "coupon_code": {
+            "type": "string"
+          },
+          "order_note": {
+            "type": "string"
+          },
+          "delivery_instruction": {
+            "type": "string"
+          },
+          "unavailable_item_note": {
+            "type": "string"
+          },
+          "cutlery": {
+            "type": "boolean"
+          },
+          "extra_packaging_amount": {
+            "type": "number",
+            "minimum": 0
+          },
+          "partial_payment": {
+            "type": "boolean"
+          },
+          "is_buy_now": {
+            "type": "boolean",
+            "default": false
+          },
+          "cart_id": {
+            "type": "number",
+            "description": "Order only this cart row when not buy-now"
+          },
+          "cart": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerPlaceOrderLineItem"
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerPlaceOrderLineItem"
+            }
+          },
+          "guest_id": {
+            "type": "number",
+            "description": "Required for guest checkout when no Bearer token"
+          },
+          "is_guest": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ConsumerPlaceOrderData": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "100275"
+          },
+          "user_id": {
+            "type": "string",
+            "nullable": true,
+            "example": "12"
+          },
+          "restaurant_id": {
+            "type": "string",
+            "nullable": true,
+            "example": "3"
+          },
+          "order_amount": {
+            "type": "number",
+            "example": 52.5
+          },
+          "delivery_charge": {
+            "type": "number",
+            "example": 5
+          },
+          "total_tax_amount": {
+            "type": "number",
+            "example": 2.5
+          },
+          "additional_charge": {
+            "type": "number",
+            "example": 2
+          },
+          "dm_tips": {
+            "type": "number",
+            "example": 10
+          },
+          "payment_status": {
+            "type": "string",
+            "example": "unpaid"
+          },
+          "order_status": {
+            "type": "string",
+            "example": "pending"
+          },
+          "payment_method": {
+            "type": "string",
+            "example": "cash_on_delivery"
+          },
+          "order_type": {
+            "type": "string",
+            "example": "delivery"
+          },
+          "scheduled": {
+            "type": "boolean",
+            "example": false
+          },
+          "schedule_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerPlaceOrderResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Order placed successfully"
+          },
+          "message": {
+            "type": "string",
+            "example": "Order placed successfully"
+          },
+          "order_id": {
+            "type": "string",
+            "example": "100275"
+          },
+          "total_ammount": {
+            "type": "number",
+            "description": "Legacy PHP field name (subtotal + tax + delivery before tips in response helper)"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConsumerPlaceOrderData"
+          }
+        }
+      },
+      "ConsumerPlaceOrderError": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": false
+          },
+          "msg": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ConsumerAddress": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "42"
+          },
+          "address_type": {
+            "type": "string",
+            "example": "Home"
+          },
+          "contact_person_name": {
+            "type": "string",
+            "example": "Jane Doe"
+          },
+          "contact_person_number": {
+            "type": "string",
+            "example": "0501234567"
+          },
+          "address": {
+            "type": "string",
+            "example": "123 Main St, Tel Aviv"
+          },
+          "latitude": {
+            "type": "string",
+            "example": "32.0853"
+          },
+          "longitude": {
+            "type": "string",
+            "example": "34.7818"
+          },
+          "floor": {
+            "type": "string",
+            "nullable": true
+          },
+          "road": {
+            "type": "string",
+            "nullable": true
+          },
+          "house": {
+            "type": "string",
+            "nullable": true
+          },
+          "zone_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerAddressBody": {
+        "type": "object",
+        "required": [
+          "contact_person_name",
+          "address_type",
+          "contact_person_number",
+          "address",
+          "latitude",
+          "longitude"
+        ],
+        "properties": {
+          "contact_person_name": {
+            "type": "string"
+          },
+          "address_type": {
+            "type": "string",
+            "example": "Home"
+          },
+          "contact_person_number": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string"
+          },
+          "latitude": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "longitude": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "floor": {
+            "type": "string"
+          },
+          "road": {
+            "type": "string"
+          },
+          "house": {
+            "type": "string"
+          },
+          "zone_id": {
+            "type": "number",
+            "example": 2,
+            "description": "Recommended: first id from JSON.parse(zone_id) after GET /consumer/config/zone-id; must match pin lat/lng"
+          }
+        }
+      },
+      "PartnerApplicationResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Registration successful! Please wait for admin approval."
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "application_status": {
+                "type": "string",
+                "enum": [
+                  "pending"
+                ],
+                "example": "pending"
+              }
+            }
+          }
+        }
+      },
+      "ConsumerApplyRestaurantBody": {
+        "type": "object",
+        "required": [
+          "restaurant_name",
+          "restaurant_address",
+          "zone_id",
+          "tax"
+        ],
+        "properties": {
+          "restaurant_name": {
+            "type": "string",
+            "example": "Nickel Barn & Coffee"
+          },
+          "restaurant_address": {
+            "type": "string",
+            "example": "Street 12, Tel Aviv"
+          },
+          "lat": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "lng": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "zone_id": {
+            "type": "integer",
+            "example": 2
+          },
+          "tax": {
+            "type": "number",
+            "minimum": 0,
+            "example": 5
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "he"
+            ],
+            "default": "en"
+          },
+          "logo": {
+            "type": "string",
+            "format": "uri"
+          },
+          "cover_photo": {
+            "type": "string",
+            "format": "uri"
+          },
+          "cuisines": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "example": [
+              1,
+              3
+            ]
+          }
+        }
+      },
+      "ConsumerApplyDeliveryManBody": {
+        "type": "object",
+        "required": [
+          "f_name",
+          "l_name",
+          "email",
+          "phone",
+          "password",
+          "otp"
+        ],
+        "properties": {
+          "f_name": {
+            "type": "string",
+            "example": "Ahmed"
+          },
+          "l_name": {
+            "type": "string",
+            "example": "Khan"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+972501234567"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "driver@example.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6,
+            "example": "secret123"
+          },
+          "otp": {
+            "type": "string",
+            "example": "123456",
+            "description": "Phone OTP (not confirm_password)"
+          },
+          "identity_image": {
+            "type": "string",
+            "format": "uri"
+          },
+          "zone_id": {
+            "type": "integer",
+            "example": 2,
+            "description": "From GET /consumer/config/zone-id (query or body)"
+          }
+        }
+      },
+      "DeliveryManRegisterBody": {
+        "type": "object",
+        "required": [
+          "f_name",
+          "l_name",
+          "email",
+          "phone",
+          "password",
+          "confirm_password",
+          "zone_id"
+        ],
+        "properties": {
+          "f_name": {
+            "type": "string",
+            "example": "Ahmed",
+            "description": "First name (Figma required)"
+          },
+          "l_name": {
+            "type": "string",
+            "example": "Khan",
+            "description": "Last name (Figma required)"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+972501234567",
+            "description": "With country code"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "driver@example.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6,
+            "example": "secret123"
+          },
+          "confirm_password": {
+            "type": "string",
+            "minLength": 6,
+            "example": "secret123"
+          },
+          "identity_image": {
+            "type": "string",
+            "format": "uri",
+            "description": "ID document URL after POST /upload (.jpg/.png, max 2MB in app)"
+          },
+          "zone_id": {
+            "type": "integer",
+            "example": 2,
+            "description": "From GET /consumer/config/zone-id"
+          },
+          "identity_type": {
+            "type": "string",
+            "enum": [
+              "passport",
+              "driving_license",
+              "nid",
+              "restaurant_id"
+            ],
+            "default": "nid"
+          },
+          "identity_number": {
+            "type": "string",
+            "example": ""
+          },
+          "earning": {
+            "type": "boolean",
+            "default": true,
+            "description": "Commission vs salary model flag"
+          },
+          "fName": {
+            "type": "string",
+            "deprecated": true,
+            "description": "Legacy alias for f_name"
+          },
+          "lName": {
+            "type": "string",
+            "deprecated": true,
+            "description": "Legacy alias for l_name"
+          }
+        }
+      },
+      "VendorForgotPasswordBody": {
+        "type": "object",
+        "properties": {
+          "field_type": {
+            "type": "string",
+            "enum": [
+              "email",
+              "phone"
+            ],
+            "default": "phone"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+972501234567"
+          }
+        }
+      },
+      "VendorPasswordOtpBody": {
+        "type": "object",
+        "required": [
+          "otp"
+        ],
+        "properties": {
+          "field_type": {
+            "type": "string",
+            "enum": [
+              "email",
+              "phone"
+            ],
+            "default": "phone"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "otp": {
+            "type": "string",
+            "example": "123456"
+          }
+        }
+      },
+      "VendorPasswordResetBody": {
+        "type": "object",
+        "required": [
+          "otp",
+          "password",
+          "confirm_password"
+        ],
+        "properties": {
+          "field_type": {
+            "type": "string",
+            "enum": [
+              "email",
+              "phone"
+            ],
+            "default": "phone"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "otp": {
+            "type": "string",
+            "example": "123456"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6,
+            "example": "newpass123"
+          },
+          "confirm_password": {
+            "type": "string",
+            "minLength": 6,
+            "example": "newpass123"
+          }
+        }
+      },
+      "VendorChangePasswordBody": {
+        "type": "object",
+        "required": [
+          "current_password",
+          "password",
+          "confirm_password"
+        ],
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "example": "oldpass123"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6,
+            "example": "newpass123"
+          },
+          "confirm_password": {
+            "type": "string",
+            "minLength": 6,
+            "example": "newpass123"
+          }
+        }
+      },
+      "VendorRestaurantActiveStatusBody": {
+        "type": "object",
+        "required": [
+          "closed"
+        ],
+        "properties": {
+          "closed": {
+            "type": "boolean",
+            "example": true,
+            "description": "true = temporarily closed; false = open for orders"
+          }
+        }
+      },
+      "VendorRestaurantSettingToggleBody": {
+        "type": "object",
+        "required": [
+          "key",
+          "status"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "schedule_order",
+              "delivery",
+              "take_away",
+              "free_delivery",
+              "veg",
+              "non_veg",
+              "order_subscription_active",
+              "cutlery",
+              "manual_dispatch",
+              "instant_order",
+              "customer_date_order_sratus",
+              "halal_tag_status",
+              "is_extra_packaging_active",
+              "dine_in"
+            ],
+            "example": "delivery"
+          },
+          "status": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "VendorRestaurantBusinessSetupBody": {
+        "type": "object",
+        "required": [
+          "minimum_order",
+          "gst_status",
+          "gst_code"
+        ],
+        "properties": {
+          "minimum_order": {
+            "type": "number",
+            "minimum": 0,
+            "example": 50
+          },
+          "gst_status": {
+            "type": "boolean",
+            "example": true
+          },
+          "gst_code": {
+            "type": "string",
+            "example": "123456789"
+          },
+          "cuisine_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "example": [
+              1,
+              3
+            ]
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Fast food",
+              "Family"
+            ]
+          },
+          "characteristics": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Outdoor seating"
+            ]
+          },
+          "customer_order_date": {
+            "type": "integer",
+            "minimum": 0,
+            "example": 7
+          },
+          "extra_packaging_status": {
+            "type": "boolean"
+          },
+          "extra_packaging_amount": {
+            "type": "number",
+            "nullable": true,
+            "example": 2.5
+          },
+          "minimum_delivery_charge": {
+            "type": "number",
+            "minimum": 0
+          },
+          "per_km_delivery_charge": {
+            "type": "number",
+            "minimum": 0
+          },
+          "maximum_shipping_charge": {
+            "type": "number",
+            "nullable": true
+          },
+          "free_delivery_distance_status": {
+            "type": "boolean"
+          },
+          "free_delivery_distance": {
+            "type": "string",
+            "example": "3"
+          },
+          "schedule_advance_dine_in_booking_duration": {
+            "type": "integer",
+            "example": 30
+          },
+          "schedule_advance_dine_in_booking_duration_time_format": {
+            "type": "string",
+            "enum": [
+              "min",
+              "hour",
+              "day"
+            ],
+            "example": "min"
+          }
+        }
+      },
+      "VendorRestaurantMetaTranslation": {
+        "type": "object",
+        "required": [
+          "locale"
+        ],
+        "properties": {
+          "locale": {
+            "type": "string",
+            "example": "he"
+          },
+          "meta_title": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "meta_description": {
+            "type": "string"
+          }
+        }
+      },
+      "VendorRestaurantMetaDataBody": {
+        "type": "object",
+        "required": [
+          "meta_title",
+          "meta_description"
+        ],
+        "properties": {
+          "meta_title": {
+            "type": "string",
+            "maxLength": 100,
+            "example": "Best burgers in town"
+          },
+          "meta_description": {
+            "type": "string",
+            "example": "Order delivery and takeaway online."
+          },
+          "meta_image": {
+            "type": "string",
+            "nullable": true,
+            "description": "URL or R2 path from POST /upload"
+          },
+          "translations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VendorRestaurantMetaTranslation"
+            },
+            "default": []
+          }
+        }
+      },
+      "VendorRestaurantScheduleBody": {
+        "type": "object",
+        "required": [
+          "day",
+          "start_time",
+          "end_time"
+        ],
+        "properties": {
+          "day": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6,
+            "description": "0=Sunday … 6=Saturday",
+            "example": 1
+          },
+          "start_time": {
+            "type": "string",
+            "pattern": "^\\d{2}:\\d{2}$",
+            "example": "09:00"
+          },
+          "end_time": {
+            "type": "string",
+            "pattern": "^\\d{2}:\\d{2}$",
+            "example": "22:00"
+          }
+        }
+      },
+      "VendorRestaurantSetupScheduleItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 12
+          },
+          "day": {
+            "type": "integer",
+            "example": 1
+          },
+          "opening_time": {
+            "type": "string",
+            "example": "09:00"
+          },
+          "closing_time": {
+            "type": "string",
+            "example": "22:00"
+          }
+        }
+      },
+      "VendorRestaurantSetupFlags": {
+        "type": "object",
+        "properties": {
+          "toggle_veg_non_veg": {
+            "type": "boolean"
+          },
+          "order_subscription": {
+            "type": "boolean"
+          },
+          "extra_packaging_charge": {
+            "type": "boolean"
+          },
+          "dine_in_order_option": {
+            "type": "boolean"
+          },
+          "self_delivery": {
+            "type": "boolean"
+          },
+          "home_delivery_enabled": {
+            "type": "boolean"
+          },
+          "take_away_enabled": {
+            "type": "boolean"
+          },
+          "instant_order_enabled": {
+            "type": "boolean"
+          },
+          "schedule_order_enabled": {
+            "type": "boolean"
+          },
+          "manual_dispatch_available": {
+            "type": "boolean"
+          }
+        }
+      },
+      "VendorRestaurantSetupOptions": {
+        "type": "object",
+        "properties": {
+          "cuisines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "characteristic_suggestions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "example": "en"
+                },
+                "label": {
+                  "type": "string",
+                  "example": "English(EN)"
+                }
+              }
+            }
+          }
+        }
+      },
+      "VendorRestaurantSetupPayload": {
+        "type": "object",
+        "description": "Restaurant config screen state",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "schedule_order": {
+            "type": "boolean"
+          },
+          "delivery": {
+            "type": "boolean"
+          },
+          "take_away": {
+            "type": "boolean"
+          },
+          "free_delivery": {
+            "type": "boolean"
+          },
+          "veg": {
+            "type": "boolean"
+          },
+          "non_veg": {
+            "type": "boolean"
+          },
+          "order_subscription_active": {
+            "type": "boolean"
+          },
+          "cutlery": {
+            "type": "boolean"
+          },
+          "manual_dispatch": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "instant_order": {
+            "type": "boolean"
+          },
+          "customer_date_order_sratus": {
+            "type": "boolean"
+          },
+          "customer_order_date": {
+            "type": "integer"
+          },
+          "halal_tag_status": {
+            "type": "boolean"
+          },
+          "is_extra_packaging_active": {
+            "type": "boolean"
+          },
+          "extra_packaging_status": {
+            "type": "boolean"
+          },
+          "extra_packaging_amount": {
+            "nullable": true
+          },
+          "dine_in": {
+            "type": "boolean"
+          },
+          "schedule_advance_dine_in_booking_duration": {
+            "type": "integer"
+          },
+          "schedule_advance_dine_in_booking_duration_time_format": {
+            "type": "string"
+          },
+          "minimum_order": {
+            "type": "number"
+          },
+          "gst_status": {
+            "type": "boolean"
+          },
+          "gst_code": {
+            "type": "string"
+          },
+          "minimum_delivery_charge": {
+            "type": "number"
+          },
+          "per_km_delivery_charge": {
+            "type": "number"
+          },
+          "maximum_shipping_charge": {
+            "type": "number",
+            "nullable": true
+          },
+          "free_delivery_distance_status": {
+            "type": "boolean"
+          },
+          "free_delivery_distance": {
+            "type": "string"
+          },
+          "cuisine_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "characteristics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "meta_title": {
+            "type": "string"
+          },
+          "meta_description": {
+            "type": "string"
+          },
+          "meta_image": {
+            "type": "string"
+          },
+          "meta_image_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "translations": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "meta_title": {
+                  "type": "string"
+                },
+                "meta_description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "schedules": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VendorRestaurantSetupScheduleItem"
+            }
+          },
+          "options": {
+            "$ref": "#/components/schemas/VendorRestaurantSetupOptions"
+          },
+          "flags": {
+            "$ref": "#/components/schemas/VendorRestaurantSetupFlags"
+          }
+        }
+      },
+      "VendorRestaurantSetupGetResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/VendorRestaurantSetupPayload"
+          }
+        }
+      },
+      "VendorRestaurantSetupMutationResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/VendorRestaurantSetupPayload"
+          }
+        }
+      },
+      "VendorRestaurantActiveStatusResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Restaurant opened"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "active": {
+                "type": "boolean",
+                "example": true
+              }
+            }
+          }
+        }
+      },
+      "VendorRestaurantMsgResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Restaurant settings updated"
+          }
+        }
+      },
+      "VendorRegisterBody": {
+        "type": "object",
+        "required": [
+          "f_name",
+          "l_name",
+          "email",
+          "phone",
+          "password",
+          "restaurant_name",
+          "restaurant_address",
+          "zone_id",
+          "tax"
+        ],
+        "properties": {
+          "f_name": {
+            "type": "string",
+            "example": "John",
+            "description": "Owner first name"
+          },
+          "l_name": {
+            "type": "string",
+            "example": "Doe",
+            "description": "Owner last name"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "owner@restaurant.com"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+923001234567"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6,
+            "example": "secret123"
+          },
+          "restaurant_name": {
+            "type": "string",
+            "example": "Nickel Barn & Coffee"
+          },
+          "restaurant_address": {
+            "type": "string",
+            "example": "Street 12, Islamabad"
+          },
+          "lat": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "example": "33.5655317"
+          },
+          "lng": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "example": "73.1501785"
+          },
+          "zone_id": {
+            "type": "integer",
+            "example": 2,
+            "description": "From GET /consumer/config/zone-id or admin zones"
+          },
+          "tax": {
+            "type": "number",
+            "minimum": 0,
+            "example": 5,
+            "description": "Vat / Tax (Figma required)"
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "he"
+            ],
+            "default": "en",
+            "description": "Restaurant default language (English / Hebrew toggle)"
+          },
+          "logo": {
+            "type": "string",
+            "format": "uri",
+            "description": "1:1 logo URL after POST /upload"
+          },
+          "cover_photo": {
+            "type": "string",
+            "format": "uri",
+            "description": "Cover image URL after POST /upload"
+          },
+          "cuisines": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "example": [
+              1,
+              3
+            ],
+            "description": "Cuisine ids from cuisines table"
+          },
+          "minimum_delivery_time": {
+            "type": "string",
+            "example": "30"
+          },
+          "maximum_delivery_time": {
+            "type": "string",
+            "example": "45"
+          },
+          "delivery_time_type": {
+            "type": "string",
+            "example": "min"
+          }
+        }
+      },
+      "ConsumerRegisterBody": {
+        "type": "object",
+        "required": [
+          "f_name",
+          "phone",
+          "password"
+        ],
+        "properties": {
+          "f_name": {
+            "type": "string",
+            "example": "Test"
+          },
+          "l_name": {
+            "type": "string",
+            "example": "User"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+923001234567"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "test.user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "example": "password123"
+          },
+          "ref_code": {
+            "type": "string"
+          }
+        }
+      },
+      "ConsumerLoginBody": {
+        "type": "object",
+        "required": [
+          "login_type",
+          "field_type",
+          "email_or_phone",
+          "password"
+        ],
+        "properties": {
+          "login_type": {
+            "type": "string",
+            "enum": [
+              "manual"
+            ],
+            "example": "manual"
+          },
+          "field_type": {
+            "type": "string",
+            "enum": [
+              "phone",
+              "email"
+            ],
+            "example": "phone"
+          },
+          "email_or_phone": {
+            "type": "string",
+            "example": "+923001234567"
+          },
+          "password": {
+            "type": "string",
+            "example": "password123"
+          },
+          "guest_id": {
+            "type": "integer",
+            "description": "Optional guest id to merge cart on login"
+          }
+        }
+      },
+      "ConsumerLoginResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Login success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "token": {
+                "type": "string"
+              },
+              "is_phone_verified": {
+                "type": "integer",
+                "example": 1
+              },
+              "is_email_verified": {
+                "type": "integer",
+                "example": 0
+              },
+              "login_type": {
+                "type": "string",
+                "example": "manual"
+              }
+            }
+          }
+        }
+      },
+      "ConsumerForgotPasswordBody": {
+        "type": "object",
+        "properties": {
+          "field_type": {
+            "type": "string",
+            "enum": [
+              "email",
+              "phone"
+            ],
+            "default": "email"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "test.user@example.com"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+923001234567"
+          }
+        }
+      },
+      "ConsumerPasswordOtpBody": {
+        "type": "object",
+        "required": [
+          "otp"
+        ],
+        "properties": {
+          "field_type": {
+            "type": "string",
+            "enum": [
+              "email",
+              "phone"
+            ],
+            "default": "email"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "test.user@example.com"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "otp": {
+            "type": "string",
+            "description": "6-digit OTP",
+            "example": "123456"
+          }
+        }
+      },
+      "ConsumerPasswordResetBody": {
+        "type": "object",
+        "required": [
+          "otp",
+          "password",
+          "confirm_password"
+        ],
+        "properties": {
+          "field_type": {
+            "type": "string",
+            "enum": [
+              "email",
+              "phone"
+            ],
+            "default": "email"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "test.user@example.com"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "otp": {
+            "type": "string",
+            "example": "123456"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "example": "newpassword123"
+          },
+          "confirm_password": {
+            "type": "string",
+            "minLength": 8,
+            "example": "newpassword123"
+          }
+        }
+      },
+      "ConsumerChangePasswordBody": {
+        "type": "object",
+        "required": [
+          "current_password",
+          "password",
+          "confirm_password"
+        ],
+        "properties": {
+          "current_password": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8
+          },
+          "confirm_password": {
+            "type": "string",
+            "minLength": 8
+          }
+        }
+      },
+      "ConsumerUpdateProfileBody": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Full name; split into f_name / l_name"
+          },
+          "f_name": {
+            "type": "string"
+          },
+          "l_name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "description": "Image URL after upload"
+          },
+          "current_language_key": {
+            "type": "string",
+            "example": "en",
+            "maxLength": 10
+          },
+          "zone_id": {
+            "type": "integer",
+            "example": 2,
+            "description": "From GET /consumer/config/zone-id; persisted on user and returned on GET /consumer/whoami"
+          }
+        }
+      },
+      "ConsumerProfileUser": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "f_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "l_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_phone_verified": {
+            "type": "integer",
+            "example": 1
+          },
+          "is_email_verified": {
+            "type": "integer",
+            "example": 0
+          },
+          "ref_code": {
+            "type": "string",
+            "nullable": true
+          },
+          "zone_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "wallet_balance": {
+            "type": "number"
+          },
+          "loyalty_point": {
+            "type": "number"
+          },
+          "interest": {
+            "type": "string",
+            "nullable": true,
+            "description": "JSON array string of category ids"
+          },
+          "cm_firebase_token": {
+            "type": "string",
+            "nullable": true
+          },
+          "current_language_key": {
+            "type": "string",
+            "example": "en"
+          },
+          "order_count": {
+            "type": "integer"
+          }
+        }
+      },
+      "ConsumerProfileResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConsumerProfileUser"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "userinfo": {
+                    "type": "object",
+                    "nullable": true
+                  },
+                  "member_since_days": {
+                    "type": "integer"
+                  },
+                  "is_valid_for_discount": {
+                    "type": "boolean"
+                  },
+                  "discount_amount": {
+                    "type": "number"
+                  },
+                  "discount_amount_type": {
+                    "type": "string"
+                  },
+                  "validity": {
+                    "type": "string"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "ConsumerProfileUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Profile successfully updated"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConsumerProfileUser"
+          }
+        }
+      },
+      "ConsumerSuggestedFoodsResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "image": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "price": {
+                  "type": "number"
+                },
+                "discount": {
+                  "type": "number"
+                },
+                "veg": {
+                  "type": "boolean"
+                },
+                "restaurant_id": {
+                  "type": "string",
+                  "nullable": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "ConsumerAddressListResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "total_size": {
+                "type": "integer",
+                "example": 2
+              },
+              "limit": {
+                "type": "integer",
+                "example": 10
+              },
+              "offset": {
+                "type": "integer",
+                "example": 1
+              },
+              "addresses": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ConsumerAddress"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ConsumerAddressCreateResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "New address added"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConsumerAddress"
+          },
+          "zone_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "example": [
+              1
+            ]
+          }
+        }
+      },
+      "ConsumerAddressUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Address updated"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConsumerAddress"
+          }
+        }
+      },
+      "ConsumerFavouriteBody": {
+        "type": "object",
+        "properties": {
+          "food_id": {
+            "type": "integer",
+            "example": 101
+          },
+          "restaurant_id": {
+            "type": "integer",
+            "example": 3
+          }
+        },
+        "description": "Provide exactly one of food_id or restaurant_id"
+      },
+      "ConsumerFavouriteActionResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ConsumerFavouriteFoodItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "101"
+          },
+          "wishlist_id": {
+            "type": "string",
+            "example": "55"
+          },
+          "name": {
+            "type": "string",
+            "example": "Variable Burger"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "example": "burger.png"
+          },
+          "category_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "string",
+            "example": "3"
+          },
+          "restaurant_name": {
+            "type": "string",
+            "example": "Nickel Barn & Coffee"
+          },
+          "restaurant_logo": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_address": {
+            "type": "string",
+            "nullable": true
+          },
+          "price": {
+            "type": "number",
+            "example": 30
+          },
+          "price_after_discount": {
+            "type": "number",
+            "example": 30
+          },
+          "discount": {
+            "type": "number",
+            "example": 0
+          },
+          "discount_type": {
+            "type": "string",
+            "example": "percent"
+          },
+          "avg_rating": {
+            "type": "number",
+            "example": 4.5
+          },
+          "rating_count": {
+            "type": "integer",
+            "example": 213
+          },
+          "veg": {
+            "type": "boolean",
+            "example": false
+          },
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "is_favourite": {
+            "type": "boolean",
+            "example": true
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "add_ons": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "ConsumerFavouriteRestaurantItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "3"
+          },
+          "wishlist_id": {
+            "type": "string",
+            "example": "56"
+          },
+          "name": {
+            "type": "string",
+            "example": "Nickel Barn & Coffee"
+          },
+          "logo": {
+            "type": "string",
+            "nullable": true
+          },
+          "cover_photo": {
+            "type": "string",
+            "nullable": true
+          },
+          "delivery_time": {
+            "type": "string",
+            "example": "30-45 min"
+          },
+          "minimum_order": {
+            "type": "number",
+            "example": 0
+          },
+          "tax": {
+            "type": "number",
+            "example": 0
+          },
+          "rating": {
+            "type": "number",
+            "example": 4.9
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "string",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "string",
+            "nullable": true
+          },
+          "zone_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "foods_count": {
+            "type": "integer",
+            "example": 42
+          },
+          "distance": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.93
+          },
+          "distance_text": {
+            "type": "string",
+            "nullable": true,
+            "example": "0.93 km"
+          },
+          "is_favourite": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "ConsumerFavouriteListData": {
+        "type": "object",
+        "properties": {
+          "foods": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerFavouriteFoodItem"
+            }
+          },
+          "restaurants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerFavouriteRestaurantItem"
+            }
+          }
+        },
+        "required": [
+          "foods",
+          "restaurants"
+        ]
+      },
+      "ConsumerFavouriteListResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConsumerFavouriteListData"
+          }
+        },
+        "example": {
+          "status": true,
+          "msg": "Success",
+          "data": {
+            "foods": [
+              {
+                "id": "101",
+                "wishlist_id": "55",
+                "name": "Variable Burger",
+                "image": "burger.png",
+                "restaurant_id": "3",
+                "restaurant_name": "Nickel Barn & Coffee",
+                "price": 30,
+                "price_after_discount": 30,
+                "is_favourite": true
+              }
+            ],
+            "restaurants": [
+              {
+                "id": "3",
+                "wishlist_id": "56",
+                "name": "Nickel Barn & Coffee",
+                "cover_photo": "cover.jpg",
+                "logo": "logo.png",
+                "delivery_time": "30-45 min",
+                "distance": 0.93,
+                "distance_text": "0.93 km",
+                "is_favourite": true
+              }
+            ]
+          }
+        }
+      },
+      "ConsumerOrderListItem": {
+        "type": "object",
+        "description": "Single row on Orders Running/History/Subscription tabs (Figma card).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "100072"
+          },
+          "order_id": {
+            "type": "string",
+            "example": "100072"
+          },
+          "order_number": {
+            "type": "string",
+            "example": "100072"
+          },
+          "restaurant_id": {
+            "type": "string",
+            "nullable": true,
+            "example": "3"
+          },
+          "restaurant_name": {
+            "type": "string",
+            "example": "Pizza House"
+          },
+          "restaurant_logo": {
+            "type": "string",
+            "example": "logo.png"
+          },
+          "image": {
+            "type": "string",
+            "example": "food-thumb.jpg",
+            "description": "First line item image (Figma card thumbnail)"
+          },
+          "order_amount": {
+            "type": "number",
+            "example": 45.5
+          },
+          "order_status": {
+            "type": "string",
+            "example": "confirmed"
+          },
+          "status_label": {
+            "type": "string",
+            "example": "Confirmed",
+            "description": "Badge text — e.g. Confirmed, Handover, Completed"
+          },
+          "payment_status": {
+            "type": "string",
+            "example": "unpaid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "order_date": {
+            "type": "string",
+            "example": "11 Aug 2026"
+          },
+          "order_time": {
+            "type": "string",
+            "example": "17:55"
+          },
+          "track_order": {
+            "type": "boolean",
+            "example": true,
+            "description": "true on Running tab — show Track Order CTA"
+          }
+        }
+      },
+      "ConsumerOrderListData": {
+        "type": "object",
+        "properties": {
+          "total_size": {
+            "type": "integer",
+            "example": 42
+          },
+          "limit": {
+            "type": "integer",
+            "example": 10
+          },
+          "offset": {
+            "type": "integer",
+            "example": 1,
+            "description": "Page number (1-based), legacy PHP semantics"
+          },
+          "orders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerOrderListItem"
+            }
+          }
+        }
+      },
+      "ConsumerOrderListResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConsumerOrderListData"
+          }
+        }
+      },
+      "ConsumerOrderHistoryItem": {
+        "deprecated": true,
+        "description": "Use ConsumerOrderListItem",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConsumerOrderListItem"
+          }
+        ]
+      },
+      "ConsumerOrderHistoryResponse": {
+        "deprecated": true,
+        "description": "Use ConsumerOrderListResponse",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConsumerOrderListResponse"
+          }
+        ]
+      },
+      "AdminCreateZoneBody": {
+        "type": "object",
+        "required": [
+          "name",
+          "coordinates"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Islamabad"
+          },
+          "display_name": {
+            "type": "string",
+            "example": "Islamabad Zone"
+          },
+          "status": {
+            "type": "boolean",
+            "default": true
+          },
+          "coordinates": {
+            "type": "array",
+            "description": "Each pair is [longitude, latitude] — NOT [lat, lng]. After create, formated_coordinates should show lat ~33 and lng ~73 for Islamabad.",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "example": [
+              [
+                72.8,
+                33.48
+              ],
+              [
+                73.25,
+                33.48
+              ],
+              [
+                73.25,
+                33.9
+              ],
+              [
+                72.8,
+                33.9
+              ],
+              [
+                72.8,
+                33.48
+              ]
+            ]
+          },
+          "per_km_shipping_charge": {
+            "type": "number",
+            "example": 2.5
+          },
+          "minimum_shipping_charge": {
+            "type": "number",
+            "example": 10
+          },
+          "maximum_shipping_charge": {
+            "type": "number",
+            "example": 50
+          },
+          "max_cod_order_amount": {
+            "type": "number",
+            "example": 500
+          }
+        }
+      },
+      "AdminZoneListResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "formated_coordinates": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "lat": {
+                        "type": "number"
+                      },
+                      "lng": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "ConsumerGetZoneIdResponse": {
+        "type": "object",
+        "properties": {
+          "zone_id": {
+            "type": "string",
+            "description": "JSON-encoded array of zone ids; use first id (or full list) as query zone_id on catalog APIs",
+            "example": "[2]"
+          },
+          "zone_data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerZoneDataItem"
+            }
+          }
+        }
+      },
+      "ConsumerZoneDataItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 2
+          },
+          "status": {
+            "type": "integer",
+            "example": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "minimum_shipping_charge": {
+            "type": "number",
+            "nullable": true
+          },
+          "per_km_shipping_charge": {
+            "type": "number",
+            "nullable": true
+          },
+          "maximum_shipping_charge": {
+            "type": "number",
+            "nullable": true
+          },
+          "max_cod_order_amount": {
+            "type": "number",
+            "nullable": true
+          },
+          "increased_delivery_fee": {
+            "type": "number"
+          },
+          "increased_delivery_fee_status": {
+            "type": "integer"
+          },
+          "increase_delivery_charge_message": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerZoneMapItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "boolean"
+          },
+          "formated_coordinates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "lat": {
+                  "type": "number"
+                },
+                "lng": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ConsumerRestaurantListResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "total_size",
+              "limit",
+              "offset",
+              "restaurants"
+            ],
+            "properties": {
+              "total_size": {
+                "type": "integer",
+                "description": "Total matching restaurants (all pages)"
+              },
+              "limit": {
+                "type": "integer",
+                "description": "Page size from query limit"
+              },
+              "offset": {
+                "type": "integer",
+                "description": "Current page number (1-based), from query page"
+              },
+              "restaurants": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ConsumerRestaurantSummary"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ConsumerRestaurantSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "logo": {
+            "type": "string",
+            "nullable": true
+          },
+          "cover_photo": {
+            "type": "string",
+            "nullable": true
+          },
+          "delivery_time": {
+            "type": "string",
+            "nullable": true
+          },
+          "minimum_order": {
+            "type": "number"
+          },
+          "tax": {
+            "type": "number"
+          },
+          "rating": {
+            "type": "number"
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "VendorOrderSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "100274"
+          },
+          "user_id": {
+            "type": "string",
+            "nullable": true,
+            "example": "12"
+          },
+          "restaurant_id": {
+            "type": "string",
+            "example": "3"
+          },
+          "order_amount": {
+            "type": "number",
+            "example": 45.5
+          },
+          "order_status": {
+            "type": "string",
+            "example": "pending"
+          },
+          "payment_status": {
+            "type": "string",
+            "example": "unpaid"
+          },
+          "payment_method": {
+            "type": "string",
+            "example": "cash_on_delivery"
+          },
+          "order_type": {
+            "type": "string",
+            "example": "delivery"
+          },
+          "scheduled": {
+            "type": "boolean",
+            "example": false
+          },
+          "checked": {
+            "type": "boolean",
+            "example": false
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "customer_name": {
+            "type": "string",
+            "example": "John Doe"
+          },
+          "customer_phone": {
+            "type": "string",
+            "nullable": true,
+            "example": "+972501234567"
+          }
+        }
+      },
+      "VendorOrderLineItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "501"
+          },
+          "food_id": {
+            "type": "string",
+            "nullable": true,
+            "example": "101"
+          },
+          "food_name": {
+            "type": "string",
+            "example": "Cheese Burger"
+          },
+          "food_image": {
+            "type": "string",
+            "nullable": true
+          },
+          "price": {
+            "type": "number",
+            "example": 20.25
+          },
+          "quantity": {
+            "type": "integer",
+            "example": 2
+          },
+          "variation": {
+            "type": "string",
+            "nullable": true
+          },
+          "add_ons": {
+            "type": "string",
+            "nullable": true
+          },
+          "tax_amount": {
+            "type": "number",
+            "example": 0
+          },
+          "total_add_on_price": {
+            "type": "number",
+            "example": 3
+          }
+        }
+      },
+      "VendorOrderDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/VendorOrderSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "order_note": {
+                "type": "string",
+                "nullable": true
+              },
+              "delivery_address": {
+                "type": "string",
+                "nullable": true
+              },
+              "delivery_charge": {
+                "type": "number",
+                "example": 5
+              },
+              "total_tax_amount": {
+                "type": "number",
+                "example": 2.5
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/VendorOrderLineItem"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "VendorOrderCountsResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "example": {
+              "all": 42,
+              "pending": 0,
+              "confirmed": 9,
+              "accepted": 0,
+              "cooking": 0,
+              "ready_for_delivery": 9,
+              "food_on_the_way": 1,
+              "delivered": 23,
+              "dine_in": 0,
+              "refunded": 0,
+              "refund_requested": 0,
+              "scheduled": 1,
+              "payment_failed": 2,
+              "canceled": 15
+            }
+          }
+        }
+      },
+      "VendorOrderListResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "integer",
+                "example": 42
+              },
+              "limit": {
+                "type": "integer",
+                "example": 20
+              },
+              "offset": {
+                "type": "integer",
+                "example": 0
+              },
+              "orders": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/VendorOrderSummary"
+                }
+              }
+            }
+          }
+        }
+      },
+      "VendorOrderRecentResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "orders": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/VendorOrderSummary"
+                }
+              },
+              "latest_id": {
+                "type": "integer",
+                "example": 100274
+              }
+            }
+          }
+        }
+      },
+      "VendorOrderDetailResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/VendorOrderDetail"
+          }
+        }
+      },
+      "VendorOrderStatusUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Order status updated to confirmed"
+          },
+          "data": {
+            "$ref": "#/components/schemas/VendorOrderSummary"
+          }
+        }
+      },
+      "VendorOrderStatusUpdateBody": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "confirmed",
+              "processing",
+              "handover",
+              "delivered",
+              "canceled"
+            ]
+          },
+          "cancellation_reason": {
+            "type": "string"
+          }
+        }
+      },
+      "VendorPosOrderHistorySummary": {
+        "type": "object",
+        "properties": {
+          "today": {
+            "type": "integer",
+            "example": 12
+          },
+          "this_week": {
+            "type": "integer",
+            "example": 45
+          },
+          "this_month": {
+            "type": "integer",
+            "example": 214
+          }
+        }
+      },
+      "VendorPosOrderHistoryItem": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/VendorOrderSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "status_label": {
+                "type": "string",
+                "example": "Delivered"
+              },
+              "items_count": {
+                "type": "integer",
+                "example": 5
+              },
+              "preview_item_name": {
+                "type": "string",
+                "example": "Chicken Biryani"
+              },
+              "preview_item_image": {
+                "type": "string",
+                "nullable": true
+              },
+              "is_manual_dispatch": {
+                "type": "boolean",
+                "example": false
+              }
+            }
+          }
+        ]
+      },
+      "VendorPosOrderHistoryResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "source": {
+                "type": "string",
+                "enum": [
+                  "online",
+                  "manual"
+                ]
+              },
+              "status": {
+                "type": "string",
+                "example": "all"
+              },
+              "summary": {
+                "$ref": "#/components/schemas/VendorPosOrderHistorySummary"
+              },
+              "total": {
+                "type": "integer",
+                "example": 42
+              },
+              "limit": {
+                "type": "integer",
+                "example": 20
+              },
+              "offset": {
+                "type": "integer",
+                "example": 0
+              },
+              "orders": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/VendorPosOrderHistoryItem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "parameters": {
+      "ConsumerOrderListAuthHeader": {
+        "name": "authorization",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Bearer token from POST /consumer/login. For guest orders use query is_guest=true and guest_id instead."
+      },
+      "ConsumerOrderListLimit": {
+        "name": "limit",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "example": 10
+        }
+      },
+      "ConsumerOrderListOffset": {
+        "name": "offset",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "example": 1
+        },
+        "description": "Page number (1-based), not row skip"
+      },
+      "ConsumerOrderListGuestId": {
+        "name": "guest_id",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer"
+        },
+        "description": "Required when calling without JWT (with is_guest=true)"
+      },
+      "ConsumerOrderListSearch": {
+        "name": "search",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Figma search — order id or restaurant name"
+      },
+      "ConsumerAuthorizationHeader": {
+        "name": "authorization",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Bearer JWT from POST /consumer/login",
+        "example": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      },
+      "VendorAuthorizationHeader": {
+        "name": "authorization",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Bearer JWT from POST /vendor/login (vendor app + restaurant web panel)",
+        "example": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      },
+      "ConsumerZoneIdQuery": {
+        "name": "zone_id",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "example": 2
+            },
+            {
+              "type": "string",
+              "example": "[1,2]",
+              "description": "JSON array from GET /consumer/config/zone-id"
+            }
+          ]
+        },
+        "description": "Zone id(s) from GET /consumer/config/zone-id. Single id (2) or JSON array string ([1,2]). Comma-separated also accepted."
+      },
+      "ConsumerZoneIdHeader": {
+        "name": "zoneId",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "example": "[2]"
+        },
+        "description": "Legacy only — prefer query **zone_id**. JSON array string of zone ids."
       }
     }
   },
@@ -72,7 +3384,85 @@
         "description": "",
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Login success",
+                  "data": {
+                    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
+                    "topic": "…",
+                    "id": "1",
+                    "f_name": "John",
+                    "l_name": "Doe",
+                    "phone": "+1234567890"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Login success"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "token": {
+                          "type": "string",
+                          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…"
+                        },
+                        "topic": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "id": {
+                          "type": "string",
+                          "example": "1"
+                        },
+                        "f_name": {
+                          "type": "string",
+                          "example": "John"
+                        },
+                        "l_name": {
+                          "type": "string",
+                          "example": "Doe"
+                        },
+                        "phone": {
+                          "type": "string",
+                          "example": "+1234567890"
+                        }
+                      },
+                      "example": {
+                        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
+                        "topic": "…",
+                        "id": "1",
+                        "f_name": "John",
+                        "l_name": "Doe",
+                        "phone": "+1234567890"
+                      }
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Login success",
+                    "data": {
+                      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
+                      "topic": "…",
+                      "id": "1",
+                      "f_name": "John",
+                      "l_name": "Doe",
+                      "phone": "+1234567890"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -169,21 +3559,24 @@
     },
     "/delivery-man/register": {
       "post": {
-        "description": "",
+        "description": "Delivery Man Registration (Figma). Upload identity image via POST /upload first, then pass URL as identity_image. Admin approval required before login.",
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Application submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerApplicationResponse"
+                }
+              }
+            }
           },
           "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
+            "description": "Bad Request - Invalid input or duplicate phone/email",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Bad Request"
                 }
               }
             }
@@ -231,15 +3624,11 @@
             }
           },
           "500": {
-            "description": "Internal Server Error - Something went wrong on the server",
+            "description": "Internal Server Error",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Internal Server Error"
                 }
               }
             }
@@ -247,7 +3636,18 @@
         },
         "tags": [
           "Delivery Man Auth"
-        ]
+        ],
+        "summary": "Register delivery man (driver app)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryManRegisterBody"
+              }
+            }
+          }
+        }
       }
     },
     "/delivery-man/profile/": {
@@ -271,7 +3671,18 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -363,7 +3774,18 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -476,7 +3898,142 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "data": {
+                    "id": "1001",
+                    "user_id": "7",
+                    "restaurant_id": "12",
+                    "order_amount": 45.5,
+                    "delivery_charge": 3,
+                    "total_tax_amount": 2.5,
+                    "additional_charge": 0,
+                    "dm_tips": 0,
+                    "payment_status": "unpaid",
+                    "order_status": "pending",
+                    "payment_method": "cash_on_delivery",
+                    "order_type": "delivery",
+                    "scheduled": false,
+                    "schedule_at": null,
+                    "created_at": "2026-01-15T10:30:00.000Z"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "1001"
+                        },
+                        "user_id": {
+                          "type": "string",
+                          "example": "7"
+                        },
+                        "restaurant_id": {
+                          "type": "string",
+                          "example": "12"
+                        },
+                        "order_amount": {
+                          "type": "number",
+                          "example": 45.5
+                        },
+                        "delivery_charge": {
+                          "type": "number",
+                          "example": 3
+                        },
+                        "total_tax_amount": {
+                          "type": "number",
+                          "example": 2.5
+                        },
+                        "additional_charge": {
+                          "type": "number",
+                          "example": 0
+                        },
+                        "dm_tips": {
+                          "type": "number",
+                          "example": 0
+                        },
+                        "payment_status": {
+                          "type": "string",
+                          "example": "unpaid"
+                        },
+                        "order_status": {
+                          "type": "string",
+                          "example": "pending"
+                        },
+                        "payment_method": {
+                          "type": "string",
+                          "example": "cash_on_delivery"
+                        },
+                        "order_type": {
+                          "type": "string",
+                          "example": "delivery"
+                        },
+                        "scheduled": {
+                          "type": "boolean",
+                          "example": false
+                        },
+                        "schedule_at": {
+                          "nullable": true,
+                          "example": null
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "example": "2026-01-15T10:30:00.000Z"
+                        }
+                      },
+                      "example": {
+                        "id": "1001",
+                        "user_id": "7",
+                        "restaurant_id": "12",
+                        "order_amount": 45.5,
+                        "delivery_charge": 3,
+                        "total_tax_amount": 2.5,
+                        "additional_charge": 0,
+                        "dm_tips": 0,
+                        "payment_status": "unpaid",
+                        "order_status": "pending",
+                        "payment_method": "cash_on_delivery",
+                        "order_type": "delivery",
+                        "scheduled": false,
+                        "schedule_at": null,
+                        "created_at": "2026-01-15T10:30:00.000Z"
+                      }
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "data": {
+                      "id": "1001",
+                      "user_id": "7",
+                      "restaurant_id": "12",
+                      "order_amount": 45.5,
+                      "delivery_charge": 3,
+                      "total_tax_amount": 2.5,
+                      "additional_charge": 0,
+                      "dm_tips": 0,
+                      "payment_status": "unpaid",
+                      "order_status": "pending",
+                      "payment_method": "cash_on_delivery",
+                      "order_type": "delivery",
+                      "scheduled": false,
+                      "schedule_at": null,
+                      "created_at": "2026-01-15T10:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -576,7 +4133,50 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Order accepted successfully",
+                  "data": {
+                    "id": "1"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Order accepted successfully"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "1"
+                        }
+                      },
+                      "example": {
+                        "id": "1"
+                      }
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Order accepted successfully",
+                    "data": {
+                      "id": "1"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -690,7 +4290,32 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Success"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Success"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Success"
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
