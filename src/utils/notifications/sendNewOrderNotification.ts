@@ -1,8 +1,8 @@
 //NPM Packages
 import prisma from '../../config/database';
 
-//Vendor
-import { publishNewOrderToRestaurant } from '../vendor/order/sseHub';
+// Realtime
+import { emitNewOrderRealtime } from '../../sockets/orderRealtime';
 
 export type NewOrderPushPayload = {
   order_id: string;
@@ -28,8 +28,9 @@ export async function sendNewOrderNotification(payload: NewOrderPushPayload): Pr
     order_type: payload.order_type,
   };
 
-  publishNewOrderToRestaurant(payload.restaurant_id, {
+  emitNewOrderRealtime({
     order_id: payload.order_id,
+    restaurant_id: payload.restaurant_id,
     order_amount: payload.order_amount,
     order_type: payload.order_type,
     payment_method: payload.payment_method,
@@ -65,7 +66,6 @@ export async function sendNewOrderNotification(payload: NewOrderPushPayload): Pr
     console.error('[notify] FCM send failed', e);
   }
 }
-
 async function sendFcmDataMessage(
   fcmToken: string,
   data: Record<string, string | number>
@@ -164,3 +164,4 @@ async function getGoogleAccessToken(serviceAccountJson: string): Promise<string 
     return null;
   }
 }
+

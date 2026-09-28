@@ -3,6 +3,8 @@ services:
     build: .
     container_name: gizra-backend
     restart: always
+    env_file:
+      - .env
     ports:
       - "3002:3000"   # 3001 may be in use by other local containers
     environment:

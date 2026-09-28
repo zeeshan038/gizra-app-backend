@@ -12,7 +12,7 @@ export const orderListQuerySchema = Joi.object({
 
 export const updateOrderStatusSchema = Joi.object({
   status: Joi.string()
-    .valid('confirmed', 'processing', 'handover', 'delivered', 'canceled')
+    .valid('confirmed', 'accepted', 'processing', 'handover', 'delivered', 'canceled')
     .required(),
   cancellation_reason: Joi.string().optional().allow(''),
 });

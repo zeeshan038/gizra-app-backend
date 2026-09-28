@@ -1,4 +1,6 @@
+import http from 'http';
 import express, { Request, Response } from 'express';
+import { initSocketServer } from './sockets';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import apiRouter from './routes/index'
@@ -32,29 +34,82 @@ app.use(express.json());
 // Mount our routes
 app.use('/api', apiRouter)
 
-// Swagger Setup
-const swaggerDocument = JSON.parse(
-  fs.readFileSync(path.join(__dirname, '../swagger.json'), 'utf-8')
+// Swagger Setup (role specs at repo root — same pattern as Jikanzo)
+const openApiDir = path.join(__dirname, '..');
+
+function loadOpenApi(filename: string) {
+  return JSON.parse(fs.readFileSync(path.join(openApiDir, filename), 'utf-8'));
+}
+
+const swaggerCustomer = loadOpenApi('swagger-customer.json');
+const swaggerVendor = loadOpenApi('swagger-vendor.json');
+const swaggerDriver = loadOpenApi('swagger-driver.json');
+const swaggerAdmin = loadOpenApi('swagger-admin.json');
+const swaggerCombined = loadOpenApi('swagger.json');
+
+const sendJson =
+  (doc: object) =>
+  (_req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(doc);
+  };
+
+app.get('/swagger-customer.json', sendJson(swaggerCustomer));
+app.get('/swagger-vendor.json', sendJson(swaggerVendor));
+app.get('/swagger-driver.json', sendJson(swaggerDriver));
+app.get('/swagger-admin.json', sendJson(swaggerAdmin));
+app.get('/swagger.json', sendJson(swaggerCombined));
+
+// serveFiles embeds each spec in its own swagger-ui-init.js (shared swaggerUi.serve breaks multi-spec)
+const swaggerExplorerOpts = {
+  swaggerOptions: {
+    urls: [
+      { url: '/swagger-customer.json', name: 'Customer' },
+      { url: '/swagger-vendor.json', name: 'Vendor' },
+      { url: '/swagger-driver.json', name: 'Driver' },
+      { url: '/swagger-admin.json', name: 'Admin' },
+    ],
+  },
+};
+
+app.use(
+  '/swagger/customer',
+  ...swaggerUi.serveFiles(swaggerCustomer),
+  swaggerUi.setup(swaggerCustomer, { customSiteTitle: 'Gizra Customer API' })
+);
+app.use(
+  '/swagger/vendor',
+  ...swaggerUi.serveFiles(swaggerVendor),
+  swaggerUi.setup(swaggerVendor, { customSiteTitle: 'Gizra Vendor API' })
+);
+app.use(
+  '/swagger/driver',
+  ...swaggerUi.serveFiles(swaggerDriver),
+  swaggerUi.setup(swaggerDriver, { customSiteTitle: 'Gizra Driver API' })
+);
+app.use(
+  '/swagger/admin',
+  ...swaggerUi.serveFiles(swaggerAdmin),
+  swaggerUi.setup(swaggerAdmin, { customSiteTitle: 'Gizra Admin API' })
+);
+app.use(
+  '/swagger',
+  ...swaggerUi.serveFiles(undefined, swaggerExplorerOpts),
+  swaggerUi.setup(null, { ...swaggerExplorerOpts, explorer: true, customSiteTitle: 'Gizra API' })
 );
 
-const options = {
-  swaggerOptions: {
-    url: '/swagger.json'
-  }
-};
-app.use('/swagger', swaggerUi.serve, swaggerUi.setup(undefined, options));
+const port = process.env.PORT || 3000;
 
-// Serve the raw swagger JSON
-app.get('/swagger.json', (req: Request, res: Response) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.send(swaggerDocument);
-});
-
-// Test database connection
-connectDB();
-
-app.listen(process.env.PORT, () => {
-  console.log(`Server is running on port ${process.env.PORT}`);
-});
+connectDB()
+  .then(async () => {
+    const httpServer = http.createServer(app);
+    await initSocketServer(httpServer);
+    httpServer.listen(port, () => {
+      console.log(`Server is running on port ${port}`);
+    });
+  })
+  .catch(() => {
+    process.exit(1);
+  });
 
 export default app;
