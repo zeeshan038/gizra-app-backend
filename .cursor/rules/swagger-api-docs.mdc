@@ -1,20 +1,34 @@
 ---
-description: Keep swagger.json in sync when adding or changing API endpoints
-globs: swagger.json,src/routes/**/*.ts,src/controllers/**/*.ts
+description: Keep OpenAPI specs in sync when adding or changing API endpoints
+globs: swagger-customer.json,swagger-vendor.json,swagger-driver.json,swagger-admin.json,swagger.json,src/routes/**/*.ts,src/controllers/**/*.ts
 alwaysApply: false
 ---
 
 # Swagger documentation
 
-This project serves OpenAPI from **`swagger.json`** at the repo root (`/swagger` and `/swagger.json` in `src/index.ts`).
+OpenAPI is split by client. After route changes run `npm run swagger:gen`.
 
-Whenever you add or change an API route or controller behavior that affects the public contract, **update `swagger.json`** in the same change.
+| File | Update when |
+|------|-------------|
+| **`swagger-customer.json`** | Customer / consumer app routes (`/consumer/*`) |
+| **`swagger-vendor.json`** | Vendor panel & POS routes (`/vendor/*`) |
+| **`swagger-driver.json`** | Driver / delivery-man routes (`/delivery-man/*`) |
+| **`swagger-admin.json`** | Admin dashboard routes (`/admin/*`) |
+
+Served in `src/index.ts`:
+
+- UI picker: `/swagger` (dropdown: Customer / Vendor / Driver / Admin)
+- Customer only: `/swagger/customer` → `/swagger-customer.json`
+- Vendor only: `/swagger/vendor` → `/swagger-vendor.json`
+- Driver only: `/swagger/driver` → `/swagger-driver.json`
+- Admin only: `/swagger/admin` → `/swagger-admin.json`
+- Combined export: `/swagger.json`
 
 Document each endpoint with:
 
-1. **Path & method** — Exact URL and HTTP verb as exposed to clients.
-2. **Request body** — Required and optional fields with types (use `components.schemas` for reuse when appropriate).
-3. **Success response** — Full JSON shape the API returns. **Do not use empty `{}` placeholders**; mirror real fields (`status`, `msg`, `data`, etc.).
-4. **Errors** — Status codes the handler can return (400, 401, 403, 404, 500, …) with representative response bodies/messages.
+1. **Path & method** — Exact URL and HTTP verb as exposed to clients (paths are relative to `servers[].url`, e.g. `/consumer/login` under `/api`).
+2. **Request body** — Required and optional fields with types (`components.schemas` in the same file).
+3. **Success response** — Full JSON shape. **Do not use empty `{}` placeholders**; mirror real fields (`status`, `msg`, `data`, etc.).
+4. **Errors** — Status codes the handler can return with representative bodies/messages.
 
-After edits, ensure paths match how routers are mounted in `src/index.ts` and nested route files under `src/routes/`.
+After edits, ensure paths match router mounts in `src/routes/index.ts`.

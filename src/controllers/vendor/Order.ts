@@ -6,6 +6,7 @@ import prisma from '../../config/database';
 
 //Utils
 import { getVendorContext } from '../../utils/vendor/context';
+import { emitOrderStatusRealtime } from '../../sockets/orderRealtime';
 import { subscribeVendorOrders } from '../../utils/vendor/order/sseHub';
 import {
   buildStatusFilter,
@@ -345,6 +346,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
     };
 
     if (status === 'confirmed') updateData.confirmed = now;
+    if (status === 'accepted') updateData.accepted = now;
     if (status === 'processing') updateData.processing = now;
     if (status === 'handover') updateData.handover = now;
     if (status === 'delivered') updateData.delivered = now;
@@ -358,6 +360,8 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
       where: { id: order.id },
       data: updateData,
     });
+
+    emitOrderStatusRealtime(updated);
 
     return res.status(200).json({
       status: true,

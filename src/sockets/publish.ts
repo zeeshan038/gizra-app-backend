@@ -1,0 +1,34 @@
+import type { Server } from 'socket.io';
+import { SocketEvents } from '../types/sockets/realtime';
+import type { OrderNewPayload, OrderUpdatedPayload } from '../types/sockets/realtime';
+import { deliveryManRoom, orderRoom, restaurantRoom, userRoom } from './rooms';
+
+let io: Server | null = null;
+
+export function bindSocketServer(server: Server): void {
+  io = server;
+}
+
+export function getSocketServer(): Server | null {
+  return io;
+}
+
+export function publishOrderNew(payload: OrderNewPayload): void {
+  if (!io) return;
+  const room = restaurantRoom(payload.restaurant_id);
+  io.to(room).emit(SocketEvents.NEW_ORDER, payload);
+}
+
+export function publishOrderUpdated(payload: OrderUpdatedPayload): void {
+  if (!io) return;
+
+  io.to(restaurantRoom(payload.restaurant_id)).emit(SocketEvents.ORDER_STATUS_CHANGED, payload);
+  io.to(orderRoom(payload.order_id)).emit(SocketEvents.ORDER_STATUS_CHANGED, payload);
+
+  if (payload.user_id) {
+    io.to(userRoom(payload.user_id)).emit(SocketEvents.ORDER_STATUS_CHANGED, payload);
+  }
+  if (payload.delivery_man_id) {
+    io.to(deliveryManRoom(payload.delivery_man_id)).emit(SocketEvents.ORDER_STATUS_CHANGED, payload);
+  }
+}

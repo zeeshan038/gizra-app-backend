@@ -1,6 +1,6 @@
 # Swagger Documentation Rule
 
-Whenever a new API route or endpoint is created, you MUST automatically update the corresponding Swagger API documentation to include it.
+Whenever a new API route or endpoint is created, you MUST automatically update the corresponding Swagger API documentation to include it. Run `npm run swagger:gen` so the four role specs stay in sync (`swagger-customer.json`, `swagger-vendor.json`, `swagger-driver.json`, `swagger-admin.json`).
 
 When documenting the API in Swagger, ensure the following are always provided accurately and comprehensively:
 1. **Proper URL**: The exact route path and HTTP method.
