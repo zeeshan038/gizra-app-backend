@@ -66,7 +66,11 @@ function mergeOperation(baseOp, overlayOp) {
   if (overlayOp.tags?.length) merged.tags = overlayOp.tags;
   if (overlayOp.security) merged.security = overlayOp.security;
   if (overlayOp.parameters?.length) merged.parameters = overlayOp.parameters;
-  if (overlayOp.requestBody) merged.requestBody = overlayOp.requestBody;
+  if (overlayOp.requestBody === false) {
+    delete merged.requestBody;
+  } else if (overlayOp.requestBody) {
+    merged.requestBody = overlayOp.requestBody;
+  }
   merged.responses = mergeResponses(baseOp.responses, overlayOp.responses);
 
   return merged;

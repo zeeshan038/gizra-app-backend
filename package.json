@@ -8,8 +8,10 @@
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "create-admin": "ts-node scripts/createAdmin.ts",
+    "approve-riders": "ts-node scripts/approveDeliveryMen.ts",
+    "approve-vendors": "node approve.js",
     "enable-postgis": "ts-node scripts/enablePostgis.ts",
-    "swagger:gen": "node swagger-gen.js",
+    "swagger:gen": "node scripts/mergeDeliveryManSwaggerOverlay.js && node swagger-gen.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

@@ -21,6 +21,8 @@ import {
 } from '../../utils/consumer/passwordResetDb';
 import { maskEmailForClient, sendConsumerOtpEmail } from '../../utils/consumer/sendConsumerOtpEmail';
 import { sendConsumerOtpSms } from '../../utils/consumer/sendConsumerOtpSms';
+import { provisionAccountStorage } from '../../utils/accountStorage';
+import { normalizeStoredMedia } from '../../utils/mediaStorage';
 
 const prisma = new PrismaClient();
 
@@ -178,6 +180,17 @@ export const register = async (req: Request, res: Response): Promise<any> => {
         // 2. Hash password
         const hashedPassword = await bcrypt.hash(payload.password, 10);
 
+        let cloudflareId: string;
+        try {
+            cloudflareId = await provisionAccountStorage('vendor', payload.cloudflare_id);
+        } catch (storageErr: unknown) {
+            const msg = storageErr instanceof Error ? storageErr.message : 'Storage setup failed';
+            return res.status(400).json({ status: false, msg });
+        }
+
+        const logo = normalizeStoredMedia(payload.logo, 'default_logo.png');
+        const coverPhoto = normalizeStoredMedia(payload.cover_photo, 'default_cover.png');
+
         // 3. Create Vendor and Restaurant safely in a transaction
         await prisma.$transaction(async (prismaTx) => {
             const vendor = await prismaTx.vendors.create({
@@ -187,6 +200,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
                     email: payload.email,
                     phone: payload.phone,
                     password: hashedPassword,
+                    cloudflareId,
                     status: false, // Pending admin approval
                     created_at: new Date(),
                     updated_at: new Date()
@@ -207,8 +221,8 @@ export const register = async (req: Request, res: Response): Promise<any> => {
                     delivery_time: `${payload.minimum_delivery_time || '30'}-${payload.maximum_delivery_time || '45'}-${payload.delivery_time_type || 'min'}`,
                     status: false, // Pending admin approval
                     restaurant_model: 'none',
-                    logo: payload.logo?.trim() || 'default_logo.png',
-                    cover_photo: payload.cover_photo?.trim() || 'default_cover.png',
+                    logo,
+                    cover_photo: coverPhoto,
                     additional_data: JSON.stringify({
                         default_language: payload.language || 'en',
                     }),
@@ -233,7 +247,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
         return res.status(200).json({
             status: true,
             msg: 'Registration successful! Please wait for admin approval.',
-            data: { application_status: 'pending' },
+            data: { application_status: 'pending', cloudflare_id: cloudflareId },
         });
 
     } catch (error: any) {

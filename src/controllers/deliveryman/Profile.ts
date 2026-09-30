@@ -37,7 +37,7 @@ export const getProfile = async (req: Request, res: Response): Promise<any> => {
 
 /**
  * @Description Toggle Active Status
- * @Route PUT /api/delivery-man/status
+ * @Route PUT /api/delivery-man/profile/status
  * @Access Private (Delivery Man)
  */
 export const activeStatus = async (req: Request, res: Response): Promise<any> => {

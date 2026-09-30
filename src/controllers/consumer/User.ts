@@ -1,11 +1,10 @@
 //NPM Packages
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../config/database';
+import { safeApiErrorMessage } from '../../utils/safeApiError';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-
-const prisma = new PrismaClient();
 
 //Schema
 import {
@@ -16,6 +15,8 @@ import {
 } from '../../schemas/consumer/User';
 import { parseZoneIdsFromRequest } from '../../utils/consumer/favouriteHelpers';
 import { verifyResetToken } from '../../utils/consumer/passwordResetDb';
+import { provisionAccountStorage } from '../../utils/accountStorage';
+import { normalizeStoredMedia } from '../../utils/mediaStorage';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_here';
 
@@ -274,10 +275,11 @@ export const login = async (req: Request, res: Response): Promise<any> => {
             });
         }
 
-    } catch (error: any) {
-        return res.status(500).json({
+    } catch (error: unknown) {
+        console.error('[consumer/login]', error);
+        return res.status(503).json({
             status: false,
-            msg: error.message
+            msg: safeApiErrorMessage(error, 'Login failed. Please try again.'),
         });
     }
 };
@@ -356,6 +358,17 @@ export const applyForRestaurant = async (req: Request, res: Response): Promise<a
     const tempPassword = crypto.randomBytes(16).toString('hex');
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
+    let cloudflareId: string;
+    try {
+      cloudflareId = await provisionAccountStorage('vendor', payload.cloudflare_id);
+    } catch (storageErr: unknown) {
+      const msg = storageErr instanceof Error ? storageErr.message : 'Storage setup failed';
+      return res.status(400).json({ status: false, msg });
+    }
+
+    const logo = normalizeStoredMedia(payload.logo, 'default_logo.png');
+    const coverPhoto = normalizeStoredMedia(payload.cover_photo, 'default_cover.png');
+
     await prisma.$transaction(async (prismaTx) => {
       const vendor = await prismaTx.vendors.create({
         data: {
@@ -364,6 +377,7 @@ export const applyForRestaurant = async (req: Request, res: Response): Promise<a
           email: user.email,
           phone: user.phone,
           password: hashedPassword,
+          cloudflareId,
           status: false,
           created_at: new Date(),
           updated_at: new Date(),
@@ -384,8 +398,8 @@ export const applyForRestaurant = async (req: Request, res: Response): Promise<a
           delivery_time: '30-45-min',
           status: false,
           restaurant_model: 'none',
-          logo: payload.logo?.trim() || 'default_logo.png',
-          cover_photo: payload.cover_photo?.trim() || 'default_cover.png',
+          logo,
+          cover_photo: coverPhoto,
           additional_data: JSON.stringify({ default_language: payload.language || 'en' }),
           created_at: new Date(),
           updated_at: new Date(),
@@ -408,7 +422,7 @@ export const applyForRestaurant = async (req: Request, res: Response): Promise<a
     return res.status(200).json({
       status: true,
       msg: 'Application submitted! Please wait for admin approval.',
-      data: { application_status: 'pending' },
+      data: { application_status: 'pending', cloudflare_id: cloudflareId },
     });
   } catch (error: any) {
     return res.status(500).json({ status: false, msg: error.message });
@@ -434,6 +448,8 @@ export const applyForDeliveryMan = async (req: Request, res: Response): Promise<
     email: string;
     password: string;
     identity_image?: string | null;
+    image?: string | null;
+    cloudflare_id?: string | null;
     otp: string;
     zone_id?: number;
   };
@@ -462,6 +478,17 @@ export const applyForDeliveryMan = async (req: Request, res: Response): Promise<
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
 
+    let cloudflareId: string;
+    try {
+      cloudflareId = await provisionAccountStorage('deliveryman', data.cloudflare_id);
+    } catch (storageErr: unknown) {
+      const msg = storageErr instanceof Error ? storageErr.message : 'Storage setup failed';
+      return res.status(400).json({ status: false, msg });
+    }
+
+    const identityImage = normalizeStoredMedia(data.identity_image, 'placeholder_id.png');
+    const profileImage = normalizeStoredMedia(data.image, 'placeholder_profile.png', 100);
+
     await prisma.delivery_men.create({
       data: {
         f_name: data.f_name,
@@ -469,6 +496,7 @@ export const applyForDeliveryMan = async (req: Request, res: Response): Promise<
         email: data.email,
         phone: data.phone,
         password: hashedPassword,
+        cloudflareId,
         identity_type: 'nid',
         identity_number: '',
         zone_id,
@@ -477,8 +505,8 @@ export const applyForDeliveryMan = async (req: Request, res: Response): Promise<
         status: false,
         active: false,
         type: 'zone_wise',
-        identity_image: data.identity_image?.trim() || 'placeholder_id.png',
-        image: 'placeholder_profile.png',
+        identity_image: identityImage,
+        image: profileImage,
         created_at: new Date(),
         updated_at: new Date(),
       },
@@ -487,7 +515,7 @@ export const applyForDeliveryMan = async (req: Request, res: Response): Promise<
     return res.status(200).json({
       status: true,
       msg: 'Application submitted! Please wait for admin approval.',
-      data: { application_status: 'pending' },
+      data: { application_status: 'pending', cloudflare_id: cloudflareId },
     });
   } catch (error: any) {
     return res.status(500).json({ status: false, msg: error.message });

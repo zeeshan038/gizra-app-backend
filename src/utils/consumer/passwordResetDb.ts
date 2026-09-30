@@ -90,7 +90,7 @@ export async function verifyResetToken(
   value: string,
   resetToken: string
 ): Promise<boolean> {
-  if (isTestOtpMode() && resetToken === '123456') {
+  if (isTestOtpMode() && (resetToken === '123456' || resetToken === '1234')) {
     return true;
   }
   const row = await findPasswordReset(channel, value);
