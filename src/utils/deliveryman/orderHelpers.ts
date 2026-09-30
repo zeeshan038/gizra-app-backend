@@ -4,6 +4,7 @@ import {
   parseDeliveryAddress,
   resolveOrderDeliveryAddress,
 } from '../vendor/order/detailMapper';
+import { publicMediaUrl } from '../mediaStorage';
 
 export const DM_ACTIVE_ORDER_STATUSES = [
   'accepted',
@@ -62,7 +63,17 @@ export type DmOrderListItem = {
   delivery_address_snippet: string | null;
   latitude: string | number | null;
   longitude: string | number | null;
+  restaurant_image_url: string | null;
+  customer_image_url: string | null;
 };
+
+const DEFAULT_RESTAURANT_IMAGE = 'default_logo.png';
+const DEFAULT_CUSTOMER_IMAGE = 'def.png';
+
+function driverMediaUrl(stored: string | null | undefined, fallback: string): string {
+  const raw = stored?.trim() || fallback;
+  return publicMediaUrl(raw) ?? raw;
+}
 
 async function loadFirstItemTitles(orderIds: bigint[]): Promise<Map<string, string>> {
   const map = new Map<string, string>();
@@ -120,18 +131,23 @@ export async function mapOrdersForDeliveryManList(
   const [restaurants, users, itemTitles] = await Promise.all([
     prisma.restaurants.findMany({
       where: { id: { in: restaurantIds.map((id) => BigInt(id)) } },
-      select: { id: true, name: true },
+      select: { id: true, name: true, logo: true, cover_photo: true },
     }),
     userIds.length
       ? prisma.users.findMany({
           where: { id: { in: userIds.map((id) => BigInt(id)) } },
-          select: { id: true, f_name: true, l_name: true },
+          select: { id: true, f_name: true, l_name: true, image: true },
         })
       : Promise.resolve([]),
     loadFirstItemTitles(orderRows.map((o) => o.id)),
   ]);
 
-  const restaurantById = new Map(restaurants.map((r) => [Number(r.id), r.name]));
+  const restaurantById = new Map(
+    restaurants.map((r) => [
+      Number(r.id),
+      { name: r.name, logo: r.logo, cover_photo: r.cover_photo },
+    ])
+  );
   const userById = new Map(users.map((u) => [Number(u.id), u]));
 
   const addressRawByOrderId = new Map<string, string | null>();
@@ -149,6 +165,10 @@ export async function mapOrdersForDeliveryManList(
       : null;
     const addressRaw = addressRawByOrderId.get(id) ?? order.delivery_address;
     const parsed = parseDeliveryAddress(addressRaw);
+    const restaurant = restaurantById.get(Number(order.restaurant_id));
+    const restaurantImageStored =
+      restaurant?.logo?.trim() || restaurant?.cover_photo?.trim() || DEFAULT_RESTAURANT_IMAGE;
+    const customerImageStored = user?.image?.trim() || DEFAULT_CUSTOMER_IMAGE;
 
     return {
       id,
@@ -158,12 +178,14 @@ export async function mapOrdersForDeliveryManList(
       delivery_charge: Number(order.delivery_charge) || 0,
       schedule_at: order.schedule_at?.toISOString() ?? null,
       restaurant_id: String(order.restaurant_id),
-      restaurant_name: restaurantById.get(Number(order.restaurant_id)) ?? null,
+      restaurant_name: restaurant?.name ?? null,
       customer_name: customerName,
       item_title: itemTitles.get(id) ?? null,
       delivery_address_snippet: formatAddressSnippet(addressRaw),
       latitude: parsed?.latitude ?? null,
       longitude: parsed?.longitude ?? null,
+      restaurant_image_url: driverMediaUrl(restaurantImageStored, DEFAULT_RESTAURANT_IMAGE),
+      customer_image_url: driverMediaUrl(customerImageStored, DEFAULT_CUSTOMER_IMAGE),
     };
   });
 }

@@ -31,6 +31,6 @@ export function publicMediaUrl(stored: string | null | undefined): string | null
   if (stored.startsWith('http://') || stored.startsWith('https://')) return stored;
   const base = (process.env.CLOUDFLARE_PUBLIC_URL || '').replace(/\/$/, '');
   if (!base) return stored;
-  if (stored.includes('/')) return `${base}/${stored.replace(/^\//, '')}`;
-  return null;
+  const path = stored.replace(/^\//, '');
+  return `${base}/${path}`;
 }

@@ -3478,29 +3478,7 @@
             "example": "Login success"
           },
           "data": {
-            "type": "object",
-            "properties": {
-              "token": {
-                "type": "string"
-              },
-              "topic": {
-                "type": "string",
-                "example": "delivery_man_2_1",
-                "description": "FCM topic for new requests"
-              },
-              "id": {
-                "type": "string"
-              },
-              "f_name": {
-                "type": "string"
-              },
-              "l_name": {
-                "type": "string"
-              },
-              "phone": {
-                "type": "string"
-              }
-            }
+            "$ref": "#/components/schemas/DeliveryManLoginData"
           }
         }
       },
@@ -3593,8 +3571,7 @@
             "example": "Success"
           },
           "data": {
-            "type": "object",
-            "description": "Delivery man record (id/zone_id as strings; no password)"
+            "$ref": "#/components/schemas/DeliveryManProfileData"
           }
         }
       },
@@ -3619,33 +3596,91 @@
       },
       "DeliveryManOrderSummary": {
         "type": "object",
-        "description": "Mapped order card for driver UI (restaurant, customer, amounts, address)",
+        "description": "Order request / active card (GET /orders/latest and GET /orders/active)",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "example": "100178"
           },
           "order_status": {
-            "type": "string"
-          },
-          "order_amount": {
-            "type": "number"
+            "type": "string",
+            "example": "handover"
           },
           "payment_method": {
-            "type": "string"
+            "type": "string",
+            "example": "cash_on_delivery",
+            "nullable": true
           },
-          "restaurant_name": {
-            "type": "string"
+          "order_amount": {
+            "type": "number",
+            "example": 60
           },
-          "restaurant_address": {
-            "type": "string"
-          },
-          "delivery_address": {
-            "type": "string"
+          "delivery_charge": {
+            "type": "number",
+            "example": 30,
+            "description": "Driver delivery fee for this order"
           },
           "schedule_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "string"
+          },
+          "restaurant_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "customer_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_image_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Full URL (CLOUDFLARE_PUBLIC_URL + logo/cover) for pickup avatar"
+          },
+          "customer_image_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Full URL for customer profile image (fallback def.png)"
+          },
+          "item_title": {
+            "type": "string",
+            "nullable": true,
+            "description": "First line item name"
+          },
+          "delivery_address_snippet": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "string",
+            "nullable": true,
+            "description": "Customer delivery lat (string or number)"
+          },
+          "longitude": {
+            "type": "string",
+            "nullable": true
           }
+        },
+        "example": {
+          "id": "100179",
+          "order_status": "confirmed",
+          "payment_method": "cash_on_delivery",
+          "order_amount": 210,
+          "delivery_charge": 30,
+          "schedule_at": null,
+          "restaurant_id": "5",
+          "restaurant_name": "Quatta Cafe",
+          "customer_name": "Mudasir Khan",
+          "restaurant_image_url": "https://cdn.example.com/restaurant/logo.png",
+          "customer_image_url": "https://cdn.example.com/profile/user.jpg",
+          "item_title": "Beef Burger",
+          "delivery_address_snippet": "block B, Soan Garden",
+          "latitude": "33.123456",
+          "longitude": "73.654321"
         }
       },
       "DeliveryManUpdateOrderStatusBody": {
@@ -3748,7 +3783,7 @@
       },
       "DeliveryManMyOrderCard": {
         "type": "object",
-        "description": "Figma order row — #id, title, item count, date/time, status pill, amount",
+        "description": "Figma My Orders row — #id, title, item count, date/time, status pill, amount",
         "properties": {
           "id": {
             "type": "string",
@@ -3758,9 +3793,14 @@
             "type": "string",
             "example": "100178"
           },
+          "order_number": {
+            "type": "string",
+            "example": "100178"
+          },
           "item_name": {
             "type": "string",
-            "example": "Classic Cheeseburger"
+            "example": "Classic Cheeseburger",
+            "nullable": true
           },
           "item_count": {
             "type": "integer",
@@ -3784,14 +3824,27 @@
           },
           "order_date": {
             "type": "string",
-            "example": "25 Aug, 2026"
+            "example": "25 Aug, 2026",
+            "nullable": true
           },
           "order_time": {
             "type": "string",
-            "example": "18:35"
+            "example": "18:35",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "delivered_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           },
           "restaurant_name": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -3871,6 +3924,17 @@
       "DeliveryManEarningHistoryItem": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "string",
+            "description": "Transaction id or order-{id} fallback"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "order_transaction",
+              "delivered_order"
+            ]
+          },
           "order_id": {
             "type": "string"
           },
@@ -3880,7 +3944,8 @@
           },
           "earned_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "nullable": true
           },
           "delivery_fee": {
             "type": "number"
@@ -3894,18 +3959,42 @@
           "order_amount": {
             "type": "number"
           },
-          "restaurant_name": {
+          "payment_method": {
+            "type": "string",
+            "nullable": true
+          },
+          "payment_status": {
+            "type": "string",
+            "nullable": true
+          },
+          "order_status": {
             "type": "string"
           },
+          "restaurant_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_logo": {
+            "type": "string",
+            "nullable": true
+          },
           "item_name": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "item_count": {
             "type": "integer"
           },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
           "order": {
-            "type": "object",
-            "description": "Full order snapshot with items[]"
+            "$ref": "#/components/schemas/DeliveryManEarningOrderSnapshot"
           }
         }
       },
@@ -3928,6 +4017,258 @@
               "order_status": {
                 "type": "string"
               }
+            }
+          }
+        }
+      },
+      "DeliveryManLoginData": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Bearer JWT for all protected routes"
+          },
+          "topic": {
+            "type": "string",
+            "example": "delivery_man_2_1",
+            "description": "Firebase topic — subscribe for zone/vehicle order pushes"
+          },
+          "id": {
+            "type": "string"
+          },
+          "f_name": {
+            "type": "string"
+          },
+          "l_name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          }
+        }
+      },
+      "DeliveryManProfileData": {
+        "type": "object",
+        "description": "Delivery man row without password or auth_token (GET whoami / profile)",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "f_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "l_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "identity_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "identity_type": {
+            "type": "string",
+            "nullable": true
+          },
+          "identity_image": {
+            "type": "string",
+            "nullable": true,
+            "description": "JSON array string of R2 paths"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "description": "Profile photo path"
+          },
+          "fcm_token": {
+            "type": "string",
+            "nullable": true
+          },
+          "zone_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicle_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "shift_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "boolean",
+            "description": "Account enabled by admin"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Online — available for new requests"
+          },
+          "earning": {
+            "type": "boolean"
+          },
+          "current_orders": {
+            "type": "string",
+            "description": "Active assignment count (BigInt serialized)"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "zone_wise",
+              "restaurant_wise"
+            ],
+            "example": "zone_wise"
+          },
+          "application_status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "denied"
+            ]
+          },
+          "order_count": {
+            "type": "string"
+          },
+          "assigned_order_count": {
+            "type": "string"
+          },
+          "additional_data": {
+            "type": "string",
+            "nullable": true
+          },
+          "additional_documents": {
+            "type": "string",
+            "nullable": true
+          },
+          "cloudflareId": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "DeliveryManProfileResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/DeliveryManProfileData"
+          }
+        }
+      },
+      "DeliveryManStatusToggleResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Status changed to active"
+          }
+        }
+      },
+      "DeliveryManEarningOrderItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "food_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "price": {
+            "type": "number"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "DeliveryManEarningOrderSnapshot": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "order_status": {
+            "type": "string"
+          },
+          "order_amount": {
+            "type": "number"
+          },
+          "delivery_charge": {
+            "type": "number"
+          },
+          "original_delivery_charge": {
+            "type": "number"
+          },
+          "dm_tips": {
+            "type": "number"
+          },
+          "payment_method": {
+            "type": "string",
+            "nullable": true
+          },
+          "payment_status": {
+            "type": "string"
+          },
+          "delivered_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "delivery_address": {
+            "type": "string",
+            "nullable": true
+          },
+          "distance": {
+            "type": "number",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeliveryManEarningOrderItem"
             }
           }
         }
@@ -4055,6 +4396,18 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DeliveryManLoginResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Login success",
+                  "data": {
+                    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                    "topic": "delivery_man_2_1",
+                    "id": "4",
+                    "f_name": "Ahmed",
+                    "l_name": "Khan",
+                    "phone": "+972501234567"
+                  }
                 }
               }
             }
@@ -4171,6 +4524,14 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PartnerApplicationResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Registration successful! Please wait for admin approval.",
+                  "data": {
+                    "application_status": "pending",
+                    "cloudflare_id": "550e8400-e29b-41d4-a716-446655440000"
+                  }
                 }
               }
             }
@@ -4271,59 +4632,9 @@
                   "msg": "OTP successfully sent",
                   "data": {
                     "field_type": "phone",
-                    "phone_mask": "+1234567890",
-                    "email_mask": 0,
+                    "phone_mask": "+972****4567",
+                    "email_mask": "a***@gmail.com",
                     "resend_after_seconds": 60
-                  }
-                },
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "OTP successfully sent"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "field_type": {
-                          "type": "string",
-                          "example": "phone"
-                        },
-                        "phone_mask": {
-                          "type": "string",
-                          "example": "+1234567890"
-                        },
-                        "email_mask": {
-                          "type": "number",
-                          "example": 0
-                        },
-                        "resend_after_seconds": {
-                          "type": "number",
-                          "example": 60
-                        }
-                      },
-                      "example": {
-                        "field_type": "phone",
-                        "phone_mask": "+1234567890",
-                        "email_mask": 0,
-                        "resend_after_seconds": 60
-                      }
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "msg": "OTP successfully sent",
-                    "data": {
-                      "field_type": "phone",
-                      "phone_mask": "+1234567890",
-                      "email_mask": 0,
-                      "resend_after_seconds": 60
-                    }
                   }
                 }
               }
@@ -4433,23 +4744,6 @@
                 "example": {
                   "status": true,
                   "msg": "OTP verified, you can set a new password"
-                },
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "OTP verified, you can set a new password"
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "msg": "OTP verified, you can set a new password"
-                  }
                 }
               }
             }
@@ -4915,6 +5209,74 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DeliveryManEarningsResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Success",
+                  "data": {
+                    "summary": {
+                      "wallet": {
+                        "total_earning": 1250.5,
+                        "total_withdrawn": 400,
+                        "pending_withdraw": 0,
+                        "collected_cash": 180,
+                        "balance": 850.5
+                      },
+                      "todays_earning": 45,
+                      "this_week_earning": 210,
+                      "this_month_earning": 890,
+                      "lifetime_earning": 1250.5
+                    },
+                    "total_size": 1,
+                    "limit": 15,
+                    "offset": 1,
+                    "history": [
+                      {
+                        "id": "88",
+                        "source": "order_transaction",
+                        "order_id": "100178",
+                        "transaction_id": "88",
+                        "earned_at": "2026-09-28T15:30:00.000Z",
+                        "delivery_fee": 30,
+                        "dm_tips": 5,
+                        "total_earning": 35,
+                        "order_amount": 60,
+                        "payment_method": "cash_on_delivery",
+                        "payment_status": "paid",
+                        "order_status": "delivered",
+                        "restaurant_id": "5",
+                        "restaurant_name": "Gizra Awesome Restaurant",
+                        "restaurant_logo": "restaurant/logo.png",
+                        "item_name": "Chicken Biryani",
+                        "item_count": 2,
+                        "image": "food/biryani.png",
+                        "order": {
+                          "id": "100178",
+                          "order_status": "delivered",
+                          "order_amount": 60,
+                          "delivery_charge": 30,
+                          "original_delivery_charge": 30,
+                          "dm_tips": 5,
+                          "payment_method": "cash_on_delivery",
+                          "payment_status": "paid",
+                          "delivered_at": "2026-09-28T15:30:00.000Z",
+                          "created_at": "2026-09-28T14:00:00.000Z",
+                          "delivery_address": "{\"address\":\"block B, Soan Garden\",\"latitude\":\"33.123\",\"longitude\":\"73.456\"}",
+                          "distance": 2.5,
+                          "items": [
+                            {
+                              "id": "501",
+                              "food_id": "12",
+                              "name": "Chicken Biryani",
+                              "quantity": 1,
+                              "price": 25,
+                              "image": "food/biryani.png"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
                 }
               }
             }
@@ -5011,6 +5373,37 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DeliveryManWhoamiResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Success",
+                  "data": {
+                    "id": "4",
+                    "f_name": "Ahmed",
+                    "l_name": "Khan",
+                    "phone": "+972501234567",
+                    "email": "ahmed@example.com",
+                    "identity_number": "123456789",
+                    "identity_type": "passport",
+                    "identity_image": "[\"identity/front.jpg\",\"identity/back.jpg\"]",
+                    "image": "profile/driver.jpg",
+                    "fcm_token": null,
+                    "zone_id": "2",
+                    "restaurant_id": null,
+                    "vehicle_id": "1",
+                    "shift_id": null,
+                    "status": true,
+                    "active": true,
+                    "earning": true,
+                    "current_orders": "0",
+                    "type": "zone_wise",
+                    "application_status": "approved",
+                    "order_count": "12",
+                    "assigned_order_count": "15",
+                    "created_at": "2026-01-15T10:00:00.000Z",
+                    "updated_at": "2026-09-28T18:00:00.000Z",
+                    "cloudflareId": "cf-uuid-here"
+                  }
                 }
               }
             }
@@ -5114,13 +5507,24 @@
             "description": "Profile",
             "content": {
               "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManProfileResponse"
+                },
                 "example": {
                   "status": true,
                   "data": {
                     "id": "4",
                     "f_name": "Ahmed",
+                    "l_name": "Khan",
+                    "phone": "+972501234567",
+                    "email": "ahmed@example.com",
                     "zone_id": "2",
-                    "active": true
+                    "active": true,
+                    "status": true,
+                    "application_status": "approved",
+                    "type": "zone_wise",
+                    "image": "profile/driver.jpg",
+                    "current_orders": "0"
                   }
                 }
               }
@@ -5169,7 +5573,7 @@
             }
           },
           "404": {
-            "description": "Not Found",
+            "description": "Driver not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -5216,6 +5620,9 @@
             "description": "Status toggled",
             "content": {
               "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManStatusToggleResponse"
+                },
                 "example": {
                   "status": true,
                   "msg": "Status changed to active"
@@ -5266,7 +5673,7 @@
             }
           },
           "404": {
-            "description": "Not Found",
+            "description": "Driver not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -5302,7 +5709,7 @@
     },
     "/delivery-man/orders/active": {
       "get": {
-        "description": "Orders currently assigned to this driver (home / My Orders). Statuses include accepted, confirmed, processing, handover, picked_up, etc.",
+        "description": "Home / active trip — assigned orders. Same card shape as **GET /orders/latest** (includes **restaurant_image_url**, **customer_image_url**, amounts, address snippet, lat/lng). Statuses: accepted, confirmed, processing, handover, picked_up, etc.",
         "parameters": [
           {
             "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
@@ -5315,6 +5722,29 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DeliveryManOrderListResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Success",
+                  "data": [
+                    {
+                      "id": "100178",
+                      "order_status": "handover",
+                      "payment_method": "cash_on_delivery",
+                      "order_amount": 60,
+                      "delivery_charge": 30,
+                      "schedule_at": null,
+                      "restaurant_id": "5",
+                      "restaurant_name": "Quatta Cafe",
+                      "customer_name": "Mudasir Khan",
+                      "restaurant_image_url": "https://cdn.example.com/restaurant/logo.png",
+                      "customer_image_url": "https://cdn.example.com/profile/user.jpg",
+                      "item_title": "Chicken Biryani",
+                      "delivery_address_snippet": "block B, Soan Garden",
+                      "latitude": "33.123456",
+                      "longitude": "73.654321"
+                    }
+                  ]
                 }
               }
             }
@@ -5398,7 +5828,7 @@
     },
     "/delivery-man/orders/latest": {
       "get": {
-        "description": "Poll for new delivery jobs in the driver's **zone** (restaurants with commission / eligible subscription, not self-delivery). Typically shows orders after restaurant confirms (`confirmed` / `processing` / `handover`) when `order_confirmation_model=restaurant`. COD `pending` orders appear only when confirmation model is `deliveryman`. Filters: schedule window, vehicle, digital pending payment.",
+        "description": "Order Request tab — unassigned jobs in the driver's **zone**. Each card includes **`restaurant_image_url`** (logo/cover) and **`customer_image_url`** (profile), plus names, COD/payment, delivery snippet, and customer **latitude/longitude** for map. Poll after FCM or on tab focus. Orders usually appear after vendor confirm (`confirmed` / `processing` / `handover`). Filters: schedule window, vehicle, digital pending payment.",
         "parameters": [
           {
             "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
@@ -5411,6 +5841,29 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DeliveryManOrderListResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Success",
+                  "data": [
+                    {
+                      "id": "100179",
+                      "order_status": "confirmed",
+                      "payment_method": "cash_on_delivery",
+                      "order_amount": 210,
+                      "delivery_charge": 30,
+                      "schedule_at": null,
+                      "restaurant_id": "5",
+                      "restaurant_name": "Quatta Cafe",
+                      "customer_name": "Mudasir Khan",
+                      "restaurant_image_url": "https://cdn.example.com/restaurant/logo.png",
+                      "customer_image_url": "https://cdn.example.com/profile/user.jpg",
+                      "item_title": "Beef Burger",
+                      "delivery_address_snippet": "block B, Soan Garden",
+                      "latitude": "33.123456",
+                      "longitude": "73.654321"
+                    }
+                  ]
                 }
               }
             }
@@ -5543,6 +5996,33 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DeliveryManMyOrdersResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Success",
+                  "data": {
+                    "total_size": 12,
+                    "limit": 10,
+                    "offset": 1,
+                    "orders": [
+                      {
+                        "id": "100178",
+                        "order_id": "100178",
+                        "order_number": "100178",
+                        "item_name": "Classic Cheeseburger",
+                        "item_count": 5,
+                        "image": "food/burger.png",
+                        "order_amount": 300,
+                        "order_status": "delivered",
+                        "status_label": "Completed",
+                        "order_date": "25 Aug, 2026",
+                        "order_time": "18:35",
+                        "created_at": "2026-08-25T13:35:00.000Z",
+                        "delivered_at": "2026-08-25T18:35:00.000Z",
+                        "restaurant_name": "Quatta Cafe"
+                      }
+                    ]
+                  }
                 }
               }
             }
