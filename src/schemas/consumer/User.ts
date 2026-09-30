@@ -65,6 +65,7 @@ export const consumerApplyRestaurantSchema = Joi.object({
     'any.required': 'Vat / Tax is required',
   }),
   language: Joi.string().valid('en', 'he').default('en'),
+  cloudflare_id: Joi.string().trim().length(12).hex().optional().allow('', null),
   logo: Joi.string().trim().optional().allow('', null),
   cover_photo: Joi.string().trim().optional().allow('', null),
   cuisines: Joi.array().items(Joi.number().integer()).min(1).optional(),
@@ -77,7 +78,9 @@ export const consumerApplyDeliveryManSchema = Joi.object({
   phone: Joi.string().trim().required(),
   email: Joi.string().email().required(),
   password: Joi.string().min(6).required(),
+  cloudflare_id: Joi.string().trim().length(12).hex().optional().allow('', null),
   identity_image: Joi.string().trim().optional().allow('', null),
+  image: Joi.string().trim().optional().allow('', null),
   otp: Joi.string().length(6).required().messages({
     'any.required': 'OTP is required',
     'string.length': 'OTP must be 6 digits',

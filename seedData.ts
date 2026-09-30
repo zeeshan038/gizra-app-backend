@@ -28,7 +28,7 @@ async function main() {
         l_name: 'Doe',
         phone: '1234567890',
         email: 'vendor@gizra.com',
-        password: '$2b$10$wE/.z5z264M9.5z.q.h3y.5hGv.z44N/JvF9K1fO1Z598kX/T00a2', // hashed 'password'
+        password: '$2b$10$jNAdI92F3cqNzQT/59R5perqhCuuWdkeYhqt34ZzDKR7dWL3lUpE6', // bcrypt 'password'
         status: true,
       },
     });

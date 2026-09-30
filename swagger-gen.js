@@ -35,25 +35,25 @@ const ROLES = [
     file: './swagger-customer.json',
     title: 'Gizra Customer API',
     description: 'Customer (consumer) app endpoints',
-    prefixes: ['/consumer', '/upload']
+    prefixes: ['/consumer', '/upload', '/storage']
   },
   {
     file: './swagger-vendor.json',
     title: 'Gizra Vendor API',
     description: 'Vendor web panel and POS endpoints',
-    prefixes: ['/vendor', '/upload']
+    prefixes: ['/vendor', '/upload', '/storage']
   },
   {
     file: './swagger-driver.json',
     title: 'Gizra Driver API',
     description: 'Delivery man / driver app endpoints',
-    prefixes: ['/delivery-man', '/upload']
+    prefixes: ['/delivery-man', '/upload', '/storage']
   },
   {
     file: './swagger-admin.json',
     title: 'Gizra Admin API',
     description: 'Admin dashboard endpoints',
-    prefixes: ['/admin', '/upload']
+    prefixes: ['/admin', '/upload', '/storage']
   }
 ];
 
@@ -266,6 +266,8 @@ swaggerAutogen(outputFile, endpointsFiles, doc).then(() => {
         'Marketplace order APIs shared by the Restaurant Web Panel (vendor.gizra.app) and the Vendor POS app. Authenticate with POST /vendor/login (Bearer JWT). Lists consumer-placed orders only (excludes order_type=pos counter sales). POS uses the same endpoints for live orders, status updates, and FCM new_order payloads after POST /consumer/order/place.'
     },
     { name: 'Delivery Man Auth' },
+    { name: 'Delivery Man Home' },
+    { name: 'Delivery Man Earnings' },
     { name: 'Delivery Man Profile' },
     { name: 'Delivery Man Orders' },
     { name: 'Admin Auth' },
@@ -307,6 +309,8 @@ swaggerAutogen(outputFile, endpointsFiles, doc).then(() => {
       else if (newPath.startsWith('/vendor/orders')) endpoint.tags = ['Vendor Orders (Web Panel & POS)'];
       else if (newPath.startsWith('/vendor/restaurant')) endpoint.tags = ['Vendor Restaurant'];
       else if (newPath.startsWith('/vendor')) endpoint.tags = ['Vendor Auth'];
+      else if (newPath.startsWith('/delivery-man/earnings')) endpoint.tags = ['Delivery Man Earnings'];
+      else if (newPath.startsWith('/delivery-man/home')) endpoint.tags = ['Delivery Man Home'];
       else if (newPath.startsWith('/delivery-man/profile')) endpoint.tags = ['Delivery Man Profile'];
       else if (newPath.startsWith('/delivery-man/orders')) endpoint.tags = ['Delivery Man Orders'];
       else if (newPath.startsWith('/delivery-man')) endpoint.tags = ['Delivery Man Auth'];

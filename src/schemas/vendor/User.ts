@@ -45,6 +45,7 @@ export const vendorRegisterSchema = Joi.object({
     'any.required': 'Vat / Tax is required',
   }),
   language: Joi.string().valid('en', 'he').default('en'),
+  cloudflare_id: Joi.string().trim().length(12).hex().optional().allow('', null),
   logo: Joi.string().trim().optional().allow('', null),
   cover_photo: Joi.string().trim().optional().allow('', null),
   cuisines: Joi.array().items(Joi.number().integer()).min(1).optional(),

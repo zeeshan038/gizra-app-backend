@@ -12,7 +12,6 @@ import vendorRestaurantRoutes from './vendor/restaurant';
 import consumerUserRoutes from './consumer/user';
 //deliveryman
 import dmUserRoutes from './deliveryman/user';
-import dmProfileRoutes from './deliveryman/profile';
 import dmOrderRoutes from './deliveryman/order';
 
 //admin
@@ -52,10 +51,10 @@ router.use('/consumer/config', consumerConfigRoutes);
 
 //general upload
 import uploadRouter from './upload';
+import storageRouter from './storage';
 
 //deliveryman
 router.use('/delivery-man', dmUserRoutes);
-router.use('/delivery-man/profile', dmProfileRoutes);
 router.use('/delivery-man/orders', dmOrderRoutes);
 
 //admin
@@ -66,5 +65,6 @@ router.use('/admin/zones', adminZoneRoutes);
 
 
 router.use('/upload', uploadRouter);
+router.use('/storage', storageRouter);
 
 export default router;

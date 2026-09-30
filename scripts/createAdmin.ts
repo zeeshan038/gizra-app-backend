@@ -6,6 +6,7 @@
 import dotenv from 'dotenv';
 import bcrypt from 'bcrypt';
 import prisma from '../src/config/database';
+import { provisionAccountStorage } from '../src/utils/accountStorage';
 
 dotenv.config();
 
@@ -14,11 +15,18 @@ async function main() {
   const plainPassword = process.env.ADMIN_SEED_PASSWORD || 'AdminPassword123!';
   const hash = await bcrypt.hash(plainPassword, 10);
 
+  const existing = await prisma.admins.findUnique({ where: { email } });
+  let cloudflareId = existing?.cloudflareId ?? null;
+  if (!cloudflareId) {
+    cloudflareId = await provisionAccountStorage('admin');
+  }
+
   const admin = await prisma.admins.upsert({
     where: { email },
     update: {
       password: hash,
       is_logged_in: true,
+      cloudflareId,
       updated_at: new Date(),
     },
     create: {
@@ -27,6 +35,7 @@ async function main() {
       f_name: 'Gizra',
       l_name: 'Admin',
       role_id: 1,
+      cloudflareId,
       is_logged_in: true,
       created_at: new Date(),
       updated_at: new Date(),

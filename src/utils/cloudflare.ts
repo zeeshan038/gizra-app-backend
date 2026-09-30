@@ -1,11 +1,11 @@
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 
 dotenv.config();
 
-const prisma = new PrismaClient();
+export type AccountStorageRole = 'admin' | 'vendor' | 'deliveryman' | 'customer';
 
 export const s3 = new S3Client({
     region: 'auto',
@@ -49,12 +49,20 @@ export const uploadToCloudflare = async (fileBuffer: Buffer, mimetype: string, o
     }
 };
 
-type UserType = 'admin' | 'vendor' | 'deliveryman' | 'customer';
+export async function isCloudflareIdTaken(id: string): Promise<boolean> {
+  const normalized = id.toLowerCase();
+  const [admin, vendor, driver] = await Promise.all([
+    prisma.admins.findFirst({ where: { cloudflareId: normalized } }),
+    prisma.vendors.findFirst({ where: { cloudflareId: normalized } }),
+    prisma.delivery_men.findFirst({ where: { cloudflareId: normalized } }),
+  ]);
+  return Boolean(admin || vendor || driver);
+}
 
 /**
  * Generate a unique 12-character ID for a user's Cloudflare folder.
  */
-export async function generateUniqueCloudflareId(userType: UserType): Promise<string> {
+export async function generateUniqueCloudflareId(userType: AccountStorageRole): Promise<string> {
     for (let attempt = 0; attempt < 20; attempt++) {
         const id = crypto.randomBytes(6).toString('hex');
         let exists = null;
@@ -80,19 +88,19 @@ export async function generateUniqueCloudflareId(userType: UserType): Promise<st
  * @param cloudflareId The user's unique Cloudflare ID
  * @param userType Type of user to build base path correctly
  */
-export async function ensureR2UserFolders(cloudflareId: string, userType: UserType) {
+export async function ensureR2UserFolders(cloudflareId: string, userType: AccountStorageRole) {
     if (!cloudflareId) return;
 
     const bucketName = process.env.CLOUDFLARE_BUCKET_NAME || '';
-    
-    // Base path: e.g. vendors/{cloudflareId}
-    const folderMapping = {
-        'admin': 'admin',
-        'vendor': 'vendors',
-        'deliveryman': 'deliveryman',
-        'customer': 'customer'
+    if (!bucketName) return;
+
+    const folderMapping: Record<AccountStorageRole, string> = {
+        admin: 'admin',
+        vendor: 'vendors',
+        deliveryman: 'deliveryman',
+        customer: 'customer',
     };
-    
+
     const basePath = `${folderMapping[userType]}/${cloudflareId}`;
 
     const createKeepFile = async (folderPath: string) => {
@@ -105,8 +113,13 @@ export async function ensureR2UserFolders(cloudflareId: string, userType: UserTy
         await s3.send(command);
     };
 
-    // Assuming assets folder as base default
-    await Promise.all([
-        createKeepFile(`${basePath}/assets`),
-    ]);
+    const folders = [`${basePath}/assets`];
+    if (userType === 'vendor') {
+        folders.push(`${basePath}/restaurant`);
+    }
+    if (userType === 'deliveryman') {
+        folders.push(`${basePath}/identity`, `${basePath}/profile`);
+    }
+
+    await Promise.all(folders.map((folderPath) => createKeepFile(folderPath)));
 }

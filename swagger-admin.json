@@ -725,6 +725,105 @@
           }
         }
       },
+      "RegistrationInitBody": {
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "vendor",
+              "deliveryman"
+            ],
+            "example": "vendor",
+            "description": "Partner type applying (not the consumer user role)"
+          }
+        }
+      },
+      "RegistrationInitData": {
+        "type": "object",
+        "properties": {
+          "cloudflareId": {
+            "type": "string",
+            "example": "a1b2c3d4e5f6",
+            "description": "Send as cloudflare_id on upload and register/apply"
+          },
+          "uploadPrefix": {
+            "type": "string",
+            "example": "vendors/a1b2c3d4e5f6"
+          },
+          "subfolders": {
+            "type": "object",
+            "properties": {
+              "assets": {
+                "type": "string"
+              },
+              "restaurant": {
+                "type": "string",
+                "example": "vendors/a1b2c3d4e5f6/restaurant"
+              },
+              "identity": {
+                "type": "string",
+                "example": "deliveryman/a1b2c3d4e5f6/identity"
+              },
+              "profile": {
+                "type": "string",
+                "example": "deliveryman/a1b2c3d4e5f6/profile"
+              }
+            }
+          }
+        }
+      },
+      "RegistrationInitResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Upload prefix ready. Upload files then pass cloudflare_id on register."
+          },
+          "data": {
+            "$ref": "#/components/schemas/RegistrationInitData"
+          }
+        }
+      },
+      "UploadSuccessResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "File uploaded successfully"
+          },
+          "url": {
+            "type": "string",
+            "example": "https://pub-xxxx.r2.dev/vendors/a1b2c3d4e5f6/restaurant/abc.png"
+          },
+          "path": {
+            "type": "string",
+            "example": "vendors/a1b2c3d4e5f6/restaurant/abc.png",
+            "description": "Prefer this on register/apply JSON (fits DB VarChar)"
+          },
+          "subfolder": {
+            "type": "string",
+            "example": "vendors/a1b2c3d4e5f6/restaurant"
+          }
+        }
+      },
+      "CloudflareRegistrationId": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{12}$",
+        "example": "a1b2c3d4e5f6",
+        "description": "Same value from POST /storage/registration-init; links uploads to the new vendor/driver row"
+      },
       "PartnerApplicationResponse": {
         "type": "object",
         "properties": {
@@ -745,6 +844,9 @@
                   "pending"
                 ],
                 "example": "pending"
+              },
+              "cloudflare_id": {
+                "$ref": "#/components/schemas/CloudflareRegistrationId"
               }
             }
           }
@@ -804,13 +906,16 @@
             ],
             "default": "en"
           },
+          "cloudflare_id": {
+            "$ref": "#/components/schemas/CloudflareRegistrationId"
+          },
           "logo": {
             "type": "string",
-            "format": "uri"
+            "description": "R2 path from POST /upload `path` (logo)"
           },
           "cover_photo": {
             "type": "string",
-            "format": "uri"
+            "description": "R2 path from POST /upload `path` (cover)"
           },
           "cuisines": {
             "type": "array",
@@ -862,9 +967,16 @@
             "example": "123456",
             "description": "Phone OTP (not confirm_password)"
           },
+          "cloudflare_id": {
+            "$ref": "#/components/schemas/CloudflareRegistrationId"
+          },
           "identity_image": {
             "type": "string",
-            "format": "uri"
+            "description": "R2 path from POST /upload `path` (category identity)"
+          },
+          "image": {
+            "type": "string",
+            "description": "Optional profile photo path (category profile)"
           },
           "zone_id": {
             "type": "integer",
@@ -882,23 +994,27 @@
           "phone",
           "password",
           "confirm_password",
-          "zone_id"
+          "image",
+          "identity_image",
+          "zone_id",
+          "identity_type",
+          "identity_number"
         ],
         "properties": {
           "f_name": {
             "type": "string",
             "example": "Ahmed",
-            "description": "First name (Figma required)"
+            "description": "Step 1 — first name"
           },
           "l_name": {
             "type": "string",
             "example": "Khan",
-            "description": "Last name (Figma required)"
+            "description": "Step 1 — last name"
           },
           "phone": {
             "type": "string",
             "example": "+972501234567",
-            "description": "With country code"
+            "description": "Step 1 — with country code"
           },
           "email": {
             "type": "string",
@@ -908,51 +1024,91 @@
           "password": {
             "type": "string",
             "minLength": 6,
-            "example": "secret123"
+            "example": "Secret123!"
           },
           "confirm_password": {
             "type": "string",
             "minLength": 6,
-            "example": "secret123"
+            "example": "Secret123!"
+          },
+          "cloudflare_id": {
+            "$ref": "#/components/schemas/CloudflareRegistrationId"
+          },
+          "image": {
+            "type": "string",
+            "description": "Step 1 — portrait / identity photo path (POST /upload category=profile)"
           },
           "identity_image": {
-            "type": "string",
-            "format": "uri",
-            "description": "ID document URL after POST /upload (.jpg/.png, max 2MB in app)"
+            "description": "Step 2 — ID document path(s) (POST /upload category=identity). String or array of 1–2 paths.",
+            "oneOf": [
+              {
+                "type": "string",
+                "example": "deliveryman/a1b2c3d4e5f6/identity/doc-front.jpg"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "maxItems": 2,
+                "example": [
+                  "deliveryman/a1b2c3d4e5f6/identity/doc-front.jpg",
+                  "deliveryman/a1b2c3d4e5f6/identity/doc-back.jpg"
+                ]
+              }
+            ]
           },
           "zone_id": {
             "type": "integer",
             "example": 2,
-            "description": "From GET /consumer/config/zone-id"
+            "description": "Step 2 — city / service zone (GET /consumer/zone/list)"
+          },
+          "city_id": {
+            "type": "integer",
+            "deprecated": true,
+            "description": "Alias for zone_id"
           },
           "identity_type": {
             "type": "string",
             "enum": [
               "passport",
               "driving_license",
-              "nid",
-              "restaurant_id"
+              "nid"
             ],
-            "default": "nid"
+            "example": "passport",
+            "description": "Step 2 — ID type"
           },
           "identity_number": {
             "type": "string",
-            "example": ""
+            "example": "AB1234567",
+            "description": "Step 2 — ID number"
+          },
+          "delivery_type": {
+            "type": "string",
+            "enum": [
+              "commission",
+              "salary",
+              "freelance"
+            ],
+            "example": "commission",
+            "description": "Step 2 — Select Delivery Type (use with or instead of earning)"
           },
           "earning": {
             "type": "boolean",
-            "default": true,
-            "description": "Commission vs salary model flag"
+            "description": "true = commission/freelance, false = salary"
+          },
+          "vehicle_id": {
+            "type": "integer",
+            "description": "Optional vehicle type id"
           },
           "fName": {
             "type": "string",
-            "deprecated": true,
-            "description": "Legacy alias for f_name"
+            "deprecated": true
           },
           "lName": {
             "type": "string",
-            "deprecated": true,
-            "description": "Legacy alias for l_name"
+            "deprecated": true
           }
         }
       },
@@ -1689,15 +1845,16 @@
             "default": "en",
             "description": "Restaurant default language (English / Hebrew toggle)"
           },
+          "cloudflare_id": {
+            "$ref": "#/components/schemas/CloudflareRegistrationId"
+          },
           "logo": {
             "type": "string",
-            "format": "uri",
-            "description": "1:1 logo URL after POST /upload"
+            "description": "R2 path from POST /upload `path` (category restaurant)"
           },
           "cover_photo": {
             "type": "string",
-            "format": "uri",
-            "description": "Cover image URL after POST /upload"
+            "description": "R2 path from POST /upload `path` (category restaurant)"
           },
           "cuisines": {
             "type": "array",
@@ -3276,6 +3433,494 @@
             }
           }
         }
+      },
+      "DeliveryManLoginBody": {
+        "type": "object",
+        "required": [
+          "phone",
+          "password"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string",
+            "minLength": 9,
+            "example": "+972501234567"
+          },
+          "password": {
+            "type": "string",
+            "example": "Secret123!"
+          },
+          "remember_me": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "DeliveryManLoginResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Login success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "token": {
+                "type": "string"
+              },
+              "topic": {
+                "type": "string",
+                "example": "delivery_man_2_1",
+                "description": "FCM topic for new requests"
+              },
+              "id": {
+                "type": "string"
+              },
+              "f_name": {
+                "type": "string"
+              },
+              "l_name": {
+                "type": "string"
+              },
+              "phone": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "DeliveryManForgotPasswordBody": {
+        "type": "object",
+        "required": [
+          "phone"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string",
+            "example": "+972501234567"
+          }
+        }
+      },
+      "DeliveryManPasswordOtpBody": {
+        "type": "object",
+        "required": [
+          "phone",
+          "otp"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string",
+            "example": "+972501234567"
+          },
+          "otp": {
+            "type": "string",
+            "pattern": "^\\d{4,6}$",
+            "example": "1234"
+          }
+        }
+      },
+      "DeliveryManPasswordResetBody": {
+        "type": "object",
+        "required": [
+          "phone",
+          "otp",
+          "password",
+          "confirm_password"
+        ],
+        "properties": {
+          "phone": {
+            "type": "string"
+          },
+          "otp": {
+            "type": "string",
+            "example": "1234"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6
+          },
+          "confirm_password": {
+            "type": "string",
+            "minLength": 6
+          }
+        }
+      },
+      "DeliveryManChangePasswordBody": {
+        "type": "object",
+        "required": [
+          "current_password",
+          "password",
+          "confirm_password"
+        ],
+        "properties": {
+          "current_password": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6
+          },
+          "confirm_password": {
+            "type": "string",
+            "minLength": 6
+          }
+        }
+      },
+      "DeliveryManWhoamiResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "type": "object",
+            "description": "Delivery man record (id/zone_id as strings; no password)"
+          }
+        }
+      },
+      "DeliveryManOrderListResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeliveryManOrderSummary"
+            }
+          }
+        }
+      },
+      "DeliveryManOrderSummary": {
+        "type": "object",
+        "description": "Mapped order card for driver UI (restaurant, customer, amounts, address)",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "order_status": {
+            "type": "string"
+          },
+          "order_amount": {
+            "type": "number"
+          },
+          "payment_method": {
+            "type": "string"
+          },
+          "restaurant_name": {
+            "type": "string"
+          },
+          "restaurant_address": {
+            "type": "string"
+          },
+          "delivery_address": {
+            "type": "string"
+          },
+          "schedule_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DeliveryManUpdateOrderStatusBody": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "confirmed",
+              "canceled",
+              "picked_up",
+              "delivered",
+              "handover"
+            ],
+            "example": "picked_up"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Required when status is canceled"
+          }
+        }
+      },
+      "DeliveryManHomeResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "todays_order_count": {
+                "type": "integer",
+                "example": 2,
+                "description": "Orders accepted today"
+              },
+              "this_week_order_count": {
+                "type": "integer",
+                "example": 12,
+                "description": "Orders accepted since start of week (Monday)"
+              },
+              "this_month_order_count": {
+                "type": "integer",
+                "example": 33,
+                "description": "Orders accepted since start of calendar month"
+              },
+              "todays_earning": {
+                "type": "number",
+                "example": 522,
+                "description": "Sum of original_delivery_charge + dm_tips for today's transactions"
+              }
+            }
+          }
+        }
+      },
+      "DeliveryManMyOrdersResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "total_size": {
+                "type": "integer",
+                "example": 12
+              },
+              "limit": {
+                "type": "integer",
+                "example": 10
+              },
+              "offset": {
+                "type": "integer",
+                "example": 1,
+                "description": "Current page"
+              },
+              "orders": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DeliveryManMyOrderCard"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DeliveryManMyOrderCard": {
+        "type": "object",
+        "description": "Figma order row — #id, title, item count, date/time, status pill, amount",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "100178"
+          },
+          "order_id": {
+            "type": "string",
+            "example": "100178"
+          },
+          "item_name": {
+            "type": "string",
+            "example": "Classic Cheeseburger"
+          },
+          "item_count": {
+            "type": "integer",
+            "example": 5
+          },
+          "image": {
+            "type": "string",
+            "example": "food/burger.png"
+          },
+          "order_amount": {
+            "type": "number",
+            "example": 300
+          },
+          "order_status": {
+            "type": "string",
+            "example": "delivered"
+          },
+          "status_label": {
+            "type": "string",
+            "example": "Completed"
+          },
+          "order_date": {
+            "type": "string",
+            "example": "25 Aug, 2026"
+          },
+          "order_time": {
+            "type": "string",
+            "example": "18:35"
+          },
+          "restaurant_name": {
+            "type": "string"
+          }
+        }
+      },
+      "DeliveryManEarningsResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "summary": {
+                "$ref": "#/components/schemas/DeliveryManEarningsSummary"
+              },
+              "total_size": {
+                "type": "integer"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "offset": {
+                "type": "integer"
+              },
+              "history": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DeliveryManEarningHistoryItem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "DeliveryManEarningsSummary": {
+        "type": "object",
+        "properties": {
+          "wallet": {
+            "type": "object",
+            "properties": {
+              "total_earning": {
+                "type": "number"
+              },
+              "total_withdrawn": {
+                "type": "number"
+              },
+              "pending_withdraw": {
+                "type": "number"
+              },
+              "collected_cash": {
+                "type": "number"
+              },
+              "balance": {
+                "type": "number"
+              }
+            }
+          },
+          "todays_earning": {
+            "type": "number"
+          },
+          "this_week_earning": {
+            "type": "number"
+          },
+          "this_month_earning": {
+            "type": "number"
+          },
+          "lifetime_earning": {
+            "type": "number"
+          }
+        }
+      },
+      "DeliveryManEarningHistoryItem": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string"
+          },
+          "transaction_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "earned_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "delivery_fee": {
+            "type": "number"
+          },
+          "dm_tips": {
+            "type": "number"
+          },
+          "total_earning": {
+            "type": "number"
+          },
+          "order_amount": {
+            "type": "number"
+          },
+          "restaurant_name": {
+            "type": "string"
+          },
+          "item_name": {
+            "type": "string"
+          },
+          "item_count": {
+            "type": "integer"
+          },
+          "order": {
+            "type": "object",
+            "description": "Full order snapshot with items[]"
+          }
+        }
+      },
+      "DeliveryManOrderStatusUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "order_status": {
+                "type": "string"
+              }
+            }
+          }
+        }
       }
     },
     "parameters": {
@@ -3376,6 +4021,16 @@
           "example": "[2]"
         },
         "description": "Legacy only — prefer query **zone_id**. JSON array string of zone ids."
+      },
+      "DeliveryManAuthorizationHeader": {
+        "name": "authorization",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "Bearer JWT from POST /delivery-man/login",
+        "example": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
       }
     }
   },
@@ -4600,76 +5255,19 @@
     },
     "/upload/": {
       "post": {
-        "tags": [
-          "Upload"
-        ],
-        "description": "Upload a file (image or video) to Cloudflare R2",
-        "parameters": [
-          {
-            "name": "file",
-            "in": "formData",
-            "required": true,
-            "description": "The file to upload",
-            "schema": {
-              "type": "file"
-            }
-          },
-          {
-            "name": "subfolder",
-            "in": "formData",
-            "required": false,
-            "description": "Optional subfolder path e.g. vendors/abc/assets",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "description": "Multipart upload. **Registration (recommended):** set `role`, `cloudflare_id` (from registration-init), and `category` (`restaurant` | `identity` | `profile` | `assets`). Use response `path` on register/apply. **Legacy:** `subfolder` only (defaults to `assets/`).",
         "responses": {
           "200": {
             "description": "File uploaded successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "File uploaded successfully"
-                    },
-                    "url": {
-                      "type": "string",
-                      "example": "https://pub-xxxx.r2.dev/assets/abc-123.png"
-                    }
-                  },
-                  "xml": {
-                    "name": "main"
-                  }
+                  "$ref": "#/components/schemas/UploadSuccessResponse"
                 }
               },
               "application/xml": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "File uploaded successfully"
-                    },
-                    "url": {
-                      "type": "string",
-                      "example": "https://pub-xxxx.r2.dev/assets/abc-123.png"
-                    }
-                  },
-                  "xml": {
-                    "name": "main"
-                  }
+                  "$ref": "#/components/schemas/UploadSuccessResponse"
                 }
               }
             }
@@ -4745,6 +5343,70 @@
             }
           }
         },
+        "tags": [
+          "Upload"
+        ],
+        "summary": "Upload file to Cloudflare R2",
+        "parameters": [
+          {
+            "name": "file",
+            "in": "formData",
+            "required": true,
+            "description": "The file to upload",
+            "schema": {
+              "type": "file"
+            }
+          },
+          {
+            "name": "role",
+            "in": "formData",
+            "required": false,
+            "description": "Registration uploads: vendor | deliveryman",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "vendor",
+                "deliveryman"
+              ]
+            }
+          },
+          {
+            "name": "cloudflare_id",
+            "in": "formData",
+            "required": false,
+            "description": "12-char hex from POST /storage/registration-init (required with role for scoped uploads)",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{12}$",
+              "example": "a1b2c3d4e5f6"
+            }
+          },
+          {
+            "name": "category",
+            "in": "formData",
+            "required": false,
+            "description": "With role + cloudflare_id: restaurant (vendor logo/cover), identity, profile, assets",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "restaurant",
+                "identity",
+                "profile",
+                "assets"
+              ],
+              "default": "assets"
+            }
+          },
+          {
+            "name": "subfolder",
+            "in": "formData",
+            "required": false,
+            "description": "Legacy optional path e.g. vendors/abc/assets (must match cloudflare_id prefix if role is set)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -4755,6 +5417,99 @@
                     "example": "any"
                   }
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/storage/registration-init": {
+      "post": {
+        "description": "Public. Call **before** uploading registration images and **before** vendor/driver register or consumer apply. Returns a temporary `cloudflareId` (not a logged-in user). Pass the same id to `POST /upload` and to register/apply as `cloudflare_id`.",
+        "responses": {
+          "200": {
+            "description": "Upload prefix ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationInitResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Storage init failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Prepare R2 upload prefix before partner signup",
+        "tags": [
+          "Storage"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistrationInitBody"
               }
             }
           }
