@@ -9,7 +9,6 @@ const prisma = new PrismaClient();
  * @Access Private (Delivery Man)
  */
 export const getProfile = async (req: Request, res: Response): Promise<any> => {
-    // Assuming auth middleware sets req.user with delivery_man details
     const delivery_man_id = (req as any).user?.id || req.query.dm_id;
 
     if (!delivery_man_id) {
@@ -61,11 +60,14 @@ export const activeStatus = async (req: Request, res: Response): Promise<any> =>
             data: { active: !dm.active }
         });
 
-        return res.status(200).json({ 
-            status: true, 
-            msg: `Status changed to ${updatedDm.active ? 'active' : 'inactive'}` 
+        return res.status(200).json({
+            status: true,
+            msg: `Status changed to ${updatedDm.active ? 'active' : 'inactive'}`
         });
     } catch (e: any) {
-        return res.status(500).json({ status: false, msg: e.message });
+        return res.status(500).json({
+            status: false,
+            msg: e.message
+        });
     }
 };

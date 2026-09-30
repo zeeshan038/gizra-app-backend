@@ -3472,29 +3472,7 @@
             "example": "Login success"
           },
           "data": {
-            "type": "object",
-            "properties": {
-              "token": {
-                "type": "string"
-              },
-              "topic": {
-                "type": "string",
-                "example": "delivery_man_2_1",
-                "description": "FCM topic for new requests"
-              },
-              "id": {
-                "type": "string"
-              },
-              "f_name": {
-                "type": "string"
-              },
-              "l_name": {
-                "type": "string"
-              },
-              "phone": {
-                "type": "string"
-              }
-            }
+            "$ref": "#/components/schemas/DeliveryManLoginData"
           }
         }
       },
@@ -3587,8 +3565,7 @@
             "example": "Success"
           },
           "data": {
-            "type": "object",
-            "description": "Delivery man record (id/zone_id as strings; no password)"
+            "$ref": "#/components/schemas/DeliveryManProfileData"
           }
         }
       },
@@ -3613,33 +3590,91 @@
       },
       "DeliveryManOrderSummary": {
         "type": "object",
-        "description": "Mapped order card for driver UI (restaurant, customer, amounts, address)",
+        "description": "Order request / active card (GET /orders/latest and GET /orders/active)",
         "properties": {
           "id": {
-            "type": "string"
+            "type": "string",
+            "example": "100178"
           },
           "order_status": {
-            "type": "string"
-          },
-          "order_amount": {
-            "type": "number"
+            "type": "string",
+            "example": "handover"
           },
           "payment_method": {
-            "type": "string"
+            "type": "string",
+            "example": "cash_on_delivery",
+            "nullable": true
           },
-          "restaurant_name": {
-            "type": "string"
+          "order_amount": {
+            "type": "number",
+            "example": 60
           },
-          "restaurant_address": {
-            "type": "string"
-          },
-          "delivery_address": {
-            "type": "string"
+          "delivery_charge": {
+            "type": "number",
+            "example": 30,
+            "description": "Driver delivery fee for this order"
           },
           "schedule_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "string"
+          },
+          "restaurant_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "customer_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_image_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Full URL (CLOUDFLARE_PUBLIC_URL + logo/cover) for pickup avatar"
+          },
+          "customer_image_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Full URL for customer profile image (fallback def.png)"
+          },
+          "item_title": {
+            "type": "string",
+            "nullable": true,
+            "description": "First line item name"
+          },
+          "delivery_address_snippet": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "string",
+            "nullable": true,
+            "description": "Customer delivery lat (string or number)"
+          },
+          "longitude": {
+            "type": "string",
+            "nullable": true
           }
+        },
+        "example": {
+          "id": "100179",
+          "order_status": "confirmed",
+          "payment_method": "cash_on_delivery",
+          "order_amount": 210,
+          "delivery_charge": 30,
+          "schedule_at": null,
+          "restaurant_id": "5",
+          "restaurant_name": "Quatta Cafe",
+          "customer_name": "Mudasir Khan",
+          "restaurant_image_url": "https://cdn.example.com/restaurant/logo.png",
+          "customer_image_url": "https://cdn.example.com/profile/user.jpg",
+          "item_title": "Beef Burger",
+          "delivery_address_snippet": "block B, Soan Garden",
+          "latitude": "33.123456",
+          "longitude": "73.654321"
         }
       },
       "DeliveryManUpdateOrderStatusBody": {
@@ -3742,7 +3777,7 @@
       },
       "DeliveryManMyOrderCard": {
         "type": "object",
-        "description": "Figma order row — #id, title, item count, date/time, status pill, amount",
+        "description": "Figma My Orders row — #id, title, item count, date/time, status pill, amount",
         "properties": {
           "id": {
             "type": "string",
@@ -3752,9 +3787,14 @@
             "type": "string",
             "example": "100178"
           },
+          "order_number": {
+            "type": "string",
+            "example": "100178"
+          },
           "item_name": {
             "type": "string",
-            "example": "Classic Cheeseburger"
+            "example": "Classic Cheeseburger",
+            "nullable": true
           },
           "item_count": {
             "type": "integer",
@@ -3778,14 +3818,27 @@
           },
           "order_date": {
             "type": "string",
-            "example": "25 Aug, 2026"
+            "example": "25 Aug, 2026",
+            "nullable": true
           },
           "order_time": {
             "type": "string",
-            "example": "18:35"
+            "example": "18:35",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "delivered_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           },
           "restaurant_name": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -3865,6 +3918,17 @@
       "DeliveryManEarningHistoryItem": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "string",
+            "description": "Transaction id or order-{id} fallback"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "order_transaction",
+              "delivered_order"
+            ]
+          },
           "order_id": {
             "type": "string"
           },
@@ -3874,7 +3938,8 @@
           },
           "earned_at": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "nullable": true
           },
           "delivery_fee": {
             "type": "number"
@@ -3888,18 +3953,42 @@
           "order_amount": {
             "type": "number"
           },
-          "restaurant_name": {
+          "payment_method": {
+            "type": "string",
+            "nullable": true
+          },
+          "payment_status": {
+            "type": "string",
+            "nullable": true
+          },
+          "order_status": {
             "type": "string"
           },
+          "restaurant_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_logo": {
+            "type": "string",
+            "nullable": true
+          },
           "item_name": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "item_count": {
             "type": "integer"
           },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
           "order": {
-            "type": "object",
-            "description": "Full order snapshot with items[]"
+            "$ref": "#/components/schemas/DeliveryManEarningOrderSnapshot"
           }
         }
       },
@@ -3922,6 +4011,258 @@
               "order_status": {
                 "type": "string"
               }
+            }
+          }
+        }
+      },
+      "DeliveryManLoginData": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Bearer JWT for all protected routes"
+          },
+          "topic": {
+            "type": "string",
+            "example": "delivery_man_2_1",
+            "description": "Firebase topic — subscribe for zone/vehicle order pushes"
+          },
+          "id": {
+            "type": "string"
+          },
+          "f_name": {
+            "type": "string"
+          },
+          "l_name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          }
+        }
+      },
+      "DeliveryManProfileData": {
+        "type": "object",
+        "description": "Delivery man row without password or auth_token (GET whoami / profile)",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "f_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "l_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "identity_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "identity_type": {
+            "type": "string",
+            "nullable": true
+          },
+          "identity_image": {
+            "type": "string",
+            "nullable": true,
+            "description": "JSON array string of R2 paths"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "description": "Profile photo path"
+          },
+          "fcm_token": {
+            "type": "string",
+            "nullable": true
+          },
+          "zone_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicle_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "shift_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "boolean",
+            "description": "Account enabled by admin"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Online — available for new requests"
+          },
+          "earning": {
+            "type": "boolean"
+          },
+          "current_orders": {
+            "type": "string",
+            "description": "Active assignment count (BigInt serialized)"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "zone_wise",
+              "restaurant_wise"
+            ],
+            "example": "zone_wise"
+          },
+          "application_status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "denied"
+            ]
+          },
+          "order_count": {
+            "type": "string"
+          },
+          "assigned_order_count": {
+            "type": "string"
+          },
+          "additional_data": {
+            "type": "string",
+            "nullable": true
+          },
+          "additional_documents": {
+            "type": "string",
+            "nullable": true
+          },
+          "cloudflareId": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "DeliveryManProfileResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/DeliveryManProfileData"
+          }
+        }
+      },
+      "DeliveryManStatusToggleResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Status changed to active"
+          }
+        }
+      },
+      "DeliveryManEarningOrderItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "food_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "price": {
+            "type": "number"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "DeliveryManEarningOrderSnapshot": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "order_status": {
+            "type": "string"
+          },
+          "order_amount": {
+            "type": "number"
+          },
+          "delivery_charge": {
+            "type": "number"
+          },
+          "original_delivery_charge": {
+            "type": "number"
+          },
+          "dm_tips": {
+            "type": "number"
+          },
+          "payment_method": {
+            "type": "string",
+            "nullable": true
+          },
+          "payment_status": {
+            "type": "string"
+          },
+          "delivered_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "delivery_address": {
+            "type": "string",
+            "nullable": true
+          },
+          "distance": {
+            "type": "number",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeliveryManEarningOrderItem"
             }
           }
         }
