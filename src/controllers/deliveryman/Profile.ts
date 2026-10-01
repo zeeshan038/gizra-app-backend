@@ -21,7 +21,11 @@ export const getProfile = async (req: Request, res: Response): Promise<any> => {
         });
 
         if (!dm) {
-            return res.status(404).json({ status: false, msg: 'Delivery man not found' });
+            return res.status(404).json({
+                status: false,
+                msg: 'Delivery man not found'
+                
+            });
         }
 
         // Exclude password

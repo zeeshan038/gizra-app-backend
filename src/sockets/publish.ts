@@ -1,7 +1,11 @@
 import type { Server } from 'socket.io';
 import { SocketEvents } from '../types/sockets/realtime';
-import type { OrderNewPayload, OrderUpdatedPayload } from '../types/sockets/realtime';
-import { deliveryManRoom, orderRoom, restaurantRoom, userRoom } from './rooms';
+import type {
+  OrderNewPayload,
+  OrderRequestPayload,
+  OrderUpdatedPayload,
+} from '../types/sockets/realtime';
+import { deliveryManRoom, fcmTopicRoom, orderRoom, restaurantRoom, userRoom } from './rooms';
 
 let io: Server | null = null;
 
@@ -17,6 +21,23 @@ export function publishOrderNew(payload: OrderNewPayload): void {
   if (!io) return;
   const room = restaurantRoom(payload.restaurant_id);
   io.to(room).emit(SocketEvents.NEW_ORDER, payload);
+}
+
+export function publishOrderRequest(topics: string[], payload: OrderRequestPayload): void {
+  if (!io || topics.length === 0) return;
+  for (const topic of topics) {
+    io.to(fcmTopicRoom(topic)).emit(SocketEvents.ORDER_REQUEST, payload);
+  }
+}
+
+export function publishOrderUpdatedToTopics(
+  topics: string[],
+  payload: OrderUpdatedPayload
+): void {
+  if (!io || topics.length === 0) return;
+  for (const topic of topics) {
+    io.to(fcmTopicRoom(topic)).emit(SocketEvents.ORDER_STATUS_CHANGED, payload);
+  }
 }
 
 export function publishOrderUpdated(payload: OrderUpdatedPayload): void {

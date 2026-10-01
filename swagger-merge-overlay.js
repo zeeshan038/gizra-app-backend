@@ -97,6 +97,12 @@ function mergeComponents(target, overlayComponents) {
       ...overlayComponents.schemas
     };
   }
+  if (overlayComponents.responses) {
+    target.components.responses = {
+      ...(target.components.responses || {}),
+      ...overlayComponents.responses
+    };
+  }
 }
 
 /**

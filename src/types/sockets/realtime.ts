@@ -2,6 +2,7 @@
 export const SocketEvents = {
   SESSION_READY: 'session_ready',
   NEW_ORDER: 'new_order',
+  ORDER_REQUEST: 'order_request',
   ORDER_STATUS_CHANGED: 'order_status_changed',
 } as const;
 
@@ -21,6 +22,18 @@ export type OrderNewPayload = {
   order_amount: number;
   order_type: string;
   payment_method: string | null;
+};
+
+/** Driver pool — unassigned delivery job (refetch GET /delivery-man/orders/latest). */
+export type OrderRequestPayload = {
+  order_id: string;
+  restaurant_id: number;
+  order_amount: number;
+  order_type: string;
+  payment_method: string | null;
+  order_status: string;
+  zone_id: number | null;
+  vehicle_id: number | null;
 };
 
 export type OrderUpdatedPayload = {

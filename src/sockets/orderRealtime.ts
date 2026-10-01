@@ -1,7 +1,21 @@
 import { orders } from '@prisma/client';
-import type { OrderUpdatedPayload } from '../types/sockets/realtime';
-import { publishOrderNew, publishOrderUpdated } from './publish';
+import type { OrderRequestPayload, OrderUpdatedPayload } from '../types/sockets/realtime';
+import {
+  publishOrderNew,
+  publishOrderRequest,
+  publishOrderUpdated,
+  publishOrderUpdatedToTopics,
+} from './publish';
 import { publishNewOrderToRestaurant } from '../utils/vendor/order/sseHub';
+import {
+  getOrderRequestBroadcastTopics,
+  shouldEmitDriverOrderRequest,
+} from '../utils/deliveryman/pushTopics';
+import {
+  passesNotDigitalPending,
+  passesScheduleWindow,
+} from '../utils/deliveryman/orderHelpers';
+import { notifyDeliveryMenForOrder } from '../utils/notifications/sendDriverOrderNotification';
 
 export function emitNewOrderRealtime(payload: {
   order_id: string;
@@ -26,6 +40,33 @@ export function emitNewOrderRealtime(payload: {
   });
 }
 
+function buildOrderRequestPayload(order: orders): OrderRequestPayload {
+  return {
+    order_id: order.id.toString(),
+    restaurant_id: Number(order.restaurant_id),
+    order_amount: Number(order.order_amount) || 0,
+    order_type: order.order_type,
+    payment_method: order.payment_method,
+    order_status: order.order_status,
+    zone_id: order.zone_id != null ? Number(order.zone_id) : null,
+    vehicle_id: order.vehicle_id != null ? Number(order.vehicle_id) : null,
+  };
+}
+
+async function maybeEmitDriverOrderRequest(order: orders): Promise<void> {
+  if (
+    !passesScheduleWindow(order, 30) ||
+    !passesNotDigitalPending(order)
+  ) {
+    return;
+  }
+  const eligible = await shouldEmitDriverOrderRequest(order);
+  if (!eligible) return;
+
+  const topics = await getOrderRequestBroadcastTopics(order);
+  publishOrderRequest(topics, buildOrderRequestPayload(order));
+}
+
 export function emitOrderStatusRealtime(order: orders): void {
   const payload: OrderUpdatedPayload = {
     order_id: order.id.toString(),
@@ -39,4 +80,19 @@ export function emitOrderStatusRealtime(order: orders): void {
     updated_at: (order.updated_at ?? new Date()).toISOString(),
   };
   publishOrderUpdated(payload);
+
+  void (async () => {
+    try {
+      await maybeEmitDriverOrderRequest(order);
+
+      if (order.order_type === 'delivery' && order.delivery_man_id != null) {
+        const topics = await getOrderRequestBroadcastTopics(order);
+        publishOrderUpdatedToTopics(topics, payload);
+      }
+
+      await notifyDeliveryMenForOrder(order);
+    } catch (err) {
+      console.error('[socket] driver pool realtime failed', err);
+    }
+  })();
 }

@@ -13,3 +13,8 @@ export function userRoom(userId: number | string): string {
 export function deliveryManRoom(deliveryManId: number | string): string {
   return `delivery_man:${deliveryManId}`;
 }
+
+/** Same string as FCM topic, prefixed so it cannot collide with `restaurant:` / `user:` rooms. */
+export function fcmTopicRoom(topic: string): string {
+  return `topic:${topic}`;
+}

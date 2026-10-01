@@ -21,7 +21,13 @@ if (!token()) {
 
 const url = apiBase();
 console.log('API:', url);
-console.log('Listening for:', EVENTS.SESSION_READY, EVENTS.NEW_ORDER, EVENTS.ORDER_STATUS_CHANGED);
+console.log(
+  'Listening for:',
+  EVENTS.SESSION_READY,
+  EVENTS.NEW_ORDER,
+  EVENTS.ORDER_REQUEST,
+  EVENTS.ORDER_STATUS_CHANGED
+);
 console.log('Ctrl+C to quit\n');
 
 const socket = io(url, {
@@ -41,6 +47,7 @@ socket.on('connect', () => {
 
 socket.on(EVENTS.SESSION_READY, (p) => console.log('[session_ready]', p));
 socket.on(EVENTS.NEW_ORDER, (p) => console.log('[new_order]', p));
+socket.on(EVENTS.ORDER_REQUEST, (p) => console.log('[order_request]', p));
 socket.on(EVENTS.ORDER_STATUS_CHANGED, (p) => console.log('[order_status_changed]', p));
 socket.on('connect_error', (e) => console.error('[connect_error]', e.message));
 
