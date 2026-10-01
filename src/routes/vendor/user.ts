@@ -6,6 +6,7 @@ import {
   login,
   register,
   resetPassword,
+  updateFcmToken,
   verifyPasswordOtp,
 } from '../../controllers/vendor/user';
 import { verifyVendor } from '../../middlewares/verifyVendor';
@@ -25,5 +26,6 @@ router.use(verifyVendor);
 router.put('/password/change', changePassword);
 router.get('/notifications', getNotifications);
 router.delete('/notifications/:id', deleteNotification);
+router.put('/fcm-token', updateFcmToken);
 
 export default router;

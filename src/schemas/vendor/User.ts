@@ -53,3 +53,13 @@ export const vendorRegisterSchema = Joi.object({
   maximum_delivery_time: Joi.string().optional(),
   delivery_time_type: Joi.string().optional(),
 });
+
+export const vendorFcmTokenSchema = Joi.object({
+  fcm_token: Joi.string().trim().min(1).required().messages({
+    'string.empty': 'FCM token is required',
+    'any.required': 'FCM token is required',
+  }),
+  platform: Joi.string().valid('mobile', 'web').default('mobile').messages({
+    'any.only': 'platform must be mobile or web',
+  }),
+});

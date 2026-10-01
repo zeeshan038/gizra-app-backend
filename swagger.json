@@ -979,6 +979,119 @@
         "summary": "Delete one inbox item"
       }
     },
+    "/vendor/fcm-token": {
+      "put": {
+        "description": "Register Firebase token for **new_order** pushes. Use `platform=mobile` (default) for POS/vendor app (`firebase_token`); `platform=web` for Restaurant Web Panel (`fcm_token_web`). Same response shape as delivery-man FCM update.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/VendorAuthorizationHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FcmTokenUpdateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError500"
+          }
+        },
+        "tags": [
+          "Vendor Notifications"
+        ],
+        "summary": "Update FCM device token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VendorFcmTokenUpdateBody"
+              },
+              "example": {
+                "fcm_token": "dXyz_device_token_from_firebase",
+                "platform": "web"
+              }
+            }
+          }
+        }
+      }
+    },
     "/vendor/catalog/category": {
       "post": {
         "description": "",
@@ -18232,6 +18345,28 @@
           "fcm_token": {
             "type": "string",
             "minLength": 1
+          }
+        }
+      },
+      "VendorFcmTokenUpdateBody": {
+        "type": "object",
+        "required": [
+          "fcm_token"
+        ],
+        "properties": {
+          "fcm_token": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Firebase Cloud Messaging device token"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "mobile",
+              "web"
+            ],
+            "default": "mobile",
+            "description": "mobile → vendors.firebase_token (POS/app); web → vendors.fcm_token_web (browser panel)"
           }
         }
       },
