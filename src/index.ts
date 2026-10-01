@@ -16,7 +16,7 @@ const origins =[
   "http://localhost:5174",
   "http://localhost:5173",
   "https://vendor.gizra.app",
-  "https://www.gizra.app"
+  "https://gizra-restaurant-pannel.vercel.app"
 ]
 app.use(cors({
   origin: origins,
