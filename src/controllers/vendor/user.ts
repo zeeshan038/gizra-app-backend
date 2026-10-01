@@ -3,7 +3,11 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { genrateToken } from '../../utils/methods/methods';
-import { vendorLoginSchema, vendorRegisterSchema } from '../../schemas/vendor/User';
+import {
+  vendorFcmTokenSchema,
+  vendorLoginSchema,
+  vendorRegisterSchema,
+} from '../../schemas/vendor/User';
 import {
   vendorChangePasswordSchema,
   vendorForgotPasswordSchema,
@@ -455,5 +459,49 @@ export const resetPassword = async (req: Request, res: Response): Promise<any> =
     return res.status(200).json({ status: true, msg: 'Password changed successfully' });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });
+  }
+};
+
+/**
+ * @Description Update FCM device token (POS / vendor mobile or web panel)
+ * @Route PUT /api/vendor/fcm-token
+ * @Access Private (Bearer vendor JWT)
+ */
+export const updateFcmToken = async (req: Request, res: Response): Promise<any> => {
+  const vendorId = requireVendorId(req, res);
+  if (vendorId == null) return;
+
+  const validated = vendorFcmTokenSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(', '),
+    });
+  }
+
+  const { fcm_token, platform } = validated.value as {
+    fcm_token: string;
+    platform: 'mobile' | 'web';
+  };
+
+  const data =
+    platform === 'web'
+      ? { fcm_token_web: fcm_token, updated_at: new Date() }
+      : { firebase_token: fcm_token, updated_at: new Date() };
+
+  try {
+    await prisma.vendors.update({
+      where: { id: BigInt(vendorId) },
+      data,
+    });
+
+    return res.status(200).json({
+      status: true,
+      msg: 'Successfully updated',
+      message: 'successfully updated!',
+    });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Request failed';
+    return res.status(500).json({ status: false, msg });
   }
 };

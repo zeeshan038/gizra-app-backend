@@ -4298,6 +4298,28 @@
           }
         }
       },
+      "VendorFcmTokenUpdateBody": {
+        "type": "object",
+        "required": [
+          "fcm_token"
+        ],
+        "properties": {
+          "fcm_token": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Firebase Cloud Messaging device token"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "mobile",
+              "web"
+            ],
+            "default": "mobile",
+            "description": "mobile → vendors.firebase_token (POS/app); web → vendors.fcm_token_web (browser panel)"
+          }
+        }
+      },
       "FcmTokenUpdateResponse": {
         "type": "object",
         "properties": {

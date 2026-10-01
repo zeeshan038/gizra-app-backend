@@ -7003,6 +7003,55 @@
         }
       }
     },
+    "/vendor/fcm-token": {
+      "put": {
+        "summary": "Update FCM device token",
+        "description": "Register Firebase token for **new_order** pushes. Use `platform=mobile` (default) for POS/vendor app (`firebase_token`); `platform=web` for Restaurant Web Panel (`fcm_token_web`). Same response shape as delivery-man FCM update.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/VendorAuthorizationHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VendorFcmTokenUpdateBody"
+              },
+              "example": {
+                "fcm_token": "dXyz_device_token_from_firebase",
+                "platform": "web"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FcmTokenUpdateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError500"
+          }
+        },
+        "tags": [
+          "Vendor Notifications"
+        ]
+      }
+    },
     "/delivery-man/login": {
       "post": {
         "summary": "Login (driver app)",
@@ -12586,6 +12635,28 @@
           "fcm_token": {
             "type": "string",
             "minLength": 1
+          }
+        }
+      },
+      "VendorFcmTokenUpdateBody": {
+        "type": "object",
+        "required": [
+          "fcm_token"
+        ],
+        "properties": {
+          "fcm_token": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Firebase Cloud Messaging device token"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "mobile",
+              "web"
+            ],
+            "default": "mobile",
+            "description": "mobile → vendors.firebase_token (POS/app); web → vendors.fcm_token_web (browser panel)"
           }
         }
       },
