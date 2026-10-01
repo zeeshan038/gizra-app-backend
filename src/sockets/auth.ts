@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import prisma from '../config/database';
+import { getDeliveryManFcmTopics } from '../utils/deliveryman/pushTopics';
 import type { SocketActor, SocketJwtPayload } from '../types/sockets/auth';
 
 export type { SocketActor } from '../types/sockets/auth';
@@ -53,11 +54,25 @@ export async function authenticateSocketToken(token: string): Promise<SocketActo
   if (role === 'delivery_man') {
     const dm = await prisma.delivery_men.findUnique({
       where: { id: BigInt(subjectId) },
-      select: { id: true, auth_token: true, status: true, application_status: true },
+      select: {
+        id: true,
+        auth_token: true,
+        status: true,
+        application_status: true,
+        type: true,
+        zone_id: true,
+        vehicle_id: true,
+        restaurant_id: true,
+      },
     });
     if (!dm || !dm.status || dm.application_status !== 'approved') return null;
     if (dm.auth_token !== token.trim()) return null;
-    return { role: 'delivery_man', deliveryManId: Number(dm.id) };
+    const subscribeTopics = await getDeliveryManFcmTopics(dm);
+    return {
+      role: 'delivery_man',
+      deliveryManId: Number(dm.id),
+      subscribeTopics,
+    };
   }
 
   return null;

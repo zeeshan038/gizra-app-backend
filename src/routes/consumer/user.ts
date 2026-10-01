@@ -22,6 +22,10 @@ import {
   updateProfile,
   updateProfileZone,
 } from '../../controllers/consumer/Profile';
+import {
+  deleteNotification,
+  getNotifications,
+} from '../../controllers/consumer/notifications';
 
 const router = express.Router();
 
@@ -45,5 +49,7 @@ router.post('/update-interest', updateInterest);
 router.get('/whoami', getProfile);
 router.put('/update-profile', updateProfile);
 router.delete('/delete-account', removeAccount);
+router.get('/notifications', getNotifications);
+router.delete('/notifications/:id', deleteNotification);
 
 export default router;

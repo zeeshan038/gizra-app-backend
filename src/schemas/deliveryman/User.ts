@@ -115,3 +115,10 @@ export const dmChangePasswordSchema = Joi.object({
   }),
 });
 
+export const dmFcmTokenSchema = Joi.object({
+  fcm_token: Joi.string().trim().min(1).required().messages({
+    'string.empty': 'FCM token is required',
+    'any.required': 'FCM token is required',
+  }),
+});
+

@@ -79,7 +79,7 @@ IO.Socket connectGizraSocket({
 
 ## 3. Event names (complete list)
 
-There are **only three** server → client events and **two** client → server events today.
+There are **four** server → client events and **two** client → server events today.
 
 ### 3.1 Server → client (`.on`)
 
@@ -87,6 +87,7 @@ There are **only three** server → client events and **two** client → server 
 |-------|----------------|---------|
 | `session_ready` | `SocketEvents.SESSION_READY` | Connected; role and ids confirmed |
 | `new_order` | `SocketEvents.NEW_ORDER` | New marketplace order placed (checkout) |
+| `order_request` | `SocketEvents.ORDER_REQUEST` | Unassigned delivery job entered the driver pool (zone FCM topics) |
 | `order_status_changed` | `SocketEvents.ORDER_STATUS_CHANGED` | Order row updated after a status-changing REST call |
 
 ### 3.2 Client → server (`.emit`)
@@ -106,7 +107,7 @@ On connect, the server joins one default room per role:
 |------|------|---------------------|
 | Vendor | `restaurant:{restaurantId}` | `new_order`, `order_status_changed` for that restaurant |
 | Customer | `user:{userId}` | `order_status_changed` when payload includes your `user_id` |
-| Driver | `delivery_man:{deliveryManId}` | `order_status_changed` when payload includes your `delivery_man_id` |
+| Driver | `delivery_man:{deliveryManId}` plus `topic:{fcmTopic}` from login | `order_request` on zone/vehicle topics; `order_status_changed` when assigned or on pool topic when another driver accepts |
 
 `watch_order` additionally joins `order:{orderId}` so all parties on that order get the same status events.
 
@@ -118,14 +119,15 @@ On connect, the server joins one default room per role:
 |-------|--------|----------|--------|
 | `session_ready` | Yes | Yes | Yes |
 | `new_order` | **Yes** (`restaurant:*`) | **No** | **No** |
-| `order_status_changed` | Yes (restaurant + optional `order:*`) | Yes (`user:*` + optional `order:*`) | Yes only if **`delivery_man_id` in payload = you** (+ optional `order:*`) |
+| `order_request` | **No** | **No** | **Yes** (`topic:*` — same strings as login `data.topic` / FCM) |
+| `order_status_changed` | Yes (restaurant + optional `order:*`) | Yes (`user:*` + optional `order:*`) | Assigned orders: **`delivery_man_id` = you**; pool: **`topic:*`** when job is taken (+ optional `order:*`) |
 
 ### 5.1 When the backend emits
 
 | Trigger | Socket effect |
 |---------|----------------|
 | Consumer **places order** (marketplace) | `new_order` → vendor restaurant room; vendor FCM (see §8) |
-| Vendor **`PUT /api/vendor/orders/:id/status`** | `order_status_changed` → restaurant, `order:{id}`, customer `user:{id}`, driver `delivery_man:{id}` if assigned |
+| Vendor **`PUT /api/vendor/orders/:id/status`** | `order_status_changed` → restaurant, `order:{id}`, customer `user:{id}`, driver `delivery_man:{id}` if assigned; **`order_request`** → driver zone topics when order is unassigned and pool-eligible |
 | Driver **`PUT /api/delivery-man/orders/:id/accept`** | `order_status_changed` (order now has `delivery_man_id`) |
 | Driver **`PUT /api/delivery-man/orders/:id/status`** | `order_status_changed` |
 
@@ -137,9 +139,10 @@ Unassigned jobs in the zone **do not** arrive via `new_order` (that event is ven
 
 | Mechanism | Use for new request cards |
 |-----------|---------------------------|
-| **`GET /api/delivery-man/orders/latest`** | List pool (poll on tab open, interval, or after FCM) |
-| **FCM topic** from login `data.topic` | Wake app / refresh list (see §8.3) |
-| **Socket** | Not used for pool today; use after **Accept** for assigned order updates |
+| **`GET /api/delivery-man/orders/latest`** | Source of truth for pool cards (poll on tab open, interval, or after push/socket) |
+| **`order_request` socket** | While app is open — play sound, refetch **`/latest`** |
+| **FCM topic** from login `data.topic` | Wake app / refresh list when backgrounded (see §8.3) |
+| **`order_status_changed` on same topics** | Another driver accepted — remove card / refetch **`/latest`** |
 
 ---
 
@@ -206,7 +209,26 @@ In-store **POS-only** orders may not emit `new_order` (same as legacy: marketpla
 
 ---
 
-### 6.3 `order_status_changed` (all roles that match rooms)
+### 6.3 `order_request` (driver pool)
+
+```json
+{
+  "order_id": "100178",
+  "restaurant_id": 42,
+  "order_amount": 210,
+  "order_type": "delivery",
+  "payment_method": "cash_on_delivery",
+  "order_status": "confirmed",
+  "zone_id": 2,
+  "vehicle_id": 1
+}
+```
+
+**Flutter:** Play request sound, then **`GET /api/delivery-man/orders/latest`** for full cards (images, address, map coords). Filter client-side by vehicle if needed.
+
+---
+
+### 6.4 `order_status_changed` (all roles that match rooms)
 
 ```json
 {
@@ -238,7 +260,7 @@ Socket payload is **summary only** — refetch order detail from the role’s RE
 
 ---
 
-### 6.4 `watch_order` / ack
+### 6.5 `watch_order` / ack
 
 **Emit:**
 
@@ -329,8 +351,8 @@ Login response includes **`data.topic`** — subscribe in Firebase Messaging:
 | Zone-wise | DB `zones.deliveryman_wise_topic` or `zone_{zoneId}_delivery_man` |
 | Restaurant-wise | `restaurant_dm_{restaurantId}` |
 
-Use FCM to **open Order Request** or trigger **`GET /orders/latest`**.  
-Node backend **may not yet broadcast** FCM to zone topics on every pool order (legacy PHP often did); until wired, polling `/latest` on the Order Request tab is required.
+Use FCM to **open Order Request** or trigger **`GET /orders/latest`** when backgrounded.  
+While the app is **foreground** and connected, listen for **`order_request`** (same topic membership as FCM).
 
 ---
 
@@ -347,6 +369,7 @@ class GizraRealtimeService {
     required String jwt,
     required void Function(Map<String, dynamic> payload) onSessionReady,
     void Function(Map<String, dynamic> payload)? onNewOrder,
+    void Function(Map<String, dynamic> payload)? onOrderRequest,
     void Function(Map<String, dynamic> payload)? onOrderStatusChanged,
   }) {
     stop();
@@ -354,6 +377,9 @@ class GizraRealtimeService {
     _socket!.on('session_ready', (d) => onSessionReady(Map<String, dynamic>.from(d)));
     if (onNewOrder != null) {
       _socket!.on('new_order', (d) => onNewOrder(Map<String, dynamic>.from(d)));
+    }
+    if (onOrderRequest != null) {
+      _socket!.on('order_request', (d) => onOrderRequest(Map<String, dynamic>.from(d)));
     }
     _socket!.on('order_status_changed', (d) {
       onOrderStatusChanged?.call(Map<String, dynamic>.from(d));
@@ -411,8 +437,7 @@ Swagger: merged driver overlay + main `swagger.json`; run `npm run swagger:gen` 
 
 ## 12. Known gaps / roadmap
 
-1. **Driver zone broadcast** — no socket event when an unassigned order enters the pool; use REST + FCM topic (when server sends it).
-2. **Customer “order placed”** — no dedicated socket; use checkout response.
+1. **Customer “order placed”** — no dedicated socket; use checkout response.
 3. **Vendor web panel** may use **SSE** (`GET /vendor/orders/events`); Flutter vendor app should use **`new_order`**, not SSE.
 4. Kitchen notes / dispatch extras — REST only; no extra socket events yet.
 
@@ -425,7 +450,8 @@ CONNECT     auth.token = JWT from role login     path /socket.io
 
 LISTEN      session_ready
             new_order              → vendor only
-            order_status_changed   → vendor, customer (user room), driver (if assigned)
+            order_request          → driver (topic rooms = FCM topics)
+            order_status_changed   → vendor, customer (user room), driver (assigned + pool topics)
 
 EMIT        watch_order { order_id }     → ack ok | Invalid order_id | Forbidden
             unwatch_order { order_id }   → no ack
@@ -434,7 +460,7 @@ ACTIONS     always REST first (PUT status, accept, checkout, …)
 
 BACKGROUND  FCM (vendor token, consumer token, driver topic)
 
-DRIVER POOL GET /delivery-man/orders/latest  (+ FCM refresh), not new_order
+DRIVER POOL GET /delivery-man/orders/latest  + order_request socket + FCM
 
 TYPES       src/types/sockets/realtime.ts
 ```

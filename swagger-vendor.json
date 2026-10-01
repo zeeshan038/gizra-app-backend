@@ -25,6 +25,10 @@
     {
       "name": "Vendor Orders (Web Panel & POS)",
       "description": "Marketplace orders from consumer app (POST /consumer/order/place). Shared by Restaurant Web Panel and Vendor POS/kitchen app — same Bearer JWT from POST /vendor/login. Web Panel: SSE GET /vendor/orders/events for instant new-order alerts (no polling). Does not include in-store POS sales (order_type=pos). POS also receives FCM push type=new_order when configured."
+    },
+    {
+      "name": "Vendor Notifications",
+      "description": "GET /vendor/notifications, DELETE /notifications/{id}. New-order and admin broadcasts."
     }
   ],
   "components": {
@@ -4266,6 +4270,241 @@
             }
           }
         }
+      },
+      "FcmTokenUpdateBody": {
+        "type": "object",
+        "required": [
+          "fcm_token"
+        ],
+        "properties": {
+          "fcm_token": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "FcmTokenUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Successfully updated"
+          },
+          "message": {
+            "type": "string",
+            "example": "successfully updated!"
+          }
+        }
+      },
+      "NotificationDeleteResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Notification removed"
+          }
+        }
+      },
+      "NotificationInboxListResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/NotificationInboxPageData"
+          }
+        }
+      },
+      "NotificationInboxPageData": {
+        "type": "object",
+        "properties": {
+          "total_size": {
+            "type": "integer",
+            "example": 25
+          },
+          "limit": {
+            "type": "integer",
+            "example": 10
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Current 1-based page",
+            "example": 1
+          },
+          "days": {
+            "type": "integer",
+            "example": 7
+          },
+          "notifications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationInboxItem"
+            }
+          }
+        }
+      },
+      "NotificationInboxItem": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/NotificationInboxBroadcastItem"
+          },
+          {
+            "$ref": "#/components/schemas/NotificationInboxUserItem"
+          }
+        ]
+      },
+      "NotificationInboxBroadcastItem": {
+        "type": "object",
+        "description": "Admin panel broadcast",
+        "required": [
+          "id",
+          "source"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "boolean"
+          },
+          "tergat": {
+            "type": "string",
+            "example": "deliveryman"
+          },
+          "zone_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/NotificationBroadcastDataPayload"
+          },
+          "image_full_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "broadcast"
+            ]
+          }
+        }
+      },
+      "NotificationInboxUserItem": {
+        "type": "object",
+        "description": "Order/system push persisted for the app inbox",
+        "required": [
+          "id",
+          "source"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "data": {
+            "description": "JSON string (order push payload)",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object"
+              }
+            ]
+          },
+          "status": {
+            "type": "boolean"
+          },
+          "user_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "vendor_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "delivery_man_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "user_notification"
+            ]
+          }
+        }
+      },
+      "NotificationBroadcastDataPayload": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "order_id": {
+            "type": "string",
+            "example": ""
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "type": {
+            "type": "string",
+            "example": "push_notification"
+          }
+        }
       }
     },
     "parameters": {
@@ -4362,10 +4601,10 @@
         "in": "header",
         "required": false,
         "schema": {
-          "type": "string",
-          "example": "[2]"
+          "type": "string"
         },
-        "description": "Legacy only — prefer query **zone_id**. JSON array string of zone ids."
+        "description": "JSON array of zone ids, e.g. `[2]` or `[1,2]`",
+        "example": "[2]"
       },
       "DeliveryManAuthorizationHeader": {
         "name": "authorization",
@@ -4376,6 +4615,127 @@
         },
         "description": "Bearer JWT from POST /delivery-man/login",
         "example": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      },
+      "NotificationInboxLimit": {
+        "name": "limit",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 10
+        }
+      },
+      "NotificationInboxOffset": {
+        "name": "offset",
+        "in": "query",
+        "description": "1-based page (legacy PHP name; same as `page`)",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        }
+      },
+      "NotificationInboxPage": {
+        "name": "page",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "NotificationInboxDaysDefault7": {
+        "name": "days",
+        "in": "query",
+        "description": "Include rows from the last N days",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 90,
+          "default": 7
+        }
+      },
+      "NotificationInboxDaysDefault15": {
+        "name": "days",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 90,
+          "default": 15
+        }
+      }
+    },
+    "responses": {
+      "ApiError400": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "example": {
+              "status": false,
+              "msg": "FCM token is required"
+            }
+          }
+        }
+      },
+      "ApiError401": {
+        "description": "Unauthorized",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "example": {
+              "status": false,
+              "msg": "Unauthorized"
+            }
+          }
+        }
+      },
+      "ApiError403": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "example": {
+              "status": false,
+              "msg": "Restaurant context not found for vendor"
+            }
+          }
+        }
+      },
+      "ApiError404": {
+        "description": "Not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "example": {
+              "status": false,
+              "msg": "Notification not found"
+            }
+          }
+        }
+      },
+      "ApiError500": {
+        "description": "Server error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            },
+            "example": {
+              "status": false,
+              "msg": "Request failed"
+            }
+          }
+        }
       }
     }
   },
@@ -5106,6 +5466,245 @@
             }
           }
         }
+      }
+    },
+    "/vendor/notifications": {
+      "get": {
+        "description": "Admin broadcasts for restaurants in the vendor zone + order pushes in `user_notifications.vendor_id`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/VendorAuthorizationHeader"
+          },
+          {
+            "$ref": "#/components/parameters/NotificationInboxLimit"
+          },
+          {
+            "$ref": "#/components/parameters/NotificationInboxOffset"
+          },
+          {
+            "$ref": "#/components/parameters/NotificationInboxPage"
+          },
+          {
+            "$ref": "#/components/parameters/NotificationInboxDaysDefault7"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated inbox",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationInboxListResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Success",
+                  "data": {
+                    "total_size": 1,
+                    "limit": 10,
+                    "offset": 1,
+                    "days": 7,
+                    "notifications": [
+                      {
+                        "id": "880",
+                        "data": "{\"title\":\"New order\",\"order_id\":\"100178\",\"type\":\"new_order\"}",
+                        "status": true,
+                        "vendor_id": 42,
+                        "created_at": "2026-09-28T12:00:00.000Z",
+                        "updated_at": "2026-09-28T12:00:00.000Z",
+                        "source": "user_notification"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError403"
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError500"
+          }
+        },
+        "tags": [
+          "Vendor Notifications"
+        ],
+        "summary": "Notification inbox (paginated)"
+      }
+    },
+    "/vendor/notifications/{id}": {
+      "delete": {
+        "description": "",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/VendorAuthorizationHeader"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationDeleteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError403"
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError404"
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError500"
+          }
+        },
+        "tags": [
+          "Vendor Notifications"
+        ],
+        "summary": "Delete one inbox item"
       }
     },
     "/vendor/catalog/category": {

@@ -7,7 +7,9 @@ import {
   resetPassword,
   verifyPasswordOtp,
   whoami,
+  updateFcmToken,
 } from '../../controllers/deliveryman/User';
+import { deleteNotification, getNotifications } from '../../controllers/deliveryman/notification';
 import { activeStatus, getProfile } from '../../controllers/deliveryman/Profile';
 import { getHome } from '../../controllers/deliveryman/Home';
 import { getEarnings } from '../../controllers/deliveryman/earnings';
@@ -28,5 +30,8 @@ router.get('/earnings', getEarnings);
 router.get('/whoami', whoami);
 router.get('/profile', getProfile);
 router.put('/profile/status', activeStatus);
+router.put('/fcm-token', updateFcmToken);
+router.get('/notifications', getNotifications);
+router.delete('/notifications/:id', deleteNotification);
 
 export default router;

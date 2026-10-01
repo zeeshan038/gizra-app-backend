@@ -9,6 +9,7 @@ import {
   dmRegisterSchema,
   dmResetPasswordSchema,
   dmVerifyPasswordOtpSchema,
+  dmFcmTokenSchema,
 } from '../../schemas/deliveryman/User';
 import { provisionAccountStorage } from '../../utils/accountStorage';
 import { normalizeStoredMedia } from '../../utils/mediaStorage';
@@ -17,6 +18,7 @@ import {
   packIdentityImagesForDb,
   parseIdentityImagePaths,
 } from '../../utils/deliveryman/registerHelpers';
+import { getDeliveryManFcmTopics } from '../../utils/deliveryman/pushTopics';
 import {
   deletePasswordReset,
   findPasswordReset,
@@ -255,23 +257,8 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       data: { auth_token: token } as any,
     });
 
-    let topic = 'No_topic_found';
-    const zoneId = driver.zone_id != null ? Number(driver.zone_id) : null;
-    if (zoneId != null && !Number.isNaN(zoneId)) {
-      if (driver.vehicle_id) {
-        topic = `delivery_man_${zoneId}_${Number(driver.vehicle_id)}`;
-      } else if (driver.type === 'zone_wise') {
-        const zone = await prisma.zones.findUnique({
-          where: { id: BigInt(zoneId) },
-          select: { deliveryman_wise_topic: true },
-        });
-        topic = zone?.deliveryman_wise_topic || `zone_${zoneId}_delivery_man`;
-      } else {
-        topic = `restaurant_dm_${driver.restaurant_id}`;
-      }
-    } else if (driver.type === 'restaurant_wise' && driver.restaurant_id != null) {
-      topic = `restaurant_dm_${driver.restaurant_id}`;
-    }
+    const fcmTopics = await getDeliveryManFcmTopics(driver);
+    const topic = fcmTopics[0] ?? 'No_topic_found';
 
     return res.status(200).json({
       status: true,
@@ -529,5 +516,42 @@ export const whoami = async (req: Request, res: Response): Promise<any> => {
     });
   } catch (error: any) {
     return res.status(500).json({ status: false, msg: error.message });
+  }
+};
+
+
+/**
+ * @Description Update FCM Token
+ * @Route PUT /api/delivery-man/fcm-token
+ * @Access Private (Bearer delivery man JWT)
+ */
+export const updateFcmToken = async (req: Request, res: Response): Promise<any> => {
+  const dmId = requireDeliveryManId(req, res);
+  if (dmId == null) return;
+
+  const validated = dmFcmTokenSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(', '),
+    });
+  }
+
+  const { fcm_token } = validated.value as { fcm_token: string };
+
+  try {
+    await prisma.delivery_men.update({
+      where: { id: BigInt(dmId) },
+      data: { fcm_token, updated_at: new Date() },
+    });
+
+    return res.status(200).json({
+      status: true,
+      msg: 'Successfully updated',
+      message: 'successfully updated!',
+    });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Request failed';
+    return res.status(500).json({ status: false, msg });
   }
 };

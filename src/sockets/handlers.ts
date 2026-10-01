@@ -7,7 +7,7 @@ import type {
   OrderSubscribePayload,
   SessionReadyPayload,
 } from '../types/sockets/realtime';
-import { deliveryManRoom, orderRoom, restaurantRoom, userRoom } from './rooms';
+import { deliveryManRoom, fcmTopicRoom, orderRoom, restaurantRoom, userRoom } from './rooms';
 
 function joinDefaultRooms(socket: { join: (room: string) => void }, actor: SocketActor): void {
   if (actor.role === 'vendor') {
@@ -16,6 +16,9 @@ function joinDefaultRooms(socket: { join: (room: string) => void }, actor: Socke
     socket.join(userRoom(actor.userId));
   } else if (actor.role === 'delivery_man') {
     socket.join(deliveryManRoom(actor.deliveryManId));
+    for (const topic of actor.subscribeTopics) {
+      socket.join(fcmTopicRoom(topic));
+    }
   }
 }
 

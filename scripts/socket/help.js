@@ -4,7 +4,8 @@ Gizra socket test scripts (run from gizra-backend/)
 
   Server → client:
     session_ready           after connect
-    new_order               new marketplace order
+    new_order               new marketplace order (vendor)
+    order_request           unassigned delivery job (driver zone topics)
     order_status_changed    vendor updates order status (stepper)
 
   Client → server:
