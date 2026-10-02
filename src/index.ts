@@ -4,6 +4,7 @@ import { initSocketServer } from './sockets';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import apiRouter from './routes/index'
+import './config/firebase';
 import { connectDB } from './config/database';
 import swaggerUi from 'swagger-ui-express';
 import fs from 'fs';
@@ -16,7 +17,9 @@ const origins =[
   "http://localhost:5174",
   "http://localhost:5173",
   "https://vendor.gizra.app",
-  "https://gizra-restaurant-pannel.vercel.app"
+  "https://gizra-restaurant-pannel.vercel.app",
+  'https://restaurant.gizra.app',
+  'https://restaurant.gizra.app'
 ]
 app.use(cors({
   origin: origins,
