@@ -14,7 +14,7 @@ function databaseUrlHint(): string {
       return 'Inside Docker Compose, DATABASE_URL must use host `postgres:5432`, not localhost (localhost is the API container itself).';
     }
     if (host.includes('167.233') || /^\d+\.\d+\.\d+\.\d+$/.test(host)) {
-      return 'Prefer host `postgres` when API runs in Docker on the same host. If using an IP, password must match the live Postgres user password.';
+      return 'Mac local dev: Postgres is usually not open on the server public IP. SSH tunnel to 127.0.0.1:5434 and set DATABASE_URL host to 127.0.0.1 (see .env comments). On the server in Docker use host `postgres:5432`.';
     }
   } catch {
     /* ignore parse errors */
