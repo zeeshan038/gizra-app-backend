@@ -54,8 +54,8 @@ then
   "$ROOT_DIR/scripts/postgres-set-password.sh" "$POSTGRES_PASSWORD"
 fi
 
-echo "Recreating API container with compose-built DATABASE_URL…"
-docker compose up -d --force-recreate backend
+echo "Rebuilding + recreating API (entrypoint sets DATABASE_URL from POSTGRES_PASSWORD)…"
+docker compose up -d --build --force-recreate backend
 
 sleep 2
 if docker logs --tail=25 gizra-backend 2>&1 | grep -q 'Connected to PostgreSQL Database via Prisma'; then

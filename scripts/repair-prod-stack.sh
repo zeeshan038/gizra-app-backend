@@ -36,11 +36,22 @@ fi
 chmod +x scripts/postgres-set-password.sh scripts/verify-db-docker.sh
 ./scripts/postgres-set-password.sh "$PW"
 
-echo "Recreating backend so DATABASE_URL matches Postgres (required after any password change)…"
+echo "Rebuilding + recreating backend (entrypoint builds DATABASE_URL from POSTGRES_PASSWORD)…"
 unset DATABASE_URL
 export POSTGRES_PASSWORD="$PW"
-docker compose up -d --force-recreate backend
-sleep 3
+docker compose up -d --build --force-recreate backend
+echo "Waiting for API to pass entrypoint and connect to Postgres…"
+for i in $(seq 1 30); do
+  if docker logs --tail=30 gizra-backend 2>&1 | grep -q 'Connected to PostgreSQL Database via Prisma'; then
+    break
+  fi
+  if docker logs --tail=5 gizra-backend 2>&1 | grep -q 'FATAL:'; then
+    echo "Backend failed to start:"
+    docker logs --tail=20 gizra-backend || true
+    exit 1
+  fi
+  sleep 2
+done
 ./scripts/verify-db-docker.sh
 
 echo "Done. Retry login in the app."
