@@ -10,9 +10,15 @@ import crypto from 'crypto';
 import {
   consumerApplyDeliveryManSchema,
   consumerApplyRestaurantSchema,
+  consumerGoogleSignInSchema,
   consumerLoginSchema,
   consumerRegisterSchema,
 } from '../../schemas/consumer/User';
+import {
+  isGoogleAccessTokenFlag,
+  processConsumerSocialLogin,
+  verifyGoogleToken,
+} from '../../utils/consumer/socialLogin';
 import { parseZoneIdsFromRequest } from '../../utils/consumer/favouriteHelpers';
 import { verifyResetToken } from '../../utils/consumer/passwordResetDb';
 import { provisionAccountStorage } from '../../utils/accountStorage';
@@ -268,11 +274,59 @@ export const login = async (req: Request, res: Response): Promise<any> => {
                 msg: 'OTP Login not yet fully migrated.'
             });
         } else if (payload.login_type === 'social') {
-            // Social login implementation stub
-            return res.status(501).json({
-                status: false,
-                msg: 'Social Login not yet fully migrated.'
-            });
+            if (payload.medium !== 'google') {
+                return res.status(501).json({
+                    status: false,
+                    msg: 'Only Google social login is migrated; use medium=google or POST /sign-in-with-google.',
+                });
+            }
+
+            const useAccessToken = isGoogleAccessTokenFlag(payload.access_token);
+
+            let profile;
+            try {
+                profile = await verifyGoogleToken(payload.token, useAccessToken);
+            } catch (err: unknown) {
+                const statusCode =
+                    err && typeof err === 'object' && 'statusCode' in err
+                        ? Number((err as { statusCode: number }).statusCode)
+                        : 403;
+                const msg = err instanceof Error ? err.message : 'Invalid Google credentials.';
+                return res.status(statusCode).json({ status: false, msg });
+            }
+
+            if (
+                payload.email !== profile.email &&
+                !profile.id &&
+                !profile.kid &&
+                !profile.sub
+            ) {
+                return res.status(403).json({ status: false, msg: 'Email does not match Google account.' });
+            }
+
+            try {
+                const data = await processConsumerSocialLogin(profile, {
+                    token: payload.token,
+                    email: payload.email,
+                    unique_id: payload.unique_id,
+                    medium: 'google',
+                    verified: payload.verified,
+                    guest_id: payload.guest_id,
+                });
+
+                return res.status(200).json({
+                    status: true,
+                    msg: data.token ? 'Login success' : 'Complete your profile to continue.',
+                    data,
+                });
+            } catch (err: unknown) {
+                const statusCode =
+                    err && typeof err === 'object' && 'statusCode' in err
+                        ? Number((err as { statusCode: number }).statusCode)
+                        : 403;
+                const msg = err instanceof Error ? err.message : 'Social login failed.';
+                return res.status(statusCode).json({ status: false, msg });
+            }
         }
 
     } catch (error: unknown) {
@@ -519,5 +573,67 @@ export const applyForDeliveryMan = async (req: Request, res: Response): Promise<
     });
   } catch (error: any) {
     return res.status(500).json({ status: false, msg: error.message });
+  }
+};
+
+
+/**
+ * @Description Sign in with Google
+ * @Route POST api/consumer/sign-in-with-google
+ * @Access Public
+ */
+export const signInWithGoogle = async (req: Request, res: Response): Promise<any> => {
+  const result = consumerGoogleSignInSchema.validate(req.body, { stripUnknown: true });
+  if (result.error) {
+    const errors = result.error.details.map((d) => d.message).join(', ');
+    return res.status(403).json({ status: false, msg: errors });
+  }
+
+  const payload = result.value as {
+    token: string;
+    email: string;
+    unique_id: string;
+    access_token?: number | boolean;
+    guest_id?: number;
+    verified?: 'default' | 'no';
+  };
+
+  const useAccessToken = isGoogleAccessTokenFlag(payload.access_token);
+
+  try {
+    const profile = await verifyGoogleToken(payload.token, useAccessToken);
+
+    if (
+      payload.email !== profile.email &&
+      !profile.id &&
+      !profile.kid &&
+      !profile.sub
+    ) {
+      return res.status(403).json({ status: false, msg: 'Email does not match Google account.' });
+    }
+
+    const data = await processConsumerSocialLogin(profile, {
+      token: payload.token,
+      email: payload.email,
+      unique_id: payload.unique_id,
+      medium: 'google',
+      verified: payload.verified ?? 'default',
+      guest_id: payload.guest_id,
+    });
+
+    return res.status(200).json({
+      status: true,
+      msg: data.token ? 'Login success' : 'Complete your profile to continue.',
+      data,
+    });
+  } catch (err: unknown) {
+    console.error('[consumer/sign-in-with-google]', err);
+    const statusCode =
+      err && typeof err === 'object' && 'statusCode' in err
+        ? Number((err as { statusCode: number }).statusCode)
+        : 403;
+    const msg =
+      err instanceof Error ? err.message : safeApiErrorMessage(err, 'Google sign-in failed.');
+    return res.status(statusCode).json({ status: false, msg });
   }
 };

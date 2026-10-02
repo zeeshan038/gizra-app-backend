@@ -1,3 +1,22 @@
+require('dotenv').config();
+const { buildDatabaseUrl } = require('./scripts/build-database-url');
+
+const useProd =
+  process.argv.includes('--prod') ||
+  process.env.APPROVE_TARGET === 'prod';
+
+if (useProd) {
+  const prodUrl = process.env.DATABASE_URL_PROD?.trim();
+  if (!prodUrl) {
+    console.error('❌ Set DATABASE_URL_PROD in .env (see .env.example).');
+    process.exit(1);
+  }
+  process.env.DATABASE_URL = prodUrl;
+  console.log('Using production database (DATABASE_URL_PROD).');
+} else if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = buildDatabaseUrl();
+}
+
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 

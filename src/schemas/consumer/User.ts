@@ -45,7 +45,47 @@ export const consumerLoginSchema = Joi.object({
   }),
 
   // For guest cart merging
-  guest_id: Joi.number().optional()
+  guest_id: Joi.number().optional(),
+
+  // For social login (PHP POST /auth/login login_type=social)
+  token: Joi.string().when('login_type', {
+    is: 'social',
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }),
+  unique_id: Joi.string().when('login_type', {
+    is: 'social',
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }),
+  email: Joi.string().email().when('login_type', {
+    is: 'social',
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }),
+  medium: Joi.string().valid('google', 'facebook', 'apple').when('login_type', {
+    is: 'social',
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }),
+  access_token: Joi.alternatives().try(Joi.number(), Joi.boolean()).optional(),
+  verified: Joi.string().valid('default', 'no').optional(),
+});
+
+/** Dedicated Google sign-in (same flow as login_type=social + medium=google). */
+export const consumerGoogleSignInSchema = Joi.object({
+  token: Joi.string().required().messages({
+    'any.required': 'Google token is required',
+  }),
+  email: Joi.string().email().required().messages({
+    'any.required': 'Email is required',
+  }),
+  unique_id: Joi.string().required().messages({
+    'any.required': 'unique_id is required',
+  }),
+  access_token: Joi.alternatives().try(Joi.number(), Joi.boolean()).optional(),
+  guest_id: Joi.number().optional(),
+  verified: Joi.string().valid('default', 'no').default('default'),
 });
 
 /** Customer app — Restaurant Registration screen (Figma); owner from Bearer profile */

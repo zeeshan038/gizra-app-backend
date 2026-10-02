@@ -10,7 +10,9 @@
     "create-admin": "ts-node scripts/createAdmin.ts",
     "approve-riders": "ts-node scripts/approveDeliveryMen.ts",
     "approve-vendors": "node approve.js",
+    "approve-vendors:prod": "node approve.js --prod",
     "enable-postgis": "ts-node scripts/enablePostgis.ts",
+    "seed:business-settings": "ts-node scripts/seedBusinessSettings.ts",
     "swagger:gen": "node scripts/mergeDeliveryManSwaggerOverlay.js && node swagger-gen.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

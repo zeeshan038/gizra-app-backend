@@ -1927,16 +1927,15 @@
       "ConsumerLoginBody": {
         "type": "object",
         "required": [
-          "login_type",
-          "field_type",
-          "email_or_phone",
-          "password"
+          "login_type"
         ],
         "properties": {
           "login_type": {
             "type": "string",
             "enum": [
-              "manual"
+              "manual",
+              "otp",
+              "social"
             ],
             "example": "manual"
           },
@@ -1946,19 +1945,182 @@
               "phone",
               "email"
             ],
-            "example": "phone"
+            "description": "Required when login_type=manual"
           },
           "email_or_phone": {
             "type": "string",
-            "example": "+923001234567"
+            "description": "Required when login_type=manual"
           },
           "password": {
             "type": "string",
-            "example": "password123"
+            "minLength": 6,
+            "description": "Required when login_type=manual"
+          },
+          "token": {
+            "type": "string",
+            "description": "Google id token or access token when login_type=social"
+          },
+          "unique_id": {
+            "type": "string",
+            "description": "Google user id (sub) when login_type=social"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Required when login_type=social"
+          },
+          "medium": {
+            "type": "string",
+            "enum": [
+              "google",
+              "facebook",
+              "apple"
+            ],
+            "description": "Required when login_type=social (only google implemented)"
+          },
+          "access_token": {
+            "description": "Set to 1 or true if token is OAuth access token (not id token)",
+            "oneOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  1
+                ]
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "verified": {
+            "type": "string",
+            "enum": [
+              "default",
+              "no"
+            ],
+            "default": "default",
+            "description": "Social account linking mode (legacy PHP)"
           },
           "guest_id": {
             "type": "integer",
             "description": "Optional guest id to merge cart on login"
+          }
+        }
+      },
+      "ConsumerGoogleSignInBody": {
+        "type": "object",
+        "required": [
+          "token",
+          "email",
+          "unique_id"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Google id token from mobile/web SDK (default)"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "unique_id": {
+            "type": "string",
+            "description": "Stable Google user id (sub)"
+          },
+          "access_token": {
+            "description": "Set to 1 or true when token is an OAuth access token",
+            "oneOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  1
+                ]
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "guest_id": {
+            "type": "integer",
+            "description": "Guest id from POST /consumer/guest/request — cart merged when JWT issued"
+          },
+          "verified": {
+            "type": "string",
+            "enum": [
+              "default",
+              "no"
+            ],
+            "default": "default"
+          }
+        }
+      },
+      "ConsumerSocialLoginExistUser": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerSocialLoginData": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "nullable": true,
+            "description": "JWT when is_personal_info=1; null until profile has name"
+          },
+          "is_phone_verified": {
+            "type": "integer",
+            "example": 1
+          },
+          "is_email_verified": {
+            "type": "integer",
+            "example": 1
+          },
+          "is_personal_info": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "description": "1 if user has f_name (full JWT issued)"
+          },
+          "is_exist_user": {
+            "$ref": "#/components/schemas/ConsumerSocialLoginExistUser"
+          },
+          "login_type": {
+            "type": "string",
+            "example": "social"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerSocialLoginResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConsumerSocialLoginData"
           }
         }
       },
@@ -1974,24 +2136,32 @@
             "example": "Login success"
           },
           "data": {
-            "type": "object",
-            "properties": {
-              "token": {
-                "type": "string"
+            "oneOf": [
+              {
+                "type": "object",
+                "description": "manual login",
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  },
+                  "is_phone_verified": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "is_email_verified": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "login_type": {
+                    "type": "string",
+                    "example": "manual"
+                  }
+                }
               },
-              "is_phone_verified": {
-                "type": "integer",
-                "example": 1
-              },
-              "is_email_verified": {
-                "type": "integer",
-                "example": 0
-              },
-              "login_type": {
-                "type": "string",
-                "example": "manual"
+              {
+                "$ref": "#/components/schemas/ConsumerSocialLoginData"
               }
-            }
+            ]
           }
         }
       },

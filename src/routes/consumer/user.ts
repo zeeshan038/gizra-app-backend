@@ -6,6 +6,7 @@ import {
   guestRequest,
   login,
   register,
+  signInWithGoogle,
 } from '../../controllers/consumer/User';
 import {
   changePassword,
@@ -25,6 +26,7 @@ import {
 import {
   deleteNotification,
   getNotifications,
+  testNotification,
 } from '../../controllers/consumer/notifications';
 
 const router = express.Router();
@@ -32,11 +34,14 @@ const router = express.Router();
 router.post('/guest/request', guestRequest);
 router.post('/register', register);
 router.post('/login', login);
+router.post('/sign-in-with-google', signInWithGoogle);
 router.post('/apply/delivery-man', applyForDeliveryMan);
 
 router.post('/password/forgot', forgotPassword);
 router.post('/password/verify-otp', verifyPasswordOtp);
 router.put('/password/reset', resetPassword);
+router.post('/notifications/test', testNotification);
+router.get('/notifications/test', testNotification);
 
 router.use(verifyConsumer);
 router.post('/apply/restaurant', applyForRestaurant);
