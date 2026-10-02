@@ -43,9 +43,16 @@ done
 echo "Syncing postgres role password (peer auth inside container)…"
 
 # -u postgres → local socket peer auth (works even when password auth is broken)
-docker exec -u postgres "$CONTAINER" psql -d postgres -v ON_ERROR_STOP=1 <<SQL
+if ! docker exec -u postgres "$CONTAINER" psql -d postgres -v ON_ERROR_STOP=1 <<SQL
 ALTER ROLE postgres WITH LOGIN SUPERUSER PASSWORD '${POSTGRES_PASSWORD//\'/\'\'}';
 SQL
+then
+  echo
+  echo "Peer sync failed (often: role postgres NOLOGIN or wrong password)."
+  echo "Running single-user repair via scripts/postgres-set-password.sh …"
+  chmod +x "$ROOT_DIR/scripts/postgres-set-password.sh"
+  "$ROOT_DIR/scripts/postgres-set-password.sh" "$POSTGRES_PASSWORD"
+fi
 
 echo "Recreating API container with compose-built DATABASE_URL…"
 docker compose up -d --force-recreate backend

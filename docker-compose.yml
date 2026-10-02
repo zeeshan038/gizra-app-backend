@@ -9,9 +9,10 @@ services:
       - "3002:3000"   # 3001 may be in use by other local containers
     environment:
       - PORT=3000
-      # Single source of truth: POSTGRES_PASSWORD in .env (do not hand-edit DATABASE_URL for Docker).
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/gizra_db?schema=public
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      # DATABASE_URL is built in docker/entrypoint.sh from POSTGRES_PASSWORD (avoids stale/wrong compose interpolation).
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      # Always use the compose Redis service (ignore Mac dev REDIS_URL=localhost:6380 in .env).
+      - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-your_jwt_secret_here}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     depends_on:

@@ -17,7 +17,7 @@ echo "DB host in URL: ${HOST:-unknown}"
 
 if [[ "$HOST" == "167.233.245.44" || "$HOST" == "127.0.0.1" || "$HOST" == "localhost" ]]; then
   echo "FAIL: API container should use host postgres:5432, not $HOST"
-  echo "Fix .env DATABASE_URL=postgresql://postgres:PASSWORD@postgres:5432/gizra_db?schema=public"
+  echo "Remove DATABASE_URL from .env; set POSTGRES_PASSWORD only, then: docker compose up -d --force-recreate backend"
   exit 1
 fi
 
