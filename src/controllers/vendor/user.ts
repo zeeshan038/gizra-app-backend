@@ -63,6 +63,26 @@ async function findVendorByResetIdentity(channel: PasswordResetChannel, value: s
   }
   return prisma.vendors.findFirst({ where: { phone: value } });
 }
+
+function formatVendorPublic(vendor: Record<string, unknown>) {
+  const { password, auth_token, remember_token, ...rest } = vendor;
+  void password;
+  void auth_token;
+  void remember_token;
+  const formatted: Record<string, unknown> = { ...rest };
+  if (formatted.id != null) formatted.id = String(formatted.id);
+  return formatted;
+}
+
+function formatRestaurantPublic(restaurant: Record<string, unknown>) {
+  const formatted: Record<string, unknown> = { ...restaurant };
+  if (formatted.id != null) formatted.id = String(formatted.id);
+  if (formatted.vendor_id != null) formatted.vendor_id = String(formatted.vendor_id);
+  if (formatted.zone_id != null) formatted.zone_id = String(formatted.zone_id);
+  if (formatted.package_id != null) formatted.package_id = String(formatted.package_id);
+  return formatted;
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_here';
 
 /**
@@ -262,11 +282,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     }
 };
 
-/**
- * @Description Change password while logged in (vendor app / web panel profile)
- * @Route PUT /api/vendor/password/change
- * @Access Private (Bearer vendor JWT)
- */
+
 export const changePassword = async (req: Request, res: Response): Promise<any> => {
   const vendorId = requireVendorId(req, res);
   if (vendorId == null) return;
@@ -499,6 +515,53 @@ export const updateFcmToken = async (req: Request, res: Response): Promise<any> 
       status: true,
       msg: 'Successfully updated',
       message: 'successfully updated!',
+    });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Request failed';
+    return res.status(500).json({ status: false, msg });
+  }
+};
+
+
+
+
+/**
+ * @Description Get vendor details
+ * @Route GET /api/vendor/whoami
+ * @Access Private (Bearer vendor JWT)
+ */
+export const whoami = async (req: Request, res: Response): Promise<any> => {
+  const vendorId = requireVendorId(req, res);
+  if (vendorId == null) return;
+
+  try {
+    const vendor = await prisma.vendors.findUnique({
+      where: { id: BigInt(vendorId) },
+    });
+
+    if (!vendor) {
+      return res.status(404).json({ status: false, msg: 'Vendor not found' });
+    }
+
+    const restaurants = await prisma.restaurants.findMany({
+      where: { vendor_id: vendorId },
+      orderBy: { id: 'asc' },
+    });
+
+    const primary = restaurants[0] ?? null;
+
+    return res.status(200).json({
+      status: true,
+      msg: 'Success',
+      data: {
+        vendor: formatVendorPublic(vendor as unknown as Record<string, unknown>),
+        restaurant: primary
+          ? formatRestaurantPublic(primary as unknown as Record<string, unknown>)
+          : null,
+        restaurants: restaurants.map((row) =>
+          formatRestaurantPublic(row as unknown as Record<string, unknown>)
+        ),
+      },
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Request failed';

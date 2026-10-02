@@ -3735,6 +3735,189 @@
           }
         }
       },
+      "VendorWhoamiResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/VendorWhoamiData"
+          }
+        }
+      },
+      "VendorWhoamiData": {
+        "type": "object",
+        "properties": {
+          "vendor": {
+            "$ref": "#/components/schemas/VendorProfileData"
+          },
+          "restaurant": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VendorWhoamiRestaurant"
+              }
+            ],
+            "nullable": true
+          },
+          "restaurants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VendorWhoamiRestaurant"
+            }
+          }
+        }
+      },
+      "VendorProfileData": {
+        "type": "object",
+        "description": "Vendor row without password, auth_token, or remember_token",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "12"
+          },
+          "f_name": {
+            "type": "string"
+          },
+          "l_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "email_verified_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "firebase_token": {
+            "type": "string",
+            "nullable": true,
+            "description": "FCM token for mobile POS / vendor app"
+          },
+          "fcm_token_web": {
+            "type": "string",
+            "nullable": true,
+            "description": "FCM token for Restaurant Web Panel"
+          },
+          "bank_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "branch": {
+            "type": "string",
+            "nullable": true
+          },
+          "holder_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "account_no": {
+            "type": "string",
+            "nullable": true
+          },
+          "cloudflareId": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "VendorWhoamiRestaurant": {
+        "type": "object",
+        "description": "Restaurant linked to the vendor (full row; ids as strings)",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "logo": {
+            "type": "string",
+            "nullable": true
+          },
+          "cover_photo": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "string",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "string",
+            "nullable": true
+          },
+          "vendor_id": {
+            "type": "string"
+          },
+          "zone_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "boolean"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "delivery": {
+            "type": "boolean"
+          },
+          "take_away": {
+            "type": "boolean"
+          },
+          "schedule_order": {
+            "type": "boolean"
+          },
+          "restaurant_model": {
+            "type": "string",
+            "nullable": true
+          },
+          "package_id": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
       "DeliveryManOrderListResponse": {
         "type": "object",
         "properties": {
