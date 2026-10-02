@@ -28,6 +28,18 @@ if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
   exit 1
 fi
 
+echo "Waiting for Postgres to accept connections…"
+for i in $(seq 1 30); do
+  if docker exec "$CONTAINER" pg_isready -U postgres -d gizra_db >/dev/null 2>&1; then
+    break
+  fi
+  if [[ "$i" -eq 30 ]]; then
+    echo "Postgres not ready after 30 attempts. Check: docker logs $CONTAINER"
+    exit 1
+  fi
+  sleep 2
+done
+
 echo "Syncing postgres role password (peer auth inside container)…"
 
 # -u postgres → local socket peer auth (works even when password auth is broken)
