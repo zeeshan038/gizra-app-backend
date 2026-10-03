@@ -31,7 +31,9 @@ if ! docker exec -u postgres gizra-postgres psql -d postgres -v ON_ERROR_STOP=1 
 fi
 
 unset DATABASE_URL POSTGRES_PASSWORD
-docker compose up -d --build --force-recreate backend
+chmod +x scripts/docker-compose.sh
+node scripts/prepare-compose-env.js
+./scripts/docker-compose.sh up -d --build --force-recreate backend
 
 for i in $(seq 1 30); do
   if docker logs --tail=30 gizra-backend 2>&1 | grep -q 'Connected to PostgreSQL Database via Prisma'; then

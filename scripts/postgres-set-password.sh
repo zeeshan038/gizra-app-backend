@@ -6,7 +6,8 @@ set -euo pipefail
 NEW_PASS="${1:-}"
 CONTAINER="${POSTGRES_CONTAINER:-gizra-postgres}"
 PGDATA="${PGDATA:-/var/lib/postgresql/data}"
-COMPOSE="${COMPOSE:-docker compose}"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+COMPOSE="${COMPOSE:-$ROOT/scripts/docker-compose.sh}"
 
 if [[ -z "$NEW_PASS" ]]; then
   echo "Usage: ./scripts/postgres-set-password.sh 'YourDbPassword'"

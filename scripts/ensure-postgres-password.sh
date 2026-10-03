@@ -10,7 +10,13 @@ CONTAINER="${POSTGRES_CONTAINER:-gizra-postgres}"
 chmod +x "$ROOT_DIR/scripts/read-db-password-from-env.sh"
 PW="$(./scripts/read-db-password-from-env.sh "$ENV_FILE")"
 
-docker compose up -d postgres
+chmod +x "$ROOT_DIR/scripts/docker-compose.sh" 2>/dev/null || true
+if [[ -x "$ROOT_DIR/scripts/docker-compose.sh" ]]; then
+  node "$ROOT_DIR/scripts/prepare-compose-env.js"
+  "$ROOT_DIR/scripts/docker-compose.sh" up -d postgres
+else
+  docker compose up -d postgres
+fi
 for i in $(seq 1 30); do
   docker exec "$CONTAINER" pg_isready -U postgres -d gizra_db >/dev/null 2>&1 && break
   [[ "$i" -eq 30 ]] && exit 1

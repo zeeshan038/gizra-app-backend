@@ -25,6 +25,9 @@ if [[ "$HOST" == "127.0.0.1" || "$HOST" == "localhost" ]]; then
   echo "FAIL: API container must not use localhost for Postgres"
   exit 1
 fi
+if [[ "$HOST" != "postgres" ]]; then
+  echo "WARN: expected DB host postgres in container (got $HOST). Re-run npm run deploy:server."
+fi
 
 echo "=== HTTP health (running API process) ==="
 if ! docker exec "$BACKEND" node -e "
@@ -34,6 +37,18 @@ require('http').get('http://127.0.0.1:3000/swagger/', (r) => process.exit(r.stat
   exit 1
 fi
 echo "OK: API responds 200 on /swagger/"
+
+echo "=== DB health route ==="
+if docker exec "$BACKEND" node -e "
+require('http').get('http://127.0.0.1:3000/api/health/db', (r) => {
+  let b=''; r.on('data',d=>b+=d); r.on('end',()=>process.exit(r.statusCode===200?0:1));
+}).on('error',()=>process.exit(1));
+" 2>/dev/null; then
+  echo "OK: GET /api/health/db"
+else
+  echo "FAIL: /api/health/db not 200 — DB auth or Prisma broken"
+  exit 1
+fi
 
 if docker logs "$BACKEND" 2>&1 | tail -40 | grep -q 'Connected to PostgreSQL Database via Prisma'; then
   echo "OK: running API process is connected to Postgres (authoritative)"

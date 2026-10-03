@@ -34,6 +34,8 @@ then
 fi
 
 unset DATABASE_URL POSTGRES_PASSWORD
-docker compose up -d --build --force-recreate backend
+chmod +x "$ROOT_DIR/scripts/docker-compose.sh"
+node "$ROOT_DIR/scripts/prepare-compose-env.js"
+"$ROOT_DIR/scripts/docker-compose.sh" up -d --build --force-recreate backend
 sleep 3
 docker logs --tail=15 gizra-backend

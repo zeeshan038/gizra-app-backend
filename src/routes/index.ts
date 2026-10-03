@@ -3,6 +3,15 @@ import prisma from '../config/database';
 
 const router = express.Router();
 
+router.get('/health/db', async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return res.status(200).json({ status: true, db: 'ok' });
+  } catch {
+    return res.status(503).json({ status: false, db: 'unavailable' });
+  }
+});
+
 //vendor
 import vendorUserRoutes from './vendor/user';
 import vendorCatalogRoutes from './vendor/catalog';

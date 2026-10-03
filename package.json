@@ -17,6 +17,8 @@
     "seed:discover-restaurants:apply": "ts-node scripts/seedDiscoverRestaurants.ts --apply",
     "repair:prod-stack": "bash scripts/repair-prod-stack.sh",
     "deploy:server": "bash scripts/deploy-server.sh",
+    "compose": "bash scripts/docker-compose.sh",
+    "prepare:compose-env": "node scripts/prepare-compose-env.js",
     "swagger:gen": "node scripts/mergeDeliveryManSwaggerOverlay.js && node swagger-gen.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

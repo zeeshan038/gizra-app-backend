@@ -22,15 +22,17 @@ if [[ "${1:-}" == "--pull" ]]; then
   git pull "${@:2}"
 fi
 
-chmod +x scripts/verify-db-docker.sh scripts/ensure-postgres-password.sh scripts/read-db-password-from-env.sh
-# Light sync only — never single-user repair on routine deploy (drops DB for Mac/dev clients).
-if ! ./scripts/ensure-postgres-password.sh 2>/dev/null; then
-  echo "WARN: Postgres password peer-sync skipped (API still uses DATABASE_URL from .env)."
-  echo "      If login fails with P1000, run once: npm run repair:prod-stack"
+chmod +x scripts/verify-db-docker.sh scripts/ensure-postgres-password.sh scripts/read-db-password-from-env.sh scripts/docker-compose.sh
+node scripts/prepare-compose-env.js
+
+echo "Syncing Postgres password to match DATABASE_URL in .env…"
+if ! ./scripts/ensure-postgres-password.sh; then
+  echo "FAIL: Could not align Postgres with DATABASE_URL. Run once: npm run repair:prod-stack"
+  exit 1
 fi
 
-docker compose up -d --build --force-recreate backend
-docker compose up -d cloudflared 2>/dev/null || true
+./scripts/docker-compose.sh up -d --build --force-recreate backend
+./scripts/docker-compose.sh up -d cloudflared 2>/dev/null || true
 
 echo "Waiting for API…"
 for i in $(seq 1 45); do

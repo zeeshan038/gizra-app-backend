@@ -6,10 +6,13 @@ if [ -z "${DATABASE_URL:-}" ]; then
   exit 1
 fi
 
-# Inside the API container, localhost is wrong (that is the app container, not Postgres).
+# Backend must use the compose Postgres service (not public IP hairpin or localhost).
 case "$DATABASE_URL" in
-  *127.0.0.1*|*localhost*)
-    echo "FATAL: DATABASE_URL must not use localhost inside the backend container. Use the server IP:5434 or host postgres:5432."
+  *@postgres:*|*@postgres/*)
+    ;;
+  *)
+    echo "FATAL: DATABASE_URL must use host postgres:5432 inside Docker."
+    echo "       On the server run: npm run deploy:server (generates .env.compose from .env)."
     exit 1
     ;;
 esac
@@ -20,5 +23,18 @@ case "${REDIS_URL:-}" in
     exit 1
     ;;
 esac
+
+echo "Checking database connection before start…"
+node -e "
+const { PrismaClient } = require('@prisma/client');
+const p = new PrismaClient();
+p.\$queryRaw\`SELECT 1\`
+  .then(() => p.\$disconnect())
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error('FATAL: Cannot connect to Postgres (fix password with npm run repair:prod-stack on server):', e.message);
+    process.exit(1);
+  });
+"
 
 exec "$@"

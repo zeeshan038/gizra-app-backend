@@ -27,6 +27,7 @@ import { maskEmailForClient, sendConsumerOtpEmail } from '../../utils/consumer/s
 import { sendConsumerOtpSms } from '../../utils/consumer/sendConsumerOtpSms';
 import { provisionAccountStorage } from '../../utils/accountStorage';
 import { normalizeStoredMedia } from '../../utils/mediaStorage';
+import { clientSafeErrorMessage } from '../../utils/safeClientError';
 
 const prisma = new PrismaClient();
 
@@ -158,10 +159,11 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       data : {...tokenData}
     });
 
-  } catch (error: any) {
-    return res.status(500).json({
+  } catch (error: unknown) {
+    console.error('vendor login error:', error);
+    return res.status(503).json({
       status: false,
-      msg: error.message
+      msg: clientSafeErrorMessage(error),
     });
   }
 };
@@ -517,8 +519,8 @@ export const updateFcmToken = async (req: Request, res: Response): Promise<any> 
       message: 'successfully updated!',
     });
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Request failed';
-    return res.status(500).json({ status: false, msg });
+    console.error('vendor fcm update error:', error);
+    return res.status(503).json({ status: false, msg: clientSafeErrorMessage(error) });
   }
 };
 
@@ -564,7 +566,7 @@ export const whoami = async (req: Request, res: Response): Promise<any> => {
       },
     });
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Request failed';
-    return res.status(500).json({ status: false, msg });
+    console.error('vendor whoami error:', error);
+    return res.status(503).json({ status: false, msg: clientSafeErrorMessage(error) });
   }
 };

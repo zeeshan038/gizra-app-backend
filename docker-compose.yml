@@ -9,7 +9,8 @@ services:
       - "3002:3000"   # 3001 may be in use by other local containers
     environment:
       - PORT=3000
-      - DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL in .env — see env.server.example}
+      # Host in .env may be 167.x for Mac; backend container always uses compose network postgres:5432
+      - DATABASE_URL=${GIZRA_DATABASE_URL_INTERNAL:?Run node scripts/prepare-compose-env.js or npm run deploy:server}
       # Always use the compose Redis service (ignore Mac REDIS_URL=localhost:6380 in .env).
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-your_jwt_secret_here}
@@ -26,8 +27,8 @@ services:
     restart: always
     environment:
       POSTGRES_USER: postgres
-      # Only applied on first volume init; live password must match DATABASE_URL in .env
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mysecretpassword}
+      # First volume init only; live password synced from DATABASE_URL via deploy (ensure-postgres-password)
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run node scripts/prepare-compose-env.js — password comes from DATABASE_URL}
       POSTGRES_DB: gizra_db
     ports:
       - "5434:5432"   # host tools: localhost:5434
