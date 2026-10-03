@@ -14,6 +14,7 @@
     "enable-postgis": "ts-node scripts/enablePostgis.ts",
     "seed:business-settings": "ts-node scripts/seedBusinessSettings.ts",
     "repair:prod-stack": "bash scripts/repair-prod-stack.sh",
+    "deploy:server": "bash scripts/deploy-server.sh",
     "swagger:gen": "node scripts/mergeDeliveryManSwaggerOverlay.js && node swagger-gen.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

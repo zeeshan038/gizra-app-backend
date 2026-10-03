@@ -34,7 +34,21 @@ if grep -qE '^REDIS_URL=.*(localhost|127\.0\.0\.1)' "$ENV_FILE"; then
 fi
 
 chmod +x scripts/postgres-set-password.sh scripts/verify-db-docker.sh
-./scripts/postgres-set-password.sh "$PW"
+
+echo "Checking if Postgres password already matches .env (skip destructive repair when OK)…"
+EXPORT_SNIPPET="$(tr '\n' ' ' < "$ROOT_DIR/scripts/docker-export-database-url.sh")"
+if docker inspect gizra-backend >/dev/null 2>&1; then
+  if docker exec gizra-backend sh -c "$EXPORT_SNIPPET; node -e \"
+const { PrismaClient } = require('@prisma/client');
+new PrismaClient().\\\$queryRaw\\\`SELECT 1\\\`.then(() => process.exit(0)).catch(() => process.exit(1));
+\"" 2>/dev/null; then
+    echo "DB auth already OK — skipping postgres-set-password (avoids unnecessary restarts)."
+  else
+    ./scripts/postgres-set-password.sh "$PW"
+  fi
+else
+  ./scripts/postgres-set-password.sh "$PW"
+fi
 
 echo "Rebuilding + recreating backend (entrypoint builds DATABASE_URL from POSTGRES_PASSWORD)…"
 unset DATABASE_URL

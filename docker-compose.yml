@@ -9,8 +9,10 @@ services:
       - "3002:3000"   # 3001 may be in use by other local containers
     environment:
       - PORT=3000
-      # DATABASE_URL is built in docker/entrypoint.sh from POSTGRES_PASSWORD (avoids stale/wrong compose interpolation).
+      # POSTGRES_PASSWORD from project .env (unset shell POSTGRES_PASSWORD before compose up to avoid drift).
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      # Also on container env for docker exec / healthchecks; entrypoint rebuilds the same URL at start.
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/gizra_db?schema=public
       # Always use the compose Redis service (ignore Mac dev REDIS_URL=localhost:6380 in .env).
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-your_jwt_secret_here}
