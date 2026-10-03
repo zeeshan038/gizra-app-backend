@@ -10,8 +10,8 @@ if [[ ! -f .env ]] || ! grep -qE '^DATABASE_URL=' .env; then
   exit 1
 fi
 
-if grep -qE '^DATABASE_URL=.*(127\.0\.0\.1|localhost|167\.233\.245\.44)' .env; then
-  echo "Fix .env: DATABASE_URL host must be postgres (Docker service name), not localhost or the server IP."
+if grep -qE '^DATABASE_URL=.*(127\.0\.0\.1|localhost)' .env; then
+  echo "Fix .env: on the server, DATABASE_URL must not use localhost (use server IP:5434 or postgres:5432)."
   exit 1
 fi
 

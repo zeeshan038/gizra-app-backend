@@ -1,30 +1,15 @@
 # Server production (Hetzner)
 
-Same mental model as your other backends: **one `DATABASE_URL` in `.env`**, then deploy.
+**Same `DATABASE_URL` on Mac and server** (like Raidr): point at the server IP, port **5434**.
 
-| Where | `DATABASE_URL` host |
-|--------|---------------------|
-| **Server Docker** | `postgres:5432` (compose service name) |
-| **Mac `npm run dev`** | `127.0.0.1:5434` (SSH tunnel to server) |
-
-| Do | Don't |
-|----|--------|
-| `git pull` + `npm run deploy:server` | Copy Mac `.env` with `127.0.0.1` or server public IP as DB host |
-| Keep password in `DATABASE_URL` stable | Change password in `.env` without `npm run repair:prod-stack` once |
-| `docker compose up -d` after reboot | `docker compose down` unless you mean full outage |
-
-## First-time / template
-
-```bash
-cp env.server.example .env
-# edit DATABASE_URL password once
-npm run deploy:server
+```env
+DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@167.233.245.44:5434/gizra_db?schema=public
 ```
 
-## If login returns P1000 (once)
+| | |
+|--|--|
+| Deploy | `git pull` → `unset DATABASE_URL POSTGRES_PASSWORD` → `npm run deploy:server` |
+| Server `REDIS_URL` in compose | Overridden to `redis://redis:6379` |
+| Mac `REDIS_URL` | `redis://localhost:6380` or `redis://167.233.245.44:6380` |
 
-Password inside the Postgres volume ≠ password in `DATABASE_URL`:
-
-```bash
-npm run repair:prod-stack
-```
+Ensure Hetzner firewall allows **5434** (and **6380** if Mac uses prod Redis) from your IP.

@@ -21,8 +21,8 @@ docker exec "$BACKEND" sh -c "
 " || exit 1
 
 HOST=$(docker exec "$BACKEND" sh -c "$EXPORT_SNIPPET; echo \"\$DATABASE_URL\"" | sed -nE 's#.*@([^:/]+).*#\1#p')
-if [[ "$HOST" == "167.233.245.44" || "$HOST" == "127.0.0.1" || "$HOST" == "localhost" ]]; then
-  echo "FAIL: API container should use host postgres:5432, not $HOST"
+if [[ "$HOST" == "127.0.0.1" || "$HOST" == "localhost" ]]; then
+  echo "FAIL: API container must not use localhost for Postgres (use server IP:5434 or postgres:5432)"
   exit 1
 fi
 
