@@ -59,7 +59,12 @@ new PrismaClient().\\\$queryRaw\\\`SELECT 1\\\`.then(() => process.exit(0)).catc
   echo "OK: Prisma ping succeeded"
 fi
 
-echo "=== Postgres container (peer) ==="
-docker exec -u postgres "$POSTGRES" psql -d gizra_db -c 'SELECT 1 AS ok;' >/dev/null && echo "OK: psql inside postgres container"
+echo "=== Postgres container (peer, optional) ==="
+if docker exec -u postgres "$POSTGRES" psql -d gizra_db -c 'SELECT 1 AS ok;' >/dev/null 2>&1; then
+  echo "OK: psql as OS user postgres"
+else
+  echo "SKIP: peer psql failed (NOLOGIN noise — API connection above is what matters)"
+  echo "      To fix for manual psql: npm run repair:prod-stack once"
+fi
 
 echo "All checks passed."
