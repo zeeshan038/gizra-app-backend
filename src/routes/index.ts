@@ -8,6 +8,7 @@ import vendorUserRoutes from './vendor/user';
 import vendorCatalogRoutes from './vendor/catalog';
 import vendorOrderRoutes from './vendor/order';
 import vendorRestaurantRoutes from './vendor/restaurant';
+import vendorShopRoutes from './vendor/shop';
 //consumer
 import consumerUserRoutes from './consumer/user';
 //deliveryman
@@ -25,6 +26,7 @@ router.use('/vendor',vendorUserRoutes);
 router.use('/vendor/catalog', vendorCatalogRoutes);
 router.use('/vendor/orders', vendorOrderRoutes);
 router.use('/vendor/restaurant', vendorRestaurantRoutes);
+router.use('/vendor/shop', vendorShopRoutes);
 
 //consumer
 import consumerCartRoutes from './consumer/cart';

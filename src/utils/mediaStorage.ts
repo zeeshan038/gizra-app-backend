@@ -34,3 +34,27 @@ export function publicMediaUrl(stored: string | null | undefined): string | null
   const path = stored.replace(/^\//, '');
   return `${base}/${path}`;
 }
+
+const RESTAURANT_LOGO_PLACEHOLDERS = new Set(['default_logo.png', 'default.png']);
+const RESTAURANT_COVER_PLACEHOLDERS = new Set(['default_cover.png']);
+
+/** Resolve restaurant logo/cover DB values (legacy filename or R2 path) to a public URL. */
+export function publicRestaurantMediaUrl(
+  stored: string | null | undefined,
+  kind: 'logo' | 'cover'
+): string | null {
+  const raw = stored?.trim();
+  if (!raw) return null;
+
+  const placeholders = kind === 'logo' ? RESTAURANT_LOGO_PLACEHOLDERS : RESTAURANT_COVER_PLACEHOLDERS;
+  if (placeholders.has(raw.toLowerCase())) return null;
+
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+
+  let path = raw.replace(/^\//, '');
+  if (!path.includes('/')) {
+    path = kind === 'logo' ? `restaurant/${path}` : `restaurant/cover/${path}`;
+  }
+
+  return publicMediaUrl(path);
+}
