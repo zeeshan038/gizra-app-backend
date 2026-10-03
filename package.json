@@ -18,6 +18,7 @@
     "repair:prod-stack": "bash scripts/repair-prod-stack.sh",
     "fix:prod-db": "bash scripts/fix-prod-now.sh",
     "prod:setup-once": "bash scripts/fix-prod-now.sh",
+    "prod:auto-heal": "bash scripts/prod-auto-heal.sh",
     "deploy:server": "bash scripts/deploy-server.sh",
     "compose": "bash scripts/docker-compose.sh",
     "prepare:compose-env": "node scripts/prepare-compose-env.js",
