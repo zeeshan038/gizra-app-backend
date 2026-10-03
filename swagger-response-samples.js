@@ -144,6 +144,40 @@ const ROUTE_RESPONSE_OVERRIDES = {
       restaurants: [SAMPLE_CONSUMER_RESTAURANT]
     }
   },
+  'get /consumer/restaurants/popular': {
+    status: true,
+    data: {
+      total_size: 12,
+      limit: 20,
+      offset: 1,
+      restaurants: [
+        {
+          ...SAMPLE_CONSUMER_RESTAURANT,
+          order_count: 240,
+          open: true,
+          distance: 0.93,
+          distance_text: '0.93 km'
+        }
+      ]
+    }
+  },
+  'get /consumer/restaurants/nearby': {
+    status: true,
+    data: {
+      total_size: 1,
+      limit: 20,
+      offset: 1,
+      restaurants: [
+        {
+          ...SAMPLE_CONSUMER_RESTAURANT,
+          order_count: 18,
+          open: true,
+          distance: 0.93,
+          distance_text: '0.93 km'
+        }
+      ]
+    }
+  },
   'get /consumer/restaurants/{id}/foods': {
     status: true,
     data: {

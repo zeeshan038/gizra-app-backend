@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { parseZoneIdsFromRequest } from './favouriteHelpers';
+import { parseCoordinatesFromRequest, parseZoneIdsFromRequest } from './favouriteHelpers';
 
 /**
  * Require zone id(s) for zone-scoped consumer listings (query `zone_id` preferred).
@@ -15,4 +15,20 @@ export function requireZoneIds(req: Request, res: Response): number[] | null {
     return null;
   }
   return zoneIds;
+}
+
+/** Customer map pin — query or headers `latitude` / `longitude`. */
+export function requireCoordinates(
+  req: Request,
+  res: Response
+): { lat: number; lng: number } | null {
+  const coords = parseCoordinatesFromRequest(req);
+  if (!coords) {
+    res.status(400).json({
+      status: false,
+      msg: 'latitude and longitude are required (query or headers).',
+    });
+    return null;
+  }
+  return coords;
 }

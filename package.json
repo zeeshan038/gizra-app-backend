@@ -13,6 +13,8 @@
     "approve-vendors:prod": "node approve.js --prod",
     "enable-postgis": "ts-node scripts/enablePostgis.ts",
     "seed:business-settings": "ts-node scripts/seedBusinessSettings.ts",
+    "seed:discover-restaurants": "ts-node scripts/seedDiscoverRestaurants.ts",
+    "seed:discover-restaurants:apply": "ts-node scripts/seedDiscoverRestaurants.ts --apply",
     "repair:prod-stack": "bash scripts/repair-prod-stack.sh",
     "deploy:server": "bash scripts/deploy-server.sh",
     "swagger:gen": "node scripts/mergeDeliveryManSwaggerOverlay.js && node swagger-gen.js",

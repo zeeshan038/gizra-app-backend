@@ -37,17 +37,17 @@ import consumerFavouriteRoutes from './consumer/favourite';
 import consumerZoneRoutes from './consumer/zone';
 import consumerConfigRoutes from './consumer/config';
 
-//consumer
-router.use('/consumer',consumerUserRoutes);
+//consumer — public discover/config first; `/consumer` user router last (it applies verifyConsumer to unmatched paths)
+router.use('/consumer/config', consumerConfigRoutes);
+router.use('/consumer/zone', consumerZoneRoutes);
 router.use('/consumer/restaurants', consumerRestaurantRoutes);
 router.use('/consumer/foods', consumerFoodRoutes);
-router.use('/consumer/cart', consumerCartRoutes);
 router.use('/consumer', consumerDashboardRoutes);
+router.use('/consumer/cart', consumerCartRoutes);
 router.use('/consumer/order', consumerOrderRoutes);
 router.use('/consumer/addresses', consumerAddressRoutes);
 router.use('/consumer/favourites', consumerFavouriteRoutes);
-router.use('/consumer/zone', consumerZoneRoutes);
-router.use('/consumer/config', consumerConfigRoutes);
+router.use('/consumer', consumerUserRoutes);
 
 //general upload
 import uploadRouter from './upload';

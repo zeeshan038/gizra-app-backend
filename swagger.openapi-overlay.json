@@ -4158,6 +4158,311 @@
         ]
       }
     },
+    "/consumer/restaurants/popular": {
+      "get": {
+        "description": "Popular restaurants for the home screen horizontal list. Same zone flow as GET /consumer/restaurants/all. Sorted **open first**, then **order_count** (legacy PHP `restaurants/popular`). Optional **latitude** / **longitude** (query or headers) for distance on cards.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ConsumerZoneIdQuery"
+          },
+          {
+            "name": "latitude",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Customer latitude (or send header latitude)"
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Customer longitude (or send header longitude)"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Max 50"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "veg",
+                "non_veg",
+                "home_delivery",
+                "take_away"
+              ]
+            }
+          },
+          {
+            "name": "veg",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "non_veg",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "top_rated",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Popular restaurants in zone(s)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerRestaurantListResponse"
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "total_size": 3,
+                    "limit": 20,
+                    "offset": 1,
+                    "restaurants": [
+                      {
+                        "id": "12",
+                        "name": "Nickel Barn & Coffee",
+                        "logo": "https://cdn.example.com/logo.png",
+                        "cover_photo": "https://cdn.example.com/cover.jpg",
+                        "delivery_time": "30-45 min",
+                        "minimum_order": 25,
+                        "tax": 17,
+                        "rating": 4.9,
+                        "address": "1631 W 2nd St, Example City",
+                        "latitude": "32.0853",
+                        "longitude": "34.7818",
+                        "order_count": 240,
+                        "open": true,
+                        "distance": 0.93,
+                        "distance_text": "0.93 km"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing zone_id query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Zone id is required!"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Discover"
+        ]
+      }
+    },
+    "/consumer/restaurants/nearby": {
+      "get": {
+        "description": "**All Restaurants near you** / Find Nearby map flow. Requires customer **latitude** and **longitude** (query or headers) plus **zone_id**. Returns active restaurants in the zone with valid coordinates, sorted **open first**, then **nearest** (legacy PHP `get-restaurants` + `nearest_first`).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ConsumerZoneIdQuery"
+          },
+          {
+            "name": "latitude",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Customer latitude (or header latitude)"
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Customer longitude (or header longitude)"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Max 50"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by restaurant name"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "veg",
+                "non_veg",
+                "home_delivery",
+                "take_away"
+              ]
+            }
+          },
+          {
+            "name": "veg",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "non_veg",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "top_rated",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "When set, sort by rating then distance"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Nearby restaurants in zone(s)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerRestaurantListResponse"
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "total_size": 1,
+                    "limit": 20,
+                    "offset": 1,
+                    "restaurants": [
+                      {
+                        "id": "12",
+                        "name": "Nickel Barn & Coffee",
+                        "logo": "https://cdn.example.com/logo.png",
+                        "cover_photo": "https://cdn.example.com/cover.jpg",
+                        "delivery_time": "30-45 min",
+                        "minimum_order": 25,
+                        "tax": 17,
+                        "rating": 4.9,
+                        "address": "1631 W 2nd St, Example City",
+                        "latitude": "32.0853",
+                        "longitude": "34.7818",
+                        "order_count": 18,
+                        "open": true,
+                        "distance": 0.93,
+                        "distance_text": "0.93 km"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing latitude/longitude",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "latitude and longitude are required (query or headers)."
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing zone_id query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Discover"
+        ]
+      }
+    },
     "/consumer/restaurants/{id}/foods": {
       "get": {
         "description": "",
@@ -13574,7 +13879,7 @@
     },
     {
       "name": "Consumer Zones",
-      "description": "Zone resolve and map. **Frontend flow:** GET /consumer/config/zone-id → parse zone_id → query zone_id on GET /consumer/restaurants/all, GET /consumer/home-slider, favourites."
+      "description": "Zone resolve and map. **Frontend flow:** GET /consumer/config/zone-id → parse zone_id → query zone_id on GET /consumer/restaurants/nearby (with lat/lng), /popular, /all, GET /consumer/home-slider, favourites."
     },
     {
       "name": "Delivery Man Home",
