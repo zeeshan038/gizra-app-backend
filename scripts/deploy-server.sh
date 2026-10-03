@@ -22,15 +22,23 @@ if [[ "${1:-}" == "--pull" ]]; then
   git pull "${@:2}"
 fi
 
-chmod +x scripts/verify-db-docker.sh
-docker compose up -d --build
+chmod +x scripts/verify-db-docker.sh scripts/ensure-postgres-password.sh scripts/read-db-password-from-env.sh
+echo "Syncing Postgres password to match DATABASE_URL in .env…"
+./scripts/ensure-postgres-password.sh || {
+  echo "Peer sync failed — running repair (single-user) once…"
+  chmod +x scripts/postgres-set-password.sh
+  ./scripts/postgres-set-password.sh "$(./scripts/read-db-password-from-env.sh)"
+}
+
+docker compose up -d --build --force-recreate backend
+docker compose up -d cloudflared 2>/dev/null || true
 
 echo "Waiting for API…"
 for i in $(seq 1 45); do
   if docker logs gizra-backend 2>&1 | tail -25 | grep -q 'Server is running on port'; then
     break
   fi
-  if docker logs gizra-backend 2>&1 | tail -8 | grep -q 'FATAL:'; then
+  if docker logs gizra-backend 2>&1 | tail -12 | grep -qE 'FATAL:|P1000|Authentication failed'; then
     docker logs --tail=30 gizra-backend
     exit 1
   fi
