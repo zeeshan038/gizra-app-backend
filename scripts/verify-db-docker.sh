@@ -2,7 +2,6 @@
 # Run on the API server inside the gizra-backend compose directory.
 set -euo pipefail
 
-COMPOSE="${COMPOSE:-docker compose}"
 BACKEND="${BACKEND_CONTAINER:-gizra-backend}"
 POSTGRES="${POSTGRES_CONTAINER:-gizra-postgres}"
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -14,7 +13,7 @@ fi
 
 EXPORT_SNIPPET="$(tr '\n' ' ' < "$ROOT_DIR/scripts/docker-export-database-url.sh")"
 
-echo "=== Backend DB URL (from POSTGRES_PASSWORD) ==="
+echo "=== Backend DB URL ==="
 docker exec "$BACKEND" sh -c "
   $EXPORT_SNIPPET
   echo \"\$DATABASE_URL\" | sed -E 's#(postgresql://[^:]+:)[^@]+#\\1***#'
@@ -24,7 +23,6 @@ docker exec "$BACKEND" sh -c "
 HOST=$(docker exec "$BACKEND" sh -c "$EXPORT_SNIPPET; echo \"\$DATABASE_URL\"" | sed -nE 's#.*@([^:/]+).*#\1#p')
 if [[ "$HOST" == "167.233.245.44" || "$HOST" == "127.0.0.1" || "$HOST" == "localhost" ]]; then
   echo "FAIL: API container should use host postgres:5432, not $HOST"
-  echo "Remove DATABASE_URL from .env; set POSTGRES_PASSWORD only, then: docker compose up -d --build --force-recreate backend"
   exit 1
 fi
 
@@ -34,10 +32,11 @@ require('http').get('http://127.0.0.1:3000/swagger/', (r) => process.exit(r.stat
 " 2>/dev/null; then
   echo "OK: API responds 200 on /swagger/"
 else
-  echo "WARN: /swagger/ not 200 (container may still be starting)"
+  echo "FAIL: /swagger/ not 200"
+  exit 1
 fi
 
-echo "=== Postgres ping from backend container (same URL as entrypoint) ==="
+echo "=== Postgres ping from backend container ==="
 docker exec "$BACKEND" sh -c "
   $EXPORT_SNIPPET
   node -e \"
@@ -48,7 +47,7 @@ p.\\\$queryRaw\\\`SELECT 1\\\`.then(() => { console.log('OK: Prisma can query DB
 \"
 " || exit 1
 
-echo "=== Postgres container ==="
+echo "=== Postgres container (peer) ==="
 docker exec "$POSTGRES" psql -U postgres -d gizra_db -c 'SELECT 1 AS ok;' >/dev/null && echo "OK: psql inside postgres container"
 
 echo "All checks passed."

@@ -1,20 +1,50 @@
 #!/usr/bin/env bash
-# Production deploy on Hetzner: pull optional, build all services, verify DB + HTTP.
+# Production deploy: git pull (optional), docker compose up --build, verify. Same pattern as other apps — DATABASE_URL in .env.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
+if [[ ! -f .env ]] || ! grep -qE '^DATABASE_URL=' .env; then
+  echo "Missing DATABASE_URL in .env — copy env.server.example and set the URL once."
+  exit 1
+fi
+
+if grep -qE '^DATABASE_URL=.*(127\.0\.0\.1|localhost|167\.233\.245\.44)' .env; then
+  echo "Fix .env: DATABASE_URL host must be postgres (Docker service name), not localhost or the server IP."
+  exit 1
+fi
+
+# Shell exports override compose .env and cause drift — clear before up
 unset DATABASE_URL POSTGRES_PASSWORD
 
 if [[ "${1:-}" == "--pull" ]]; then
   git pull "${@:2}"
 fi
 
+chmod +x scripts/verify-db-docker.sh
 docker compose up -d --build
 
-chmod +x scripts/verify-db-docker.sh
-sleep 4
-./scripts/verify-db-docker.sh
+echo "Waiting for API…"
+for i in $(seq 1 45); do
+  if docker logs gizra-backend 2>&1 | tail -25 | grep -q 'Server is running on port'; then
+    break
+  fi
+  if docker logs gizra-backend 2>&1 | tail -8 | grep -q 'FATAL:'; then
+    docker logs --tail=30 gizra-backend
+    exit 1
+  fi
+  sleep 2
+done
 
-echo "Deploy OK. Public: curl -sI https://backend-prod.gizra.app/swagger/ | head -1"
+for attempt in 1 2 3 4 5; do
+  if ./scripts/verify-db-docker.sh; then
+    echo "Deploy OK. Public: curl -sI https://backend-prod.gizra.app/swagger/ | head -1"
+    exit 0
+  fi
+  echo "Verify attempt $attempt failed; retry in 5s…"
+  sleep 5
+done
+
+docker logs --tail=40 gizra-backend
+exit 1

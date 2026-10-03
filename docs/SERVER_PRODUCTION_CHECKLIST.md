@@ -1,41 +1,30 @@
-# Gizra backend — Hetzner production checklist
+# Server production (Hetzner)
 
-## Golden rules (avoid P1000 forever)
+Same mental model as your other backends: **one `DATABASE_URL` in `.env`**, then deploy.
 
-| Where | What to set |
-|-------|-------------|
-| **Server `.env`** | `POSTGRES_PASSWORD=one_password_only` |
-| **Server `.env`** | `DATABASE_URL=...@127.0.0.1:5434/...` **optional** — for `psql` / Prisma on the SSH host; run `./scripts/sync-database-url-env.sh` |
-| **API container** | Always `@postgres:5432` from `docker-compose.yml` (overrides `.env` `DATABASE_URL`; entrypoint rejects localhost **inside** the container) |
-| **Mac `.env`** | `DATABASE_URL=postgresql://postgres:SAME_PASSWORD@127.0.0.1:5434/gizra_db?schema=public` + SSH tunnel |
-| **Never** | Change `POSTGRES_PASSWORD` without either fresh volume **or** `scripts/sync-postgres-password.sh` |
+| Where | `DATABASE_URL` host |
+|--------|---------------------|
+| **Server Docker** | `postgres:5432` (compose service name) |
+| **Mac `npm run dev`** | `127.0.0.1:5434` (SSH tunnel to server) |
 
-## After wiping Postgres volume (fresh `gizra_db`)
+| Do | Don't |
+|----|--------|
+| `git pull` + `npm run deploy:server` | Copy Mac `.env` with `127.0.0.1` or server public IP as DB host |
+| Keep password in `DATABASE_URL` stable | Change password in `.env` without `npm run repair:prod-stack` once |
+| `docker compose up -d` after reboot | `docker compose down` unless you mean full outage |
 
-```bash
-cd ~/gizra-app-backend
-# .env must include POSTGRES_PASSWORD=mysecretpassword (match Mac local URL password)
-git pull origin zeeshan-dev
-chmod +x scripts/bootstrap-production.sh
-./scripts/bootstrap-production.sh
-```
-
-## Verify anytime
+## First-time / template
 
 ```bash
-./scripts/verify-db-docker.sh
-docker compose ps   # gizra-backend = Up, not Restarting
+cp env.server.example .env
+# edit DATABASE_URL password once
+npm run deploy:server
 ```
 
-## URLs
+## If login returns P1000 (once)
 
-| Context | Connection string |
-|---------|-------------------|
-| API in Docker | `@postgres:5432` (automatic) |
-| psql on server host | `@127.0.0.1:5434` |
-| Mac via tunnel | `@127.0.0.1:5434` |
+Password inside the Postgres volume ≠ password in `DATABASE_URL`:
 
-## Databases on this server
-
-- `gizra-app-backend_pgdata` → Gizra (`gizra_db`)
-- `jikanzo-development_pgdata` → separate project (do not delete unless intended)
+```bash
+npm run repair:prod-stack
+```

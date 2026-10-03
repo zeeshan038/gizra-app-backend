@@ -1,33 +1,16 @@
 #!/usr/bin/env bash
-# One-time / after fresh Postgres volume: validate env, start stack, apply Prisma schema, verify DB.
-# Run on Hetzner as root from ~/gizra-app-backend
+# One-time / after fresh Postgres volume: start stack, Prisma migrate, verify.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
-if [[ ! -f .env ]]; then
-  echo "Missing .env — copy from .env.example and set secrets."
+if [[ ! -f .env ]] || ! grep -qE '^DATABASE_URL=' .env; then
+  echo "Missing DATABASE_URL in .env — copy env.server.example"
   exit 1
 fi
 
-PW="$(
-  grep -E '^POSTGRES_PASSWORD=' .env | head -1 | cut -d= -f2- | tr -d '\r"' | sed "s/^'//;s/'$//"
-)"
-if [[ -z "$PW" ]]; then
-  echo "Add POSTGRES_PASSWORD=your_password to .env (required)."
-  exit 1
-fi
-
-if grep -qE '^DATABASE_URL=' .env; then
-  echo "WARN: Remove DATABASE_URL from server .env — Compose builds it from POSTGRES_PASSWORD."
-  echo "      Keeping it can confuse debugging; API container always uses Compose DATABASE_URL."
-fi
-
-export POSTGRES_PASSWORD="$PW"
-
-chmod +x scripts/sync-database-url-env.sh
-./scripts/sync-database-url-env.sh
+unset DATABASE_URL POSTGRES_PASSWORD
 
 echo "=== Starting stack ==="
 docker compose up -d --build
@@ -55,4 +38,3 @@ docker logs --tail=12 gizra-backend
 
 echo
 echo "Done. Test: curl -sI https://backend-prod.gizra.app/swagger/ | head -1"
-echo "Register/login users via API or: npm run create-admin (inside backend container if configured)."

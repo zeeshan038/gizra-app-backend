@@ -9,11 +9,8 @@ services:
       - "3002:3000"   # 3001 may be in use by other local containers
     environment:
       - PORT=3000
-      # POSTGRES_PASSWORD from project .env (unset shell POSTGRES_PASSWORD before compose up to avoid drift).
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      # Also on container env for docker exec / healthchecks; entrypoint rebuilds the same URL at start.
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/gizra_db?schema=public
-      # Always use the compose Redis service (ignore Mac dev REDIS_URL=localhost:6380 in .env).
+      - DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL in .env — see env.server.example}
+      # Always use the compose Redis service (ignore Mac REDIS_URL=localhost:6380 in .env).
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-your_jwt_secret_here}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
@@ -29,7 +26,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: postgres
-      # Only applied on first volume init; existing pgdata keeps the original password until scripts/sync-postgres-password.sh
+      # Only applied on first volume init; live password must match DATABASE_URL in .env
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mysecretpassword}
       POSTGRES_DB: gizra_db
     ports:
