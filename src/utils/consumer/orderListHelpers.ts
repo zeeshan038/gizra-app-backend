@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { notPosWhere } from '../vendor/order/query';
+import { publicMediaUrl, publicRestaurantMediaUrl } from '../mediaStorage';
 
 /** Past orders tab (PHP `get_order_list`). */
 export const HISTORY_ORDER_STATUSES = [
@@ -204,4 +205,87 @@ export async function applyOrderListSearchFilter(
   }
 
   return { AND: [where, { OR: ors }] };
+}
+
+export function parseOrderIdParam(value: string | number): bigint | null {
+  const n = typeof value === 'string' ? Number(value) : value;
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return BigInt(n);
+}
+
+export function parseDeliveryAddressJson(
+  raw: string | null | undefined
+): Record<string, unknown> | null {
+  if (!raw?.trim()) return null;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizePhoneDigits(phone: string): string {
+  return phone.replace(/\D/g, '');
+}
+
+/** Guest track: delivery_address.contact_person_number must match request contact_number. */
+export function guestContactMatchesOrder(
+  deliveryAddress: string | null | undefined,
+  contactNumber: string
+): boolean {
+  const addr = parseDeliveryAddressJson(deliveryAddress);
+  const stored = addr?.contact_person_number;
+  if (typeof stored !== 'string' || !stored.trim()) return false;
+  const a = normalizePhoneDigits(stored);
+  const b = normalizePhoneDigits(contactNumber);
+  return a.length > 0 && a === b;
+}
+
+export const CUSTOMER_CANCELABLE_STATUSES = ['pending', 'failed', 'canceled'] as const;
+
+type TrackRestaurantRow = {
+  id: bigint;
+  name: string;
+  logo: string | null;
+  phone: string | null;
+  address: string | null;
+  latitude: unknown;
+  longitude: unknown;
+};
+
+type TrackDeliveryManRow = {
+  id: bigint;
+  f_name: string | null;
+  l_name: string | null;
+  phone: string;
+  email: string | null;
+  image: string | null;
+};
+
+export function formatTrackRestaurant(restaurant: TrackRestaurantRow | null | undefined) {
+  if (!restaurant) return null;
+  return {
+    id: restaurant.id.toString(),
+    name: restaurant.name,
+    logo: restaurant.logo,
+    logo_url: publicRestaurantMediaUrl(restaurant.logo, 'logo'),
+    phone: restaurant.phone,
+    address: restaurant.address,
+    latitude: restaurant.latitude != null ? Number(restaurant.latitude) : null,
+    longitude: restaurant.longitude != null ? Number(restaurant.longitude) : null,
+  };
+}
+
+export function formatTrackDeliveryMan(dm: TrackDeliveryManRow | null | undefined) {
+  if (!dm) return null;
+  return {
+    id: dm.id.toString(),
+    f_name: dm.f_name,
+    l_name: dm.l_name,
+    phone: dm.phone,
+    email: dm.email,
+    image: dm.image,
+    image_url: publicMediaUrl(dm.image),
+  };
 }

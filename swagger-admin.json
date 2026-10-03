@@ -2909,6 +2909,11 @@
             "example": 1,
             "description": "Page number (1-based), legacy PHP semantics"
           },
+          "page": {
+            "type": "integer",
+            "example": 1,
+            "description": "Same as offset when provided"
+          },
           "orders": {
             "type": "array",
             "items": {
@@ -2950,6 +2955,281 @@
             "$ref": "#/components/schemas/ConsumerOrderListResponse"
           }
         ]
+      },
+      "ConsumerOrderTrackRestaurant": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "3"
+          },
+          "name": {
+            "type": "string",
+            "example": "Pizza House"
+          },
+          "logo": {
+            "type": "string",
+            "nullable": true
+          },
+          "logo_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerOrderTrackDeliveryMan": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "8"
+          },
+          "f_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "l_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "image_url": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerOrderTrackData": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "100072"
+          },
+          "user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "order_amount": {
+            "type": "number",
+            "example": 45.5
+          },
+          "delivery_charge": {
+            "type": "number",
+            "example": 3
+          },
+          "total_tax_amount": {
+            "type": "number",
+            "example": 2.5
+          },
+          "payment_status": {
+            "type": "string",
+            "example": "unpaid"
+          },
+          "order_status": {
+            "type": "string",
+            "example": "confirmed"
+          },
+          "status_label": {
+            "type": "string",
+            "example": "Confirmed"
+          },
+          "payment_method": {
+            "type": "string",
+            "example": "cash_on_delivery"
+          },
+          "order_type": {
+            "type": "string",
+            "example": "delivery"
+          },
+          "schedule_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "scheduled": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "pending": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "accepted": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "confirmed": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "processing": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "handover": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "picked_up": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "delivered": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "canceled": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "delivery_address": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "restaurant": {
+            "$ref": "#/components/schemas/ConsumerOrderTrackRestaurant"
+          },
+          "delivery_man": {
+            "$ref": "#/components/schemas/ConsumerOrderTrackDeliveryMan"
+          },
+          "details_count": {
+            "type": "integer",
+            "example": 2
+          },
+          "dm_tips": {
+            "type": "number",
+            "example": 0
+          },
+          "delivery_man_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "cancellation_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "canceled_by": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerOrderTrackResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConsumerOrderTrackData"
+          }
+        }
+      },
+      "ConsumerOrderCancelBody": {
+        "type": "object",
+        "required": [
+          "order_id",
+          "reason"
+        ],
+        "properties": {
+          "order_id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "example": "100072"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 255,
+            "example": "Changed my mind"
+          },
+          "guest_id": {
+            "type": "integer",
+            "description": "Guest user id when not using JWT"
+          },
+          "is_guest": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "ConsumerOrderCancelResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Order canceled successfully"
+          },
+          "message": {
+            "type": "string",
+            "example": "Order canceled successfully"
+          }
+        }
       },
       "AdminCreateZoneBody": {
         "type": "object",
@@ -4887,24 +5167,67 @@
       "ConsumerOrderListLimit": {
         "name": "limit",
         "in": "query",
-        "required": true,
+        "required": false,
         "schema": {
           "type": "integer",
           "minimum": 1,
           "maximum": 100,
+          "default": 10,
           "example": 10
-        }
+        },
+        "description": "Page size (default 10)"
       },
       "ConsumerOrderListOffset": {
         "name": "offset",
         "in": "query",
-        "required": true,
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "example": 1
+        },
+        "description": "Page number (1-based), not row skip (default 1)"
+      },
+      "ConsumerOrderListPage": {
+        "name": "page",
+        "in": "query",
+        "required": false,
         "schema": {
           "type": "integer",
           "minimum": 1,
           "example": 1
         },
-        "description": "Page number (1-based), not row skip"
+        "description": "Alias for offset (page number)"
+      },
+      "ConsumerOrderTrackOrderId": {
+        "name": "order_id",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "example": "100072"
+        }
+      },
+      "ConsumerOrderTrackContactNumber": {
+        "name": "contact_number",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "example": "03001234567"
+        },
+        "description": "Required for guest track — must match order delivery_address.contact_person_number"
+      },
+      "ConsumerOrderTrackIsGuest": {
+        "name": "is_guest",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "boolean",
+          "example": true
+        },
+        "description": "Pass true with guest_id when not using Bearer JWT"
       },
       "ConsumerOrderListGuestId": {
         "name": "guest_id",
@@ -5558,6 +5881,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
                 }
               }
             }
@@ -5658,6 +5985,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AdminZoneListResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Success"
                 }
               }
             }
@@ -5787,7 +6118,19 @@
             }
           },
           "201": {
-            "description": "Zone created"
+            "description": "Zone created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Zone created successfully",
+                  "data": "…"
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -6335,6 +6678,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UploadSuccessResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
                 }
               },
               "application/xml": {
@@ -6505,6 +6852,11 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RegistrationInitResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Upload prefix ready. Upload files then pass cloudflare_id on register.",
+                  "data": "…"
                 }
               }
             }

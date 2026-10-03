@@ -2917,6 +2917,11 @@
             "example": 1,
             "description": "Page number (1-based), legacy PHP semantics"
           },
+          "page": {
+            "type": "integer",
+            "example": 1,
+            "description": "Same as offset when provided"
+          },
           "orders": {
             "type": "array",
             "items": {
@@ -2958,6 +2963,281 @@
             "$ref": "#/components/schemas/ConsumerOrderListResponse"
           }
         ]
+      },
+      "ConsumerOrderTrackRestaurant": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "3"
+          },
+          "name": {
+            "type": "string",
+            "example": "Pizza House"
+          },
+          "logo": {
+            "type": "string",
+            "nullable": true
+          },
+          "logo_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerOrderTrackDeliveryMan": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "8"
+          },
+          "f_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "l_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "image_url": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerOrderTrackData": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "100072"
+          },
+          "user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "order_amount": {
+            "type": "number",
+            "example": 45.5
+          },
+          "delivery_charge": {
+            "type": "number",
+            "example": 3
+          },
+          "total_tax_amount": {
+            "type": "number",
+            "example": 2.5
+          },
+          "payment_status": {
+            "type": "string",
+            "example": "unpaid"
+          },
+          "order_status": {
+            "type": "string",
+            "example": "confirmed"
+          },
+          "status_label": {
+            "type": "string",
+            "example": "Confirmed"
+          },
+          "payment_method": {
+            "type": "string",
+            "example": "cash_on_delivery"
+          },
+          "order_type": {
+            "type": "string",
+            "example": "delivery"
+          },
+          "schedule_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "scheduled": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "pending": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "accepted": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "confirmed": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "processing": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "handover": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "picked_up": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "delivered": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "canceled": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "delivery_address": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "restaurant": {
+            "$ref": "#/components/schemas/ConsumerOrderTrackRestaurant"
+          },
+          "delivery_man": {
+            "$ref": "#/components/schemas/ConsumerOrderTrackDeliveryMan"
+          },
+          "details_count": {
+            "type": "integer",
+            "example": 2
+          },
+          "dm_tips": {
+            "type": "number",
+            "example": 0
+          },
+          "delivery_man_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "cancellation_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "canceled_by": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerOrderTrackResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConsumerOrderTrackData"
+          }
+        }
+      },
+      "ConsumerOrderCancelBody": {
+        "type": "object",
+        "required": [
+          "order_id",
+          "reason"
+        ],
+        "properties": {
+          "order_id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "example": "100072"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 255,
+            "example": "Changed my mind"
+          },
+          "guest_id": {
+            "type": "integer",
+            "description": "Guest user id when not using JWT"
+          },
+          "is_guest": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "ConsumerOrderCancelResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Order canceled successfully"
+          },
+          "message": {
+            "type": "string",
+            "example": "Order canceled successfully"
+          }
+        }
       },
       "AdminCreateZoneBody": {
         "type": "object",
@@ -4895,24 +5175,67 @@
       "ConsumerOrderListLimit": {
         "name": "limit",
         "in": "query",
-        "required": true,
+        "required": false,
         "schema": {
           "type": "integer",
           "minimum": 1,
           "maximum": 100,
+          "default": 10,
           "example": 10
-        }
+        },
+        "description": "Page size (default 10)"
       },
       "ConsumerOrderListOffset": {
         "name": "offset",
         "in": "query",
-        "required": true,
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "example": 1
+        },
+        "description": "Page number (1-based), not row skip (default 1)"
+      },
+      "ConsumerOrderListPage": {
+        "name": "page",
+        "in": "query",
+        "required": false,
         "schema": {
           "type": "integer",
           "minimum": 1,
           "example": 1
         },
-        "description": "Page number (1-based), not row skip"
+        "description": "Alias for offset (page number)"
+      },
+      "ConsumerOrderTrackOrderId": {
+        "name": "order_id",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "example": "100072"
+        }
+      },
+      "ConsumerOrderTrackContactNumber": {
+        "name": "contact_number",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "example": "03001234567"
+        },
+        "description": "Required for guest track — must match order delivery_address.contact_person_number"
+      },
+      "ConsumerOrderTrackIsGuest": {
+        "name": "is_guest",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "boolean",
+          "example": true
+        },
+        "description": "Pass true with guest_id when not using Bearer JWT"
       },
       "ConsumerOrderListGuestId": {
         "name": "guest_id",
@@ -5248,6 +5571,9 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "Service Unavailable"
           }
         },
         "requestBody": {
@@ -5283,6 +5609,9 @@
                 "example": {
                   "status": true,
                   "msg": "Registration successful! Please wait for admin approval."
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -5648,6 +5977,9 @@
                 "example": {
                   "status": true,
                   "msg": "Password changed successfully"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -5871,7 +6203,7 @@
             }
           },
           "500": {
-            "description": "Internal Server Error",
+            "description": "Internal Server Error - Something went wrong on the server",
             "content": {
               "application/json": {
                 "schema": {
@@ -5884,6 +6216,9 @@
               }
             },
             "$ref": "#/components/responses/ApiError500"
+          },
+          "503": {
+            "description": "Service Unavailable"
           }
         },
         "tags": [
@@ -5908,6 +6243,9 @@
                 "example": {
                   "status": true,
                   "msg": "Password successfully updated"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -6151,6 +6489,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/NotificationDeleteResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Notification removed"
                 }
               }
             }
@@ -6250,6 +6592,11 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/FcmTokenUpdateResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Successfully updated",
+                  "message": "successfully updated!"
                 }
               }
             }
@@ -6313,7 +6660,7 @@
             }
           },
           "500": {
-            "description": "Internal Server Error",
+            "description": "Internal Server Error - Something went wrong on the server",
             "content": {
               "application/json": {
                 "schema": {
@@ -6326,6 +6673,9 @@
               }
             },
             "$ref": "#/components/responses/ApiError500"
+          },
+          "503": {
+            "description": "Service Unavailable"
           }
         },
         "tags": [
@@ -8526,6 +8876,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/VendorOrderCountsResponse"
+                },
+                "example": {
+                  "status": true,
+                  "data": "…"
                 }
               }
             }
@@ -8624,11 +8978,14 @@
           "200": {
             "description": "text/event-stream — events: `connected`, `new_order` (JSON data: order_id, order_amount, order_type, payment_method)",
             "content": {
-              "text/event-stream": {
+              "application/json": {
                 "schema": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/ApiResponse"
                 },
-                "example": "event: new_order\ndata: {\"order_id\":\"100275\",\"order_amount\":45.99,\"order_type\":\"delivery\",\"payment_method\":\"cash_on_delivery\"}\n\n"
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
               }
             }
           },
@@ -8738,6 +9095,24 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/VendorOrderRecentResponse"
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "orders": [
+                      {
+                        "id": "1001",
+                        "order_status": "confirmed",
+                        "order_type": "delivery",
+                        "payment_status": "paid",
+                        "order_amount": 45.5,
+                        "created_at": "2026-01-15T10:30:00.000Z",
+                        "customer_name": "John Doe",
+                        "customer_phone": "+1234567890"
+                      }
+                    ],
+                    "latest_id": 1
+                  }
                 }
               }
             }
@@ -8899,6 +9274,29 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/VendorPosOrderHistoryResponse"
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "source": "…",
+                    "status": "…",
+                    "summary": 0,
+                    "total": 42,
+                    "limit": 20,
+                    "offset": 0,
+                    "orders": [
+                      {
+                        "id": "1001",
+                        "order_status": "confirmed",
+                        "order_type": "delivery",
+                        "payment_status": "paid",
+                        "order_amount": 45.5,
+                        "created_at": "2026-01-15T10:30:00.000Z",
+                        "customer_name": "John Doe",
+                        "customer_phone": "+1234567890"
+                      }
+                    ]
+                  }
                 }
               }
             }
@@ -9043,6 +9441,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/VendorOrderListResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
                 }
               }
             }
@@ -9153,6 +9555,41 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/VendorOrderDetailResponse"
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "id": "1001",
+                    "order_status": "confirmed",
+                    "payment_status": "paid",
+                    "order_amount": 45.5,
+                    "customer_name": "John Doe",
+                    "customer_phone": "+1234567890",
+                    "customer_email": "john@example.com",
+                    "customer_orders_count": 3,
+                    "delivery_address": "{\"address\":\"123 Main St\"}",
+                    "items": [
+                      {
+                        "id": "1",
+                        "food_id": "101",
+                        "food_name": "Margherita Pizza",
+                        "quantity": 2,
+                        "price": 12.99,
+                        "image": "https://cdn.example.com/food.png"
+                      }
+                    ],
+                    "restaurant": {
+                      "name": "Demo Kitchen",
+                      "address": "123 Main Street",
+                      "logo": "https://cdn.example.com/logo.png"
+                    },
+                    "pricing": {
+                      "subtotal": 25.98,
+                      "tax": 2.6,
+                      "delivery_charge": 3,
+                      "total": 31.58
+                    }
+                  }
                 }
               }
             }
@@ -9263,6 +9700,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/VendorOrderStatusUpdateResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Success"
                 }
               }
             }
@@ -9368,6 +9809,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/VendorRestaurantSetupGetResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Restaurant setup fetched successfully"
                 }
               }
             }
@@ -10092,6 +10537,333 @@
         "summary": "Remove opening-hours slot"
       }
     },
+    "/vendor/shop/": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      },
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
+    "/vendor/shop/announcement": {
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Announcement updated successfully",
+                  "data": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Announcement updated successfully"
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Announcement updated successfully",
+                    "data": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
     "/upload/": {
       "post": {
         "description": "Multipart upload. **Registration (recommended):** set `role`, `cloudflare_id` (from registration-init), and `category` (`restaurant` | `identity` | `profile` | `assets`). Use response `path` on register/apply. **Legacy:** `subfolder` only (defaults to `assets/`).",
@@ -10102,6 +10874,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UploadSuccessResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
                 }
               },
               "application/xml": {
@@ -10272,6 +11048,11 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RegistrationInitResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Upload prefix ready. Upload files then pass cloudflare_id on register.",
+                  "data": "…"
                 }
               }
             }

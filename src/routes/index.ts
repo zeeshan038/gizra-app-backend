@@ -7,7 +7,8 @@ router.get('/health/db', async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
     return res.status(200).json({ status: true, db: 'ok' });
-  } catch {
+  } catch (err) {
+    console.error('[health/db]', err);
     return res.status(503).json({ status: false, db: 'unavailable' });
   }
 });

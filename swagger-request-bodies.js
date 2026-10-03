@@ -121,7 +121,38 @@ function registerRequestBodySchemas(schemas) {
   };
 }
 
+const CANCEL_ORDER_BODY_EXAMPLE = {
+  order_id: '100072',
+  reason: 'Changed my mind'
+};
+
+const CANCEL_ORDER_GUEST_EXAMPLE = {
+  is_guest: true,
+  guest_id: 55,
+  order_id: '100072',
+  reason: 'Wrong address'
+};
+
 const ROUTE_REQUEST_BODIES = {
+  'put /consumer/order/cancel': {
+    required: true,
+    description: 'Cancel a pending/failed order. Bearer JWT or is_guest + guest_id.',
+    content: {
+      'application/json': {
+        schema: { $ref: '#/components/schemas/ConsumerOrderCancelBody' },
+        examples: {
+          loggedIn: {
+            summary: 'Logged-in customer',
+            value: CANCEL_ORDER_BODY_EXAMPLE
+          },
+          guest: {
+            summary: 'Guest checkout',
+            value: CANCEL_ORDER_GUEST_EXAMPLE
+          }
+        }
+      }
+    }
+  },
   'post /consumer/order/place': {
     required: true,
     description: 'Place order (cart from DB or buy-now line items). Matches placeOrderSchema in src/schemas/consumer/Order.ts.',

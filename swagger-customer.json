@@ -2932,6 +2932,11 @@
             "example": 1,
             "description": "Page number (1-based), legacy PHP semantics"
           },
+          "page": {
+            "type": "integer",
+            "example": 1,
+            "description": "Same as offset when provided"
+          },
           "orders": {
             "type": "array",
             "items": {
@@ -2973,6 +2978,281 @@
             "$ref": "#/components/schemas/ConsumerOrderListResponse"
           }
         ]
+      },
+      "ConsumerOrderTrackRestaurant": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "3"
+          },
+          "name": {
+            "type": "string",
+            "example": "Pizza House"
+          },
+          "logo": {
+            "type": "string",
+            "nullable": true
+          },
+          "logo_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerOrderTrackDeliveryMan": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "8"
+          },
+          "f_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "l_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "image_url": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerOrderTrackData": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "100072"
+          },
+          "user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "order_amount": {
+            "type": "number",
+            "example": 45.5
+          },
+          "delivery_charge": {
+            "type": "number",
+            "example": 3
+          },
+          "total_tax_amount": {
+            "type": "number",
+            "example": 2.5
+          },
+          "payment_status": {
+            "type": "string",
+            "example": "unpaid"
+          },
+          "order_status": {
+            "type": "string",
+            "example": "confirmed"
+          },
+          "status_label": {
+            "type": "string",
+            "example": "Confirmed"
+          },
+          "payment_method": {
+            "type": "string",
+            "example": "cash_on_delivery"
+          },
+          "order_type": {
+            "type": "string",
+            "example": "delivery"
+          },
+          "schedule_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "scheduled": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "pending": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "accepted": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "confirmed": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "processing": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "handover": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "picked_up": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "delivered": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "canceled": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "delivery_address": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "restaurant": {
+            "$ref": "#/components/schemas/ConsumerOrderTrackRestaurant"
+          },
+          "delivery_man": {
+            "$ref": "#/components/schemas/ConsumerOrderTrackDeliveryMan"
+          },
+          "details_count": {
+            "type": "integer",
+            "example": 2
+          },
+          "dm_tips": {
+            "type": "number",
+            "example": 0
+          },
+          "delivery_man_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "cancellation_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "canceled_by": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerOrderTrackResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConsumerOrderTrackData"
+          }
+        }
+      },
+      "ConsumerOrderCancelBody": {
+        "type": "object",
+        "required": [
+          "order_id",
+          "reason"
+        ],
+        "properties": {
+          "order_id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "example": "100072"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 255,
+            "example": "Changed my mind"
+          },
+          "guest_id": {
+            "type": "integer",
+            "description": "Guest user id when not using JWT"
+          },
+          "is_guest": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "ConsumerOrderCancelResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Order canceled successfully"
+          },
+          "message": {
+            "type": "string",
+            "example": "Order canceled successfully"
+          }
+        }
       },
       "AdminCreateZoneBody": {
         "type": "object",
@@ -4910,24 +5190,67 @@
       "ConsumerOrderListLimit": {
         "name": "limit",
         "in": "query",
-        "required": true,
+        "required": false,
         "schema": {
           "type": "integer",
           "minimum": 1,
           "maximum": 100,
+          "default": 10,
           "example": 10
-        }
+        },
+        "description": "Page size (default 10)"
       },
       "ConsumerOrderListOffset": {
         "name": "offset",
         "in": "query",
-        "required": true,
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "example": 1
+        },
+        "description": "Page number (1-based), not row skip (default 1)"
+      },
+      "ConsumerOrderListPage": {
+        "name": "page",
+        "in": "query",
+        "required": false,
         "schema": {
           "type": "integer",
           "minimum": 1,
           "example": 1
         },
-        "description": "Page number (1-based), not row skip"
+        "description": "Alias for offset (page number)"
+      },
+      "ConsumerOrderTrackOrderId": {
+        "name": "order_id",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "example": "100072"
+        }
+      },
+      "ConsumerOrderTrackContactNumber": {
+        "name": "contact_number",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "example": "03001234567"
+        },
+        "description": "Required for guest track — must match order delivery_address.contact_person_number"
+      },
+      "ConsumerOrderTrackIsGuest": {
+        "name": "is_guest",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "boolean",
+          "example": true
+        },
+        "description": "Pass true with guest_id when not using Bearer JWT"
       },
       "ConsumerOrderListGuestId": {
         "name": "guest_id",
@@ -5140,6 +5463,20 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ConsumerGetZoneIdResponse"
+                },
+                "example": {
+                  "zone_id": "[2]",
+                  "zone_data": [
+                    {
+                      "id": 2,
+                      "status": 1,
+                      "name": "Downtown",
+                      "display_name": "Downtown Zone",
+                      "minimum_shipping_charge": 2,
+                      "per_km_shipping_charge": 0.5,
+                      "maximum_shipping_charge": 10
+                    }
+                  ]
                 }
               }
             }
@@ -5261,7 +5598,21 @@
                   "items": {
                     "$ref": "#/components/schemas/ConsumerZoneMapItem"
                   }
-                }
+                },
+                "example": [
+                  {
+                    "id": 2,
+                    "name": "Downtown",
+                    "display_name": "Downtown Zone",
+                    "status": true,
+                    "formated_coordinates": [
+                      {
+                        "lat": 40.71,
+                        "lng": -74
+                      }
+                    ]
+                  }
+                ]
               }
             }
           },
@@ -5442,6 +5793,10 @@
                 "schema": {
                   "type": "boolean",
                   "example": true
+                },
+                "example": {
+                  "return": "…",
+                  "msg": "Success"
                 }
               }
             }
@@ -7644,6 +7999,30 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ConsumerPlaceOrderResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Order placed successfully",
+                  "message": "Order placed successfully",
+                  "order_id": "1001",
+                  "total_ammount": 51,
+                  "data": {
+                    "id": "1001",
+                    "user_id": "7",
+                    "restaurant_id": "12",
+                    "order_amount": 45.5,
+                    "delivery_charge": 3,
+                    "total_tax_amount": 2.5,
+                    "additional_charge": 0,
+                    "dm_tips": 0,
+                    "payment_status": "unpaid",
+                    "order_status": "pending",
+                    "payment_method": "cash_on_delivery",
+                    "order_type": "delivery",
+                    "scheduled": false,
+                    "schedule_at": null,
+                    "created_at": "2026-01-15T10:30:00.000Z"
+                  }
                 }
               }
             }
@@ -7745,6 +8124,285 @@
         ]
       }
     },
+    "/consumer/order/track": {
+      "get": {
+        "description": "Track order screen — single order with restaurant, driver, status timestamps, and delivery address. Legacy PHP: GET customer/order/track. Guest: query is_guest=true, guest_id, contact_number (must match delivery_address.contact_person_number).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ConsumerOrderListAuthHeader"
+          },
+          {
+            "$ref": "#/components/parameters/ConsumerOrderTrackIsGuest"
+          },
+          {
+            "$ref": "#/components/parameters/ConsumerOrderTrackOrderId"
+          },
+          {
+            "$ref": "#/components/parameters/ConsumerOrderListGuestId"
+          },
+          {
+            "$ref": "#/components/parameters/ConsumerOrderTrackContactNumber"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order tracking payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerOrderTrackResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Success",
+                  "data": {
+                    "id": "100072",
+                    "user_id": "7",
+                    "restaurant_id": "3",
+                    "order_amount": 45.5,
+                    "delivery_charge": 3,
+                    "total_tax_amount": 2.5,
+                    "payment_status": "unpaid",
+                    "order_status": "confirmed",
+                    "status_label": "Confirmed",
+                    "payment_method": "cash_on_delivery",
+                    "order_type": "delivery",
+                    "scheduled": false,
+                    "schedule_at": null,
+                    "created_at": "2026-01-15T10:30:00.000Z",
+                    "updated_at": "2026-01-15T10:35:00.000Z",
+                    "pending": "2026-01-15T10:30:00.000Z",
+                    "accepted": null,
+                    "confirmed": "2026-01-15T10:32:00.000Z",
+                    "processing": null,
+                    "handover": null,
+                    "picked_up": null,
+                    "delivered": null,
+                    "canceled": null,
+                    "delivery_address": {
+                      "contact_person_name": "John Doe",
+                      "contact_person_number": "03001234567",
+                      "address": "123 Main St",
+                      "latitude": "33.6844",
+                      "longitude": "73.0479"
+                    },
+                    "restaurant": {
+                      "id": "3",
+                      "name": "Pizza House",
+                      "logo": "logo.png",
+                      "logo_url": "https://cdn.example.com/restaurant/logo.png",
+                      "phone": "+923001234567",
+                      "address": "Block A",
+                      "latitude": 33.68,
+                      "longitude": 73.04
+                    },
+                    "delivery_man": {
+                      "id": "8",
+                      "f_name": "Ali",
+                      "l_name": "Khan",
+                      "phone": "+923009876543",
+                      "email": "ali@example.com",
+                      "image": "driver.png",
+                      "image_url": "https://cdn.example.com/driver.png"
+                    },
+                    "details_count": 2,
+                    "dm_tips": 0,
+                    "delivery_man_id": "8",
+                    "cancellation_reason": null,
+                    "canceled_by": null
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order not found (or guest contact mismatch)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Order not found",
+                  "errors": [
+                    {
+                      "code": "order_not_found",
+                      "message": "Order not found"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Orders"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/consumer/order/cancel": {
+      "put": {
+        "description": "Cancel order while status is pending, failed, or already canceled. Sets canceled_by=customer and emits realtime order_status_changed. Legacy PHP: PUT customer/order/cancel.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ConsumerOrderListAuthHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order canceled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerOrderCancelResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Order canceled successfully",
+                  "message": "Order canceled successfully"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cannot cancel after confirm/processing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "You cannot cancel after the order is confirmed",
+                  "errors": [
+                    {
+                      "code": "order",
+                      "message": "You cannot cancel after confirm"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Orders"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumerOrderCancelBody"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/consumer/order/running": {
       "get": {
         "description": "Figma Orders — Running tab. Active marketplace orders (not delivered/canceled/refunded). Each row includes food thumbnail, status badge label, and track_order=true.",
@@ -7757,6 +8415,9 @@
           },
           {
             "$ref": "#/components/parameters/ConsumerOrderListOffset"
+          },
+          {
+            "$ref": "#/components/parameters/ConsumerOrderListPage"
           },
           {
             "$ref": "#/components/parameters/ConsumerOrderListGuestId"
@@ -7772,12 +8433,41 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ConsumerOrderListResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Success",
+                  "data": {
+                    "total_size": 2,
+                    "limit": 10,
+                    "offset": 1,
+                    "page": 1,
+                    "orders": [
+                      {
+                        "id": "100072",
+                        "order_id": "100072",
+                        "order_number": "100072",
+                        "restaurant_id": "3",
+                        "restaurant_name": "Pizza House",
+                        "restaurant_logo": "logo.png",
+                        "image": "food-thumb.jpg",
+                        "order_amount": 45.5,
+                        "order_status": "confirmed",
+                        "status_label": "Confirmed",
+                        "payment_status": "unpaid",
+                        "created_at": "2026-01-15T10:30:00.000Z",
+                        "order_date": "15 Jan 2026",
+                        "order_time": "10:30",
+                        "track_order": true
+                      }
+                    ]
+                  }
                 }
               }
             }
           },
           "400": {
-            "description": "Validation error (limit/offset required)",
+            "description": "Validation error",
             "content": {
               "application/json": {
                 "schema": {
@@ -7858,6 +8548,9 @@
             "$ref": "#/components/parameters/ConsumerOrderListOffset"
           },
           {
+            "$ref": "#/components/parameters/ConsumerOrderListPage"
+          },
+          {
             "$ref": "#/components/parameters/ConsumerOrderListGuestId"
           },
           {
@@ -7871,6 +8564,35 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ConsumerOrderListResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Success",
+                  "data": {
+                    "total_size": 10,
+                    "limit": 10,
+                    "offset": 1,
+                    "page": 1,
+                    "orders": [
+                      {
+                        "id": "100072",
+                        "order_id": "100072",
+                        "order_number": "100072",
+                        "restaurant_id": "3",
+                        "restaurant_name": "Pizza House",
+                        "restaurant_logo": "logo.png",
+                        "image": "food-thumb.jpg",
+                        "order_amount": 45.5,
+                        "order_status": "delivered",
+                        "status_label": "Completed",
+                        "payment_status": "unpaid",
+                        "created_at": "2026-01-15T10:30:00.000Z",
+                        "order_date": "15 Jan 2026",
+                        "order_time": "10:30",
+                        "track_order": false
+                      }
+                    ]
+                  }
                 }
               }
             }
@@ -7961,6 +8683,9 @@
             "$ref": "#/components/parameters/ConsumerOrderListOffset"
           },
           {
+            "$ref": "#/components/parameters/ConsumerOrderListPage"
+          },
+          {
             "$ref": "#/components/parameters/ConsumerOrderListGuestId"
           },
           {
@@ -7974,6 +8699,17 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ConsumerOrderListResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Success",
+                  "data": {
+                    "total_size": 0,
+                    "limit": 10,
+                    "offset": 1,
+                    "page": 1,
+                    "orders": []
+                  }
                 }
               }
             }
@@ -8082,6 +8818,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ConsumerAddressListResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
                 }
               }
             }
@@ -8194,6 +8934,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ConsumerAddressCreateResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
                 }
               }
             }
@@ -8304,6 +9048,11 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ConsumerAddressUpdateResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Address updated",
+                  "data": "…"
                 }
               }
             }
@@ -8430,6 +9179,10 @@
                       "example": "Address deleted"
                     }
                   }
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Address deleted"
                 }
               }
             }
@@ -8716,6 +9469,11 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ConsumerFavouriteActionResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Added to wish list",
+                  "message": "Added to wish list"
                 }
               }
             }
@@ -8850,6 +9608,11 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ConsumerFavouriteActionResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Removed from wish list",
+                  "message": "Removed from wish list"
                 }
               }
             }
@@ -9082,6 +9845,9 @@
                     "email": "test.user@example.com",
                     "ref_code": "TESA1B2"
                   }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -9183,6 +9949,11 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ConsumerLoginResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": 0,
+                  "data": "…"
                 }
               }
             }
@@ -9456,6 +10227,14 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PartnerApplicationResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Application submitted! Please wait for admin approval.",
+                  "data": {
+                    "application_status": "pending",
+                    "cloudflare_id": 1
+                  }
                 }
               }
             }
@@ -9558,6 +10337,9 @@
                     "field_type": "email",
                     "email_mask": "te***@example.com"
                   }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -9681,6 +10463,9 @@
                 "example": {
                   "status": true,
                   "msg": "OTP found, you can proceed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -9776,6 +10561,9 @@
                 "example": {
                   "status": true,
                   "msg": "Password changed successfully"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -10064,6 +10852,14 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PartnerApplicationResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Application submitted! Please wait for admin approval.",
+                  "data": {
+                    "application_status": "pending",
+                    "cloudflare_id": 1
+                  }
                 }
               }
             }
@@ -10167,6 +10963,9 @@
                 "example": {
                   "status": true,
                   "msg": "Password successfully updated"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -10281,6 +11080,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ConsumerSuggestedFoodsResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Success"
                 }
               }
             }
@@ -10378,6 +11181,9 @@
                 "example": {
                   "status": true,
                   "msg": "Updated successfully"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -10505,6 +11311,9 @@
                   "data": {
                     "zone_id": 2
                   }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -10618,6 +11427,9 @@
                 "example": {
                   "status": true,
                   "msg": "Interest updated successfully"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -10740,6 +11552,39 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ConsumerProfileResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Success",
+                  "data": {
+                    "id": "7",
+                    "f_name": "John",
+                    "l_name": "Doe",
+                    "phone": "+1234567890",
+                    "email": "john@example.com",
+                    "image": null,
+                    "is_phone_verified": 1,
+                    "is_email_verified": 1,
+                    "ref_code": "REF123",
+                    "zone_id": 2,
+                    "wallet_balance": 0,
+                    "loyalty_point": 100,
+                    "order_count": 5,
+                    "current_language_key": "en",
+                    "userinfo": {
+                      "id": "1",
+                      "f_name": "John",
+                      "l_name": "Doe",
+                      "phone": "+1234567890",
+                      "email": "john@example.com",
+                      "image": null
+                    },
+                    "member_since_days": 120,
+                    "is_valid_for_discount": false,
+                    "discount_amount": 0,
+                    "discount_amount_type": "",
+                    "validity": ""
+                  }
                 }
               }
             }
@@ -10832,6 +11677,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ConsumerProfileUpdateResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Profile successfully updated",
+                  "data": {
+                    "id": "7",
+                    "f_name": "John",
+                    "l_name": "Doe",
+                    "phone": "+1234567890",
+                    "email": "john@example.com",
+                    "image": null,
+                    "is_phone_verified": 1,
+                    "is_email_verified": 1,
+                    "ref_code": "REF123",
+                    "zone_id": 2,
+                    "wallet_balance": 0,
+                    "loyalty_point": 100,
+                    "order_count": 5,
+                    "current_language_key": "en"
+                  }
                 }
               }
             }
@@ -10940,6 +11805,9 @@
                   "status": true,
                   "msg": "Account removed",
                   "data": {}
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -11183,6 +12051,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/NotificationDeleteResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Notification removed"
                 }
               }
             }
@@ -11277,6 +12149,10 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UploadSuccessResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
                 }
               },
               "application/xml": {
@@ -11447,6 +12323,11 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RegistrationInitResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Upload prefix ready. Upload files then pass cloudflare_id on register.",
+                  "data": "…"
                 }
               }
             }

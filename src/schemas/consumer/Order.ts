@@ -122,3 +122,21 @@ export type PlaceOrderInput = {
   guest_id?: number;
   is_guest?: boolean;
 };
+
+export const trackOrderQuerySchema = Joi.object({
+  order_id: Joi.alternatives(
+    Joi.number().integer().positive(),
+    Joi.string().pattern(/^\d+$/)
+  ).required(),
+  guest_id: Joi.number().integer().positive().optional(),
+  contact_number: Joi.string().trim().optional(),
+});
+
+export const cancelOrderSchema = Joi.object({
+  order_id: Joi.alternatives(
+    Joi.number().integer().positive(),
+    Joi.string().pattern(/^\d+$/)
+  ).required(),
+  reason: Joi.string().trim().max(255).required(),
+  guest_id: Joi.number().integer().positive().optional(),
+});

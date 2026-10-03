@@ -22,10 +22,14 @@ if [[ "${1:-}" == "--pull" ]]; then
   git pull "${@:2}"
 fi
 
-chmod +x scripts/verify-db-docker.sh scripts/ensure-postgres-password.sh scripts/read-db-password-from-env.sh scripts/docker-compose.sh
+chmod +x scripts/verify-db-docker.sh scripts/ensure-postgres-password.sh scripts/read-db-password-from-env.sh scripts/docker-compose.sh scripts/ensure-postgres-docker-trust.sh
 node scripts/prepare-compose-env.js
 
-echo "Syncing Postgres password to match DATABASE_URL in .env…"
+echo "Configuring Docker-internal Postgres trust (backend auth)…"
+./scripts/docker-compose.sh up -d postgres
+./scripts/ensure-postgres-docker-trust.sh
+
+echo "Syncing Postgres SCRAM password for Mac/host :5434…"
 if ! ./scripts/ensure-postgres-password.sh; then
   echo "WARN: peer sync failed — running password repair (single-user if needed)…"
   PW="$(./scripts/read-db-password-from-env.sh .env)"

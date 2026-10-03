@@ -24,7 +24,12 @@ if grep -qE '^REDIS_URL=.*(localhost|127\.0\.0\.1)' "$ENV_FILE"; then
   sed -i 's|^REDIS_URL=.*|REDIS_URL=redis://redis:6379|' "$ENV_FILE"
 fi
 
-echo "Syncing Postgres role to match password in DATABASE_URL…"
+chmod +x scripts/ensure-postgres-docker-trust.sh scripts/docker-compose.sh
+node scripts/prepare-compose-env.js
+./scripts/docker-compose.sh up -d postgres
+./scripts/ensure-postgres-docker-trust.sh
+
+echo "Syncing Postgres SCRAM password for Mac/host :5434…"
 if ! docker exec -u postgres gizra-postgres psql -d postgres -v ON_ERROR_STOP=1 \
   -c "ALTER ROLE postgres WITH LOGIN SUPERUSER PASSWORD '${PW//\'/\'\'}';" 2>/dev/null; then
   ./scripts/postgres-set-password.sh "$PW"

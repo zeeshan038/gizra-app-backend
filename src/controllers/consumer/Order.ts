@@ -1,6 +1,12 @@
 import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
-import { placeOrderSchema, PlaceOrderInput } from '../../schemas/consumer/Order';
+import {
+  cancelOrderSchema,
+  placeOrderSchema,
+  PlaceOrderInput,
+  trackOrderQuerySchema,
+} from '../../schemas/consumer/Order';
 import { consumerOrderListQuerySchema } from '../../schemas/consumer/orderList';
 import {
   applyOrderListSearchFilter,
@@ -9,10 +15,19 @@ import {
   formatConsumerOrderListItem,
   paginationSkip,
   parseFoodImageFromDetail,
+  parseDeliveryAddressJson,
+  parseOrderIdParam,
+  guestContactMatchesOrder,
+  CUSTOMER_CANCELABLE_STATUSES,
+  formatTrackRestaurant,
+  formatTrackDeliveryMan,
+  orderStatusLabel,
   resolveConsumerOrderUser,
 } from '../../utils/consumer/orderListHelpers';
 import { sendNewOrderNotification } from '../../utils/notifications/sendNewOrderNotification';
+import { emitOrderStatusRealtime } from '../../sockets/orderRealtime';
 import { executePlaceOrder, PlaceOrderError } from './placeOrderLogic';
+import { notPosWhere } from '../../utils/vendor/order/query';
 
 function resolveOrderUser(req: Request, payload: PlaceOrderInput): {
   userId: number;
@@ -155,12 +170,14 @@ async function listConsumerOrders(
     });
   }
 
-  const { limit, offset, guest_id, search } = queryResult.value as {
+  const { limit, offset, page, guest_id, search } = queryResult.value as {
     limit: number;
     offset: number;
+    page?: number;
     guest_id?: number;
     search?: string;
   };
+  const pageNum = page ?? offset;
 
   const identity = resolveConsumerOrderUser(req, res, guest_id);
   if (!identity) return;
@@ -168,7 +185,7 @@ async function listConsumerOrders(
   try {
     let where = buildConsumerOrderListWhere(identity.userId, identity.isGuest, mode);
     where = await applyOrderListSearchFilter(where, search, prisma);
-    const skip = paginationSkip(limit, offset);
+    const skip = paginationSkip(limit, pageNum);
 
     const [total_size, orders] = await Promise.all([
       prisma.orders.count({ where }),
@@ -224,7 +241,8 @@ async function listConsumerOrders(
       data: {
         total_size,
         limit,
-        offset,
+        offset: pageNum,
+        page: pageNum,
         orders: mappedOrders,
       },
     });
@@ -253,3 +271,228 @@ export const getOrderHistory = (req: Request, res: Response): Promise<any> =>
  */
 export const getSubscriptionOrders = (req: Request, res: Response): Promise<any> =>
   listConsumerOrders(req, res, 'subscription');
+
+/**
+ * @Description Track a single order (restaurant, driver, status timeline fields)
+ * @Route GET /api/consumer/order/track
+ * @Query order_id, guest_id + contact_number (guest)
+ */
+export const trackOrder = async (req: Request, res: Response): Promise<any> => {
+  const validated = trackOrderQuerySchema.validate(req.query, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(', '),
+    });
+  }
+
+  const { order_id, guest_id, contact_number } = validated.value as {
+    order_id: string | number;
+    guest_id?: number;
+    contact_number?: string;
+  };
+
+  if (!req.user?.id) {
+    if (!guest_id) {
+      return res.status(401).json({ status: false, msg: 'Unauthorized' });
+    }
+    if (!contact_number?.trim()) {
+      return res.status(400).json({
+        status: false,
+        msg: 'contact_number is required for guest orders',
+      });
+    }
+  }
+
+  const identity = resolveConsumerOrderUser(req, res, guest_id);
+  if (!identity) return;
+
+  const orderId = parseOrderIdParam(order_id);
+  if (!orderId) {
+    return res.status(400).json({ status: false, msg: 'Invalid order_id' });
+  }
+
+  try {
+    const order = await prisma.orders.findFirst({
+      where: {
+        id: orderId,
+        user_id: identity.userId,
+        is_guest: identity.isGuest,
+        ...notPosWhere,
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        status: false,
+        msg: 'Order not found',
+        errors: [{ code: 'order_not_found', message: 'Order not found' }],
+      });
+    }
+
+    if (identity.isGuest && !guestContactMatchesOrder(order.delivery_address, contact_number!)) {
+      return res.status(404).json({
+        status: false,
+        msg: 'Order not found',
+        errors: [{ code: 'order_not_found', message: 'Order not found' }],
+      });
+    }
+
+    const restaurantId = Number(order.restaurant_id);
+    const dmId =
+      order.delivery_man_id != null && Number.isFinite(Number(order.delivery_man_id))
+        ? Number(order.delivery_man_id)
+        : null;
+
+    const [restaurant, deliveryMan, detailsCount] = await Promise.all([
+      prisma.restaurants.findUnique({
+        where: { id: BigInt(restaurantId) },
+        select: {
+          id: true,
+          name: true,
+          logo: true,
+          phone: true,
+          address: true,
+          latitude: true,
+          longitude: true,
+        },
+      }),
+      dmId
+        ? prisma.delivery_men.findUnique({
+            where: { id: BigInt(dmId) },
+            select: {
+              id: true,
+              f_name: true,
+              l_name: true,
+              phone: true,
+              email: true,
+              image: true,
+            },
+          })
+        : Promise.resolve(null),
+      prisma.order_details.count({
+        where: { order_id: new Prisma.Decimal(orderId.toString()) },
+      }),
+    ]);
+
+    const delivery_address = parseDeliveryAddressJson(order.delivery_address);
+
+    const payload = {
+      id: order.id.toString(),
+      user_id: order.user_id?.toString() ?? null,
+      restaurant_id: order.restaurant_id?.toString() ?? null,
+      order_amount: Number(order.order_amount) || 0,
+      delivery_charge: Number(order.delivery_charge) || 0,
+      total_tax_amount: Number(order.total_tax_amount) || 0,
+      payment_status: order.payment_status,
+      order_status: order.order_status,
+      status_label: orderStatusLabel(order.order_status),
+      payment_method: order.payment_method,
+      order_type: order.order_type,
+      schedule_at: order.schedule_at,
+      scheduled: order.scheduled,
+      created_at: order.created_at,
+      updated_at: order.updated_at,
+      pending: order.pending,
+      accepted: order.accepted ?? order.confirmed,
+      confirmed: order.confirmed,
+      processing: order.processing,
+      handover: order.handover,
+      picked_up: order.picked_up,
+      delivered: order.delivered,
+      canceled: order.canceled,
+      delivery_address,
+      restaurant: formatTrackRestaurant(restaurant),
+      delivery_man: formatTrackDeliveryMan(deliveryMan),
+      details_count: detailsCount,
+      dm_tips: Number(order.dm_tips) || 0,
+      delivery_man_id: order.delivery_man_id?.toString() ?? null,
+      cancellation_reason: order.cancellation_reason,
+      canceled_by: order.canceled_by,
+    };
+
+    return res.status(200).json({ status: true, msg: 'Success', data: payload });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Request failed';
+    return res.status(500).json({ status: false, msg });
+  }
+};
+
+/**
+ * @Description Cancel order while pending/failed (customer)
+ * @Route PUT /api/consumer/order/cancel
+ * @Body order_id, reason, guest_id (guest)
+ */
+export const cancelOrder = async (req: Request, res: Response): Promise<any> => {
+  const validated = cancelOrderSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(', '),
+    });
+  }
+
+  const { order_id, reason, guest_id } = validated.value as {
+    order_id: string | number;
+    reason: string;
+    guest_id?: number;
+  };
+
+  const identity = resolveConsumerOrderUser(req, res, guest_id);
+  if (!identity) return;
+
+  const orderId = parseOrderIdParam(order_id);
+  if (!orderId) {
+    return res.status(400).json({ status: false, msg: 'Invalid order_id' });
+  }
+
+  try {
+    const order = await prisma.orders.findFirst({
+      where: {
+        id: orderId,
+        user_id: identity.userId,
+        is_guest: identity.isGuest,
+        ...notPosWhere,
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        status: false,
+        msg: 'Order not found',
+        errors: [{ code: 'order', message: 'Order not found' }],
+      });
+    }
+
+    if (!CUSTOMER_CANCELABLE_STATUSES.includes(order.order_status as (typeof CUSTOMER_CANCELABLE_STATUSES)[number])) {
+      return res.status(403).json({
+        status: false,
+        msg: 'You cannot cancel after the order is confirmed',
+        errors: [{ code: 'order', message: 'You cannot cancel after confirm' }],
+      });
+    }
+
+    const now = new Date();
+    const updated = await prisma.orders.update({
+      where: { id: order.id },
+      data: {
+        order_status: 'canceled',
+        canceled: now,
+        cancellation_reason: reason,
+        canceled_by: 'customer',
+        updated_at: now,
+      },
+    });
+
+    emitOrderStatusRealtime(updated);
+
+    return res.status(200).json({
+      status: true,
+      msg: 'Order canceled successfully',
+      message: 'Order canceled successfully',
+    });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Request failed';
+    return res.status(500).json({ status: false, msg });
+  }
+};

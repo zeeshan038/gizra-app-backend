@@ -164,6 +164,25 @@ function applyControllerSuccessExample(endpoint, method, routePath, exampleMap) 
   }
 }
 
+/** Overlay merge replaces response content and drops examples; re-attach without overwriting $ref schemas. */
+function applySuccessExamplesAfterOverlay(paths, exampleMap) {
+  for (const routePath of Object.keys(paths)) {
+    const methods = paths[routePath];
+    for (const method of Object.keys(methods)) {
+      if (method === 'parameters') continue;
+      const endpoint = methods[method];
+      if (!endpoint?.responses) continue;
+      const key = `${method.toLowerCase()} ${routePath}`;
+      const example = exampleMap.get(key);
+      for (const code of ['200', '201']) {
+        if (endpoint.responses[code]) {
+          ensureJsonResponseBody(endpoint.responses[code], 'success', example);
+        }
+      }
+    }
+  }
+}
+
 function pathMatches(routePath, prefixes) {
   return prefixes.some((prefix) => routePath === prefix || routePath.startsWith(`${prefix}/`));
 }
@@ -372,6 +391,8 @@ swaggerAutogen(outputFile, endpointsFiles, doc).then(() => {
   if (overlayMerged) {
     console.log(`OpenAPI overlay merged: ${overlayMerged} operations`);
   }
+
+  applySuccessExamplesAfterOverlay(newPaths, controllerExamples);
 
   swaggerDoc.paths = newPaths;
 

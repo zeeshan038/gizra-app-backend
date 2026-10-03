@@ -23,5 +23,5 @@ const pass = u.password || '';
 const db = (u.pathname || '/gizra_db').replace(/^\//, '').split('/')[0] || 'gizra_db';
 const search = u.search && u.search.length > 1 ? u.search : '?schema=public';
 const userEnc = encodeURIComponent(decodeURIComponent(user));
-const passEnc = encodeURIComponent(decodeURIComponent(pass));
-process.stdout.write(`postgresql://${userEnc}:${passEnc}@postgres:5432/${db}${search}`);
+// Password omitted — Docker pg_hba trust for bridge networks (ensure-postgres-docker-trust.sh).
+process.stdout.write(`postgresql://${userEnc}@postgres:5432/${db}${search}`);

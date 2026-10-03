@@ -45,6 +45,25 @@ const SAMPLE_PLACED_ORDER = {
   created_at: '2026-01-15T10:30:00.000Z'
 };
 
+const SAMPLE_ORDER_LIST_ITEM = {
+  id: '100072',
+  order_id: '100072',
+  order_number: '100072',
+  restaurant_id: '3',
+  restaurant_name: 'Pizza House',
+  restaurant_logo: 'logo.png',
+  image: 'food-thumb.jpg',
+  order_amount: 45.5,
+  order_status: 'confirmed',
+  status_label: 'Confirmed',
+  payment_status: 'unpaid',
+  created_at: '2026-01-15T10:30:00.000Z',
+  order_date: '15 Jan 2026',
+  order_time: '10:30',
+  track_order: true
+};
+
+/** Vendor order list rows and autogen fallbacks. */
 const SAMPLE_ORDER_SUMMARY = {
   id: '1001',
   order_status: 'confirmed',
@@ -54,6 +73,63 @@ const SAMPLE_ORDER_SUMMARY = {
   created_at: '2026-01-15T10:30:00.000Z',
   customer_name: 'John Doe',
   customer_phone: '+1234567890'
+};
+
+const SAMPLE_ORDER_TRACK_DATA = {
+  id: '100072',
+  user_id: '7',
+  restaurant_id: '3',
+  order_amount: 45.5,
+  delivery_charge: 3,
+  total_tax_amount: 2.5,
+  payment_status: 'unpaid',
+  order_status: 'confirmed',
+  status_label: 'Confirmed',
+  payment_method: 'cash_on_delivery',
+  order_type: 'delivery',
+  scheduled: false,
+  schedule_at: null,
+  created_at: '2026-01-15T10:30:00.000Z',
+  updated_at: '2026-01-15T10:35:00.000Z',
+  pending: '2026-01-15T10:30:00.000Z',
+  accepted: null,
+  confirmed: '2026-01-15T10:32:00.000Z',
+  processing: null,
+  handover: null,
+  picked_up: null,
+  delivered: null,
+  canceled: null,
+  delivery_address: {
+    contact_person_name: 'John Doe',
+    contact_person_number: '03001234567',
+    address: '123 Main St',
+    latitude: '33.6844',
+    longitude: '73.0479'
+  },
+  restaurant: {
+    id: '3',
+    name: 'Pizza House',
+    logo: 'logo.png',
+    logo_url: 'https://cdn.example.com/restaurant/logo.png',
+    phone: '+923001234567',
+    address: 'Block A',
+    latitude: 33.68,
+    longitude: 73.04
+  },
+  delivery_man: {
+    id: '8',
+    f_name: 'Ali',
+    l_name: 'Khan',
+    phone: '+923009876543',
+    email: 'ali@example.com',
+    image: 'driver.png',
+    image_url: 'https://cdn.example.com/driver.png'
+  },
+  details_count: 2,
+  dm_tips: 0,
+  delivery_man_id: '8',
+  cancellation_reason: null,
+  canceled_by: null
 };
 
 const SAMPLE_VENDOR_ORDER_DETAIL = {
@@ -254,7 +330,8 @@ const ROUTE_RESPONSE_OVERRIDES = {
       total_size: 2,
       limit: 10,
       offset: 1,
-      orders: [SAMPLE_ORDER_SUMMARY]
+      page: 1,
+      orders: [{ ...SAMPLE_ORDER_LIST_ITEM, track_order: true }]
     }
   },
   'get /consumer/order/history': {
@@ -264,7 +341,8 @@ const ROUTE_RESPONSE_OVERRIDES = {
       total_size: 10,
       limit: 10,
       offset: 1,
-      orders: [SAMPLE_ORDER_SUMMARY]
+      page: 1,
+      orders: [{ ...SAMPLE_ORDER_LIST_ITEM, order_status: 'delivered', status_label: 'Completed', track_order: false }]
     }
   },
   'get /consumer/order/subscription': {
@@ -274,8 +352,19 @@ const ROUTE_RESPONSE_OVERRIDES = {
       total_size: 0,
       limit: 10,
       offset: 1,
+      page: 1,
       orders: []
     }
+  },
+  'get /consumer/order/track': {
+    status: true,
+    msg: 'Success',
+    data: SAMPLE_ORDER_TRACK_DATA
+  },
+  'put /consumer/order/cancel': {
+    status: true,
+    msg: 'Order canceled successfully',
+    message: 'Order canceled successfully'
   },
   'post /consumer/order/place': {
     status: true,
