@@ -24,5 +24,5 @@ if docker exec -u postgres "$CONTAINER" psql -d postgres -v ON_ERROR_STOP=1 \
 fi
 
 echo "postgres role not usable via psql (NOLOGIN/wrong password) — single-user repair…"
-./scripts/postgres-set-password.sh "$PW"
+GIZRA_SKIP_BACKEND_START=1 ./scripts/postgres-set-password.sh "$PW"
 echo "OK: postgres role repaired (single-user)."

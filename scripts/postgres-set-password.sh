@@ -27,10 +27,12 @@ run_single_user() {
     --entrypoint postgres postgres \
     --single -D "$PGDATA" template1
 
-  echo "Starting postgres and backend..."
+  echo "Starting postgres…"
   $COMPOSE up -d postgres
-  sleep 2
-  $COMPOSE up -d backend
+  sleep 3
+  if [[ "${GIZRA_SKIP_BACKEND_START:-}" != "1" ]]; then
+    $COMPOSE up -d backend
+  fi
 }
 
 if docker ps --format '{{.Names}}' | grep -qx "$CONTAINER"; then
