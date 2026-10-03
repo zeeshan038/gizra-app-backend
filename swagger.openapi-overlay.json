@@ -5324,6 +5324,65 @@
         ]
       }
     },
+    "/consumer/categories": {
+      "get": {
+        "description": "**What's on your mind** — top-level marketplace food categories (PHP `GET /api/v1/categories/`). Admin categories with `position=0`, not vendor menu categories. Optional zone-scoped `products_count` / `order_count`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ConsumerZoneIdQuery"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by category name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Marketplace category tiles",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Categories fetched successfully",
+                  "data": {
+                    "categories": [
+                      {
+                        "id": "1",
+                        "name": "Pizza",
+                        "image": "pizza.png",
+                        "image_full_url": "https://cdn.example.com/category/pizza.png",
+                        "slug": "pizza",
+                        "priority": 10,
+                        "parent_id": "0",
+                        "products_count": 24,
+                        "order_count": 120
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing zone_id query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Discover"
+        ]
+      }
+    },
     "/consumer/home-slider": {
       "get": {
         "description": "Home banners for the customer zone(s). Same query **zone_id** as GET /consumer/restaurants/all (e.g. ?zone_id=2).",

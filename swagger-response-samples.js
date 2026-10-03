@@ -220,6 +220,25 @@ const ROUTE_RESPONSE_OVERRIDES = {
       restaurants: [SAMPLE_CONSUMER_RESTAURANT]
     }
   },
+  'get /consumer/categories': {
+    status: true,
+    msg: 'Categories fetched successfully',
+    data: {
+      categories: [
+        {
+          id: '1',
+          name: 'Pizza',
+          image: 'pizza.png',
+          image_full_url: 'https://cdn.example.com/category/pizza.png',
+          slug: 'pizza',
+          priority: 10,
+          parent_id: '0',
+          products_count: 24,
+          order_count: 120
+        }
+      ]
+    }
+  },
   'get /consumer/restaurants/popular': {
     status: true,
     data: {
