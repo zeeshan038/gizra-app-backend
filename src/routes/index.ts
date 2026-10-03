@@ -3,13 +3,24 @@ import prisma from '../config/database';
 
 const router = express.Router();
 
+async function pingDb(): Promise<void> {
+  await prisma.$queryRaw`SELECT 1`;
+}
+
 router.get('/health/db', async (_req, res) => {
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    await pingDb();
     return res.status(200).json({ status: true, db: 'ok' });
   } catch (err) {
-    console.error('[health/db]', err);
-    return res.status(503).json({ status: false, db: 'unavailable' });
+    try {
+      await prisma.$disconnect();
+      await prisma.$connect();
+      await pingDb();
+      return res.status(200).json({ status: true, db: 'ok' });
+    } catch (retryErr) {
+      console.error('[health/db]', retryErr);
+      return res.status(503).json({ status: false, db: 'unavailable' });
+    }
   }
 });
 
