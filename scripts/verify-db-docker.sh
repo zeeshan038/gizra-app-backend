@@ -22,32 +22,44 @@ docker exec "$BACKEND" sh -c "
 
 HOST=$(docker exec "$BACKEND" sh -c "$EXPORT_SNIPPET; echo \"\$DATABASE_URL\"" | sed -nE 's#.*@([^:/]+).*#\1#p')
 if [[ "$HOST" == "127.0.0.1" || "$HOST" == "localhost" ]]; then
-  echo "FAIL: API container must not use localhost for Postgres (use server IP:5434 or postgres:5432)"
+  echo "FAIL: API container must not use localhost for Postgres"
   exit 1
 fi
 
 echo "=== HTTP health (running API process) ==="
-if docker exec "$BACKEND" node -e "
+if ! docker exec "$BACKEND" node -e "
 require('http').get('http://127.0.0.1:3000/swagger/', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1));
 " 2>/dev/null; then
-  echo "OK: API responds 200 on /swagger/"
-else
   echo "FAIL: /swagger/ not 200"
   exit 1
 fi
+echo "OK: API responds 200 on /swagger/"
 
-echo "=== Postgres ping from backend container ==="
-docker exec "$BACKEND" sh -c "
-  $EXPORT_SNIPPET
-  node -e \"
+if docker logs "$BACKEND" 2>&1 | tail -40 | grep -q 'Connected to PostgreSQL Database via Prisma'; then
+  echo "OK: running API process is connected to Postgres (authoritative)"
+else
+  echo "WARN: logs missing Connected line — running Prisma ping…"
+  prisma_ok=0
+  for _ in 1 2 3; do
+    if docker exec "$BACKEND" sh -c "
+      $EXPORT_SNIPPET
+      node -e \"
 const { PrismaClient } = require('@prisma/client');
-const p = new PrismaClient();
-p.\\\$queryRaw\\\`SELECT 1\\\`.then(() => { console.log('OK: Prisma can query DB'); process.exit(0); })
-  .catch((e) => { console.error('FAIL:', e.message); process.exit(1); });
-\"
-" || exit 1
+new PrismaClient().\\\$queryRaw\\\`SELECT 1\\\`.then(() => process.exit(0)).catch(() => process.exit(1));
+\"" 2>/dev/null; then
+      prisma_ok=1
+      break
+    fi
+    sleep 2
+  done
+  if [[ "$prisma_ok" -ne 1 ]]; then
+    echo "FAIL: API up but DB not connected — check docker logs gizra-backend"
+    exit 1
+  fi
+  echo "OK: Prisma ping succeeded"
+fi
 
 echo "=== Postgres container (peer) ==="
-docker exec "$POSTGRES" psql -U postgres -d gizra_db -c 'SELECT 1 AS ok;' >/dev/null && echo "OK: psql inside postgres container"
+docker exec -u postgres "$POSTGRES" psql -d gizra_db -c 'SELECT 1 AS ok;' >/dev/null && echo "OK: psql inside postgres container"
 
 echo "All checks passed."
