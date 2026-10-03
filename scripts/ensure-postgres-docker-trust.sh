@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Allow passwordless Postgres from Docker bridge networks (backend → postgres:5432).
-# Mac/host still uses SCRAM on published :5434 with DATABASE_URL password.
+# Requires postgres role LOGIN (run ensure-postgres-login / repair first if NOLOGIN).
 set -euo pipefail
 
 CONTAINER="${POSTGRES_CONTAINER:-gizra-postgres}"
+PGDATA="${PGDATA:-/var/lib/postgresql/data}"
 
 if ! docker inspect "$CONTAINER" >/dev/null 2>&1; then
   echo "Postgres container not running: $CONTAINER"
@@ -16,15 +17,14 @@ for i in $(seq 1 30); do
   sleep 1
 done
 
-docker exec -u postgres "$CONTAINER" bash -s <<'BASH'
+STATUS="$(docker exec -u postgres "$CONTAINER" bash -s <<'BASH'
 set -euo pipefail
 HBA="${PGDATA:-/var/lib/postgresql/data}/pg_hba.conf"
 MARKER="# gizra-docker-internal-trust"
 if grep -qF "$MARKER" "$HBA" 2>/dev/null; then
-  echo "Docker internal trust already configured in pg_hba.conf"
+  echo "already"
   exit 0
 fi
-# Insert before first non-comment host line (keep local socket rules intact)
 TMP="$(mktemp)"
 awk -v m="$MARKER" '
   !inserted && ($0 ~ /^host[^[:space:]]/ || $0 ~ /^host[[:space:]]/) {
@@ -45,7 +45,22 @@ awk -v m="$MARKER" '
   }
 ' "$HBA" > "$TMP"
 mv "$TMP" "$HBA"
+echo "updated"
 BASH
+)"
 
-docker exec -u postgres "$CONTAINER" psql -d postgres -v ON_ERROR_STOP=1 -c 'SELECT pg_reload_conf();'
-echo "OK: Docker networks can reach Postgres without password (backend container)."
+case "$STATUS" in
+  already)
+    echo "Docker internal trust already in pg_hba.conf"
+    ;;
+  updated)
+    echo "Applied Docker internal trust rules to pg_hba.conf"
+    docker exec -u postgres "$CONTAINER" pg_ctl reload -D "$PGDATA"
+    ;;
+  *)
+    echo "Unexpected status from pg_hba update: $STATUS"
+    exit 1
+    ;;
+esac
+
+echo "OK: Docker networks can use Postgres trust (backend → postgres:5432)."

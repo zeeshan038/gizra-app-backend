@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Emergency only: DB password in volume ≠ password in DATABASE_URL (P1000 on login).
+# Emergency: postgres NOLOGIN, P1000, or /api/health/db unavailable.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -17,26 +17,23 @@ if ! grep -qE '^DATABASE_URL=' "$ENV_FILE"; then
 fi
 
 chmod +x scripts/read-db-password-from-env.sh scripts/postgres-set-password.sh scripts/verify-db-docker.sh
-
-PW="$(./scripts/read-db-password-from-env.sh "$ENV_FILE")"
+chmod +x scripts/ensure-postgres-docker-trust.sh scripts/ensure-postgres-login.sh scripts/docker-compose.sh
 
 if grep -qE '^REDIS_URL=.*(localhost|127\.0\.0\.1)' "$ENV_FILE"; then
   sed -i 's|^REDIS_URL=.*|REDIS_URL=redis://redis:6379|' "$ENV_FILE"
 fi
 
-chmod +x scripts/ensure-postgres-docker-trust.sh scripts/docker-compose.sh
+unset DATABASE_URL POSTGRES_PASSWORD
 node scripts/prepare-compose-env.js
 ./scripts/docker-compose.sh up -d postgres
+
+echo "Step 1/3: postgres LOGIN + password…"
+./scripts/ensure-postgres-login.sh
+
+echo "Step 2/3: Docker internal pg_hba trust…"
 ./scripts/ensure-postgres-docker-trust.sh
 
-echo "Syncing Postgres SCRAM password for Mac/host :5434…"
-if ! docker exec -u postgres gizra-postgres psql -d postgres -v ON_ERROR_STOP=1 \
-  -c "ALTER ROLE postgres WITH LOGIN SUPERUSER PASSWORD '${PW//\'/\'\'}';" 2>/dev/null; then
-  ./scripts/postgres-set-password.sh "$PW"
-fi
-
-unset DATABASE_URL POSTGRES_PASSWORD
-chmod +x scripts/docker-compose.sh
+echo "Step 3/3: rebuild backend…"
 node scripts/prepare-compose-env.js
 ./scripts/docker-compose.sh up -d --build --force-recreate backend
 
@@ -47,4 +44,4 @@ for i in $(seq 1 30); do
   sleep 2
 done
 ./scripts/verify-db-docker.sh
-echo "Done. Retry login in the app."
+echo "Done. curl -s https://backend-prod.gizra.app/api/health/db"

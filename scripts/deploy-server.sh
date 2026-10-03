@@ -22,20 +22,20 @@ if [[ "${1:-}" == "--pull" ]]; then
   git pull "${@:2}"
 fi
 
-chmod +x scripts/verify-db-docker.sh scripts/ensure-postgres-password.sh scripts/read-db-password-from-env.sh scripts/docker-compose.sh scripts/ensure-postgres-docker-trust.sh
+chmod +x scripts/verify-db-docker.sh scripts/ensure-postgres-password.sh scripts/read-db-password-from-env.sh scripts/docker-compose.sh scripts/ensure-postgres-docker-trust.sh scripts/ensure-postgres-login.sh
 node scripts/prepare-compose-env.js
 
-echo "Configuring Docker-internal Postgres trust (backend auth)…"
+echo "Starting Postgres…"
 ./scripts/docker-compose.sh up -d postgres
+
+echo "Postgres LOGIN + password (fixes NOLOGIN)…"
+./scripts/ensure-postgres-login.sh
+
+echo "Docker internal pg_hba trust (backend auth)…"
 ./scripts/ensure-postgres-docker-trust.sh
 
-echo "Syncing Postgres SCRAM password for Mac/host :5434…"
-if ! ./scripts/ensure-postgres-password.sh; then
-  echo "WARN: peer sync failed — running password repair (single-user if needed)…"
-  PW="$(./scripts/read-db-password-from-env.sh .env)"
-  ./scripts/postgres-set-password.sh "$PW"
-  ./scripts/ensure-postgres-password.sh
-fi
+echo "TCP password check for Mac/host :5434…"
+./scripts/ensure-postgres-password.sh
 
 ./scripts/docker-compose.sh up -d --build --force-recreate backend
 ./scripts/docker-compose.sh up -d cloudflared 2>/dev/null || true
