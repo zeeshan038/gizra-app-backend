@@ -27,8 +27,10 @@ node scripts/prepare-compose-env.js
 
 echo "Syncing Postgres password to match DATABASE_URL in .env…"
 if ! ./scripts/ensure-postgres-password.sh; then
-  echo "FAIL: Could not align Postgres with DATABASE_URL. Run once: npm run repair:prod-stack"
-  exit 1
+  echo "WARN: peer sync failed — running password repair (single-user if needed)…"
+  PW="$(./scripts/read-db-password-from-env.sh .env)"
+  ./scripts/postgres-set-password.sh "$PW"
+  ./scripts/ensure-postgres-password.sh
 fi
 
 ./scripts/docker-compose.sh up -d --build --force-recreate backend
@@ -48,7 +50,9 @@ done
 
 for attempt in 1 2 3 4 5; do
   if ./scripts/verify-db-docker.sh; then
-    echo "Deploy OK. Public: curl -sI https://backend-prod.gizra.app/swagger/ | head -1"
+    echo "Deploy OK."
+    echo "  curl -s https://backend-prod.gizra.app/api/health/db"
+    echo "  curl -sI https://backend-prod.gizra.app/swagger/ | head -1"
     exit 0
   fi
   echo "Verify attempt $attempt failed; retry in 5s…"

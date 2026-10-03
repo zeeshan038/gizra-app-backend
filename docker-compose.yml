@@ -10,11 +10,24 @@ services:
     environment:
       - PORT=3000
       # Host in .env may be 167.x for Mac; backend container always uses compose network postgres:5432
-      - DATABASE_URL=${GIZRA_DATABASE_URL_INTERNAL:?Run node scripts/prepare-compose-env.js or npm run deploy:server}
+      - GIZRA_DATABASE_URL_INTERNAL=${GIZRA_DATABASE_URL_INTERNAL:?Run node scripts/prepare-compose-env.js or npm run deploy:server}
+      - DATABASE_URL=${GIZRA_DATABASE_URL_INTERNAL}
       # Always use the compose Redis service (ignore Mac REDIS_URL=localhost:6380 in .env).
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-your_jwt_secret_here}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3000/api/health/db',(r)=>{let b='';r.on('data',()=>{});r.on('end',()=>process.exit(r.statusCode===200?0:1));}).on('error',()=>process.exit(1));",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
     depends_on:
       postgres:
         condition: service_healthy

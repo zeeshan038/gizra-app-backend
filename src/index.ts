@@ -1,7 +1,7 @@
+import './loadEnv';
 import http from 'http';
 import express, { Request, Response } from 'express';
 import { initSocketServer } from './sockets';
-import dotenv from 'dotenv';
 import cors from 'cors';
 import apiRouter from './routes/index'
 import './config/firebase';
@@ -9,8 +9,6 @@ import { connectDB } from './config/database';
 import swaggerUi from 'swagger-ui-express';
 import fs from 'fs';
 import path from 'path';
-
-dotenv.config();
 
 const app = express();
 const origins =[

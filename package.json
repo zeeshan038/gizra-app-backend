@@ -16,6 +16,7 @@
     "seed:discover-restaurants": "ts-node scripts/seedDiscoverRestaurants.ts",
     "seed:discover-restaurants:apply": "ts-node scripts/seedDiscoverRestaurants.ts --apply",
     "repair:prod-stack": "bash scripts/repair-prod-stack.sh",
+    "fix:prod-db": "bash scripts/fix-prod-now.sh",
     "deploy:server": "bash scripts/deploy-server.sh",
     "compose": "bash scripts/docker-compose.sh",
     "prepare:compose-env": "node scripts/prepare-compose-env.js",
