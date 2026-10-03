@@ -4158,6 +4158,95 @@
         ]
       }
     },
+    "/consumer/home-slider": {
+      "get": {
+        "summary": "Home banners (slider)",
+        "description": "Home banners for the customer zone(s). Same query **zone_id** as discover restaurant lists (e.g. ?zone_id=2).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ConsumerZoneIdQuery"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Banner list"
+          },
+          "403": {
+            "description": "Missing zone_id query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Discover"
+        ]
+      }
+    },
+    "/consumer/categories": {
+      "get": {
+        "summary": "What's on your mind (home categories)",
+        "description": "**What's on your mind** — top-level marketplace food categories for the customer home screen (legacy PHP `GET /api/v1/categories/`). Uses admin categories with `position=0` (not vendor menu categories). Requires **zone_id** query (same as home slider / discover). Optional **name** filter. Each tile includes zone-scoped **products_count** and **order_count**; parent categories may include **childes**.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ConsumerZoneIdQuery"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by category name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Marketplace category tiles",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Categories fetched successfully",
+                  "data": {
+                    "categories": [
+                      {
+                        "id": "1",
+                        "name": "Pizza",
+                        "image": "pizza.png",
+                        "image_full_url": "https://cdn.example.com/category/pizza.png",
+                        "slug": "pizza",
+                        "priority": 10,
+                        "parent_id": "0",
+                        "products_count": 24,
+                        "order_count": 120
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing zone_id query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Discover"
+        ]
+      }
+    },
     "/consumer/restaurants/popular": {
       "get": {
         "description": "Popular restaurants for the home screen horizontal list. Same zone flow as GET /consumer/restaurants/all. Sorted **open first**, then **order_count** (legacy PHP `restaurants/popular`). Optional **latitude** / **longitude** (query or headers) for distance on cards.",
@@ -5321,111 +5410,6 @@
         },
         "tags": [
           "Consumer Cart"
-        ]
-      }
-    },
-    "/consumer/categories": {
-      "get": {
-        "description": "**What's on your mind** — top-level marketplace food categories (PHP `GET /api/v1/categories/`). Admin categories with `position=0`, not vendor menu categories. Optional zone-scoped `products_count` / `order_count`.",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/ConsumerZoneIdQuery"
-          },
-          {
-            "name": "name",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "description": "Filter by category name"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Marketplace category tiles",
-            "content": {
-              "application/json": {
-                "example": {
-                  "status": true,
-                  "msg": "Categories fetched successfully",
-                  "data": {
-                    "categories": [
-                      {
-                        "id": "1",
-                        "name": "Pizza",
-                        "image": "pizza.png",
-                        "image_full_url": "https://cdn.example.com/category/pizza.png",
-                        "slug": "pizza",
-                        "priority": 10,
-                        "parent_id": "0",
-                        "products_count": 24,
-                        "order_count": 120
-                      }
-                    ]
-                  }
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Missing zone_id query",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Consumer Discover"
-        ]
-      }
-    },
-    "/consumer/home-slider": {
-      "get": {
-        "description": "Home banners for the customer zone(s). Same query **zone_id** as GET /consumer/restaurants/all (e.g. ?zone_id=2).",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/ConsumerZoneIdQuery"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "403": {
-            "description": "Missing zone_id query",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Zone id is required! Pass query zone_id (e.g. ?zone_id=2) from GET /consumer/config/zone-id."
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error - Something went wrong on the server",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Consumer Auth"
         ]
       }
     },
@@ -14412,7 +14396,8 @@
       "description": "Guest, register, login. Password: POST /consumer/password/forgot → POST /consumer/password/verify-otp (optional) → PUT /consumer/password/reset; logged-in change: PUT /consumer/password/change."
     },
     {
-      "name": "Consumer Discover"
+      "name": "Consumer Discover",
+      "description": "Customer home & browse. **Home:** GET /consumer/home-slider (banners), GET /consumer/categories (**What's on your mind**). **Restaurants:** GET /consumer/restaurants/popular, /nearby, /all, /{id}/foods, /specfic/{id}. All require **zone_id** (from GET /consumer/config/zone-id)."
     },
     {
       "name": "Consumer Cart"
@@ -14470,7 +14455,7 @@
     },
     {
       "name": "Consumer Zones",
-      "description": "Zone resolve and map. **Frontend flow:** GET /consumer/config/zone-id → parse zone_id → query zone_id on GET /consumer/restaurants/nearby (with lat/lng), /popular, /all, GET /consumer/home-slider, favourites."
+      "description": "Zone resolve and map. **Frontend flow:** GET /consumer/config/zone-id → parse zone_id → query zone_id on GET /consumer/restaurants/nearby (with lat/lng), /popular, /all, GET /consumer/home-slider, GET /consumer/categories (What's on your mind), favourites."
     },
     {
       "name": "Delivery Man Home",

@@ -135,6 +135,24 @@ function applyOpenApiOverlay(swaggerDoc, paths) {
     }
   }
 
+  // Routes documented only in overlay (e.g. new consumer endpoints before autogen picks them up)
+  for (const [rawPath, overlayMethods] of Object.entries(overlay.paths || {})) {
+    if (rawPath.startsWith('/swagger')) continue;
+    const routePath = normalizePathKey(rawPath);
+    if (!paths[routePath]) paths[routePath] = {};
+    for (const [method, overlayOp] of Object.entries(overlayMethods)) {
+      if (method === 'parameters' || !overlayOp || typeof overlayOp !== 'object') continue;
+      const m = method.toLowerCase();
+      if (!paths[routePath][m]) {
+        paths[routePath][m] = JSON.parse(JSON.stringify(overlayOp));
+        mergedOps++;
+        continue;
+      }
+      paths[routePath][m] = mergeOperation(paths[routePath][m], overlayOp);
+      mergedOps++;
+    }
+  }
+
   return mergedOps;
 }
 

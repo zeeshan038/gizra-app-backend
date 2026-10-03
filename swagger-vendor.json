@@ -11135,6 +11135,337 @@
           }
         }
       }
+    },
+    "/vendor/orders": {
+      "get": {
+        "description": "Paginated order list for a status tab. **Clients:** Restaurant Web Panel order table + Vendor POS order queue. Excludes `order_type=pos`.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Bearer token from POST /vendor/login"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "default": "all",
+              "enum": [
+                "all",
+                "pending",
+                "confirmed",
+                "accepted",
+                "cooking",
+                "ready_for_delivery",
+                "food_on_the_way",
+                "delivered",
+                "dine_in",
+                "refunded",
+                "refund_requested",
+                "scheduled",
+                "payment_failed",
+                "canceled"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Numeric order ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated order list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorOrderListResponse"
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "total": 42,
+                    "limit": 20,
+                    "offset": 0,
+                    "orders": [
+                      {
+                        "id": "1001",
+                        "order_status": "confirmed",
+                        "order_type": "delivery",
+                        "payment_status": "paid",
+                        "order_amount": 45.5,
+                        "created_at": "2026-01-15T10:30:00.000Z",
+                        "customer_name": "John Doe",
+                        "customer_phone": "+1234567890"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "status must be one of [...]"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not authorized, no token"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Restaurant context not found for vendor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Restaurant context not found for vendor"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Orders (Web Panel & POS)"
+        ]
+      }
+    },
+    "/upload": {
+      "post": {
+        "tags": [
+          "Upload"
+        ],
+        "summary": "Upload file to Cloudflare R2",
+        "description": "Multipart upload. **Registration (recommended):** set `role`, `cloudflare_id` (from registration-init), and `category` (`restaurant` | `identity` | `profile` | `assets`). Use response `path` on register/apply. **Legacy:** `subfolder` only (defaults to `assets/`).",
+        "parameters": [
+          {
+            "name": "file",
+            "in": "formData",
+            "required": true,
+            "description": "The file to upload",
+            "schema": {
+              "type": "file"
+            }
+          },
+          {
+            "name": "role",
+            "in": "formData",
+            "required": false,
+            "description": "Registration uploads: vendor | deliveryman",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "vendor",
+                "deliveryman"
+              ]
+            }
+          },
+          {
+            "name": "cloudflare_id",
+            "in": "formData",
+            "required": false,
+            "description": "12-char hex from POST /storage/registration-init (required with role for scoped uploads)",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{12}$",
+              "example": "a1b2c3d4e5f6"
+            }
+          },
+          {
+            "name": "category",
+            "in": "formData",
+            "required": false,
+            "description": "With role + cloudflare_id: restaurant (vendor logo/cover), identity, profile, assets",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "restaurant",
+                "identity",
+                "profile",
+                "assets"
+              ],
+              "default": "assets"
+            }
+          },
+          {
+            "name": "subfolder",
+            "in": "formData",
+            "required": false,
+            "description": "Legacy optional path e.g. vendors/abc/assets (must match cloudflare_id prefix if role is set)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadSuccessResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadSuccessResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "subfolder": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

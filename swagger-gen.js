@@ -319,7 +319,13 @@ swaggerAutogen(outputFile, endpointsFiles, doc).then(() => {
       if (method === 'parameters') continue;
 
       if (newPath.startsWith('/consumer/cart')) endpoint.tags = ['Consumer Cart'];
-      else if (newPath.startsWith('/consumer/restaurants')) endpoint.tags = ['Consumer Discover'];
+      else if (
+        newPath.startsWith('/consumer/restaurants') ||
+        newPath === '/consumer/categories' ||
+        newPath === '/consumer/home-slider'
+      ) {
+        endpoint.tags = ['Consumer Discover'];
+      }
       else if (newPath.startsWith('/consumer/foods')) endpoint.tags = ['Consumer Foods'];
       else if (newPath.startsWith('/consumer/order')) endpoint.tags = ['Consumer Orders'];
       else if (newPath.startsWith('/consumer/addresses')) endpoint.tags = ['Consumer Addresses'];
@@ -393,6 +399,14 @@ swaggerAutogen(outputFile, endpointsFiles, doc).then(() => {
   }
 
   applySuccessExamplesAfterOverlay(newPaths, controllerExamples);
+
+  for (const discoverPath of [
+    '/consumer/home-slider',
+    '/consumer/categories',
+  ]) {
+    const op = newPaths[discoverPath]?.get;
+    if (op) op.tags = ['Consumer Discover'];
+  }
 
   swaggerDoc.paths = newPaths;
 

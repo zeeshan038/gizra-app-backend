@@ -1,4 +1,5 @@
 import './loadEnv';
+import { swaggerUiCustomerOptions } from './utils/swaggerUiCustomerOptions';
 import http from 'http';
 import express, { Request, Response } from 'express';
 import { initSocketServer } from './sockets';
@@ -64,6 +65,7 @@ app.get('/swagger.json', sendJson(swaggerCombined));
 // serveFiles embeds each spec in its own swagger-ui-init.js (shared swaggerUi.serve breaks multi-spec)
 const swaggerExplorerOpts = {
   swaggerOptions: {
+    ...swaggerUiCustomerOptions.swaggerOptions,
     urls: [
       { url: '/swagger-customer.json', name: 'Customer' },
       { url: '/swagger-vendor.json', name: 'Vendor' },
@@ -76,7 +78,7 @@ const swaggerExplorerOpts = {
 app.use(
   '/swagger/customer',
   ...swaggerUi.serveFiles(swaggerCustomer),
-  swaggerUi.setup(swaggerCustomer, { customSiteTitle: 'Gizra Customer API' })
+  swaggerUi.setup(swaggerCustomer, swaggerUiCustomerOptions)
 );
 app.use(
   '/swagger/vendor',
