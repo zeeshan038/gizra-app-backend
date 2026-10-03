@@ -23,6 +23,7 @@ import { parseZoneIdsFromRequest } from '../../utils/consumer/favouriteHelpers';
 import { verifyResetToken } from '../../utils/consumer/passwordResetDb';
 import { provisionAccountStorage } from '../../utils/accountStorage';
 import { normalizeStoredMedia } from '../../utils/mediaStorage';
+import { issueGuestJwt } from '../../utils/consumer/guestAuth';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_here';
 
@@ -314,9 +315,15 @@ export const login = async (req: Request, res: Response): Promise<any> => {
                     guest_id: payload.guest_id,
                 });
 
+                const msg = data.token
+                    ? 'Login success'
+                    : data.is_exist_user
+                      ? 'An account with this email already exists. Confirm to link Google sign-in.'
+                      : 'Complete your profile to continue.';
+
                 return res.status(200).json({
                     status: true,
-                    msg: data.token ? 'Login success' : 'Complete your profile to continue.',
+                    msg,
                     data,
                 });
             } catch (err: unknown) {
@@ -357,10 +364,16 @@ export const guestRequest = async (req: Request, res: Response): Promise<any> =>
         });
 
         if (guest) {
+            const guestId = guest.id.toString();
+            const token = issueGuestJwt(guest.id);
             return res.status(200).json({
                 status: true,
                 msg: 'Guest verified successfully',
-                data: guest.id.toString(),
+                guest_id: guestId,
+                data: {
+                    guest_id: guestId,
+                    token,
+                },
             });
         }
 
@@ -621,9 +634,15 @@ export const signInWithGoogle = async (req: Request, res: Response): Promise<any
       guest_id: payload.guest_id,
     });
 
+    const msg = data.token
+      ? 'Login success'
+      : data.is_exist_user
+        ? 'An account with this email already exists. Confirm to link Google sign-in.'
+        : 'Complete your profile to continue.';
+
     return res.status(200).json({
       status: true,
-      msg: data.token ? 'Login success' : 'Complete your profile to continue.',
+      msg,
       data,
     });
   } catch (err: unknown) {

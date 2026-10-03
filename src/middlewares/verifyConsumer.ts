@@ -32,6 +32,31 @@ export const verifyConsumer = async (req: Request, res: Response, next: NextFunc
         process.env.JWT_SECRET || "your_jwt_secret_here"
       );
 
+      if (decoded.role === "guest") {
+        const guestId = decoded.id || decoded._id;
+        if (!guestId) {
+          return res.status(401).json({
+            status: false,
+            msg: "Not authorized, invalid guest token",
+          });
+        }
+        const guest = await prisma.guests.findUnique({
+          where: { id: BigInt(guestId) },
+        });
+        if (!guest) {
+          return res.status(401).json({
+            status: false,
+            msg: "Not authorized, guest session not found",
+          });
+        }
+        req.user = {
+          id: guest.id.toString(),
+          isGuest: true,
+          role: "guest",
+        };
+        return next();
+      }
+
       // Get user from the token
       const userId = decoded.id || decoded._id;
       
@@ -81,3 +106,19 @@ export const verifyConsumer = async (req: Request, res: Response, next: NextFunc
     });
   }
 };
+
+/** Blocks guest-session JWT from profile, favourites, etc. */
+export function requireRegisteredConsumer(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void {
+  if (req.user?.isGuest) {
+    res.status(401).json({
+      status: false,
+      msg: "Login required — guest sessions cannot access this resource.",
+    });
+    return;
+  }
+  next();
+}

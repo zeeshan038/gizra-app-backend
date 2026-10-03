@@ -1,5 +1,5 @@
 import express from 'express';
-import { verifyConsumer } from '../../middlewares/verifyConsumer';
+import { requireRegisteredConsumer, verifyConsumer } from '../../middlewares/verifyConsumer';
 import {
   createAddress,
   deleteAddress,
@@ -10,6 +10,7 @@ import {
 const router = express.Router();
 
 router.use(verifyConsumer);
+router.use(requireRegisteredConsumer);
 
 router.get('/', listAddresses);
 router.post('/', createAddress);

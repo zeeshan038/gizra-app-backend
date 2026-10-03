@@ -3283,19 +3283,52 @@
     },
     "/consumer/guest/request": {
       "post": {
-        "description": "",
+        "summary": "Create guest session",
+        "description": "Call once on app launch when the user is not logged in.\n\n**Returns:** `guest_id` + **guest JWT** (`data.token`, JWT claim `role: guest`). Persist both locally.\n\n**No auth required** for home/discover: GET `/consumer/categories`, `/consumer/home-slider`, `/consumer/restaurants/*`, `/consumer/foods/search`, `/consumer/config/*`.\n\n**Cart:** send `Authorization: Bearer <guest token>` on `/consumer/cart/*`, **or** legacy query/body `is_guest=true` + `guest_id` (no Bearer).\n\n**After login / Google sign-in:** include `guest_id` in the auth body so the server merges the guest cart into the customer account.\n\n**Guest JWT cannot access:** `/consumer/whoami`, profile, favourites, saved addresses.",
+        "security": [],
         "parameters": [
           {
             "name": "x-forwarded-for",
             "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Optional client IP (also taken from connection)"
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumerGuestRequestBody"
+              },
+              "example": {
+                "fcm_token": "optional_firebase_device_token"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Guest session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerGuestSessionResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Guest verified successfully",
+                  "guest_id": "42",
+                  "data": {
+                    "guest_id": "42",
+                    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -3363,20 +3396,6 @@
                 "example": {
                   "status": false,
                   "msg": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "fcm_token": {
-                    "example": "any"
-                  }
                 }
               }
             }
@@ -4754,33 +4773,106 @@
     },
     "/consumer/foods/search": {
       "get": {
-        "description": "",
+        "summary": "Search foods and restaurants",
+        "description": "App search bar: returns **foods** whose name matches and **restaurants** that sell those items (or whose name matches). Case-insensitive. Public — no auth. **name** is required. Optional **zone_id** (same as discover), **page** / **limit** (default 1 / 20, shared pagination), **latitude** / **longitude** for distance on restaurant cards.",
         "parameters": [
           {
             "name": "name",
             "in": "query",
+            "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Search term (food or restaurant name)"
+          },
+          {
+            "name": "zone_id",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Optional — limit to customer zone from GET /consumer/config/zone-id"
           },
           {
             "name": "page",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "default": 1
             }
           },
           {
             "name": "limit",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "latitude",
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "schema": {
+              "type": "number"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Food and restaurant matches",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "data": {
+                    "total_size": 8,
+                    "restaurants_total_size": 3,
+                    "limit": 20,
+                    "offset": 1,
+                    "foods": [
+                      {
+                        "id": "101",
+                        "name": "Classic Burger",
+                        "description": "Beef patty with cheese",
+                        "image": "burger.png",
+                        "category_id": "1",
+                        "restaurant_id": "12",
+                        "price": 45,
+                        "discount": 0,
+                        "veg": false,
+                        "status": true,
+                        "variations": [],
+                        "add_ons": []
+                      }
+                    ],
+                    "restaurants": [
+                      {
+                        "id": "12",
+                        "name": "Demo Kitchen",
+                        "logo": "logo.png",
+                        "cover_photo": "cover.png",
+                        "delivery_time": "30-40 min",
+                        "minimum_order": 10,
+                        "tax": 5,
+                        "rating": 4.5,
+                        "address": "123 Main Street",
+                        "order_count": 240,
+                        "open": true,
+                        "distance": 0.93,
+                        "distance_text": "0.93 km"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -4860,33 +4952,30 @@
     },
     "/consumer/cart/": {
       "get": {
-        "description": "",
+        "summary": "Get cart",
+        "description": "**Customer:** `Authorization: Bearer <customer JWT>` from login.\n\n**Guest (preferred):** `Authorization: Bearer <guest JWT>` from POST `/consumer/guest/request` — no extra query params.\n\n**Guest (legacy):** `is_guest=true` and `guest_id=<id>` with optional Bearer bypass via middleware.",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/ConsumerCartAuthHeader"
           },
           {
-            "name": "is_guest",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/ConsumerCartIsGuest"
           },
           {
-            "name": "guest_id",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/ConsumerCartGuestId"
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Cart line items",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "data": []
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -4966,19 +5055,25 @@
     },
     "/consumer/cart/add": {
       "post": {
-        "description": "",
+        "summary": "Add to cart",
+        "description": "Same auth as GET `/consumer/cart/`. With **guest Bearer token**, set `is_guest: true` in body or omit — server infers guest from JWT. Legacy: `is_guest: true` and `guest_id` without Bearer.",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/ConsumerCartAuthHeader"
           }
         ],
         "responses": {
           "201": {
-            "description": "Created"
+            "description": "Item added",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Added to cart successfully",
+                  "data": {}
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -9201,10 +9296,42 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "bearerFormat": "JWT"
+        "bearerFormat": "JWT",
+        "description": "**Customer JWT** — from POST `/consumer/login` or `/consumer/sign-in-with-google` (`data.token`). **Guest JWT** — from POST `/consumer/guest/request` (`data.token`, claim `role: guest`); valid for cart (and guest checkout flows), not for profile/favourites/addresses."
       }
     },
     "parameters": {
+      "ConsumerCartAuthHeader": {
+        "name": "authorization",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "`Bearer <token>` — customer JWT or guest JWT from POST `/consumer/guest/request`"
+      },
+      "ConsumerCartIsGuest": {
+        "name": "is_guest",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "true",
+            "false"
+          ]
+        },
+        "description": "Legacy guest mode when not using guest Bearer JWT"
+      },
+      "ConsumerCartGuestId": {
+        "name": "guest_id",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer"
+        },
+        "description": "Guest id from POST `/consumer/guest/request` — required with `is_guest=true` when no guest JWT"
+      },
       "ConsumerOrderListAuthHeader": {
         "name": "authorization",
         "in": "header",
@@ -9212,7 +9339,7 @@
         "schema": {
           "type": "string"
         },
-        "description": "Bearer token from POST /consumer/login. For guest orders use query is_guest=true and guest_id instead."
+        "description": "Bearer **customer** JWT from login/social. For guest orders use query `is_guest=true` and `guest_id` instead of customer JWT."
       },
       "ConsumerOrderListLimit": {
         "name": "limit",
@@ -11158,7 +11285,54 @@
           },
           "guest_id": {
             "type": "integer",
-            "description": "Optional guest id to merge cart on login"
+            "description": "From POST `/consumer/guest/request` — merges guest cart after successful login"
+          }
+        }
+      },
+      "ConsumerGuestRequestBody": {
+        "type": "object",
+        "properties": {
+          "fcm_token": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional Firebase device token (stored on guest record for push)"
+          }
+        }
+      },
+      "ConsumerGuestSessionData": {
+        "type": "object",
+        "required": [
+          "guest_id",
+          "token"
+        ],
+        "properties": {
+          "guest_id": {
+            "type": "string",
+            "description": "Guest primary key — save locally; send on login/social sign-in to merge cart"
+          },
+          "token": {
+            "type": "string",
+            "description": "Guest session JWT (`role: guest`). Use as Bearer on cart APIs until customer logs in"
+          }
+        }
+      },
+      "ConsumerGuestSessionResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Guest verified successfully"
+          },
+          "guest_id": {
+            "type": "string",
+            "description": "Duplicate of `data.guest_id` for legacy PHP-style clients"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConsumerGuestSessionData"
           }
         }
       },
@@ -11198,7 +11372,7 @@
           },
           "guest_id": {
             "type": "integer",
-            "description": "Guest id from POST /consumer/guest/request — cart merged when JWT issued"
+            "description": "From POST `/consumer/guest/request` (`guest_id` or `data.guest_id`). Merges guest cart when customer JWT is issued"
           },
           "verified": {
             "type": "string",
@@ -14393,14 +14567,15 @@
   "tags": [
     {
       "name": "Consumer Auth",
-      "description": "Guest, register, login. Password: POST /consumer/password/forgot → POST /consumer/password/verify-otp (optional) → PUT /consumer/password/reset; logged-in change: PUT /consumer/password/change."
+      "description": "**Guest:** POST `/consumer/guest/request` → save `data.guest_id` + guest JWT (`data.token`). Browse home without auth; use guest Bearer on cart. **Register / login / Google** — pass `guest_id` to merge cart. Password: POST `/consumer/password/forgot` → verify-otp → PUT `/consumer/password/reset`; change: PUT `/consumer/password/change`."
     },
     {
       "name": "Consumer Discover",
       "description": "Customer home & browse. **Home:** GET /consumer/home-slider (banners), GET /consumer/categories (**What's on your mind**). **Restaurants:** GET /consumer/restaurants/popular, /nearby, /all, /{id}/foods, /specfic/{id}. All require **zone_id** (from GET /consumer/config/zone-id)."
     },
     {
-      "name": "Consumer Cart"
+      "name": "Consumer Cart",
+      "description": "Cart for customers (login JWT) or guests (guest JWT from POST `/consumer/guest/request`, or legacy `is_guest` + `guest_id`)."
     },
     {
       "name": "Consumer Orders"

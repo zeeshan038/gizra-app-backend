@@ -211,6 +211,15 @@ const SAMPLE_PAGINATION = {
 
 /** Full 200-body overrides when controller only returns variables / mappers. */
 const ROUTE_RESPONSE_OVERRIDES = {
+  'post /consumer/guest/request': {
+    status: true,
+    msg: 'Guest verified successfully',
+    guest_id: '42',
+    data: {
+      guest_id: '42',
+      token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.guest-session-example'
+    }
+  },
   'get /consumer/restaurants/all': {
     status: true,
     data: {
@@ -286,9 +295,19 @@ const ROUTE_RESPONSE_OVERRIDES = {
     status: true,
     data: {
       total_size: 8,
+      restaurants_total_size: 3,
       limit: 20,
       offset: 1,
-      foods: [SAMPLE_CONSUMER_FOOD]
+      foods: [SAMPLE_CONSUMER_FOOD],
+      restaurants: [
+        {
+          ...SAMPLE_CONSUMER_RESTAURANT,
+          order_count: 240,
+          open: true,
+          distance: 0.93,
+          distance_text: '0.93 km'
+        }
+      ]
     }
   },
   'get /consumer/restaurants/specfic/{id}': {

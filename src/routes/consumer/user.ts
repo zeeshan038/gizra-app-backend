@@ -1,5 +1,5 @@
 import express from 'express';
-import { verifyConsumer } from '../../middlewares/verifyConsumer';
+import { requireRegisteredConsumer, verifyConsumer } from '../../middlewares/verifyConsumer';
 import {
   applyForDeliveryMan,
   applyForRestaurant,
@@ -44,6 +44,7 @@ router.post('/notifications/test', testNotification);
 router.get('/notifications/test', testNotification);
 
 router.use(verifyConsumer);
+router.use(requireRegisteredConsumer);
 router.post('/apply/restaurant', applyForRestaurant);
 router.put('/password/change', changePassword);
 

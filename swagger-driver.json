@@ -42,7 +42,8 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "bearerFormat": "JWT"
+        "bearerFormat": "JWT",
+        "description": "**Customer JWT** — from POST `/consumer/login` or `/consumer/sign-in-with-google` (`data.token`). **Guest JWT** — from POST `/consumer/guest/request` (`data.token`, claim `role: guest`); valid for cart (and guest checkout flows), not for profile/favourites/addresses."
       }
     },
     "schemas": {
@@ -2009,7 +2010,54 @@
           },
           "guest_id": {
             "type": "integer",
-            "description": "Optional guest id to merge cart on login"
+            "description": "From POST `/consumer/guest/request` — merges guest cart after successful login"
+          }
+        }
+      },
+      "ConsumerGuestRequestBody": {
+        "type": "object",
+        "properties": {
+          "fcm_token": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional Firebase device token (stored on guest record for push)"
+          }
+        }
+      },
+      "ConsumerGuestSessionData": {
+        "type": "object",
+        "required": [
+          "guest_id",
+          "token"
+        ],
+        "properties": {
+          "guest_id": {
+            "type": "string",
+            "description": "Guest primary key — save locally; send on login/social sign-in to merge cart"
+          },
+          "token": {
+            "type": "string",
+            "description": "Guest session JWT (`role: guest`). Use as Bearer on cart APIs until customer logs in"
+          }
+        }
+      },
+      "ConsumerGuestSessionResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Guest verified successfully"
+          },
+          "guest_id": {
+            "type": "string",
+            "description": "Duplicate of `data.guest_id` for legacy PHP-style clients"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConsumerGuestSessionData"
           }
         }
       },
@@ -2049,7 +2097,7 @@
           },
           "guest_id": {
             "type": "integer",
-            "description": "Guest id from POST /consumer/guest/request — cart merged when JWT issued"
+            "description": "From POST `/consumer/guest/request` (`guest_id` or `data.guest_id`). Merges guest cart when customer JWT is issued"
           },
           "verified": {
             "type": "string",
@@ -5169,6 +5217,37 @@
       }
     },
     "parameters": {
+      "ConsumerCartAuthHeader": {
+        "name": "authorization",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "`Bearer <token>` — customer JWT or guest JWT from POST `/consumer/guest/request`"
+      },
+      "ConsumerCartIsGuest": {
+        "name": "is_guest",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "true",
+            "false"
+          ]
+        },
+        "description": "Legacy guest mode when not using guest Bearer JWT"
+      },
+      "ConsumerCartGuestId": {
+        "name": "guest_id",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer"
+        },
+        "description": "Guest id from POST `/consumer/guest/request` — required with `is_guest=true` when no guest JWT"
+      },
       "ConsumerOrderListAuthHeader": {
         "name": "authorization",
         "in": "header",
@@ -5176,7 +5255,7 @@
         "schema": {
           "type": "string"
         },
-        "description": "Bearer token from POST /consumer/login. For guest orders use query is_guest=true and guest_id instead."
+        "description": "Bearer **customer** JWT from login/social. For guest orders use query `is_guest=true` and `guest_id` instead of customer JWT."
       },
       "ConsumerOrderListLimit": {
         "name": "limit",

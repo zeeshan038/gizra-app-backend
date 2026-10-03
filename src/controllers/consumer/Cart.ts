@@ -10,11 +10,16 @@ const prisma = new PrismaClient();
  * @Access Public
  */
 export const getCart = async (req: Request, res: Response): Promise<any> => {
-    const is_guest = req.query.is_guest === 'true';
+    const isGuestSession = req.user?.isGuest === true;
+    const is_guest = req.query.is_guest === 'true' || isGuestSession;
     let user_id;
 
     if (is_guest) {
-        user_id = req.query.guest_id ? Number(req.query.guest_id) : null;
+        user_id = isGuestSession
+            ? Number(req.user?.id)
+            : req.query.guest_id
+              ? Number(req.query.guest_id)
+              : null;
         if (!user_id) return res.status(400).json({ status: false, msg: 'guest_id is required' });
     } else {
         user_id = Number(req.user?.id);
@@ -56,10 +61,12 @@ export const getCart = async (req: Request, res: Response): Promise<any> => {
 export const addToCart = async (req: Request, res: Response): Promise<any> => {
     const payload = req.body;
     
-    // Securely resolve user_id based on whether they are a guest
+    const isGuestSession = req.user?.isGuest === true;
+    const is_guest = Boolean(payload.is_guest) || isGuestSession;
+
     let user_id;
-    if (payload.is_guest) {
-        user_id = Number(payload.guest_id);
+    if (is_guest) {
+        user_id = isGuestSession ? Number(req.user?.id) : Number(payload.guest_id);
         if (!user_id) return res.status(400).json({ status: false, msg: 'guest_id is required for guest users' });
     } else {
         user_id = Number(req.user?.id);
@@ -81,7 +88,7 @@ export const addToCart = async (req: Request, res: Response): Promise<any> => {
             where: {
                 user_id: user_id,
                 item_id: payload.item_id,
-                is_guest: payload.is_guest,
+                is_guest: is_guest,
                 variations: JSON.stringify(payload.variations)
             }
         });
@@ -94,7 +101,7 @@ export const addToCart = async (req: Request, res: Response): Promise<any> => {
                 data: {
                     user_id: user_id,
                     item_id: payload.item_id,
-                    is_guest: payload.is_guest,
+                    is_guest: is_guest,
                     item_type: payload.item_type,
                     price: payload.price,
                     quantity: payload.quantity,

@@ -1,4 +1,3 @@
-/** Home-screen order under Consumer Discover in Swagger UI */
 const CONSUMER_DISCOVER_PATH_ORDER = [
   '/consumer/home-slider',
   '/consumer/categories',

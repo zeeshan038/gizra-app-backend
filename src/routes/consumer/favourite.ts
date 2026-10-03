@@ -1,5 +1,5 @@
 import express from 'express';
-import { verifyConsumer } from '../../middlewares/verifyConsumer';
+import { requireRegisteredConsumer, verifyConsumer } from '../../middlewares/verifyConsumer';
 import {
   addFavourite,
   listFavourites,
@@ -9,6 +9,7 @@ import {
 const router = express.Router();
 
 router.use(verifyConsumer);
+router.use(requireRegisteredConsumer);
 
 router.get('/list', listFavourites);
 router.post('/add', addFavourite);

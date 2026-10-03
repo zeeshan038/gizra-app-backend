@@ -1,7 +1,10 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { requireCoordinates, requireZoneIds } from '../../utils/consumer/zoneHeaders';
-import { parseCoordinatesFromRequest } from '../../utils/consumer/favouriteHelpers';
+import {
+    parseCoordinatesFromRequest,
+    parseZoneIdsFromRequest,
+} from '../../utils/consumer/favouriteHelpers';
 import {
     applyDiscoverTypeFilter,
     DISCOVER_RESTAURANT_SELECT,
@@ -339,44 +342,104 @@ export const getRestaurantFoods = async (req: Request, res: Response): Promise<a
 
 
 /**
- * @Description Search all active foods globally by name
+ * @Description Search foods and restaurants (restaurants that sell matching items or match by name)
  * @Route GET api/consumer/foods/search
  * @Access Public
+ * @Query zone_id — optional; limits results to customer zone(s)
  */
 export const searchFoods = async (req: Request, res: Response): Promise<any> => {
     try {
-        const name = req.query.name as string;
+        const name = (req.query.name as string)?.trim();
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 20;
         const skip = (page - 1) * limit;
+        const zoneIds = parseZoneIdsFromRequest(req);
+        const coords = parseCoordinatesFromRequest(req);
 
         if (!name) {
             return res.status(400).json({ status: false, msg: 'Search name is required' });
         }
 
-        const whereClause = {
+        const foodWhere: {
+            status: boolean;
+            name: { contains: string; mode: 'insensitive' };
+            restaurant_id?: { in: number[] };
+        } = {
             status: true,
-            name: { contains: name, mode: 'insensitive' as const }
+            name: { contains: name, mode: 'insensitive' },
         };
 
-        const [total, foods] = await Promise.all([
-            prisma.food.count({ where: whereClause }),
+        if (zoneIds?.length) {
+            const inZone = await prisma.restaurants.findMany({
+                where: { status: true, zone_id: { in: zoneIds } },
+                select: { id: true },
+            });
+            const restaurantIdsInZone = inZone.map((r) => Number(r.id));
+            foodWhere.restaurant_id = { in: restaurantIdsInZone };
+        }
+
+        const [foodTotal, foods, foodRestaurantRows] = await Promise.all([
+            prisma.food.count({ where: foodWhere }),
             prisma.food.findMany({
-                where: whereClause,
+                where: foodWhere,
                 skip,
                 take: limit,
-                orderBy: { id: 'desc' }
-            })
+                orderBy: { id: 'desc' },
+            }),
+            prisma.food.findMany({
+                where: foodWhere,
+                select: { restaurant_id: true },
+                distinct: ['restaurant_id'],
+            }),
         ]);
 
-        const formattedFoods = foods.map(f => {
+        const restaurantIdsFromFood = [
+            ...new Set(
+                foodRestaurantRows
+                    .map((row) => (row.restaurant_id != null ? Number(row.restaurant_id) : null))
+                    .filter((id): id is number => id != null && Number.isFinite(id))
+            ),
+        ].map((id) => BigInt(id));
+
+        const restaurantOr: Record<string, unknown>[] = [];
+        if (restaurantIdsFromFood.length) {
+            restaurantOr.push({ id: { in: restaurantIdsFromFood } });
+        }
+        restaurantOr.push({ name: { contains: name, mode: 'insensitive' } });
+
+        const restaurantWhere: Record<string, unknown> = {
+            status: true,
+            OR: restaurantOr,
+        };
+        if (zoneIds?.length) {
+            restaurantWhere.zone_id = { in: zoneIds };
+        }
+
+        const [restaurantTotal, restaurantRows] = await Promise.all([
+            prisma.restaurants.count({ where: restaurantWhere }),
+            prisma.restaurants.findMany({
+                where: restaurantWhere,
+                select: DISCOVER_RESTAURANT_SELECT,
+                skip,
+                take: limit,
+                orderBy: [{ order_count: 'desc' }, { id: 'desc' }],
+            }),
+        ]);
+
+        const scheduleMap = await loadTodaySchedulesByRestaurantId(
+            restaurantRows.map((r) => r.id)
+        );
+
+        const formattedFoods = foods.map((f) => {
             let parsedVariations = [];
             let parsedAddOns = [];
-            let parsedChoiceOptions = [];
-            
-            try { if (f.variations) parsedVariations = JSON.parse(f.variations); } catch (e) {}
-            try { if (f.add_ons) parsedAddOns = JSON.parse(f.add_ons); } catch (e) {}
-            try { if (f.choice_options) parsedChoiceOptions = JSON.parse(f.choice_options); } catch (e) {}
+
+            try {
+                if (f.variations) parsedVariations = JSON.parse(f.variations);
+            } catch (e) {}
+            try {
+                if (f.add_ons) parsedAddOns = JSON.parse(f.add_ons);
+            } catch (e) {}
 
             return {
                 id: f.id.toString(),
@@ -390,18 +453,27 @@ export const searchFoods = async (req: Request, res: Response): Promise<any> => 
                 veg: f.veg,
                 status: f.status,
                 variations: parsedVariations,
-                add_ons: parsedAddOns
+                add_ons: parsedAddOns,
             };
+        });
+
+        const formattedRestaurants = restaurantRows.map((r) => {
+            const schedules = scheduleMap.get(r.id.toString()) ?? [];
+            const open = isOpenFromSchedules(schedules);
+            const distKm = distanceKmForRestaurant(coords, r.latitude, r.longitude);
+            return formatDiscoverRestaurant(r, { open, distanceKm: distKm });
         });
 
         return res.status(200).json({
             status: true,
             data: {
-                total_size: total,
+                total_size: foodTotal,
+                restaurants_total_size: restaurantTotal,
                 limit,
                 offset: page,
-                foods: formattedFoods
-            }
+                foods: formattedFoods,
+                restaurants: formattedRestaurants,
+            },
         });
     } catch (error: any) {
         return res.status(500).json({ status: false, msg: error.message });

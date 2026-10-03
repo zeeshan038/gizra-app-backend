@@ -7,6 +7,8 @@ export type GoogleTokenProfile = {
   sub?: string;
   id?: string;
   kid?: string;
+  /** From Google tokeninfo / userinfo — when true, email ownership is proven by Google. */
+  email_verified?: boolean;
 };
 
 export type SocialLoginRequest = {
@@ -125,13 +127,31 @@ export async function processConsumerSocialLogin(
   let user = await prisma.users.findFirst({ where: { email: profile.email } });
   let is_exist_user: SocialLoginResult['is_exist_user'] = null;
 
-  if (user && verified === 'default' && !user.is_email_verified) {
+  const googleProvedEmail =
+    request.medium === 'google' &&
+    profile.email_verified === true &&
+    request.email === profile.email;
+
+  const pk = profile.id ?? profile.kid ?? profile.sub;
+  const returningGoogleUser =
+    request.medium === 'google' &&
+    user != null &&
+    (user.login_medium === 'google' ||
+      (pk != null && user.social_id != null && String(user.social_id) === String(pk)));
+
+  if (
+    user &&
+    verified === 'default' &&
+    !user.is_email_verified &&
+    !googleProvedEmail &&
+    !returningGoogleUser
+  ) {
     is_exist_user = existUserPayload(user);
     return {
       token: null,
       is_phone_verified: 1,
       is_email_verified: 1,
-      is_personal_info: 1,
+      is_personal_info: user.f_name ? 1 : 0,
       is_exist_user,
       login_type: 'social',
       email: user.email,
@@ -144,7 +164,6 @@ export async function processConsumerSocialLogin(
     }
 
     if (request.medium !== 'apple') {
-      const pk = profile.id ?? profile.kid ?? profile.sub;
       if (!pk) {
         throw Object.assign(new Error('Invalid Google credentials.'), { statusCode: 403 });
       }
@@ -187,6 +206,9 @@ export async function processConsumerSocialLogin(
     data: {
       login_medium: request.medium,
       is_email_verified: true,
+      ...(request.medium !== 'apple' && pk
+        ? { social_id: String(pk), temp_token: request.unique_id }
+        : {}),
       updated_at: new Date(),
     },
   });
@@ -234,10 +256,17 @@ export async function verifyGoogleToken(
     throw Object.assign(new Error('Google account has no email.'), { statusCode: 403 });
   }
 
+  const emailVerifiedRaw = data.email_verified;
+  const email_verified =
+    emailVerifiedRaw === 'true' ||
+    emailVerifiedRaw === '1' ||
+    (typeof emailVerifiedRaw === 'boolean' && emailVerifiedRaw);
+
   return {
     email,
     sub: data.sub,
     id: data.id,
     kid: data.kid,
+    email_verified,
   };
 }
