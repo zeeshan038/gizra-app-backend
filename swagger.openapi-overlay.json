@@ -192,6 +192,105 @@
         ]
       }
     },
+    "/vendor/login/send-otp": {
+      "post": {
+        "summary": "Send login OTP (vendor / POS app)",
+        "description": "Phone sign-in step 1. Returns **`data.otp`** in the response until SMS is enabled in production. 60s resend cooldown in `data.resend_after_seconds`. Dev OTP often **`123456`**. Same approval rules as POST `/vendor/login`.",
+        "tags": [
+          "Vendor Auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phone"
+                ],
+                "properties": {
+                  "phone": {
+                    "type": "string",
+                    "example": "+972501234567"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP sent",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "OTP successfully sent",
+                  "data": {
+                    "phone_mask": "+97********4567",
+                    "otp": "123456",
+                    "resend_after_seconds": 60
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "405": {
+            "$ref": "#/components/responses/ApiError405"
+          }
+        }
+      }
+    },
+    "/vendor/login/verify-otp": {
+      "post": {
+        "summary": "Verify login OTP (vendor / POS app)",
+        "description": "Phone sign-in step 2. Returns the same JWT payload as POST `/vendor/login` on success.",
+        "tags": [
+          "Vendor Auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phone",
+                  "otp"
+                ],
+                "properties": {
+                  "phone": {
+                    "type": "string",
+                    "example": "+972501234567"
+                  },
+                  "otp": {
+                    "type": "string",
+                    "example": "123456"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login success (same shape as /vendor/login)"
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError403"
+          }
+        }
+      }
+    },
     "/vendor/register": {
       "post": {
         "summary": "Restaurant / vendor registration",

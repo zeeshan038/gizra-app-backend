@@ -5525,58 +5525,12 @@
             "description": "OK",
             "content": {
               "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
                 "example": {
                   "status": true,
-                  "msg": "Login success",
-                  "data": {
-                    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
-                    "zone_wise_topic": "zone_topic_name",
-                    "restaurant_id": 1
-                  }
-                },
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "Login success"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "token": {
-                          "type": "string",
-                          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…"
-                        },
-                        "zone_wise_topic": {
-                          "type": "string",
-                          "example": "zone_topic_name"
-                        },
-                        "restaurant_id": {
-                          "type": "number",
-                          "example": 1
-                        }
-                      },
-                      "example": {
-                        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
-                        "zone_wise_topic": "zone_topic_name",
-                        "restaurant_id": 1
-                      }
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "msg": "Login success",
-                    "data": {
-                      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
-                      "zone_wise_topic": "zone_topic_name",
-                      "restaurant_id": 1
-                    }
-                  }
+                  "msg": "Operation successful"
                 }
               }
             }
@@ -5675,6 +5629,258 @@
         "tags": [
           "Vendor Auth"
         ]
+      }
+    },
+    "/vendor/login/send-otp": {
+      "post": {
+        "description": "Phone sign-in step 1. Returns **`data.otp`** in the response until SMS is enabled in production. 60s resend cooldown in `data.resend_after_seconds`. Dev OTP often **`123456`**. Same approval rules as POST `/vendor/login`.",
+        "responses": {
+          "200": {
+            "description": "OTP sent",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "OTP successfully sent",
+                  "data": {
+                    "phone_mask": "+97********4567",
+                    "otp": "123456",
+                    "resend_after_seconds": 60
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method Not Allowed",
+            "$ref": "#/components/responses/ApiError405"
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable"
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ],
+        "summary": "Send login OTP (vendor / POS app)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phone"
+                ],
+                "properties": {
+                  "phone": {
+                    "type": "string",
+                    "example": "+972501234567"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vendor/login/verify-otp": {
+      "post": {
+        "description": "Phone sign-in step 2. Returns the same JWT payload as POST `/vendor/login` on success.",
+        "responses": {
+          "200": {
+            "description": "Login success (same shape as /vendor/login)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError403"
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable"
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ],
+        "summary": "Verify login OTP (vendor / POS app)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phone",
+                  "otp"
+                ],
+                "properties": {
+                  "phone": {
+                    "type": "string",
+                    "example": "+972501234567"
+                  },
+                  "otp": {
+                    "type": "string",
+                    "example": "123456"
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/vendor/register": {

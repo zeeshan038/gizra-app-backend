@@ -6,6 +6,8 @@ import { genrateToken } from '../../utils/methods/methods';
 import {
   vendorFcmTokenSchema,
   vendorLoginSchema,
+  vendorLoginSendOtpSchema,
+  vendorLoginVerifyOtpSchema,
   vendorRegisterSchema,
 } from '../../schemas/vendor/User';
 import {
@@ -28,6 +30,14 @@ import { sendConsumerOtpSms } from '../../utils/consumer/sendConsumerOtpSms';
 import { provisionAccountStorage } from '../../utils/accountStorage';
 import { normalizeStoredMedia } from '../../utils/mediaStorage';
 import { clientSafeErrorMessage } from '../../utils/safeClientError';
+import { maskPhoneForClient } from '../../utils/deliveryman/authHelpers';
+import {
+  deleteLoginOtp,
+  findLoginOtp,
+  secondsUntilOtpResend as loginOtpResendSeconds,
+  upsertLoginOtp,
+  verifyLoginOtpToken,
+} from '../../utils/partner/loginOtpDb';
 
 const prisma = new PrismaClient();
 
@@ -86,6 +96,49 @@ function formatRestaurantPublic(restaurant: Record<string, unknown>) {
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_here';
 
+type VendorRecord = NonNullable<Awaited<ReturnType<typeof prisma.vendors.findFirst>>>;
+
+async function issueVendorLoginSession(vendor: VendorRecord, res: Response): Promise<any> {
+  const restaurants = await prisma.restaurants.findMany({
+    where: { vendor_id: Number(vendor.id) },
+  });
+
+  const restaurant = restaurants[0];
+
+  if (restaurant?.status === false && vendor.status === false) {
+    return res.status(403).json({
+      status: false,
+      msg: 'Your registration is not approved yet. You can login once admin approved the request',
+    });
+  }
+  if (restaurant?.status === false && vendor.status === true) {
+    return res.status(403).json({
+      status: false,
+      msg: 'Your account is suspended',
+    });
+  }
+
+  const tokenData = await genrateToken(vendor, restaurant, JWT_SECRET);
+
+  if (restaurant?.restaurant_model === 'none' || restaurant?.restaurant_model === 'unsubscribed') {
+    return res.status(200).json({
+      subscribed: {
+        restaurant_id: Number(restaurant?.id),
+        token: tokenData.token,
+        package_id: restaurant?.package_id ? Number(restaurant.package_id) : null,
+        zone_wise_topic: tokenData.zone_wise_topic,
+        type: 'new_join',
+      },
+    });
+  }
+
+  return res.status(200).json({
+    status: true,
+    msg: 'Login success',
+    data: { ...tokenData, restaurant_id: restaurant ? Number(restaurant.id) : null },
+  });
+}
+
 /**
  * @Description Login Vendor
  * @Route POST api/vendor/login
@@ -121,46 +174,113 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    const restaurants = await prisma.restaurants.findMany({
-      where: { vendor_id: Number(vendor.id) },
+    return issueVendorLoginSession(vendor, res);
+  } catch (error: unknown) {
+    console.error('vendor login error:', error);
+    return res.status(503).json({
+      status: false,
+      msg: clientSafeErrorMessage(error),
     });
-    
-    const restaurant = restaurants[0];
+  }
+};
 
-    if (restaurant?.status === false && vendor.status === false) {
-      return res.status(403).json({
+/**
+ * @Description Send login OTP (vendor / POS app — phone sign-in)
+ * @Route POST /api/vendor/login/send-otp
+ * @Access Public
+ */
+export const sendLoginOtp = async (req: Request, res: Response): Promise<any> => {
+  const validated = vendorLoginSendOtpSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(','),
+    });
+  }
+
+  const phone = String(validated.value.phone).trim();
+
+  try {
+    const vendor = await prisma.vendors.findFirst({ where: { phone } });
+    if (!vendor) {
+      return res.status(401).json({
         status: false,
-        msg: 'Your registration is not approved yet. You can login once admin approved the request'
-      });
-    } else if (restaurant?.status === false && vendor.status === true) {
-      return res.status(403).json({
-        status: false,
-        msg: 'Your account is suspended'
+        msg: 'Credential do not match, please try again.',
       });
     }
 
-    const tokenData = await genrateToken(vendor, restaurant, JWT_SECRET);
+    const existing = await findLoginOtp(phone, 'login_vendor');
+    const waitSec = loginOtpResendSeconds(existing?.created_at ?? null);
+    if (waitSec > 0) {
+      return res.status(405).json({
+        status: false,
+        msg: `Please try again after ${waitSec} seconds`,
+        data: { resend_after_seconds: waitSec },
+      });
+    }
 
-    if (restaurant?.restaurant_model === 'none' || restaurant?.restaurant_model === 'unsubscribed') {
-        return res.status(200).json({
-            subscribed: {
-                restaurant_id: Number(restaurant?.id),
-                token: tokenData.token,
-                package_id: restaurant?.package_id ? Number(restaurant.package_id) : null,
-                zone_wise_topic: tokenData.zone_wise_topic,
-                type: 'new_join'
-            }
-        });
+    const otp = generateResetOtp();
+    await upsertLoginOtp(phone, 'login_vendor', otp);
+
+    try {
+      await sendConsumerOtpSms(phone, otp);
+    } catch {
+      // SMS optional while OTP is returned in the response for development.
     }
 
     return res.status(200).json({
       status: true,
-      msg: 'Login success',
-      data : {...tokenData}
+      msg: 'OTP successfully sent',
+      data: {
+        phone_mask: maskPhoneForClient(phone),
+        otp,
+        resend_after_seconds: 60,
+      },
     });
-
   } catch (error: unknown) {
-    console.error('vendor login error:', error);
+    console.error('vendor send login otp error:', error);
+    return res.status(503).json({
+      status: false,
+      msg: clientSafeErrorMessage(error),
+    });
+  }
+};
+
+/**
+ * @Description Verify login OTP and issue JWT (vendor / POS app)
+ * @Route POST /api/vendor/login/verify-otp
+ * @Access Public
+ */
+export const verifyLoginOtp = async (req: Request, res: Response): Promise<any> => {
+  const validated = vendorLoginVerifyOtpSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(','),
+    });
+  }
+
+  const { phone: rawPhone, otp } = validated.value as { phone: string; otp: string };
+  const phone = rawPhone.trim();
+
+  try {
+    const vendor = await prisma.vendors.findFirst({ where: { phone } });
+    if (!vendor) {
+      return res.status(401).json({
+        status: false,
+        msg: 'Credential do not match, please try again.',
+      });
+    }
+
+    const valid = await verifyLoginOtpToken(phone, 'login_vendor', otp);
+    if (!valid) {
+      return res.status(400).json({ status: false, msg: 'Invalid OTP' });
+    }
+
+    await deleteLoginOtp(phone, 'login_vendor');
+    return issueVendorLoginSession(vendor, res);
+  } catch (error: unknown) {
+    console.error('vendor verify login otp error:', error);
     return res.status(503).json({
       status: false,
       msg: clientSafeErrorMessage(error),

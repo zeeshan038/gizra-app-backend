@@ -14,8 +14,14 @@ if curl -sf --max-time 10 "$HEALTH_URL" 2>/dev/null | grep -q '"db":"ok"'; then
   exit 0
 fi
 
-log "WARN: health/db not ok — attempting deploy:server (no git pull)"
+log "WARN: health/db not ok — quick-heal (backend restart only)"
 unset DATABASE_URL POSTGRES_PASSWORD
+if ./scripts/prod-quick-heal.sh >>"$LOG" 2>&1; then
+  log "OK: healed via prod-quick-heal"
+  exit 0
+fi
+
+log "WARN: quick-heal failed — one deploy:server (no git pull, no single-user repair)"
 if npm run deploy:server >>"$LOG" 2>&1; then
   if curl -sf --max-time 10 "$HEALTH_URL" 2>/dev/null | grep -q '"db":"ok"'; then
     log "OK: healed via deploy:server"
@@ -23,11 +29,5 @@ if npm run deploy:server >>"$LOG" 2>&1; then
   fi
 fi
 
-log "WARN: deploy did not heal — running fix:prod-db"
-npm run fix:prod-db >>"$LOG" 2>&1 || true
-if curl -sf --max-time 10 "$HEALTH_URL" 2>/dev/null | grep -q '"db":"ok"'; then
-  log "OK: healed via fix:prod-db"
-else
-  log "FAIL: still unhealthy after auto-heal — needs human check"
-  exit 1
-fi
+log "FAIL: still unhealthy — run manually: cd ~/gizra-app-backend && npm run fix:prod-db (do NOT loop cron repair)"
+exit 1

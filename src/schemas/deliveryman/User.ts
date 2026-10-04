@@ -76,6 +76,26 @@ export const dmLoginSchema = Joi.object({
   remember_me: Joi.boolean().optional(),
 });
 
+export const dmLoginSendOtpSchema = Joi.object({
+  phone: Joi.string().trim().min(9).required().messages({
+    'string.empty': 'Phone is required',
+    'string.min': 'Phone is required',
+  }),
+});
+
+export const dmLoginVerifyOtpSchema = Joi.object({
+  phone: Joi.string().trim().min(9).required().messages({
+    'string.empty': 'Phone is required',
+    'string.min': 'Phone is required',
+  }),
+  otp: Joi.string()
+    .pattern(/^\d{4,6}$/)
+    .required()
+    .messages({
+      'string.pattern.base': 'OTP must be 4–6 digits',
+    }),
+});
+
 /** Figma reset screen — phone only (+972…). */
 export const dmForgotPasswordSchema = Joi.object({
   phone: Joi.string().trim().min(9).required().messages({

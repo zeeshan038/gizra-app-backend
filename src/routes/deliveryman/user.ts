@@ -3,6 +3,8 @@ import {
   changePassword,
   forgotPassword,
   login,
+  sendLoginOtp,
+  verifyLoginOtp,
   register,
   resetPassword,
   verifyPasswordOtp,
@@ -18,6 +20,8 @@ import { verifyDeliveryMan } from '../../middlewares/verifyDeliveryMan';
 const router = express.Router();
 
 router.post('/login', login);
+router.post('/login/send-otp', sendLoginOtp);
+router.post('/login/verify-otp', verifyLoginOtp);
 router.post('/register', register);
 router.post('/password/forgot', forgotPassword);
 router.post('/password/verify-otp', verifyPasswordOtp);

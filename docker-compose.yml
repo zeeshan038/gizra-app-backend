@@ -55,16 +55,6 @@ services:
       retries: 10
       start_period: 15s
 
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: gizra-cloudflared
-    restart: always
-    command: tunnel run
-    environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
-    depends_on:
-      - backend
-
   redis:
     image: redis:7
     container_name: gizra-redis

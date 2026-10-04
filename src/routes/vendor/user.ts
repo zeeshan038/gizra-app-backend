@@ -4,6 +4,8 @@ import {
   changePassword,
   forgotPassword,
   login,
+  sendLoginOtp,
+  verifyLoginOtp,
   register,
   resetPassword,
   updateFcmToken,
@@ -17,6 +19,8 @@ import {
 } from '../../controllers/vendor/notification';
 
 router.post('/login', login);
+router.post('/login/send-otp', sendLoginOtp);
+router.post('/login/verify-otp', verifyLoginOtp);
 router.post('/register', register);
 
 router.post('/password/forgot', forgotPassword);

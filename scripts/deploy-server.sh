@@ -38,7 +38,6 @@ echo "TCP password check for Mac/host :5434…"
 ./scripts/ensure-postgres-password.sh
 
 ./scripts/docker-compose.sh up -d --build --force-recreate backend
-./scripts/docker-compose.sh up -d cloudflared 2>/dev/null || true
 
 echo "Waiting for API…"
 for i in $(seq 1 45); do
