@@ -1,7 +1,6 @@
 import prisma from '../../config/database';
 import { emitNewOrderRealtime } from '../../sockets/orderRealtime';
-import { sendFcmToDevice } from './fcm';
-import { notifyDeliveryMenForOrder } from './sendDriverOrderNotification';
+import { persistAndPushVendorNewOrder, sendOrderNotification } from './sendOrderNotification';
 
 export type NewOrderPushPayload = {
   order_id: string;
@@ -19,15 +18,6 @@ export type NewOrderPushPayload = {
  * - Driver pool FCM when the placed order is immediately pool-eligible
  */
 export async function sendNewOrderNotification(payload: NewOrderPushPayload): Promise<void> {
-  const data = {
-    title: 'New order',
-    description: `New order received — Order ID: ${payload.order_id}`,
-    order_id: payload.order_id,
-    image: '',
-    type: 'new_order',
-    order_type: payload.order_type,
-  };
-
   emitNewOrderRealtime({
     order_id: payload.order_id,
     restaurant_id: payload.restaurant_id,
@@ -37,41 +27,24 @@ export async function sendNewOrderNotification(payload: NewOrderPushPayload): Pr
   });
 
   try {
-    await prisma.user_notifications.create({
-      data: {
-        vendor_id: payload.vendor_id,
-        data: JSON.stringify(data),
-        status: true,
-        created_at: new Date(),
-        updated_at: new Date(),
-      },
-    });
-  } catch (e) {
-    console.error('[notify] failed to save user_notifications', e);
-  }
-
-  try {
     const vendor = await prisma.vendors.findUnique({
       where: { id: BigInt(payload.vendor_id) },
       select: { firebase_token: true, fcm_token_web: true },
     });
-
     const deviceToken = vendor?.firebase_token || vendor?.fcm_token_web;
-    if (deviceToken) {
-      await sendFcmToDevice(deviceToken, data);
-    }
+    await persistAndPushVendorNewOrder({
+      order_id: payload.order_id,
+      vendor_id: payload.vendor_id,
+      order_type: payload.order_type,
+      deviceToken,
+    });
   } catch (e) {
-    console.error('[notify] FCM send failed', e);
+    console.error('[notify] vendor new order failed', e);
   }
 
   try {
-    const order = await prisma.orders.findUnique({
-      where: { id: BigInt(payload.order_id) },
-    });
-    if (order) {
-      await notifyDeliveryMenForOrder(order);
-    }
+    await sendOrderNotification(BigInt(payload.order_id));
   } catch (e) {
-    console.error('[notify] driver pool FCM failed', e);
+    console.error('[notify] sendOrderNotification failed', e);
   }
 }

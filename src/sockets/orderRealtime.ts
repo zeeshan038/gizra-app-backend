@@ -15,7 +15,7 @@ import {
   passesNotDigitalPending,
   passesScheduleWindow,
 } from '../utils/deliveryman/orderHelpers';
-import { notifyDeliveryMenForOrder } from '../utils/notifications/sendDriverOrderNotification';
+import { sendOrderNotification } from '../utils/notifications/sendOrderNotification';
 
 export function emitNewOrderRealtime(payload: {
   order_id: string;
@@ -90,7 +90,7 @@ export function emitOrderStatusRealtime(order: orders): void {
         publishOrderUpdatedToTopics(topics, payload);
       }
 
-      await notifyDeliveryMenForOrder(order);
+      await sendOrderNotification(order);
     } catch (err) {
       console.error('[socket] driver pool realtime failed', err);
     }
