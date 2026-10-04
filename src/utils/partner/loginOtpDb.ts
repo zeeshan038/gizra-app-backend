@@ -1,7 +1,7 @@
 import prisma from '../../config/database';
 import { secondsUntilOtpResend, type PasswordResetRow } from '../consumer/passwordResetDb';
 
-export type LoginOtpPurpose = 'login_deliveryman' | 'login_vendor';
+export type LoginOtpPurpose = 'login_deliveryman' | 'login_vendor' | 'login_consumer';
 
 function isTestOtpMode(): boolean {
   return process.env.APP_MODE === 'test' || process.env.NODE_ENV !== 'production';

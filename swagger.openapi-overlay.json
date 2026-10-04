@@ -3800,7 +3800,7 @@
     "/consumer/login": {
       "post": {
         "summary": "Login customer",
-        "description": "Unified login. **manual** — phone or email + password. **social** — Google only (`medium=google`; verifies token server-side; same flow as `/consumer/sign-in-with-google`). **otp** — not migrated (501). JWT in `data.token` when `data.is_personal_info === 1`; otherwise complete profile via `PUT /consumer/update-profile`. Optional `guest_id` merges guest cart.",
+        "description": "Unified login. **manual** — phone or email + password. **social** — Google only (`medium=google`; verifies token server-side; same flow as `/consumer/sign-in-with-google`). **otp** — use POST `/consumer/login/send-otp` then `/consumer/login/verify-otp` (not this endpoint). JWT in `data.token` when `data.is_personal_info === 1`; otherwise complete profile via `PUT /consumer/update-profile`. Optional `guest_id` merges guest cart.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3920,6 +3920,118 @@
         "tags": [
           "Consumer Auth"
         ]
+      }
+    },
+    "/consumer/login/send-otp": {
+      "post": {
+        "summary": "Send login OTP (customer app)",
+        "description": "Phone sign-in step 1. Returns **`data.otp`** in the response until SMS is enabled in production. 60s resend cooldown in `data.resend_after_seconds`. Dev OTP often **`123456`**. Phone must match an existing customer account.",
+        "tags": [
+          "Consumer Auth"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phone"
+                ],
+                "properties": {
+                  "phone": {
+                    "type": "string",
+                    "example": "+972501234567"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP sent",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "OTP successfully sent",
+                  "data": {
+                    "phone_mask": "+97********4567",
+                    "otp": "123456",
+                    "resend_after_seconds": 60
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError403"
+          },
+          "405": {
+            "$ref": "#/components/responses/ApiError405"
+          }
+        }
+      }
+    },
+    "/consumer/login/verify-otp": {
+      "post": {
+        "summary": "Verify login OTP (customer app)",
+        "description": "Phone sign-in step 2. Returns the same JWT payload as manual login (`data.token`, `login_type: otp`). Optional `guest_id` merges guest cart.",
+        "tags": [
+          "Consumer Auth"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phone",
+                  "otp"
+                ],
+                "properties": {
+                  "phone": {
+                    "type": "string",
+                    "example": "+972501234567"
+                  },
+                  "otp": {
+                    "type": "string",
+                    "example": "123456"
+                  },
+                  "guest_id": {
+                    "type": "integer",
+                    "example": 42
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerLoginResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError401"
+          }
+        }
       }
     },
     "/consumer/sign-in-with-google": {
@@ -14929,7 +15041,7 @@
     },
     {
       "name": "Delivery Man Orders",
-      "description": "GET /orders/active, GET /orders/latest (pool), GET /orders/history (My Orders), PUT /orders/{id}/accept, PUT /orders/{id}/status. E2E: consumer place → vendor confirm → latest → accept → delivered (records earnings). Realtime: Socket.IO event **`order_request`** on FCM topic rooms — refetch GET /orders/latest when on the request tab (includes POS manual dispatch)."
+      "description": "GET /orders/active, GET /orders/latest (pool), GET /orders/history (My Orders), PUT /orders/{id}/accept, PUT /orders/{id}/status. E2E: consumer place → vendor confirm → latest → accept → delivered (records earnings)."
     },
     {
       "name": "Admin Auth"

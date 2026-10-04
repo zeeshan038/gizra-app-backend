@@ -72,6 +72,27 @@ export const consumerLoginSchema = Joi.object({
   verified: Joi.string().valid('default', 'no').optional(),
 });
 
+export const consumerLoginSendOtpSchema = Joi.object({
+  phone: Joi.string().trim().min(9).required().messages({
+    'string.empty': 'Phone is required',
+    'string.min': 'Phone is required',
+  }),
+});
+
+export const consumerLoginVerifyOtpSchema = Joi.object({
+  phone: Joi.string().trim().min(9).required().messages({
+    'string.empty': 'Phone is required',
+    'string.min': 'Phone is required',
+  }),
+  otp: Joi.string()
+    .pattern(/^\d{4,6}$/)
+    .required()
+    .messages({
+      'string.pattern.base': 'OTP must be 4–6 digits',
+    }),
+  guest_id: Joi.number().optional(),
+});
+
 /** Dedicated Google sign-in (same flow as login_type=social + medium=google). */
 export const consumerGoogleSignInSchema = Joi.object({
   token: Joi.string().required().messages({

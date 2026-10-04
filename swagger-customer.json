@@ -10121,7 +10121,7 @@
     },
     "/consumer/login": {
       "post": {
-        "description": "Unified login. **manual** — phone or email + password. **social** — Google only (`medium=google`; verifies token server-side; same flow as `/consumer/sign-in-with-google`). **otp** — not migrated (501). JWT in `data.token` when `data.is_personal_info === 1`; otherwise complete profile via `PUT /consumer/update-profile`. Optional `guest_id` merges guest cart.",
+        "description": "Unified login. **manual** — phone or email + password. **social** — Google only (`medium=google`; verifies token server-side; same flow as `/consumer/sign-in-with-google`). **otp** — use POST `/consumer/login/send-otp` then `/consumer/login/verify-otp` (not this endpoint). JWT in `data.token` when `data.is_personal_info === 1`; otherwise complete profile via `PUT /consumer/update-profile`. Optional `guest_id` merges guest cart.",
         "responses": {
           "200": {
             "description": "Login success",
@@ -10253,6 +10253,264 @@
           "Consumer Auth"
         ],
         "summary": "Login customer"
+      }
+    },
+    "/consumer/login/send-otp": {
+      "post": {
+        "description": "Phone sign-in step 1. Returns **`data.otp`** in the response until SMS is enabled in production. 60s resend cooldown in `data.resend_after_seconds`. Dev OTP often **`123456`**. Phone must match an existing customer account.",
+        "responses": {
+          "200": {
+            "description": "OTP sent",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "OTP successfully sent",
+                  "data": {
+                    "phone_mask": "+97********4567",
+                    "otp": "123456",
+                    "resend_after_seconds": 60
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError403"
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Method Not Allowed",
+            "$ref": "#/components/responses/ApiError405"
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable"
+          }
+        },
+        "tags": [
+          "Consumer Auth"
+        ],
+        "summary": "Send login OTP (customer app)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phone"
+                ],
+                "properties": {
+                  "phone": {
+                    "type": "string",
+                    "example": "+972501234567"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/consumer/login/verify-otp": {
+      "post": {
+        "description": "Phone sign-in step 2. Returns the same JWT payload as manual login (`data.token`, `login_type: otp`). Optional `guest_id` merges guest cart.",
+        "responses": {
+          "200": {
+            "description": "Login success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerLoginResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable"
+          }
+        },
+        "tags": [
+          "Consumer Auth"
+        ],
+        "summary": "Verify login OTP (customer app)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phone",
+                  "otp"
+                ],
+                "properties": {
+                  "phone": {
+                    "type": "string",
+                    "example": "+972501234567"
+                  },
+                  "otp": {
+                    "type": "string",
+                    "example": "123456"
+                  },
+                  "guest_id": {
+                    "type": "integer",
+                    "example": 42
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/consumer/sign-in-with-google": {

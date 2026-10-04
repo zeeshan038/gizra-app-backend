@@ -22,7 +22,7 @@
     },
     {
       "name": "Delivery Man Orders",
-      "description": "GET /orders/active, GET /orders/latest (pool), GET /orders/history (My Orders), PUT /orders/{id}/accept, PUT /orders/{id}/status. E2E: consumer place → vendor confirm → latest → accept → delivered (records earnings). Realtime: Socket.IO event **`order_request`** on FCM topic rooms — refetch GET /orders/latest when on the request tab (includes POS manual dispatch)."
+      "description": "GET /orders/active, GET /orders/latest (pool), GET /orders/history (My Orders), PUT /orders/{id}/accept, PUT /orders/{id}/status. E2E: consumer place → vendor confirm → latest → accept → delivered (records earnings)."
     },
     {
       "name": "Delivery Man Home",

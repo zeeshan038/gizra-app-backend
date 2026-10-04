@@ -6,7 +6,9 @@ import {
   guestRequest,
   login,
   register,
+  sendLoginOtp,
   signInWithGoogle,
+  verifyLoginOtp,
 } from '../../controllers/consumer/User';
 import {
   changePassword,
@@ -34,6 +36,8 @@ const router = express.Router();
 router.post('/guest/request', guestRequest);
 router.post('/register', register);
 router.post('/login', login);
+router.post('/login/send-otp', sendLoginOtp);
+router.post('/login/verify-otp', verifyLoginOtp);
 router.post('/sign-in-with-google', signInWithGoogle);
 router.post('/apply/delivery-man', applyForDeliveryMan);
 

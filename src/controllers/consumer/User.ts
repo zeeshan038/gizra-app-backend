@@ -12,8 +12,20 @@ import {
   consumerApplyRestaurantSchema,
   consumerGoogleSignInSchema,
   consumerLoginSchema,
+  consumerLoginSendOtpSchema,
+  consumerLoginVerifyOtpSchema,
   consumerRegisterSchema,
 } from '../../schemas/consumer/User';
+import { generateResetOtp } from '../../utils/consumer/passwordResetDb';
+import { sendConsumerOtpSms } from '../../utils/consumer/sendConsumerOtpSms';
+import { maskPhoneForClient } from '../../utils/deliveryman/authHelpers';
+import {
+  deleteLoginOtp,
+  findLoginOtp,
+  secondsUntilOtpResend as loginOtpResendSeconds,
+  upsertLoginOtp,
+  verifyLoginOtpToken,
+} from '../../utils/partner/loginOtpDb';
 import {
   isGoogleAccessTokenFlag,
   processConsumerSocialLogin,
@@ -182,6 +194,171 @@ const checkGuestCart = async (userId: number, guestId: number) => {
     }
 };
 
+type ConsumerUserRecord = NonNullable<Awaited<ReturnType<typeof prisma.users.findFirst>>>;
+
+async function issueConsumerLoginSession(
+  user: ConsumerUserRecord,
+  res: Response,
+  options?: { guest_id?: number; login_type?: 'manual' | 'otp' }
+): Promise<any> {
+  if (!user.status) {
+    return res.status(403).json({
+      status: false,
+      msg: 'Your account is blocked',
+    });
+  }
+
+  if (!user.ref_code) {
+    const refCode = await generateReferralCode(user.f_name || 'USR', Number(user.id));
+    await prisma.users.update({
+      where: { id: user.id },
+      data: { ref_code: refCode },
+    });
+  }
+
+  const guestId = options?.guest_id;
+  if (guestId) {
+    await checkGuestCart(Number(user.id), guestId);
+  }
+
+  const token = jwt.sign(
+    {
+      id: user.id.toString(),
+      email: user.email,
+      phone: user.phone,
+      role: 'customer',
+    },
+    JWT_SECRET,
+    { expiresIn: '30d' }
+  );
+
+  return res.status(200).json({
+    status: true,
+    msg: 'Login success',
+    data: {
+      token,
+      is_phone_verified: user.is_phone_verified ? 1 : 0,
+      is_email_verified: 1,
+      login_type: options?.login_type ?? 'manual',
+    },
+  });
+}
+
+/**
+ * @Description Send login OTP (customer app — phone sign-in)
+ * @Route POST /api/consumer/login/send-otp
+ * @Access Public
+ */
+export const sendLoginOtp = async (req: Request, res: Response): Promise<any> => {
+  const validated = consumerLoginSendOtpSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(','),
+    });
+  }
+
+  const phone = String(validated.value.phone).trim();
+
+  try {
+    const user = await prisma.users.findFirst({ where: { phone } });
+    if (!user) {
+      return res.status(401).json({
+        status: false,
+        msg: 'Credential do not match, please try again.',
+      });
+    }
+
+    if (!user.status) {
+      return res.status(403).json({
+        status: false,
+        msg: 'Your account is blocked',
+      });
+    }
+
+    const existing = await findLoginOtp(phone, 'login_consumer');
+    const waitSec = loginOtpResendSeconds(existing?.created_at ?? null);
+    if (waitSec > 0) {
+      return res.status(405).json({
+        status: false,
+        msg: `Please try again after ${waitSec} seconds`,
+        data: { resend_after_seconds: waitSec },
+      });
+    }
+
+    const otp = generateResetOtp();
+    await upsertLoginOtp(phone, 'login_consumer', otp);
+
+    try {
+      await sendConsumerOtpSms(phone, otp);
+    } catch {
+      // SMS optional while OTP is returned in the response for development.
+    }
+
+    return res.status(200).json({
+      status: true,
+      msg: 'OTP successfully sent',
+      data: {
+        phone_mask: maskPhoneForClient(phone),
+        otp,
+        resend_after_seconds: 60,
+      },
+    });
+  } catch (error: unknown) {
+    console.error('[consumer/send-login-otp]', error);
+    return res.status(503).json({
+      status: false,
+      msg: safeApiErrorMessage(error, 'Could not send OTP. Please try again.'),
+    });
+  }
+};
+
+/**
+ * @Description Verify login OTP and issue JWT (customer app)
+ * @Route POST /api/consumer/login/verify-otp
+ * @Access Public
+ */
+export const verifyLoginOtp = async (req: Request, res: Response): Promise<any> => {
+  const validated = consumerLoginVerifyOtpSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(','),
+    });
+  }
+
+  const { phone: rawPhone, otp, guest_id: guestId } = validated.value as {
+    phone: string;
+    otp: string;
+    guest_id?: number;
+  };
+  const phone = rawPhone.trim();
+
+  try {
+    const user = await prisma.users.findFirst({ where: { phone } });
+    if (!user) {
+      return res.status(401).json({
+        status: false,
+        msg: 'Credential do not match, please try again.',
+      });
+    }
+
+    const valid = await verifyLoginOtpToken(phone, 'login_consumer', otp);
+    if (!valid) {
+      return res.status(400).json({ status: false, msg: 'Invalid OTP' });
+    }
+
+    await deleteLoginOtp(phone, 'login_consumer');
+    return issueConsumerLoginSession(user, res, { guest_id: guestId, login_type: 'otp' });
+  } catch (error: unknown) {
+    console.error('[consumer/verify-login-otp]', error);
+    return res.status(503).json({
+      status: false,
+      msg: safeApiErrorMessage(error, 'Login failed. Please try again.'),
+    });
+  }
+};
+
 /**
  * @Description Login Consumer
  * @Route POST api/consumer/login
@@ -223,56 +400,15 @@ export const login = async (req: Request, res: Response): Promise<any> => {
                 });
             }
 
-            // Check status
-            if (!user.status) {
-                return res.status(403).json({
-                    status: false,
-                    msg: 'Your account is blocked'
-                });
-            }
-
-            // Ensure ref code exists (PHP refer_code_check)
-            if (!user.ref_code) {
-                const refCode = await generateReferralCode(user.f_name || 'USR', Number(user.id));
-                await prisma.users.update({
-                    where: { id: user.id },
-                    data: { ref_code: refCode }
-                });
-            }
-
-            // Merge guest cart if guest_id is provided
-            if (payload.guest_id) {
-                await checkGuestCart(Number(user.id), payload.guest_id);
-            }
-
-            // Generate Token
-            const token = jwt.sign(
-                { 
-                    id: user.id.toString(), 
-                    email: user.email, 
-                    phone: user.phone,
-                    role: 'customer'
-                },
-                JWT_SECRET,
-                { expiresIn: '30d' }
-            );
-
-            return res.status(200).json({
-                status: true,
-                msg: 'Login success',
-                data: {
-                    token,
-                    is_phone_verified: user.is_phone_verified ? 1 : 0,
-                    is_email_verified: 1, 
-                    login_type: 'manual'
-                }
+            return issueConsumerLoginSession(user, res, {
+                guest_id: payload.guest_id,
+                login_type: 'manual',
             });
 
         } else if (payload.login_type === 'otp') {
-            // OTP login implementation stub
-            return res.status(501).json({
+            return res.status(400).json({
                 status: false,
-                msg: 'OTP Login not yet fully migrated.'
+                msg: 'Use POST /consumer/login/send-otp and POST /consumer/login/verify-otp for OTP login.',
             });
         } else if (payload.login_type === 'social') {
             if (payload.medium !== 'google') {
