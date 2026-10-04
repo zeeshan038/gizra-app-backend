@@ -616,19 +616,22 @@ export const signInWithGoogle = async (req: Request, res: Response): Promise<any
   try {
     const profile = await verifyGoogleToken(payload.token, useAccessToken);
 
-    if (
-      payload.email !== profile.email &&
-      !profile.id &&
-      !profile.kid &&
-      !profile.sub
-    ) {
+    const email = (payload.email?.trim() || profile.email).toLowerCase();
+    const unique_id =
+      payload.unique_id?.trim() || profile.sub || profile.id || profile.kid || '';
+
+    if (!unique_id) {
+      return res.status(403).json({ status: false, msg: 'Invalid Google credentials.' });
+    }
+
+    if (payload.email && payload.email.trim().toLowerCase() !== profile.email.toLowerCase()) {
       return res.status(403).json({ status: false, msg: 'Email does not match Google account.' });
     }
 
     const data = await processConsumerSocialLogin(profile, {
       token: payload.token,
-      email: payload.email,
-      unique_id: payload.unique_id,
+      email,
+      unique_id,
       medium: 'google',
       verified: payload.verified ?? 'default',
       guest_id: payload.guest_id,

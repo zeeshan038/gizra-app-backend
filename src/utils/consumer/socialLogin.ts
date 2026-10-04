@@ -7,6 +7,10 @@ export type GoogleTokenProfile = {
   sub?: string;
   id?: string;
   kid?: string;
+  name?: string;
+  given_name?: string;
+  family_name?: string;
+  picture?: string;
   /** From Google tokeninfo / userinfo — when true, email ownership is proven by Google. */
   email_verified?: boolean;
 };
@@ -118,6 +122,47 @@ function existUserPayload(user: {
   };
 }
 
+function namesFromGoogleProfile(profile: GoogleTokenProfile): {
+  f_name: string | null;
+  l_name: string | null;
+} {
+  if (profile.given_name?.trim()) {
+    return {
+      f_name: profile.given_name.trim(),
+      l_name: profile.family_name?.trim() || null,
+    };
+  }
+  const full = profile.name?.trim();
+  if (!full) {
+    return { f_name: null, l_name: null };
+  }
+  const parts = full.split(/\s+/);
+  if (parts.length === 1) {
+    return { f_name: parts[0], l_name: null };
+  }
+  return { f_name: parts[0], l_name: parts.slice(1).join(' ') };
+}
+
+function googleProfileUserFields(
+  profile: GoogleTokenProfile,
+  existing?: { f_name: string | null; l_name: string | null; image: string | null }
+): { f_name?: string; l_name?: string; image?: string } {
+  const fromGoogle = namesFromGoogleProfile(profile);
+  const fields: { f_name?: string; l_name?: string; image?: string } = {};
+
+  if (!existing?.f_name && fromGoogle.f_name) {
+    fields.f_name = fromGoogle.f_name;
+  }
+  if (!existing?.l_name && fromGoogle.l_name) {
+    fields.l_name = fromGoogle.l_name;
+  }
+  if (!existing?.image && profile.picture?.trim()) {
+    fields.image = profile.picture.trim();
+  }
+
+  return fields;
+}
+
 /** Mirrors PHP `CustomerAuthController::social_login`. */
 export async function processConsumerSocialLogin(
   profile: GoogleTokenProfile,
@@ -130,7 +175,7 @@ export async function processConsumerSocialLogin(
   const googleProvedEmail =
     request.medium === 'google' &&
     profile.email_verified === true &&
-    request.email === profile.email;
+    request.email.toLowerCase() === profile.email.toLowerCase();
 
   const pk = profile.id ?? profile.kid ?? profile.sub;
   const returningGoogleUser =
@@ -159,7 +204,7 @@ export async function processConsumerSocialLogin(
   }
 
   if ((user && verified === 'no') || (!user && verified === 'default')) {
-    if (request.email !== profile.email) {
+    if (request.email.toLowerCase() !== profile.email.toLowerCase()) {
       throw Object.assign(new Error('Email does not match Google account.'), { statusCode: 403 });
     }
 
@@ -175,6 +220,7 @@ export async function processConsumerSocialLogin(
         });
       }
 
+      const profileFields = googleProfileUserFields(profile);
       user = await prisma.users.create({
         data: {
           email: profile.email,
@@ -183,7 +229,8 @@ export async function processConsumerSocialLogin(
           social_id: String(pk),
           password: await bcrypt.hash(request.unique_id, 10),
           status: true,
-          is_email_verified: false,
+          is_email_verified: googleProvedEmail,
+          ...profileFields,
           created_at: new Date(),
           updated_at: new Date(),
         },
@@ -206,6 +253,7 @@ export async function processConsumerSocialLogin(
     data: {
       login_medium: request.medium,
       is_email_verified: true,
+      ...googleProfileUserFields(profile, user),
       ...(request.medium !== 'apple' && pk
         ? { social_id: String(pk), temp_token: request.unique_id }
         : {}),
@@ -213,14 +261,12 @@ export async function processConsumerSocialLogin(
     },
   });
 
-  const is_personal_info = user.f_name ? 1 : 0;
-  let token: string | null = null;
-  if (is_personal_info === 1) {
-    token = issueJwt(user);
-    if (request.guest_id) {
-      await mergeGuestCart(Number(user.id), request.guest_id);
-    }
+  const token = issueJwt(user);
+  if (request.guest_id) {
+    await mergeGuestCart(Number(user.id), request.guest_id);
   }
+
+  const is_personal_info = user.f_name ? 1 : 0;
 
   return {
     token,
@@ -267,6 +313,10 @@ export async function verifyGoogleToken(
     sub: data.sub,
     id: data.id,
     kid: data.kid,
+    name: data.name,
+    given_name: data.given_name,
+    family_name: data.family_name,
+    picture: data.picture,
     email_verified,
   };
 }
