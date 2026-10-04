@@ -8,6 +8,7 @@ import {
 } from './publish';
 import { publishNewOrderToRestaurant } from '../utils/vendor/order/sseHub';
 import {
+  getManualDispatchBroadcastTopics,
   getOrderRequestBroadcastTopics,
   shouldEmitDriverOrderRequest,
 } from '../utils/deliveryman/pushTopics';
@@ -40,7 +41,7 @@ export function emitNewOrderRealtime(payload: {
   });
 }
 
-function buildOrderRequestPayload(order: orders): OrderRequestPayload {
+export function buildOrderRequestPayload(order: orders): OrderRequestPayload {
   return {
     order_id: order.id.toString(),
     restaurant_id: Number(order.restaurant_id),
@@ -51,6 +52,21 @@ function buildOrderRequestPayload(order: orders): OrderRequestPayload {
     zone_id: order.zone_id != null ? Number(order.zone_id) : null,
     vehicle_id: order.vehicle_id != null ? Number(order.vehicle_id) : null,
   };
+}
+
+/**
+ * Realtime `order_request` for POS manual dispatch — same FCM topic rooms drivers join on connect.
+ * Driver app on the request tab should refetch GET /delivery-man/orders/latest on this event.
+ */
+export async function emitManualDispatchOrderRequest(order: orders): Promise<void> {
+  if (order.zone_id == null) return;
+  const zoneId = Number(order.zone_id);
+  if (!Number.isFinite(zoneId)) return;
+
+  const topics = await getManualDispatchBroadcastTopics(zoneId);
+  if (topics.length === 0) return;
+
+  publishOrderRequest(topics, buildOrderRequestPayload(order));
 }
 
 async function maybeEmitDriverOrderRequest(order: orders): Promise<void> {

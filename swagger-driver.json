@@ -22,7 +22,7 @@
     },
     {
       "name": "Delivery Man Orders",
-      "description": "GET /orders/active, GET /orders/latest (pool), GET /orders/history (My Orders), PUT /orders/{id}/accept, PUT /orders/{id}/status. E2E: consumer place → vendor confirm → latest → accept → delivered (records earnings)."
+      "description": "GET /orders/active, GET /orders/latest (pool), GET /orders/history (My Orders), PUT /orders/{id}/accept, PUT /orders/{id}/status. E2E: consumer place → vendor confirm → latest → accept → delivered (records earnings). Realtime: Socket.IO event **`order_request`** on FCM topic rooms — refetch GET /orders/latest when on the request tab (includes POS manual dispatch)."
     },
     {
       "name": "Delivery Man Home",
@@ -3714,6 +3714,125 @@
             }
           }
         ]
+      },
+      "VendorRequestDriverBody": {
+        "type": "object",
+        "required": [
+          "customer_name",
+          "customer_phone",
+          "address",
+          "order_amount",
+          "delivery_fee",
+          "payment_method",
+          "idempotency_key"
+        ],
+        "properties": {
+          "customer_name": {
+            "type": "string",
+            "maxLength": 100,
+            "example": "Yossi Cohen"
+          },
+          "customer_phone": {
+            "type": "string",
+            "maxLength": 30,
+            "example": "+972501234567"
+          },
+          "address": {
+            "type": "string",
+            "maxLength": 1000,
+            "example": "12 Herzl St, Tel Aviv"
+          },
+          "order_amount": {
+            "type": "number",
+            "minimum": 0.01,
+            "description": "Item subtotal (before delivery fee and tax)"
+          },
+          "delivery_fee": {
+            "type": "number",
+            "minimum": 0
+          },
+          "payment_method": {
+            "type": "string",
+            "enum": [
+              "prepaid",
+              "cash_on_delivery"
+            ],
+            "description": "`prepaid` sets payment_status=paid; order still uses COD method for commission logic"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Unique per dispatch attempt; stored as orders.manual_dispatch_key"
+          },
+          "zone_id": {
+            "type": "integer",
+            "description": "Optional reporting only; drivers match restaurant zone_id"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "tax": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Tax percentage on item price (default 10)"
+          }
+        }
+      },
+      "VendorRequestDriverResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Driver requested successfully"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "order_id": {
+                "type": "string",
+                "example": "100042"
+              },
+              "commission_rate": {
+                "type": "number",
+                "example": 10
+              },
+              "commission": {
+                "type": "number",
+                "example": 13.8
+              },
+              "delivery_fee": {
+                "type": "number",
+                "example": 18
+              },
+              "gizra_charge": {
+                "type": "number",
+                "description": "commission + delivery_fee"
+              },
+              "restaurant_net": {
+                "type": "number",
+                "description": "Estimated net to restaurant after GIZRA charge"
+              },
+              "payment_status": {
+                "type": "string",
+                "enum": [
+                  "paid",
+                  "unpaid"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "example": "Driver requested successfully"
+              }
+            }
+          }
+        }
       },
       "VendorOrderCountsResponse": {
         "type": "object",

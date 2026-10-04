@@ -24,7 +24,7 @@
     },
     {
       "name": "Vendor Orders (Web Panel & POS)",
-      "description": "Marketplace orders from consumer app (POST /consumer/order/place). Shared by Restaurant Web Panel and Vendor POS/kitchen app — same Bearer JWT from POST /vendor/login. Web Panel: SSE GET /vendor/orders/events for instant new-order alerts (no polling). Does not include in-store POS sales (order_type=pos). POS also receives FCM push type=new_order when configured."
+      "description": "Marketplace orders from consumer app (POST /consumer/order/place). Shared by Restaurant Web Panel and Vendor POS/kitchen app — same Bearer JWT from POST /vendor/login. Web Panel: SSE GET /vendor/orders/events for instant new-order alerts (no polling). Does not include in-store POS sales (order_type=pos). POS also receives FCM push type=new_order when configured. **Manual dispatch:** POST /vendor/dispatch/request-driver (phone order → zone drivers via FCM + Socket `order_request`)."
     },
     {
       "name": "Vendor Notifications",
@@ -3708,6 +3708,125 @@
             }
           }
         ]
+      },
+      "VendorRequestDriverBody": {
+        "type": "object",
+        "required": [
+          "customer_name",
+          "customer_phone",
+          "address",
+          "order_amount",
+          "delivery_fee",
+          "payment_method",
+          "idempotency_key"
+        ],
+        "properties": {
+          "customer_name": {
+            "type": "string",
+            "maxLength": 100,
+            "example": "Yossi Cohen"
+          },
+          "customer_phone": {
+            "type": "string",
+            "maxLength": 30,
+            "example": "+972501234567"
+          },
+          "address": {
+            "type": "string",
+            "maxLength": 1000,
+            "example": "12 Herzl St, Tel Aviv"
+          },
+          "order_amount": {
+            "type": "number",
+            "minimum": 0.01,
+            "description": "Item subtotal (before delivery fee and tax)"
+          },
+          "delivery_fee": {
+            "type": "number",
+            "minimum": 0
+          },
+          "payment_method": {
+            "type": "string",
+            "enum": [
+              "prepaid",
+              "cash_on_delivery"
+            ],
+            "description": "`prepaid` sets payment_status=paid; order still uses COD method for commission logic"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Unique per dispatch attempt; stored as orders.manual_dispatch_key"
+          },
+          "zone_id": {
+            "type": "integer",
+            "description": "Optional reporting only; drivers match restaurant zone_id"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "tax": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Tax percentage on item price (default 10)"
+          }
+        }
+      },
+      "VendorRequestDriverResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Driver requested successfully"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "order_id": {
+                "type": "string",
+                "example": "100042"
+              },
+              "commission_rate": {
+                "type": "number",
+                "example": 10
+              },
+              "commission": {
+                "type": "number",
+                "example": 13.8
+              },
+              "delivery_fee": {
+                "type": "number",
+                "example": 18
+              },
+              "gizra_charge": {
+                "type": "number",
+                "description": "commission + delivery_fee"
+              },
+              "restaurant_net": {
+                "type": "number",
+                "description": "Estimated net to restaurant after GIZRA charge"
+              },
+              "payment_status": {
+                "type": "string",
+                "enum": [
+                  "paid",
+                  "unpaid"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "example": "Driver requested successfully"
+              }
+            }
+          }
+        }
       },
       "VendorOrderCountsResponse": {
         "type": "object",
@@ -11147,6 +11266,155 @@
         "tags": [
           "Vendor Auth"
         ]
+      }
+    },
+    "/vendor/dispatch/request-driver": {
+      "post": {
+        "description": "Creates a **manual dispatch** delivery order (`is_manual_dispatch=true`, `order_status=confirmed`) for phone/walk-in orders from the **Vendor POS** app. Requires **`manual_dispatch`** enabled on the restaurant (Business Setup toggle) or restaurant id listed in admin `manual_dispatch_restaurants`.\n\n**Idempotency:** repeat calls with the same `idempotency_key` return the existing order summary (no duplicate jobs).\n\n**Side effects (drivers):**\n1. **FCM** — `order_request` push to all vehicle topics in the restaurant zone + zone-wide topic.\n2. **Socket.IO** — event **`order_request`** on the same FCM topic rooms (drivers connected with delivery-man JWT). Request-tab clients should refetch `GET /delivery-man/orders/latest` on this event.\n3. **`user_notifications`** — inbox row for each approved driver in the zone.\n\nMirrors legacy PHP `POST /vendor/dispatch/request-driver`.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Bearer JWT from POST /vendor/login or /vendor/login/verify-otp"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Driver requested (new or idempotent replay)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorRequestDriverResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Driver requested successfully",
+                  "data": {
+                    "order_id": "100042",
+                    "commission_rate": 10,
+                    "commission": 13.8,
+                    "delivery_fee": 18,
+                    "gizra_charge": 31.8,
+                    "restaurant_net": 106.2,
+                    "payment_status": "unpaid",
+                    "message": "Driver requested successfully"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation error, manual dispatch disabled, or create failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "disabled": {
+                    "value": {
+                      "status": false,
+                      "msg": "Manual driver dispatch is not enabled for this restaurant."
+                    }
+                  },
+                  "failed": {
+                    "value": {
+                      "status": false,
+                      "msg": "Could not create the dispatch order."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError404"
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Orders (Web Panel & POS)"
+        ],
+        "summary": "Request driver (POS manual dispatch)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VendorRequestDriverBody"
+              },
+              "example": {
+                "customer_name": "Yossi Cohen",
+                "customer_phone": "+972501234567",
+                "address": "12 Herzl St, Tel Aviv",
+                "order_amount": 120,
+                "delivery_fee": 18,
+                "payment_method": "cash_on_delivery",
+                "idempotency_key": "pos-dispatch-2026-04-05-001",
+                "latitude": 32.0853,
+                "longitude": 34.7818,
+                "tax": 10
+              }
+            }
+          }
+        }
       }
     },
     "/upload/": {

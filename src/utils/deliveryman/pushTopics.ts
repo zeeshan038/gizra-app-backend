@@ -136,3 +136,34 @@ export async function shouldEmitDriverOrderRequest(order: orders): Promise<boole
   const topics = await getOrderRequestBroadcastTopics(order);
   return topics.length > 0;
 }
+
+/** Manual POS dispatch — notify every vehicle topic in the zone plus zone-wide (matches PHP). */
+export async function getManualDispatchBroadcastTopics(zoneId: number): Promise<string[]> {
+  if (!Number.isFinite(zoneId)) return [];
+
+  const vehicleRows = await prisma.delivery_men.findMany({
+    where: {
+      zone_id: zoneId,
+      application_status: 'approved',
+      status: true,
+      vehicle_id: { not: null },
+    },
+    distinct: ['vehicle_id'],
+    select: { vehicle_id: true },
+  });
+
+  const topics = new Set<string>();
+  for (const row of vehicleRows) {
+    if (row.vehicle_id != null) {
+      topics.add(`delivery_man_${zoneId}_${Number(row.vehicle_id)}`);
+    }
+  }
+
+  const zone = await prisma.zones.findUnique({
+    where: { id: BigInt(zoneId) },
+    select: { deliveryman_wise_topic: true },
+  });
+  topics.add(zone?.deliveryman_wise_topic || `zone_${zoneId}_delivery_man`);
+
+  return [...topics];
+}
