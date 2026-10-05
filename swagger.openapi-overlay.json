@@ -7532,6 +7532,208 @@
         ]
       }
     },
+    "/pages/legal": {
+      "get": {
+        "summary": "All legal pages (terms, privacy, policies)",
+        "description": "Returns every admin **Pages** document in one call. Keys: `terms_and_conditions`, `privacy_policy`, `about_us`, `refund_policy`, `shipping_policy`, `cancellation_policy`. Each has `title`, `content` (HTML), `active` (policy pages use `*_policy_status` in DB). Header **X-localization** for translations.",
+        "parameters": [
+          {
+            "name": "X-localization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "en"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All pages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalPagesBundleResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Legal Pages (All Apps)"
+        ]
+      }
+    },
+    "/pages/{slug}": {
+      "get": {
+        "summary": "Single legal page by slug",
+        "description": "Slugs: `terms-and-conditions`, `privacy-policy`, `about-us`, `refund-policy`, `shipping-policy`, `cancellation-policy` (same as PHP web routes). Default JSON: `{ status, data: { key, title, content, active } }`. **PHP parity:** `?format=legacy` → body is JSON string of HTML only.",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "terms-and-conditions",
+                "privacy-policy",
+                "about-us",
+                "refund-policy",
+                "shipping-policy",
+                "cancellation-policy"
+              ]
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "legacy",
+                "php"
+              ]
+            },
+            "description": "legacy/php = raw HTML string JSON (PHP HomeController expectsJson)"
+          },
+          {
+            "name": "X-localization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/LegalPageResponse"
+                    },
+                    {
+                      "type": "string",
+                      "description": "When format=legacy"
+                    }
+                  ]
+                },
+                "examples": {
+                  "structured": {
+                    "value": {
+                      "status": true,
+                      "msg": "Success",
+                      "data": {
+                        "key": "terms_and_conditions",
+                        "title": "Terms and conditions",
+                        "content": "<p>Terms HTML…</p>",
+                        "active": true
+                      }
+                    }
+                  },
+                  "legacy": {
+                    "value": "<p>Terms HTML…</p>"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown slug",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Legal Pages (All Apps)"
+        ]
+      }
+    },
+    "/config": {
+      "get": {
+        "summary": "App configuration (all apps)",
+        "description": "Legacy PHP **GET /api/v1/config** — flat JSON (no `status`/`data` wrapper). Customer, vendor, and driver apps call this on launch for **terms_and_conditions**, **privacy_policy**, **about_us**, refund/cancellation/shipping policies (+ `*_status` flags), **cookies_text**, payment/wallet/loyalty toggles, map keys, and **app_minimum_version_*** / store URLs per app.\n\nOptional header **`X-localization`** (e.g. `en`, `he`) returns translated legal HTML from `data_settings` + `translations`.\n\nSame body as **GET /consumer/config**.",
+        "parameters": [
+          {
+            "name": "X-localization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "en"
+            },
+            "description": "Locale for terms/privacy/about/policy HTML (legacy PHP localization)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Configuration object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppConfigurationResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "App Config (All Apps)"
+        ]
+      }
+    },
+    "/consumer/config": {
+      "get": {
+        "summary": "App configuration (consumer path alias)",
+        "description": "Identical to **GET /config**. Use **GET /consumer/config/zone-id** for lat/lng zone resolve.",
+        "parameters": [
+          {
+            "name": "X-localization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "en"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Configuration object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppConfigurationResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "App Config (All Apps)"
+        ]
+      }
+    },
     "/consumer/config/zone-id": {
       "get": {
         "description": "Resolve active zone(s) at lat/lng (legacy PHP GET /config/get-zone-id). Call on app open and when the user changes location. **Query:** WGS84 `lat` (e.g. 31.75 Israel), `lng` (e.g. 34.75). No auth.",
@@ -12984,6 +13186,208 @@
           }
         }
       },
+      "LegalPageDocument": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "terms_and_conditions"
+          },
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string",
+            "description": "HTML from admin Pages"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Policy pages: from refund_policy_status etc."
+          }
+        }
+      },
+      "LegalPageResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/LegalPageDocument"
+          }
+        }
+      },
+      "LegalPagesBundleResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                },
+                "active": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      },
+      "AppConfigurationResponse": {
+        "type": "object",
+        "description": "Flat bootstrap payload (legacy StackFood config). Additional keys may be present.",
+        "properties": {
+          "business_name": {
+            "type": "string"
+          },
+          "logo_full_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "terms_and_conditions": {
+            "type": "string",
+            "description": "HTML or plain text from admin Pages"
+          },
+          "privacy_policy": {
+            "type": "string"
+          },
+          "about_us": {
+            "type": "string"
+          },
+          "refund_policy_data": {
+            "type": "string"
+          },
+          "cancellation_policy_data": {
+            "type": "string"
+          },
+          "shipping_policy_data": {
+            "type": "string"
+          },
+          "refund_policy_status": {
+            "type": "integer",
+            "description": "1 = show refund policy in app"
+          },
+          "cancellation_policy_status": {
+            "type": "integer"
+          },
+          "shipping_policy_status": {
+            "type": "integer"
+          },
+          "cookies_text": {
+            "type": "string"
+          },
+          "footer_text": {
+            "type": "string"
+          },
+          "cash_on_delivery": {
+            "type": "boolean"
+          },
+          "digital_payment": {
+            "type": "boolean"
+          },
+          "home_delivery": {
+            "type": "boolean"
+          },
+          "take_away": {
+            "type": "boolean"
+          },
+          "maintenance_mode": {
+            "type": "boolean"
+          },
+          "order_confirmation_model": {
+            "type": "string",
+            "example": "restaurant"
+          },
+          "app_minimum_version_android": {
+            "type": "number"
+          },
+          "app_minimum_version_android_restaurant": {
+            "type": "number"
+          },
+          "app_minimum_version_android_deliveryman": {
+            "type": "number"
+          },
+          "app_url_android": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_url_android_restaurant": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_url_android_deliveryman": {
+            "type": "string",
+            "nullable": true
+          },
+          "centralize_login": {
+            "type": "object",
+            "properties": {
+              "manual_login_status": {
+                "type": "integer"
+              },
+              "otp_login_status": {
+                "type": "integer"
+              },
+              "social_login_status": {
+                "type": "integer"
+              }
+            }
+          },
+          "deliveryman_additional_join_us_page_data": {
+            "type": "object",
+            "nullable": true
+          },
+          "restaurant_additional_join_us_page_data": {
+            "type": "object",
+            "nullable": true
+          },
+          "language": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "example": {
+          "business_name": "Gizra",
+          "terms_and_conditions": "<p>Terms and conditions HTML…</p>",
+          "privacy_policy": "<p>Privacy policy HTML…</p>",
+          "about_us": "<p>About us…</p>",
+          "refund_policy_status": 1,
+          "refund_policy_data": "<p>Refund policy…</p>",
+          "cancellation_policy_status": 0,
+          "shipping_policy_status": 0,
+          "cookies_text": "We use cookies…",
+          "cash_on_delivery": true,
+          "digital_payment": false,
+          "home_delivery": true,
+          "app_minimum_version_android_deliveryman": 1,
+          "app_url_android_deliveryman": "https://play.google.com/store/apps/details?id=app.gizra.driver"
+        }
+      },
       "ConsumerGetZoneIdResponse": {
         "type": "object",
         "properties": {
@@ -14066,6 +14470,262 @@
           "delivery_address_snippet": "block B, Soan Garden",
           "latitude": "33.123456",
           "longitude": "73.654321"
+        }
+      },
+      "DeliveryManOrderDetailResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DeliveryManOrderDetail"
+          }
+        }
+      },
+      "DeliveryManOrderDetail": {
+        "type": "object",
+        "description": "GET /delivery-man/orders/{id} — Order Request / active delivery screen",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "order_status": {
+            "type": "string"
+          },
+          "status_label": {
+            "type": "string",
+            "example": "Handover"
+          },
+          "payment_status": {
+            "type": "string",
+            "nullable": true
+          },
+          "payment_method": {
+            "type": "string",
+            "nullable": true
+          },
+          "order_type": {
+            "type": "string"
+          },
+          "order_amount": {
+            "type": "number"
+          },
+          "delivery_charge": {
+            "type": "number"
+          },
+          "scheduled": {
+            "type": "boolean"
+          },
+          "schedule_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "is_manual_dispatch": {
+            "type": "boolean"
+          },
+          "order_note": {
+            "type": "string",
+            "nullable": true
+          },
+          "dispatch_summary": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "delivery_fee": {
+                "type": "number"
+              }
+            }
+          },
+          "restaurant": {
+            "$ref": "#/components/schemas/DeliveryManOrderDetailRestaurant"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/DeliveryManOrderDetailParty"
+          },
+          "delivery_address": {
+            "type": "string",
+            "nullable": true
+          },
+          "delivery_address_parsed": {
+            "type": "object",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeliveryManOrderDetailItem"
+            }
+          },
+          "pricing": {
+            "$ref": "#/components/schemas/DeliveryManOrderDetailPricing"
+          },
+          "assigned_to_me": {
+            "type": "boolean"
+          },
+          "can_accept": {
+            "type": "boolean"
+          },
+          "can_update_status": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DeliveryManOrderDetailRestaurant": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_snippet": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "string",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "string",
+            "nullable": true
+          },
+          "image_url": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "DeliveryManOrderDetailParty": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_snippet": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {},
+          "longitude": {},
+          "image_url": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "DeliveryManOrderDetailItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "food_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "food_name": {
+            "type": "string"
+          },
+          "food_image_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit_label": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number"
+          },
+          "line_total": {
+            "type": "number"
+          },
+          "addon_lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "number"
+                },
+                "price": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "tax_amount": {
+            "type": "number"
+          }
+        }
+      },
+      "DeliveryManOrderDetailPricing": {
+        "type": "object",
+        "properties": {
+          "items_price": {
+            "type": "number"
+          },
+          "discount": {
+            "type": "number"
+          },
+          "vat_tax": {
+            "type": "number"
+          },
+          "tax_percent": {
+            "type": "number"
+          },
+          "delivery_man_tips": {
+            "type": "number"
+          },
+          "addons": {
+            "type": "number"
+          },
+          "delivery_charge": {
+            "type": "number"
+          },
+          "subtotal": {
+            "type": "number"
+          }
         }
       },
       "DeliveryManUpdateOrderStatusBody": {

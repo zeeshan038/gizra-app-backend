@@ -13,4 +13,7 @@ export type {
   SocketConnectedPayload,
   OrderSubscribePayload,
   OrderSubscribeAck,
+  ChatMessagePayload,
+  ConversationSubscribePayload,
+  ConversationSubscribeAck,
 } from '../types/sockets/realtime';

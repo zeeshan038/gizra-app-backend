@@ -4,6 +4,7 @@ export const SocketEvents = {
   NEW_ORDER: 'new_order',
   ORDER_REQUEST: 'order_request',
   ORDER_STATUS_CHANGED: 'order_status_changed',
+  CHAT_MESSAGE: 'chat_message',
 } as const;
 
 export type SocketServerEventName = (typeof SocketEvents)[keyof typeof SocketEvents];
@@ -12,6 +13,8 @@ export type SocketServerEventName = (typeof SocketEvents)[keyof typeof SocketEve
 export const ClientEvents = {
   WATCH_ORDER: 'watch_order',
   UNWATCH_ORDER: 'unwatch_order',
+  WATCH_CONVERSATION: 'watch_conversation',
+  UNWATCH_CONVERSATION: 'unwatch_conversation',
 } as const;
 
 export type SocketClientEventName = (typeof ClientEvents)[keyof typeof ClientEvents];
@@ -64,4 +67,20 @@ export type OrderSubscribePayload = {
 
 export type OrderSubscribeAck =
   | { ok: true; order_id: string }
+  | { ok: false; msg: string };
+
+export type ChatMessagePayload = {
+  conversation_id: string;
+  message: Record<string, unknown>;
+  sender_type: string;
+  receiver_type: string;
+  receiver_user_info_id: number;
+};
+
+export type ConversationSubscribePayload = {
+  conversation_id: string | number;
+};
+
+export type ConversationSubscribeAck =
+  | { ok: true; conversation_id: string }
   | { ok: false; msg: string };

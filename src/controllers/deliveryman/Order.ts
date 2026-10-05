@@ -23,6 +23,10 @@ import {
   mapMyOrdersForDeliveryMan,
 } from '../../utils/deliveryman/myOrdersHelpers';
 import {
+  buildDeliveryManOrderDetail,
+  deliveryManCanViewOrder,
+} from '../../utils/deliveryman/orderDetailMapper';
+import {
   applyOrderListSearchFilter,
   paginationSkip,
 } from '../../utils/consumer/orderListHelpers';
@@ -111,6 +115,54 @@ export const getMyOrders = async (req: Request, res: Response): Promise<any> => 
         orders: list,
       },
     });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Request failed';
+    return res.status(500).json({ status: false, msg });
+  }
+};
+
+
+/**
+ * @Description Order detail for request / active delivery screens (restaurant, customer, items, pricing)
+ * @Route GET /api/delivery-man/orders/:id
+ * @Access Private (Delivery Man)
+ */
+export const getOrderDetails = async (req: Request, res: Response): Promise<any> => {
+  const deliveryManId = requireDmIdFromRequest(req);
+  const orderIdParam = String(req.params.id ?? '').trim();
+
+  if (deliveryManId == null) {
+    return res.status(401).json({ status: false, msg: 'Unauthorized' });
+  }
+
+  if (!orderIdParam || !/^\d+$/.test(orderIdParam)) {
+    return res.status(400).json({ status: false, msg: 'Order id required' });
+  }
+
+  try {
+    const dm = await prisma.delivery_men.findUnique({
+      where: { id: BigInt(deliveryManId) },
+    });
+    if (!dm) {
+      return res.status(404).json({ status: false, msg: 'Delivery man not found' });
+    }
+
+    const order = await prisma.orders.findUnique({
+      where: { id: BigInt(orderIdParam) },
+    });
+
+    if (!order || order.order_type === 'pos') {
+      return res.status(404).json({ status: false, msg: 'Order not found' });
+    }
+
+    const canView = await deliveryManCanViewOrder(dm, order);
+    if (!canView) {
+      return res.status(403).json({ 
+        status: false, msg: 'You cannot view this order' });
+    }
+
+    const data = await buildDeliveryManOrderDetail(order, dm);
+    return res.status(200).json({ status: true, msg: 'Success', data });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Request failed';
     return res.status(500).json({ status: false, msg });

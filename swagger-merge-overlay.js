@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const OVERLAY_FILE = path.join(__dirname, 'swagger.openapi-overlay.json');
+const CHAT_OVERLAY_FILE = path.join(__dirname, 'swagger.chat.overlay.json');
 
 function normalizePathKey(routePath) {
   if (!routePath) return routePath;
@@ -11,12 +12,27 @@ function normalizePathKey(routePath) {
   return p;
 }
 
-function loadOverlay() {
-  if (!fs.existsSync(OVERLAY_FILE)) {
-    console.warn('swagger.openapi-overlay.json not found — skip overlay merge');
+function loadOverlayFile(filePath, label) {
+  if (!fs.existsSync(filePath)) {
+    console.warn(`${label} not found — skip`);
     return null;
   }
-  return JSON.parse(fs.readFileSync(OVERLAY_FILE, 'utf-8'));
+  return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+}
+
+function loadOverlay() {
+  const main = loadOverlayFile(OVERLAY_FILE, 'swagger.openapi-overlay.json');
+  if (!main) return null;
+
+  const chat = loadOverlayFile(CHAT_OVERLAY_FILE, 'swagger.chat.overlay.json');
+  if (!chat) return main;
+
+  main.paths = { ...(main.paths || {}), ...(chat.paths || {}) };
+  mergeComponents(main, chat.components);
+  if (Array.isArray(chat.tags) && chat.tags.length) {
+    main.tags = [...(main.tags || []), ...chat.tags];
+  }
+  return main;
 }
 
 function indexOverlayPaths(overlay) {

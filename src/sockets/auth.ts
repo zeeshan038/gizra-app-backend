@@ -104,3 +104,49 @@ export async function canAccessOrder(actor: SocketActor, orderId: number): Promi
   }
   return false;
 }
+
+export async function canAccessConversation(
+  actor: SocketActor,
+  conversationId: number
+): Promise<boolean> {
+  const conversation = await prisma.conversations.findUnique({
+    where: { id: BigInt(conversationId) },
+    select: { sender_id: true, receiver_id: true },
+  });
+  if (!conversation) return false;
+
+  const senderId = conversation.sender_id != null ? Number(conversation.sender_id) : null;
+  const receiverId = Number(conversation.receiver_id);
+
+  if (actor.role === 'customer') {
+    const info = await prisma.user_infos.findFirst({
+      where: { user_id: actor.userId },
+      select: { id: true },
+    });
+    if (!info) return false;
+    const id = Number(info.id);
+    return id === senderId || id === receiverId;
+  }
+
+  if (actor.role === 'vendor') {
+    const info = await prisma.user_infos.findFirst({
+      where: { vendor_id: actor.vendorId },
+      select: { id: true },
+    });
+    if (!info) return false;
+    const id = Number(info.id);
+    return id === senderId || id === receiverId;
+  }
+
+  if (actor.role === 'delivery_man') {
+    const info = await prisma.user_infos.findFirst({
+      where: { deliveryman_id: actor.deliveryManId },
+      select: { id: true },
+    });
+    if (!info) return false;
+    const id = Number(info.id);
+    return id === senderId || id === receiverId;
+  }
+
+  return false;
+}

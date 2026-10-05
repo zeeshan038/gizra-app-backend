@@ -1,11 +1,21 @@
 import type { Server } from 'socket.io';
+import prisma from '../config/database';
 import { SocketEvents } from '../types/sockets/realtime';
 import type {
+  ChatMessagePayload,
   OrderNewPayload,
   OrderRequestPayload,
   OrderUpdatedPayload,
 } from '../types/sockets/realtime';
-import { deliveryManRoom, fcmTopicRoom, orderRoom, restaurantRoom, userRoom } from './rooms';
+import {
+  conversationRoom,
+  deliveryManRoom,
+  fcmTopicRoom,
+  orderRoom,
+  restaurantRoom,
+  userRoom,
+  vendorRoom,
+} from './rooms';
 
 let io: Server | null = null;
 
@@ -51,5 +61,32 @@ export function publishOrderUpdated(payload: OrderUpdatedPayload): void {
   }
   if (payload.delivery_man_id) {
     io.to(deliveryManRoom(payload.delivery_man_id)).emit(SocketEvents.ORDER_STATUS_CHANGED, payload);
+  }
+}
+
+/** Live chat — REST send is source of truth; socket updates open threads and inbox badges. */
+export function publishChatMessage(payload: ChatMessagePayload): void {
+  if (!io) return;
+
+  io.to(conversationRoom(payload.conversation_id)).emit(SocketEvents.CHAT_MESSAGE, payload);
+  void emitChatMessageToReceiverInbox(payload);
+}
+
+async function emitChatMessageToReceiverInbox(payload: ChatMessagePayload): Promise<void> {
+  if (!io) return;
+
+  const receiverId = payload.receiver_user_info_id;
+  const info = await prisma.user_infos.findUnique({
+    where: { id: BigInt(receiverId) },
+    select: { user_id: true, vendor_id: true, deliveryman_id: true },
+  });
+  if (!info) return;
+
+  if (payload.receiver_type === 'customer' && info.user_id != null) {
+    io.to(userRoom(Number(info.user_id))).emit(SocketEvents.CHAT_MESSAGE, payload);
+  } else if (payload.receiver_type === 'vendor' && info.vendor_id != null) {
+    io.to(vendorRoom(Number(info.vendor_id))).emit(SocketEvents.CHAT_MESSAGE, payload);
+  } else if (payload.receiver_type === 'delivery_man' && info.deliveryman_id != null) {
+    io.to(deliveryManRoom(Number(info.deliveryman_id))).emit(SocketEvents.CHAT_MESSAGE, payload);
   }
 }

@@ -35,25 +35,25 @@ const ROLES = [
     file: './swagger-customer.json',
     title: 'Gizra Customer API',
     description: 'Customer (consumer) app endpoints',
-    prefixes: ['/consumer', '/upload', '/storage']
+    prefixes: ['/config', '/pages', '/consumer', '/upload', '/storage']
   },
   {
     file: './swagger-vendor.json',
     title: 'Gizra Vendor API',
     description: 'Vendor web panel and POS endpoints',
-    prefixes: ['/vendor', '/upload', '/storage']
+    prefixes: ['/config', '/pages', '/vendor', '/upload', '/storage']
   },
   {
     file: './swagger-driver.json',
     title: 'Gizra Driver API',
     description: 'Delivery man / driver app endpoints',
-    prefixes: ['/delivery-man', '/upload', '/storage']
+    prefixes: ['/config', '/pages', '/delivery-man', '/upload', '/storage']
   },
   {
     file: './swagger-admin.json',
     title: 'Gizra Admin API',
     description: 'Admin dashboard endpoints',
-    prefixes: ['/admin', '/upload', '/storage']
+    prefixes: ['/config', '/pages', '/admin', '/upload', '/storage']
   }
 ];
 
@@ -274,7 +274,22 @@ swaggerAutogen(outputFile, endpointsFiles, doc).then(() => {
         'Saved delivery locations for checkout. Use delivery_address_id on POST /consumer/order/place.'
     },
     { name: 'Consumer Favourites', description: 'Wish list for foods and restaurants (legacy PHP wish-list).' },
+    {
+      name: 'Consumer Chat',
+      description:
+        'In-app chat (PHP customer/message/*). REST + Socket `chat_message` / `watch_conversation`. Registered customer JWT.'
+    },
     { name: 'Consumer Zone' },
+    {
+      name: 'App Config (All Apps)',
+      description:
+        'Shared bootstrap — GET /config (PHP GET /api/v1/config). Payment toggles, min app versions, etc. Legal HTML also available on GET /pages/*.'
+    },
+    {
+      name: 'Legal Pages (All Apps)',
+      description:
+        'Terms, privacy, about, refund/shipping/cancellation policies from admin Business Settings → Pages (`data_settings`). Optional header X-localization. PHP web parity: GET /pages/{slug}?format=legacy returns raw HTML JSON string.'
+    },
     { name: 'Consumer Config' },
     { name: 'Vendor Auth' },
     { name: 'Vendor Catalog' },
@@ -289,8 +304,16 @@ swaggerAutogen(outputFile, endpointsFiles, doc).then(() => {
     { name: 'Delivery Man Earnings' },
     { name: 'Delivery Man Profile' },
     { name: 'Delivery Man Orders' },
+    {
+      name: 'Delivery Man Chat',
+      description: 'PHP delivery-man/message/* — chat with customer and vendor.'
+    },
     { name: 'Delivery Man Notifications' },
     { name: 'Vendor Notifications' },
+    {
+      name: 'Vendor Chat',
+      description: 'PHP vendor/message/* — chat with customers and drivers. Inbox JSON key `conversation`.'
+    },
     { name: 'Consumer Notifications' },
     { name: 'Admin Auth' },
     { name: 'Admin Vendors' },
@@ -323,24 +346,30 @@ swaggerAutogen(outputFile, endpointsFiles, doc).then(() => {
         newPath.startsWith('/consumer/restaurants') ||
         newPath === '/consumer/categories' ||
         newPath === '/consumer/home-slider'
-      ) {
+      ) { 
         endpoint.tags = ['Consumer Discover'];
       }
       else if (newPath.startsWith('/consumer/foods')) endpoint.tags = ['Consumer Foods'];
       else if (newPath.startsWith('/consumer/order')) endpoint.tags = ['Consumer Orders'];
       else if (newPath.startsWith('/consumer/addresses')) endpoint.tags = ['Consumer Addresses'];
       else if (newPath.startsWith('/consumer/favourites')) endpoint.tags = ['Consumer Favourites'];
+      else if (newPath.startsWith('/consumer/message')) endpoint.tags = ['Consumer Chat'];
       else if (newPath.startsWith('/consumer/zone')) endpoint.tags = ['Consumer Zone'];
+      else if (newPath === '/config' || newPath === '/consumer/config') {
+        endpoint.tags = ['App Config (All Apps)'];
+      } else if (newPath.startsWith('/pages')) endpoint.tags = ['Legal Pages (All Apps)'];
       else if (newPath.startsWith('/consumer/config')) endpoint.tags = ['Consumer Config'];
       else if (newPath.startsWith('/consumer')) endpoint.tags = ['Consumer Auth'];
       else if (newPath.startsWith('/vendor/catalog')) endpoint.tags = ['Vendor Catalog'];
       else if (newPath.startsWith('/vendor/orders')) endpoint.tags = ['Vendor Orders (Web Panel & POS)'];
+      else if (newPath.startsWith('/vendor/message')) endpoint.tags = ['Vendor Chat'];
       else if (newPath.startsWith('/vendor/restaurant')) endpoint.tags = ['Vendor Restaurant'];
       else if (newPath.startsWith('/vendor')) endpoint.tags = ['Vendor Auth'];
       else if (newPath.startsWith('/delivery-man/earnings')) endpoint.tags = ['Delivery Man Earnings'];
       else if (newPath.startsWith('/delivery-man/home')) endpoint.tags = ['Delivery Man Home'];
       else if (newPath.startsWith('/delivery-man/profile')) endpoint.tags = ['Delivery Man Profile'];
       else if (newPath.startsWith('/delivery-man/orders')) endpoint.tags = ['Delivery Man Orders'];
+      else if (newPath.startsWith('/delivery-man/message')) endpoint.tags = ['Delivery Man Chat'];
       else if (newPath.startsWith('/delivery-man')) endpoint.tags = ['Delivery Man Auth'];
       else if (newPath.startsWith('/admin/auth')) endpoint.tags = ['Admin Auth'];
       else if (newPath.startsWith('/admin/vendors')) endpoint.tags = ['Admin Vendors'];

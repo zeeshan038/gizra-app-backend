@@ -1,0 +1,751 @@
+{
+  "paths": {
+    "/consumer/message/list": {
+      "get": {
+        "summary": "Consumer conversation inbox",
+        "description": "PHP GET /api/v1/customer/message/list. Registered customer JWT only. Filter tabs with `type=vendor` or `type=delivery_man`. Realtime: Socket `chat_message` on `user:{userId}`; open thread with `watch_conversation`.",
+        "tags": ["Consumer Chat"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/ConsumerAuthorizationHeader" },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["vendor", "delivery_man", "admin"] }
+          },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 1 }, "description": "Page number (PHP-style)" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Inbox",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ChatConsumerListResponse" },
+                "example": {
+                  "type": "vendor",
+                  "total_size": 1,
+                  "limit": 10,
+                  "offset": 1,
+                  "conversations": [
+                    {
+                      "id": 4,
+                      "sender_type": "customer",
+                      "receiver_type": "vendor",
+                      "unread_message_count": 0
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError401" },
+          "403": { "$ref": "#/components/responses/ApiError403" }
+        }
+      }
+    },
+    "/consumer/message/search-list": {
+      "get": {
+        "summary": "Search consumer conversations",
+        "tags": ["Consumer Chat"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/ConsumerAuthorizationHeader" },
+          { "name": "name", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "type", "in": "query", "schema": { "type": "string", "enum": ["vendor", "delivery_man", "admin"] } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ChatConsumerSearchResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError401" },
+          "403": { "$ref": "#/components/responses/ApiError403" }
+        }
+      }
+    },
+    "/consumer/message/details": {
+      "get": {
+        "summary": "Consumer thread messages",
+        "description": "Open by `conversation_id`, or `vendor_id` / `delivery_man_id` (entity ids, not user_infos id). Marks messages read.",
+        "tags": ["Consumer Chat"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/ConsumerAuthorizationHeader" },
+          { "name": "conversation_id", "in": "query", "schema": { "type": "integer" } },
+          { "name": "vendor_id", "in": "query", "schema": { "type": "integer" }, "description": "Vendor id (restaurant owner)" },
+          { "name": "delivery_man_id", "in": "query", "schema": { "type": "integer" } },
+          { "name": "admin_id", "in": "query", "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ChatThreadResponse" },
+                "example": {
+                  "total_size": 2,
+                  "limit": 10,
+                  "offset": 1,
+                  "status": true,
+                  "messages": [{ "id": 902, "message": "On the way!", "is_seen": false }],
+                  "conversation": { "id": 4 }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError401" },
+          "403": { "$ref": "#/components/responses/ApiError403" }
+        }
+      }
+    },
+    "/consumer/message/send": {
+      "post": {
+        "summary": "Consumer send message",
+        "description": "New thread: `receiver_type` + `receiver_id` (vendor id or delivery_man id). Existing: `conversation_id`. Triggers FCM + Socket `chat_message`.",
+        "tags": ["Consumer Chat"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ConsumerAuthorizationHeader" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ChatConsumerSendRequest" },
+              "examples": {
+                "newThreadRestaurant": {
+                  "summary": "Message restaurant (vendor id)",
+                  "value": {
+                    "receiver_type": "vendor",
+                    "receiver_id": 3,
+                    "message": "Where is my order?"
+                  }
+                },
+                "existingConversation": {
+                  "summary": "Reply in open thread",
+                  "value": {
+                    "conversation_id": 4,
+                    "message": "Thanks!"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ChatSendResponse" },
+                "example": {
+                  "total_size": 1,
+                  "limit": 10,
+                  "offset": 1,
+                  "status": true,
+                  "message": "successfully sent!",
+                  "messages": [{ "id": 903, "message": "Where is my order?" }]
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError401" },
+          "403": {
+            "description": "Validation / forbidden",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ChatValidationErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/consumer/message/chat-image": {
+      "post": {
+        "summary": "Upload chat image (consumer)",
+        "tags": ["Consumer Chat"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["image"],
+                "properties": {
+                  "image": { "type": "string", "format": "binary" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ChatImageUploadResponse" },
+                "example": { "image_url": "https://cdn.example.com/conversation/photo.jpg" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError401" },
+          "403": { "$ref": "#/components/responses/ApiError403" }
+        }
+      }
+    },
+    "/vendor/message/list": {
+      "get": {
+        "summary": "Vendor conversation inbox",
+        "description": "PHP vendor/message/list. Response key is `conversation` (array), not `conversations`.",
+        "tags": ["Vendor Chat"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["customer", "delivery_man", "admin"] }
+          },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ChatVendorDriverListResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError401" }
+        }
+      }
+    },
+    "/vendor/message/search-list": {
+      "get": {
+        "summary": "Search vendor conversations",
+        "tags": ["Vendor Chat"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "authorization", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "name", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ChatVendorDriverSearchResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError401" },
+          "403": { "$ref": "#/components/responses/ApiError403" }
+        }
+      }
+    },
+    "/vendor/message/details": {
+      "get": {
+        "summary": "Vendor thread messages",
+        "tags": ["Vendor Chat"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "authorization", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "conversation_id", "in": "query", "schema": { "type": "integer" } },
+          { "name": "user_id", "in": "query", "schema": { "type": "integer" }, "description": "Customer users.id" },
+          { "name": "delivery_man_id", "in": "query", "schema": { "type": "integer" } },
+          { "name": "admin_id", "in": "query", "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ChatThreadResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError401" },
+          "403": { "$ref": "#/components/responses/ApiError403" }
+        }
+      }
+    },
+    "/vendor/message/send": {
+      "post": {
+        "summary": "Vendor send message",
+        "description": "Reply to customer: `receiver_type: customer`, `receiver_id` = users.id. Driver: `receiver_type: delivery_man`, `receiver_id` = delivery_men.id.",
+        "tags": ["Vendor Chat"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ChatVendorSendRequest" },
+              "example": {
+                "receiver_type": "customer",
+                "receiver_id": 7,
+                "message": "Your order is ready"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ChatSendResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError401" },
+          "403": { "$ref": "#/components/responses/ApiError403" }
+        }
+      }
+    },
+    "/vendor/message/chat-image": {
+      "post": {
+        "summary": "Upload chat image (vendor)",
+        "tags": ["Vendor Chat"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["image"],
+                "properties": { "image": { "type": "string", "format": "binary" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ChatImageUploadResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError401" },
+          "403": { "$ref": "#/components/responses/ApiError403" }
+        }
+      }
+    },
+    "/delivery-man/message/list": {
+      "get": {
+        "summary": "Driver conversation inbox",
+        "description": "PHP delivery-man/message/list. Response key `conversation` (array). Socket room `delivery_man:{id}` + `watch_conversation`.",
+        "tags": ["Delivery Man Chat"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["customer", "vendor"] }
+          },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ChatVendorDriverListResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError401" }
+        }
+      }
+    },
+    "/delivery-man/message/search-list": {
+      "get": {
+        "summary": "Search driver conversations",
+        "tags": ["Delivery Man Chat"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "authorization", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "name", "in": "query", "required": true, "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ChatVendorDriverSearchResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError401" },
+          "403": { "$ref": "#/components/responses/ApiError403" }
+        }
+      }
+    },
+    "/delivery-man/message/details": {
+      "get": {
+        "summary": "Driver thread messages",
+        "tags": ["Delivery Man Chat"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "authorization", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "conversation_id", "in": "query", "schema": { "type": "integer" } },
+          { "name": "user_id", "in": "query", "schema": { "type": "integer" }, "description": "Customer users.id" },
+          { "name": "vendor_id", "in": "query", "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ChatThreadResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError401" },
+          "403": { "$ref": "#/components/responses/ApiError403" }
+        }
+      }
+    },
+    "/delivery-man/message/send": {
+      "post": {
+        "summary": "Driver send message",
+        "description": "To customer: `receiver_type: customer`, `receiver_id` = users.id. To restaurant: `receiver_type: vendor`, `receiver_id` = vendors.id.",
+        "tags": ["Delivery Man Chat"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ChatDriverSendRequest" },
+              "example": {
+                "receiver_type": "customer",
+                "receiver_id": 7,
+                "message": "I am outside"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ChatSendResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError401" },
+          "403": { "$ref": "#/components/responses/ApiError403" }
+        }
+      }
+    },
+    "/delivery-man/message/chat-image": {
+      "post": {
+        "summary": "Upload chat image (driver)",
+        "tags": ["Delivery Man Chat"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["image"],
+                "properties": { "image": { "type": "string", "format": "binary" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ChatImageUploadResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError401" },
+          "403": { "$ref": "#/components/responses/ApiError403" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ChatUserInfo": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "f_name": { "type": "string", "nullable": true },
+          "l_name": { "type": "string", "nullable": true },
+          "phone": { "type": "string", "nullable": true },
+          "email": { "type": "string", "nullable": true },
+          "image": { "type": "string", "nullable": true },
+          "user_id": { "type": "integer", "nullable": true },
+          "vendor_id": { "type": "integer", "nullable": true },
+          "deliveryman_id": { "type": "integer", "nullable": true }
+        }
+      },
+      "ChatMessage": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "conversation_id": { "type": "integer" },
+          "sender_id": { "type": "integer" },
+          "message": { "type": "string", "nullable": true },
+          "file": { "type": "string", "nullable": true },
+          "is_seen": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "ChatConversation": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "sender_id": { "type": "integer" },
+          "receiver_id": { "type": "integer" },
+          "sender_type": { "type": "string" },
+          "receiver_type": { "type": "string" },
+          "last_message_id": { "type": "integer", "nullable": true },
+          "last_message_time": { "type": "string", "format": "date-time", "nullable": true },
+          "unread_message_count": { "type": "integer" },
+          "sender": { "$ref": "#/components/schemas/ChatUserInfo" },
+          "receiver": { "$ref": "#/components/schemas/ChatUserInfo" },
+          "last_message": { "$ref": "#/components/schemas/ChatMessage" }
+        }
+      },
+      "ChatConversationExample": {
+        "type": "object",
+        "example": {
+          "id": 4,
+          "sender_id": 11,
+          "receiver_id": 22,
+          "sender_type": "customer",
+          "receiver_type": "vendor",
+          "unread_message_count": 0,
+          "sender": { "id": 11, "f_name": "Jane", "l_name": "Doe", "user_id": 7 },
+          "receiver": { "id": 22, "f_name": "Nickel Barn", "vendor_id": 3 },
+          "last_message": {
+            "id": 901,
+            "conversation_id": 4,
+            "sender_id": 11,
+            "message": "Where is my order?",
+            "is_seen": true
+          }
+        }
+      },
+      "ChatConsumerListResponse": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "nullable": true },
+          "total_size": { "type": "integer" },
+          "limit": { "type": "integer" },
+          "offset": { "type": "integer" },
+          "conversations": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ChatConversation" }
+          }
+        }
+      },
+      "ChatConsumerSearchResponse": {
+        "type": "object",
+        "properties": {
+          "total_size": { "type": "integer" },
+          "limit": { "type": "integer" },
+          "offset": { "type": "integer" },
+          "conversations": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ChatConversation" }
+          }
+        }
+      },
+      "ChatVendorDriverListResponse": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "nullable": true },
+          "total_size": { "type": "integer" },
+          "limit": { "type": "integer" },
+          "offset": { "type": "integer" },
+          "conversation": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ChatConversation" },
+            "description": "PHP uses key `conversation` (not conversations) for vendor and driver list"
+          }
+        }
+      },
+      "ChatVendorDriverSearchResponse": {
+        "type": "object",
+        "properties": {
+          "total_size": { "type": "integer" },
+          "limit": { "type": "integer" },
+          "offset": { "type": "integer" },
+          "conversation": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ChatConversation" }
+          }
+        }
+      },
+      "ChatThreadResponse": {
+        "type": "object",
+        "properties": {
+          "total_size": { "type": "integer" },
+          "limit": { "type": "integer" },
+          "offset": { "type": "integer" },
+          "status": { "type": "boolean", "description": "true when an active order links the parties" },
+          "messages": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ChatMessage" }
+          },
+          "conversation": { "$ref": "#/components/schemas/ChatConversation", "nullable": true }
+        }
+      },
+      "ChatThreadExample": {
+        "type": "object",
+        "example": {
+          "total_size": 2,
+          "limit": 10,
+          "offset": 1,
+          "status": true,
+          "messages": [
+            {
+              "id": 902,
+              "conversation_id": 4,
+              "sender_id": 22,
+              "message": "On the way!",
+              "is_seen": false
+            }
+          ],
+          "conversation": { "id": 4, "sender_type": "customer", "receiver_type": "vendor" }
+        }
+      },
+      "ChatSendResponse": {
+        "type": "object",
+        "properties": {
+          "total_size": { "type": "integer" },
+          "limit": { "type": "integer" },
+          "offset": { "type": "integer" },
+          "status": { "type": "boolean" },
+          "message": { "type": "string", "example": "successfully sent!" },
+          "messages": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ChatMessage" }
+          },
+          "conversation": { "$ref": "#/components/schemas/ChatConversation" }
+        }
+      },
+      "ChatSendExample": {
+        "type": "object",
+        "example": {
+          "total_size": 1,
+          "limit": 10,
+          "offset": 1,
+          "status": true,
+          "message": "successfully sent!",
+          "messages": [{ "id": 903, "message": "Where is my order?", "is_seen": false }],
+          "conversation": { "id": 4 }
+        }
+      },
+      "ChatImageUploadResponse": {
+        "type": "object",
+        "properties": {
+          "image_url": { "type": "string" }
+        }
+      },
+      "ChatValidationErrorResponse": {
+        "type": "object",
+        "required": ["errors"],
+        "properties": {
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": { "type": "string", "example": "validation" },
+                "message": { "type": "string" }
+              }
+            }
+          }
+        },
+        "example": {
+          "errors": [
+            {
+              "code": "validation",
+              "message": "receiver_id is required for vendor or delivery_man"
+            }
+          ]
+        }
+      },
+      "ChatConsumerSendRequest": {
+        "type": "object",
+        "description": "Provide either conversation_id (existing thread) OR receiver_type + receiver_id (new thread). Pagination fields echo PHP send response paging.",
+        "properties": {
+          "conversation_id": { "type": "integer", "description": "Existing thread id" },
+          "receiver_type": { "type": "string", "enum": ["vendor", "delivery_man", "admin"] },
+          "receiver_id": { "type": "integer", "description": "vendors.id or delivery_men.id (not user_infos id)" },
+          "message": { "type": "string" },
+          "file": { "type": "string", "description": "Optional JSON string for images (from chat-image upload)" },
+          "limit": { "type": "integer", "default": 10 },
+          "offset": { "type": "integer", "default": 1 }
+        }
+      },
+      "ChatVendorSendRequest": {
+        "type": "object",
+        "description": "receiver_id = users.id when receiver_type is customer; delivery_men.id when delivery_man.",
+        "properties": {
+          "conversation_id": { "type": "integer" },
+          "receiver_type": { "type": "string", "enum": ["customer", "delivery_man", "admin"] },
+          "receiver_id": { "type": "integer" },
+          "message": { "type": "string" },
+          "limit": { "type": "integer", "default": 10 },
+          "offset": { "type": "integer", "default": 1 }
+        }
+      },
+      "ChatDriverSendRequest": {
+        "type": "object",
+        "description": "receiver_id = users.id (customer) or vendors.id (restaurant).",
+        "properties": {
+          "conversation_id": { "type": "integer" },
+          "receiver_type": { "type": "string", "enum": ["customer", "vendor"] },
+          "receiver_id": { "type": "integer" },
+          "message": { "type": "string" },
+          "limit": { "type": "integer", "default": 10 },
+          "offset": { "type": "integer", "default": 1 }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Consumer Chat",
+      "description": "In-app messaging (PHP /api/v1/customer/message/*). Customer ↔ restaurant (vendor id), driver, admin. REST + Socket.IO `chat_message` / `watch_conversation`. Registered users only."
+    },
+    {
+      "name": "Vendor Chat",
+      "description": "Restaurant/POS messaging (PHP /api/v1/vendor/message/*). Reply to customers and drivers. List response uses JSON key `conversation`."
+    },
+    {
+      "name": "Delivery Man Chat",
+      "description": "Driver messaging (PHP /api/v1/delivery-man/message/*). Chat with customer and vendor. Socket: `delivery_man:{id}` room + `watch_conversation`."
+    }
+  ]
+}

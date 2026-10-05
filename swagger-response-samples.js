@@ -209,6 +209,110 @@ const SAMPLE_PAGINATION = {
   totalPages: 3
 };
 
+/** Chat — flat JSON (PHP ConversationController), no status/msg wrapper. */
+const SAMPLE_CHAT_USER_CUSTOMER = {
+  id: 11,
+  f_name: 'Jane',
+  l_name: 'Doe',
+  phone: '+12025550100',
+  email: 'jane@example.com',
+  image: 'https://cdn.example.com/profile/jane.jpg',
+  admin_id: null,
+  user_id: 7,
+  vendor_id: null,
+  deliveryman_id: null,
+  created_at: '2026-03-01T09:00:00.000Z',
+  updated_at: '2026-03-01T09:00:00.000Z'
+};
+
+const SAMPLE_CHAT_USER_VENDOR = {
+  id: 22,
+  f_name: 'Nickel Barn & Coffee',
+  l_name: '',
+  phone: '+12025550200',
+  email: 'vendor@nickelbarn.com',
+  image: 'https://cdn.example.com/restaurant/logo.png',
+  admin_id: null,
+  user_id: null,
+  vendor_id: 3,
+  deliveryman_id: null,
+  created_at: '2026-03-01T09:00:00.000Z',
+  updated_at: '2026-03-01T09:00:00.000Z'
+};
+
+const SAMPLE_CHAT_USER_DRIVER = {
+  id: 33,
+  f_name: 'Alex',
+  l_name: 'Rider',
+  phone: '+12025550300',
+  email: 'alex.rider@example.com',
+  image: 'https://cdn.example.com/driver/photo.jpg',
+  admin_id: null,
+  user_id: null,
+  vendor_id: null,
+  deliveryman_id: 12,
+  created_at: '2026-03-01T09:00:00.000Z',
+  updated_at: '2026-03-01T09:00:00.000Z'
+};
+
+const SAMPLE_CHAT_MESSAGE = {
+  id: 903,
+  conversation_id: 4,
+  sender_id: 11,
+  message: 'Where is my order?',
+  file: null,
+  is_seen: false,
+  created_at: '2026-03-01T10:00:00.000Z',
+  updated_at: '2026-03-01T10:00:00.000Z'
+};
+
+const SAMPLE_CHAT_CONVERSATION = {
+  id: 4,
+  sender_id: 11,
+  receiver_id: 22,
+  sender_type: 'customer',
+  receiver_type: 'vendor',
+  last_message_id: 903,
+  last_message_time: '2026-03-01T10:00:00.000Z',
+  unread_message_count: 0,
+  created_at: '2026-03-01T09:30:00.000Z',
+  updated_at: '2026-03-01T10:00:00.000Z',
+  sender: SAMPLE_CHAT_USER_CUSTOMER,
+  receiver: SAMPLE_CHAT_USER_VENDOR,
+  last_message: SAMPLE_CHAT_MESSAGE
+};
+
+const SAMPLE_CHAT_THREAD = {
+  total_size: 2,
+  limit: 10,
+  offset: 1,
+  status: true,
+  messages: [
+    SAMPLE_CHAT_MESSAGE,
+    {
+      id: 904,
+      conversation_id: 4,
+      sender_id: 22,
+      message: 'It is being prepared.',
+      file: null,
+      is_seen: true,
+      created_at: '2026-03-01T10:05:00.000Z',
+      updated_at: '2026-03-01T10:05:00.000Z'
+    }
+  ],
+  conversation: SAMPLE_CHAT_CONVERSATION
+};
+
+const SAMPLE_CHAT_SEND = {
+  total_size: 1,
+  limit: 10,
+  offset: 1,
+  status: true,
+  message: 'successfully sent!',
+  messages: [SAMPLE_CHAT_MESSAGE],
+  conversation: SAMPLE_CHAT_CONVERSATION
+};
+
 /** Full 200-body overrides when controller only returns variables / mappers. */
 const ROUTE_RESPONSE_OVERRIDES = {
   'post /consumer/guest/request': {
@@ -419,6 +523,195 @@ const ROUTE_RESPONSE_OVERRIDES = {
       foods: [SAMPLE_CONSUMER_FOOD],
       restaurants: [SAMPLE_CONSUMER_RESTAURANT]
     }
+  },
+  'get /pages/legal': {
+    status: true,
+    msg: 'Success',
+    data: {
+      terms_and_conditions: {
+        title: 'Terms and conditions',
+        content: '<p>Terms HTML…</p>',
+        active: true
+      },
+      privacy_policy: {
+        title: 'Privacy policy',
+        content: '<p>Privacy HTML…</p>',
+        active: true
+      },
+      about_us: {
+        title: 'About us',
+        content: '<p>About us…</p>',
+        active: true
+      },
+      refund_policy: {
+        title: 'Refund policy',
+        content: '<p>Refund…</p>',
+        active: true
+      }
+    }
+  },
+  'get /pages/{slug}': {
+    status: true,
+    msg: 'Success',
+    data: {
+      key: 'terms_and_conditions',
+      title: 'Terms and conditions',
+      content: '<p>Terms HTML…</p>',
+      active: true
+    }
+  },
+  'get /config': {
+    business_name: 'Gizra',
+    logo_full_url: 'https://cdn.example.com/business/logo.png',
+    terms_and_conditions: '<p>Terms and conditions HTML…</p>',
+    privacy_policy: '<p>Privacy policy HTML…</p>',
+    about_us: '<p>About us content…</p>',
+    refund_policy_status: 1,
+    refund_policy_data: '<p>Refund policy…</p>',
+    cancellation_policy_status: 0,
+    cancellation_policy_data: '',
+    shipping_policy_status: 0,
+    shipping_policy_data: '',
+    cookies_text: 'We use cookies to improve your experience.',
+    footer_text: '© Gizra',
+    cash_on_delivery: true,
+    digital_payment: false,
+    home_delivery: true,
+    take_away: true,
+    maintenance_mode: false,
+    order_confirmation_model: 'restaurant',
+    app_minimum_version_android: 1,
+    app_minimum_version_android_restaurant: 1,
+    app_minimum_version_android_deliveryman: 1,
+    app_url_android_deliveryman: 'https://play.google.com/store/apps/details?id=app.gizra.driver',
+    centralize_login: {
+      manual_login_status: 1,
+      otp_login_status: 1,
+      social_login_status: 0
+    },
+    deliveryman_additional_join_us_page_data: null,
+    restaurant_additional_join_us_page_data: null,
+    language: [{ key: 'en', value: 'en' }]
+  },
+  'get /consumer/config': {
+    business_name: 'Gizra',
+    terms_and_conditions: '<p>Terms and conditions HTML…</p>',
+    privacy_policy: '<p>Privacy policy HTML…</p>',
+    about_us: '<p>About us content…</p>',
+    refund_policy_status: 1,
+    cookies_text: 'We use cookies…',
+    cash_on_delivery: true,
+    home_delivery: true,
+    app_minimum_version_android_deliveryman: 1
+  },
+  'get /delivery-man/orders/{id}': {
+    status: true,
+    msg: 'Success',
+    data: {
+      id: '100178',
+      order_status: 'handover',
+      status_label: 'Handover',
+      payment_status: 'unpaid',
+      payment_method: 'cash_on_delivery',
+      order_type: 'delivery',
+      order_amount: 60,
+      delivery_charge: 30,
+      is_manual_dispatch: true,
+      dispatch_summary: {
+        title: 'Manual Dispatch delivery request',
+        delivery_fee: 30
+      },
+      restaurant: {
+        id: '5',
+        name: 'Quatta Cafe',
+        phone: '+923001234567',
+        address_snippet: 'block D, Saon Garden',
+        image_url: 'https://cdn.example.com/restaurant/logo.png'
+      },
+      customer: {
+        name: 'Mudasir Khan',
+        phone: '+923009876543',
+        address_snippet: 'block B, Saon Garden',
+        image_url: 'https://cdn.example.com/profile/user.jpg'
+      },
+      items: [
+        {
+          food_name: 'Chicken Biryani',
+          quantity: 1,
+          unit_label: 'Plate',
+          price: 30,
+          line_total: 30,
+          food_image_url: 'https://cdn.example.com/food/biryani.png'
+        }
+      ],
+      pricing: {
+        items_price: 160.06,
+        discount: 0,
+        vat_tax: 16,
+        tax_percent: 10,
+        delivery_man_tips: 0,
+        addons: 0,
+        delivery_charge: 30,
+        subtotal: 60
+      },
+      can_accept: false,
+      can_update_status: true,
+      assigned_to_me: true
+    }
+  },
+  'get /consumer/message/list': {
+    type: 'vendor',
+    total_size: 1,
+    limit: 10,
+    offset: 1,
+    conversations: [SAMPLE_CHAT_CONVERSATION]
+  },
+  'get /consumer/message/search-list': {
+    total_size: 1,
+    limit: 10,
+    offset: 1,
+    conversations: [SAMPLE_CHAT_CONVERSATION]
+  },
+  'get /consumer/message/details': SAMPLE_CHAT_THREAD,
+  'post /consumer/message/send': SAMPLE_CHAT_SEND,
+  'post /consumer/message/chat-image': {
+    image_url: 'https://cdn.example.com/conversation/photo.jpg'
+  },
+  'get /vendor/message/list': {
+    type: 'customer',
+    total_size: 1,
+    limit: 10,
+    offset: 1,
+    conversation: [SAMPLE_CHAT_CONVERSATION]
+  },
+  'get /vendor/message/search-list': {
+    total_size: 1,
+    limit: 10,
+    offset: 1,
+    conversation: [SAMPLE_CHAT_CONVERSATION]
+  },
+  'get /vendor/message/details': SAMPLE_CHAT_THREAD,
+  'post /vendor/message/send': SAMPLE_CHAT_SEND,
+  'post /vendor/message/chat-image': {
+    image_url: 'https://cdn.example.com/conversation/photo.jpg'
+  },
+  'get /delivery-man/message/list': {
+    type: 'customer',
+    total_size: 1,
+    limit: 10,
+    offset: 1,
+    conversation: [SAMPLE_CHAT_CONVERSATION]
+  },
+  'get /delivery-man/message/search-list': {
+    total_size: 1,
+    limit: 10,
+    offset: 1,
+    conversation: [SAMPLE_CHAT_CONVERSATION]
+  },
+  'get /delivery-man/message/details': SAMPLE_CHAT_THREAD,
+  'post /delivery-man/message/send': SAMPLE_CHAT_SEND,
+  'post /delivery-man/message/chat-image': {
+    image_url: 'https://cdn.example.com/conversation/photo.jpg'
   }
 };
 

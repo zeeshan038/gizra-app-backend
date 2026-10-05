@@ -31,11 +31,13 @@ import vendorOrderRoutes from './vendor/order';
 import vendorRestaurantRoutes from './vendor/restaurant';
 import vendorShopRoutes from './vendor/shop';
 import vendorDispatchRoutes from './vendor/dispatch';
+import vendorMessageRoutes from './vendor/message';
 //consumer
 import consumerUserRoutes from './consumer/user';
 //deliveryman
 import dmUserRoutes from './deliveryman/user';
 import dmOrderRoutes from './deliveryman/order';
+import dmMessageRoutes from './deliveryman/message';
 
 //admin
 import adminAuthRoutes from './admin/auth';
@@ -50,6 +52,7 @@ router.use('/vendor/orders', vendorOrderRoutes);
 router.use('/vendor/restaurant', vendorRestaurantRoutes);
 router.use('/vendor/shop', vendorShopRoutes);
 router.use('/vendor/dispatch', vendorDispatchRoutes);
+router.use('/vendor/message', vendorMessageRoutes);
 
 //consumer
 import consumerCartRoutes from './consumer/cart';
@@ -61,8 +64,13 @@ import consumerAddressRoutes from './consumer/address';
 import consumerFavouriteRoutes from './consumer/favourite';
 import consumerZoneRoutes from './consumer/zone';
 import consumerConfigRoutes from './consumer/config';
+import consumerMessageRoutes from './consumer/message';
+import sharedConfigRoutes from './config';
+import legalPagesRoutes from './pages';
 
 //consumer — public discover/config first; `/consumer` user router last (it applies verifyConsumer to unmatched paths)
+router.use('/config', sharedConfigRoutes);
+router.use('/pages', legalPagesRoutes);
 router.use('/consumer/config', consumerConfigRoutes);
 router.use('/consumer/zone', consumerZoneRoutes);
 router.use('/consumer/restaurants', consumerRestaurantRoutes);
@@ -72,6 +80,7 @@ router.use('/consumer/cart', consumerCartRoutes);
 router.use('/consumer/order', consumerOrderRoutes);
 router.use('/consumer/addresses', consumerAddressRoutes);
 router.use('/consumer/favourites', consumerFavouriteRoutes);
+router.use('/consumer/message', consumerMessageRoutes);
 router.use('/consumer', consumerUserRoutes);
 
 //general upload
@@ -81,6 +90,7 @@ import storageRouter from './storage';
 //deliveryman
 router.use('/delivery-man', dmUserRoutes);
 router.use('/delivery-man/orders', dmOrderRoutes);
+router.use('/delivery-man/message', dmMessageRoutes);
 
 //admin
 router.use('/admin/auth', adminAuthRoutes);
