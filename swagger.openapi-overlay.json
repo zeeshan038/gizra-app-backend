@@ -9235,6 +9235,109 @@
         ]
       }
     },
+    "/delivery-man/orders/{id}": {
+      "get": {
+        "summary": "Order detail (request / active trip)",
+        "description": "Full order for **Order Request** tap-through or **active delivery** screen: restaurant + customer contact/location, line items, pricing breakdown, manual-dispatch summary, and flags **`can_accept`** / **`can_update_status`** / **`assigned_to_me`**. Allowed when the order is in the driver's pool (same rules as GET /orders/latest) or assigned to this driver. Use customer **`user_id`** from related chat/docs via order context. **Clients:** Driver app order detail + chat entry.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d+$"
+            },
+            "description": "Numeric order id (from GET /delivery-man/orders/latest or /active)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManOrderDetailResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Success",
+                  "data": {
+                    "id": "100178",
+                    "order_status": "handover",
+                    "status_label": "Handover",
+                    "payment_status": "unpaid",
+                    "payment_method": "cash_on_delivery",
+                    "order_type": "delivery",
+                    "order_amount": 60,
+                    "delivery_charge": 30,
+                    "is_manual_dispatch": true,
+                    "dispatch_summary": {
+                      "title": "Manual Dispatch delivery request",
+                      "delivery_fee": 30
+                    },
+                    "restaurant": {
+                      "id": "5",
+                      "name": "Quatta Cafe",
+                      "phone": "+923001234567",
+                      "address_snippet": "block D, Saon Garden",
+                      "image_url": "https://cdn.example.com/restaurant/logo.png"
+                    },
+                    "customer": {
+                      "name": "Mudasir Khan",
+                      "phone": "+923009876543",
+                      "address_snippet": "block B, Saon Garden",
+                      "image_url": "https://cdn.example.com/profile/user.jpg"
+                    },
+                    "items": [
+                      {
+                        "food_name": "Chicken Biryani",
+                        "quantity": 1,
+                        "unit_label": "Plate",
+                        "price": 30,
+                        "line_total": 30,
+                        "food_image_url": "https://cdn.example.com/food/biryani.png"
+                      }
+                    ],
+                    "pricing": {
+                      "items_price": 160.06,
+                      "discount": 0,
+                      "vat_tax": 16,
+                      "tax_percent": 10,
+                      "delivery_man_tips": 0,
+                      "addons": 0,
+                      "delivery_charge": 30,
+                      "subtotal": 60
+                    },
+                    "can_accept": false,
+                    "can_update_status": true,
+                    "assigned_to_me": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid order id"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "You cannot view this order (outside pool / zone / vehicle)"
+          },
+          "404": {
+            "description": "Order or driver not found"
+          }
+        },
+        "tags": [
+          "Delivery Man Orders"
+        ]
+      }
+    },
     "/delivery-man/orders/{id}/accept": {
       "put": {
         "summary": "Accept order from pool",
@@ -14639,8 +14742,14 @@
             "type": "string",
             "nullable": true
           },
-          "latitude": {},
-          "longitude": {},
+          "latitude": {
+            "type": "string",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "string",
+            "nullable": true
+          },
           "image_url": {
             "type": "string",
             "nullable": true
@@ -15701,7 +15810,7 @@
     },
     {
       "name": "Delivery Man Orders",
-      "description": "GET /orders/active, GET /orders/latest (pool), GET /orders/history (My Orders), PUT /orders/{id}/accept, PUT /orders/{id}/status. E2E: consumer place → vendor confirm → latest → accept → delivered (records earnings)."
+      "description": "GET /orders/active, GET /orders/latest (pool), GET /orders/{id} (detail), GET /orders/history (My Orders), PUT /orders/{id}/accept, PUT /orders/{id}/status. E2E: consumer place → vendor confirm → latest → detail → accept → delivered (records earnings)."
     },
     {
       "name": "Admin Auth"

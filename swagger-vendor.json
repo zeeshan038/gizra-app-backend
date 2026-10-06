@@ -4854,8 +4854,14 @@
             "type": "string",
             "nullable": true
           },
-          "latitude": {},
-          "longitude": {},
+          "latitude": {
+            "type": "string",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "string",
+            "nullable": true
+          },
           "image_url": {
             "type": "string",
             "nullable": true
