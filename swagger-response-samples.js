@@ -609,6 +609,8 @@ const ROUTE_RESPONSE_OVERRIDES = {
     msg: 'Success',
     data: {
       id: '100178',
+      user_id: '7',
+      vendor_id: '3',
       order_status: 'handover',
       status_label: 'Handover',
       payment_status: 'unpaid',

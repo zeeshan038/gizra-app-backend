@@ -314,6 +314,7 @@ Use **`emitWithAck`**. Server responses:
 |--------|------|--------|-----|
 | Login | `POST /api/delivery-man/login` | Connect; subscribe **`data.topic`** | Topic subscription |
 | **Order Request** | **`GET /api/delivery-man/orders/latest`** | Stay connected (no pool event) | Refresh list on notification |
+| **Order detail** (tap pool card or active trip) | **`GET /api/delivery-man/orders/:id`** — items, pricing, restaurant/customer, `can_accept`, `user_id` / `vendor_id` for chat | `watch_order` + `order_status_changed` | — |
 | Accept / Ignore | **`PUT .../orders/:id/accept`** (ignore = don’t call accept; card disappears for others via their poll) | After accept: `order_status_changed` | — |
 | **Home / active trip** | `GET /api/delivery-man/orders/active` | `watch_order` + `order_status_changed` | Optional |
 | Status (picked up, delivered, …) | **`PUT .../orders/:id/status`** | `order_status_changed` | — |
@@ -418,9 +419,9 @@ Base prefix: **`/api`**. Header: **`Authorization: Bearer {jwt}`** unless noted.
 |------|-------|---------------------|------------------|
 | Vendor | `POST /vendor/login` | `GET /vendor/orders`, `GET /vendor/orders/:id` | `PUT /vendor/orders/:id/status` |
 | Consumer | `POST /consumer/login` | Consumer order APIs | (status via vendor/driver) |
-| Driver | `POST /delivery-man/login` | `GET /delivery-man/orders/latest`, `active`, `history` | `PUT /delivery-man/orders/:id/accept`, `PUT .../status` |
+| Driver | `POST /delivery-man/login` | `GET /delivery-man/orders/latest`, **`GET /delivery-man/orders/:id` (detail)**, `active`, `history` | `PUT /delivery-man/orders/:id/accept`, `PUT .../status` |
 
-Swagger: merged driver overlay + main `swagger.json`; run `npm run swagger:gen` locally.
+Swagger (driver app): **`/swagger/driver`** → `swagger-driver.json` — **Delivery Man Orders** → **`GET /delivery-man/orders/{id}`**. Regenerate locally: `npm run swagger:gen`.
 
 ---
 

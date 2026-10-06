@@ -108,7 +108,7 @@ export async function buildDeliveryManOrderDetail(
 
   const restaurant = await prisma.restaurants.findUnique({
     where: { id: BigInt(Number(order.restaurant_id)) },
-    select: {
+      select: {
       id: true,
       name: true,
       phone: true,
@@ -117,6 +117,7 @@ export async function buildDeliveryManOrderDetail(
       cover_photo: true,
       latitude: true,
       longitude: true,
+      vendor_id: true,
     },
   });
 
@@ -226,8 +227,13 @@ export async function buildDeliveryManOrderDetail(
   const restaurantImageStored =
     restaurant?.logo?.trim() || restaurant?.cover_photo?.trim() || DEFAULT_RESTAURANT_IMAGE;
 
+  const vendorId =
+    restaurant?.vendor_id != null ? Number(restaurant.vendor_id).toString() : null;
+
   return {
     id: order.id.toString(),
+    user_id: order.user_id != null ? Number(order.user_id).toString() : null,
+    vendor_id: vendorId,
     order_status: order.order_status,
     status_label: orderStatusLabel(order.order_status),
     payment_status: order.payment_status,

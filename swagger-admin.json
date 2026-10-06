@@ -4698,6 +4698,16 @@
           "id": {
             "type": "string"
           },
+          "user_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Customer users.id — for GET /delivery-man/message/details?user_id="
+          },
+          "vendor_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Restaurant vendor id — for GET /delivery-man/message/details?vendor_id="
+          },
           "order_status": {
             "type": "string"
           },

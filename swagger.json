@@ -17357,7 +17357,7 @@
     },
     "/delivery-man/orders/{id}": {
       "get": {
-        "description": "Full order for **Order Request** tap-through or **active delivery** screen: restaurant + customer contact/location, line items, pricing breakdown, manual-dispatch summary, and flags **`can_accept`** / **`can_update_status`** / **`assigned_to_me`**. Allowed when the order is in the driver's pool (same rules as GET /orders/latest) or assigned to this driver. Use customer **`user_id`** from related chat/docs via order context. **Clients:** Driver app order detail + chat entry.",
+        "description": "Full order for **Order Request** tap-through or **active delivery** screen: restaurant + customer contact/location, line items, pricing breakdown, manual-dispatch summary, and flags **`can_accept`** / **`can_update_status`** / **`assigned_to_me`**. Allowed when the order is in the driver's pool (same rules as GET /orders/latest) or assigned to this driver. Response includes **`user_id`** (customer) and **`vendor_id`** (restaurant) for chat (`GET /delivery-man/message/details`). **Clients:** Driver app order detail + chat entry.",
         "parameters": [
           {
             "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
@@ -17386,6 +17386,8 @@
                   "msg": "Success",
                   "data": {
                     "id": "100178",
+                    "user_id": "7",
+                    "vendor_id": "3",
                     "order_status": "handover",
                     "status_label": "Handover",
                     "payment_status": "unpaid",
@@ -17513,7 +17515,8 @@
         "tags": [
           "Delivery Man Orders"
         ],
-        "summary": "Order detail (request / active trip)"
+        "summary": "Order detail (request / active trip)",
+        "operationId": "getDeliveryManOrderDetails"
       }
     },
     "/delivery-man/orders/{id}/accept": {
@@ -25843,6 +25846,16 @@
         "properties": {
           "id": {
             "type": "string"
+          },
+          "user_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Customer users.id — for GET /delivery-man/message/details?user_id="
+          },
+          "vendor_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Restaurant vendor id — for GET /delivery-man/message/details?vendor_id="
           },
           "order_status": {
             "type": "string"
