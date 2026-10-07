@@ -1,8 +1,6 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../../config/database';
 import { createFoodSchema } from '../../../schemas/vendor/Catalog';
-
-const prisma = new PrismaClient();
 
 async function getVendorRestaurant(req: Request) {
     return prisma.restaurants.findFirst({

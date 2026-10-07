@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../config/database';
 import { requireCoordinates, requireZoneIds } from '../../utils/consumer/zoneHeaders';
 import {
     parseCoordinatesFromRequest,
@@ -14,9 +14,6 @@ import {
     loadTodaySchedulesByRestaurantId,
     parseDiscoverType,
 } from '../../utils/consumer/restaurantDiscoverHelpers';
-
-const prisma = new PrismaClient();
-
 
 /*
  * @Description Get active restaurants in the customer zone(s) (query zone_id, e.g. ?zone_id=2)

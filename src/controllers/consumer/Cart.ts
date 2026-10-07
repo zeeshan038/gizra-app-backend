@@ -1,8 +1,6 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../config/database';
 import { addToCartSchema, updateCartSchema } from '../../schemas/consumer/Cart';
-
-const prisma = new PrismaClient();
 
 /**
  * @Description Get all cart items for a user or guest

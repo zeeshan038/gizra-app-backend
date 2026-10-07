@@ -1,8 +1,6 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../../config/database';
 import Joi from 'joi';
-
-const prisma = new PrismaClient();
 
 const createAddonSchema = Joi.object({
   name: Joi.string().required(),

@@ -1,10 +1,9 @@
 
 //NPM Packages
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../config/database';
 
 //Constants
-const prisma = new PrismaClient();
 
 
 //Generate Token

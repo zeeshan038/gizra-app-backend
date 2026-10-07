@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../config/database';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { genrateToken } from '../../utils/methods/methods';
@@ -39,7 +39,6 @@ import {
   verifyLoginOtpToken,
 } from '../../utils/partner/loginOtpDb';
 
-const prisma = new PrismaClient();
 
 type ResetIdentityBody = {
   field_type: 'email' | 'phone';
