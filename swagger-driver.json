@@ -6594,6 +6594,106 @@
             "description": "Backend URL that 302s to HyperPay — open in WebView/browser"
           }
         }
+      },
+      "ConsumerCouponItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "expire_date": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "min_purchase": {
+            "type": "number"
+          },
+          "max_discount": {
+            "type": "number"
+          },
+          "discount": {
+            "type": "number"
+          },
+          "discount_type": {
+            "type": "string",
+            "description": "percent | amount (etc.)"
+          },
+          "coupon_type": {
+            "type": "string",
+            "description": "default | restaurant_wise | zone_wise | first_order | …"
+          },
+          "limit": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Max uses per customer when set"
+          },
+          "status": {
+            "type": "boolean"
+          },
+          "data": {
+            "nullable": true,
+            "description": "JSON string or restaurant name label depending on coupon_type"
+          },
+          "total_uses": {
+            "type": "integer"
+          },
+          "created_by": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "vendor"
+            ]
+          },
+          "customer_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "JSON array e.g. [\"all\"] or customer ids"
+          },
+          "slug": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "restaurant": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
       }
     },
     "parameters": {

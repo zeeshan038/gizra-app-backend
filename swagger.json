@@ -8044,6 +8044,898 @@
         ]
       }
     },
+    "/vendor/wallet/": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
+    "/vendor/wallet/withdraw-method-options": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": 1,
+                  "method_name": "…",
+                  "method_fields": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "number",
+                      "example": 1
+                    },
+                    "method_name": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "method_fields": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "id": 1,
+                    "method_name": "…",
+                    "method_fields": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
+    "/vendor/wallet/withdraw-request": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Withdraw request placed successfully"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Withdraw request placed successfully"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Withdraw request placed successfully"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
+    "/vendor/withdraw-method/available": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
+    "/vendor/withdraw-method/": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      },
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
+    "/vendor/withdraw-method/default": {
+      "patch": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Method updated successfully"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Method updated successfully"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Method updated successfully"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
+    "/vendor/withdraw-method/{id}": {
+      "delete": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Method deleted successfully"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Method deleted successfully"
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Method deleted successfully"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
     "/config/": {
       "get": {
         "description": "Legacy PHP **GET /api/v1/config** — flat JSON (no `status`/`data` wrapper). Customer, vendor, and driver apps call this on launch for **terms_and_conditions**, **privacy_policy**, **about_us**, refund/cancellation/shipping policies (+ `*_status` flags), **cookies_text**, payment/wallet/loyalty toggles, map keys, and **app_minimum_version_*** / store URLs per app.\n\nOptional header **`X-localization`** (e.g. `en`, `he`) returns translated legal HTML from `data_settings` + `translations`.\n\nSame body as **GET /consumer/config**.",
@@ -11053,39 +11945,43 @@
     },
     "/consumer/coupon/restaurant-wise": {
       "get": {
-        "description": "",
+        "description": "Legacy PHP `GET /api/v1/coupon/restaurant-wise-coupon`. **No JWT.** Returns only coupons eligible for **all customers** (`customer_id` includes `\"all\"`).\n\n**Required query:** `zone_id`, `restaurant_id`.",
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Array of applicable coupons (may be empty)",
             "content": {
               "application/json": {
-                "example": {
-                  "403": "…",
-                  "return": "…",
-                  "errorMessageFromUnknown": "…"
-                },
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "403": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "return": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "errorMessageFromUnknown": {
-                      "type": "string",
-                      "example": "…"
-                    }
-                  },
-                  "example": {
-                    "403": "…",
-                    "return": "…",
-                    "errorMessageFromUnknown": "…"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConsumerCouponItem"
                   }
-                }
+                },
+                "example": [
+                  {
+                    "id": 12,
+                    "title": "10% off",
+                    "code": "SAVE10",
+                    "start_date": "2026-01-01T00:00:00.000Z",
+                    "expire_date": "2026-12-31T00:00:00.000Z",
+                    "min_purchase": 50,
+                    "max_discount": 25,
+                    "discount": 10,
+                    "discount_type": "percent",
+                    "coupon_type": "restaurant_wise",
+                    "limit": 1,
+                    "status": true,
+                    "data": "Pizza Palace",
+                    "total_uses": 0,
+                    "created_by": "admin",
+                    "customer_id": "[\"all\"]",
+                    "slug": null,
+                    "restaurant_id": null,
+                    "restaurant": null,
+                    "created_at": "2026-01-01T00:00:00.000Z",
+                    "updated_at": "2026-01-01T00:00:00.000Z"
+                  }
+                ]
               }
             }
           },
@@ -11118,15 +12014,27 @@
             }
           },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Missing zone_id, invalid restaurant_id, or server error",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
                 },
-                "example": {
-                  "status": false,
-                  "msg": "Forbidden"
+                "examples": {
+                  "zoneRequired": {
+                    "summary": "No zone_id",
+                    "value": {
+                      "status": false,
+                      "msg": "Zone id is required"
+                    }
+                  },
+                  "restaurantRequired": {
+                    "summary": "Missing restaurant_id",
+                    "value": {
+                      "status": false,
+                      "msg": "Restaurant id is required"
+                    }
+                  }
                 }
               }
             }
@@ -11161,53 +12069,62 @@
           }
         },
         "tags": [
-          "Consumer Auth"
+          "Consumer Coupons"
+        ],
+        "summary": "Public coupons for a restaurant (restaurant detail / checkout)",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ConsumerZoneIdQuery"
+          },
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "example": 3
+            },
+            "description": "Restaurant id shown on the screen"
+          }
         ]
       }
     },
     "/consumer/coupon/list": {
       "get": {
-        "description": "",
+        "description": "Legacy PHP `GET /api/v1/coupon/list`. **Bearer JWT** (registered customer, not guest). Filters by zone and customer eligibility.\n\n**Required:** `zone_id`. **Optional:** `restaurant_id` to narrow vendor/admin coupons for one restaurant.",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
+            "$ref": "#/components/parameters/ConsumerZoneIdQuery"
+          },
+          {
+            "$ref": "#/components/parameters/ConsumerAuthorizationHeader"
+          },
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": false,
             "schema": {
-              "type": "string"
-            }
+              "type": "integer",
+              "example": 3
+            },
+            "description": "When set, only coupons for this restaurant (or restaurant_wise including it)"
           }
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Array of coupons the customer can use",
             "content": {
               "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConsumerCouponItem"
+                  }
+                },
                 "example": {
                   "403": "…",
                   "return": "…",
                   "errorMessageFromUnknown": "…"
-                },
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "403": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "return": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "errorMessageFromUnknown": {
-                      "type": "string",
-                      "example": "…"
-                    }
-                  },
-                  "example": {
-                    "403": "…",
-                    "return": "…",
-                    "errorMessageFromUnknown": "…"
-                  }
                 }
               }
             }
@@ -11227,7 +12144,7 @@
             }
           },
           "401": {
-            "description": "Unauthorized",
+            "description": "Missing/invalid JWT or guest",
             "content": {
               "application/json": {
                 "schema": {
@@ -11235,13 +12152,13 @@
                 },
                 "example": {
                   "status": false,
-                  "msg": "Unauthorized"
+                  "msg": "Login required"
                 }
               }
             }
           },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Missing zone_id or validation error",
             "content": {
               "application/json": {
                 "schema": {
@@ -11249,7 +12166,7 @@
                 },
                 "example": {
                   "status": false,
-                  "msg": "Forbidden"
+                  "msg": "Zone id is required"
                 }
               }
             }
@@ -11284,53 +12201,75 @@
           }
         },
         "tags": [
-          "Consumer Auth"
+          "Consumer Coupons"
+        ],
+        "summary": "Logged-in customer coupon list",
+        "security": [
+          {
+            "bearerAuth": []
+          }
         ]
       }
     },
     "/consumer/coupon/apply": {
       "get": {
-        "description": "",
+        "description": "Legacy PHP `GET /api/v1/coupon/apply`. **Bearer JWT** (registered). Checks code, dates, eligibility, restaurant/zone rules, and usage limits. Use before place-order with the same `coupon_code`.\n\n**Query:** `code`, `restaurant_id` (required).",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
+            "$ref": "#/components/parameters/ConsumerAuthorizationHeader"
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "example": "SAVE10"
+            }
+          },
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "example": 3
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Coupon is valid — same shape as list items",
             "content": {
               "application/json": {
-                "example": {
-                  "403": "…",
-                  "return": "…",
-                  "errorMessageFromUnknown": "…"
-                },
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "403": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "return": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "errorMessageFromUnknown": {
-                      "type": "string",
-                      "example": "…"
-                    }
+                  "$ref": "#/components/schemas/ConsumerCouponItem"
+                },
+                "example": {
+                  "id": 12,
+                  "title": "10% off",
+                  "code": "SAVE10",
+                  "start_date": "2026-01-01T00:00:00.000Z",
+                  "expire_date": "2026-12-31T00:00:00.000Z",
+                  "min_purchase": 50,
+                  "max_discount": 25,
+                  "discount": 10,
+                  "discount_type": "percent",
+                  "coupon_type": "default",
+                  "limit": 1,
+                  "status": true,
+                  "data": null,
+                  "total_uses": 0,
+                  "created_by": "vendor",
+                  "customer_id": "[\"all\"]",
+                  "slug": null,
+                  "restaurant_id": 3,
+                  "restaurant": {
+                    "id": 3,
+                    "name": "Pizza Palace"
                   },
-                  "example": {
-                    "403": "…",
-                    "return": "…",
-                    "errorMessageFromUnknown": "…"
-                  }
+                  "created_at": "2026-01-01T00:00:00.000Z",
+                  "updated_at": "2026-01-01T00:00:00.000Z"
                 }
               }
             }
@@ -11364,7 +12303,7 @@
             }
           },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Not eligible or validation failed",
             "content": {
               "application/json": {
                 "schema": {
@@ -11372,13 +12311,13 @@
                 },
                 "example": {
                   "status": false,
-                  "msg": "Forbidden"
+                  "msg": "You are not eligible for this coupon"
                 }
               }
             }
           },
           "404": {
-            "description": "Not Found - The requested resource could not be found",
+            "description": "Unknown code or coupon not valid for this restaurant",
             "content": {
               "application/json": {
                 "schema": {
@@ -11386,7 +12325,35 @@
                 },
                 "example": {
                   "status": false,
-                  "msg": "Not Found"
+                  "msg": "Coupon not found"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Usage limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Coupon usage limit over"
+                }
+              }
+            }
+          },
+          "407": {
+            "description": "Coupon expired (PHP parity status code)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Coupon expired"
                 }
               }
             }
@@ -11407,7 +12374,13 @@
           }
         },
         "tags": [
-          "Consumer Auth"
+          "Consumer Coupons"
+        ],
+        "summary": "Validate coupon before checkout",
+        "security": [
+          {
+            "bearerAuth": []
+          }
         ]
       }
     },
@@ -29222,6 +30195,106 @@
             "description": "Backend URL that 302s to HyperPay — open in WebView/browser"
           }
         }
+      },
+      "ConsumerCouponItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "expire_date": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "min_purchase": {
+            "type": "number"
+          },
+          "max_discount": {
+            "type": "number"
+          },
+          "discount": {
+            "type": "number"
+          },
+          "discount_type": {
+            "type": "string",
+            "description": "percent | amount (etc.)"
+          },
+          "coupon_type": {
+            "type": "string",
+            "description": "default | restaurant_wise | zone_wise | first_order | …"
+          },
+          "limit": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Max uses per customer when set"
+          },
+          "status": {
+            "type": "boolean"
+          },
+          "data": {
+            "nullable": true,
+            "description": "JSON string or restaurant name label depending on coupon_type"
+          },
+          "total_uses": {
+            "type": "integer"
+          },
+          "created_by": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "vendor"
+            ]
+          },
+          "customer_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "JSON array e.g. [\"all\"] or customer ids"
+          },
+          "slug": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "restaurant": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
       }
     },
     "parameters": {
@@ -29637,6 +30710,10 @@
     {
       "name": "Consumer Digital Payment (HyperPay)",
       "description": "Israeli HyperPay checkout after placing an order with `payment_method: digital_payment`. App flow: **place order** → **generate payment link** → open `redirect_link` (302 to HyperPay) → user pays → backend **success/failed/notify** callbacks mark the order paid and redirect to your `callback` URL with `flag` + `token`."
+    },
+    {
+      "name": "Consumer Coupons",
+      "description": "Coupon list, apply validation, and public restaurant-wise coupons. **Zone:** pass query `zone_id` from `GET /consumer/config/zone-id` (required for list & restaurant-wise). Errors: `{ \"status\": false, \"msg\": \"...\" }`."
     }
   ]
 }
