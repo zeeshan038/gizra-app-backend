@@ -20,7 +20,11 @@ docker exec "$BACKEND" sh -c "
   echo \"\$DATABASE_URL\" | sed -nE 's#.*@([^:/]+).*#DB host in URL: \\1#p'
 " || exit 1
 
-HOST=$(docker exec "$BACKEND" sh -c "$EXPORT_SNIPPET; echo \"\$DATABASE_URL\"" | sed -nE 's#^postgresql://[^@]+@([^:/]+).*#\1#p' | head -1)
+HOST=$(docker exec "$BACKEND" sh -c "$EXPORT_SNIPPET; node -e \"
+const r=process.env.DATABASE_URL||'';
+const u=new URL(r.replace(/^postgresql:/i,'http:'));
+process.stdout.write(u.hostname);
+\"" 2>/dev/null | tr -d '\r\n')
 if [[ "$HOST" == "127.0.0.1" || "$HOST" == "localhost" ]]; then
   echo "FAIL: API container must not use localhost for Postgres"
   exit 1
