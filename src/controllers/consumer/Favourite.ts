@@ -150,7 +150,6 @@ export const addFavourite = async (req: Request, res: Response): Promise<any> =>
     return res.status(403).json({
       status: false,
       msg,
-      errors: [{ code: 'validation', message: msg }],
     });
   }
 

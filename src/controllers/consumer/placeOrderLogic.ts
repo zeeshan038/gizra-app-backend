@@ -12,6 +12,7 @@ import {
   parseJsonSetting,
 } from '../../utils/consumer/businessSettings';
 import { getZoneById } from '../../utils/consumer/zone';
+import { calculateCouponDiscount, validateCouponForUser } from '../../utils/consumer/couponHelpers';
 
 
 function roundMoney(value: number): number {
@@ -124,33 +125,19 @@ async function getCouponDiscount(params: {
     return { coupon: null, discount: 0, error: 'Invalid coupon code' };
   }
 
-  const today = new Date();
-  if (coupon.start_date && coupon.start_date > today) {
-    return { coupon: null, discount: 0, error: 'Coupon not started yet' };
-  }
-  if (coupon.expire_date && coupon.expire_date < today) {
-    return { coupon: null, discount: 0, error: 'Coupon expired' };
-  }
-
   if (Number(coupon.min_purchase) > 0 && params.orderSubtotal < Number(coupon.min_purchase)) {
     return { coupon: null, discount: 0, error: 'Minimum purchase not met for coupon' };
   }
 
-  if (coupon.created_by === 'vendor' && Number(coupon.restaurant_id) !== params.restaurantId) {
-    return { coupon: null, discount: 0, error: 'Coupon not valid for this restaurant' };
+  const check = await validateCouponForUser(coupon, params.userId, params.restaurantId);
+  if (!('ok' in check)) {
+    return { coupon: null, discount: 0, error: check.message };
   }
 
-  let discount = 0;
-  if (coupon.discount_type === 'percent') {
-    discount = params.orderSubtotal * (Number(coupon.discount) / 100);
-  } else {
-    discount = Number(coupon.discount);
-  }
-  if (Number(coupon.max_discount) > 0) {
-    discount = Math.min(discount, Number(coupon.max_discount));
-  }
-
-  return { coupon, discount: roundMoney(discount) };
+  return {
+    coupon,
+    discount: roundMoney(calculateCouponDiscount(coupon, params.orderSubtotal)),
+  };
 }
 
 async function calculateDeliveryFee(params: {

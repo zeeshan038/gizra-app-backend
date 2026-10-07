@@ -35,7 +35,7 @@ const ROLES = [
     file: './swagger-customer.json',
     title: 'Gizra Customer API',
     description: 'Customer (consumer) app endpoints',
-    prefixes: ['/config', '/pages', '/consumer', '/upload', '/storage']
+    prefixes: ['/config', '/pages', '/consumer', '/payment', '/upload', '/storage']
   },
   {
     file: './swagger-vendor.json',

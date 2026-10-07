@@ -14,6 +14,7 @@ import {
   messageSearchQuerySchema,
   messageSendSchema,
 } from '../../schemas/consumer/message';
+import { sendApiError, errorMessageFromUnknown } from '../../utils/apiErrorResponse';
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -44,9 +45,7 @@ export const listConversations = async (req: Request, res: Response): Promise<an
 
   const { error, value } = messageListQuerySchema.validate(req.query, { stripUnknown: true });
   if (error) {
-    return res.status(403).json({
-      errors: [{ code: 'validation', message: error.message }],
-    });
+    return sendApiError(res, 403, error.message);
   }
 
   const sender = await getOrCreateCustomerUserInfo(userId);
@@ -70,9 +69,7 @@ export const searchConversations = async (req: Request, res: Response): Promise<
 
   const { error, value } = messageSearchQuerySchema.validate(req.query, { stripUnknown: true });
   if (error) {
-    return res.status(403).json({
-      errors: [{ code: 'validation', message: error.message }],
-    });
+    return sendApiError(res, 403, error.message);
   }
 
   const sender = await getOrCreateCustomerUserInfo(userId);
@@ -96,9 +93,7 @@ export const messageDetails = async (req: Request, res: Response): Promise<any> 
 
   const { error, value } = messageDetailsQuerySchema.validate(req.query, { stripUnknown: true });
   if (error) {
-    return res.status(403).json({
-      errors: [{ code: 'validation', message: error.message }],
-    });
+    return sendApiError(res, 403, error.message);
   }
 
   const sender = await getOrCreateCustomerUserInfo(userId);
@@ -114,9 +109,7 @@ export const messageDetails = async (req: Request, res: Response): Promise<any> 
   });
 
   if ('forbidden' in result && result.forbidden) {
-    return res.status(403).json({
-      errors: [{ code: 'forbidden', message: 'You cannot view this conversation' }],
-    });
+    return sendApiError(res, 403, 'You cannot view this conversation');
   }
 
   return res.status(200).json(result);
@@ -133,9 +126,7 @@ export const sendMessage = async (req: Request, res: Response): Promise<any> => 
 
   const { error, value } = messageSendSchema.validate(req.body, { stripUnknown: true });
   if (error) {
-    return res.status(403).json({
-      errors: [{ code: 'validation', message: error.message }],
-    });
+    return sendApiError(res, 403, error.message);
   }
 
   const sender = await getOrCreateCustomerUserInfo(userId);
@@ -153,15 +144,10 @@ export const sendMessage = async (req: Request, res: Response): Promise<any> => 
     });
     return res.status(200).json(data);
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'send_failed';
-    if (msg === 'forbidden' || msg === 'conversation_not_found') {
-      return res.status(403).json({
-        errors: [{ code: msg, message: msg.replace(/_/g, ' ') }],
-      });
-    }
-    return res.status(400).json({
-      errors: [{ code: msg, message: msg.replace(/_/g, ' ') }],
-    });
+    const raw = errorMessageFromUnknown(e, 'send_failed');
+    const msg = raw.replace(/_/g, ' ');
+    const status = raw === 'forbidden' || raw === 'conversation_not_found' ? 403 : 400;
+    return sendApiError(res, status, msg);
   }
 };
 
@@ -177,15 +163,11 @@ export const chatImage = async (req: Request, res: Response): Promise<any> => {
   if (userId == null) return;
 
   if (!req.file) {
-    return res.status(403).json({
-      errors: [{ code: 'image', message: 'image is required' }],
-    });
+    return sendApiError(res, 403, 'image is required');
   }
 
   if (req.file.size > 2 * 1024 * 1024) {
-    return res.status(403).json({
-      errors: [{ code: 'image', message: 'Max file size is 2mb' }],
-    });
+    return sendApiError(res, 403, 'Max file size is 2mb');
   }
 
   try {
@@ -196,7 +178,6 @@ export const chatImage = async (req: Request, res: Response): Promise<any> => {
     );
     return res.status(200).json(result);
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'Upload failed';
-    return res.status(500).json({ errors: [{ code: 'upload', message: msg }] });
+    return sendApiError(res, 500, errorMessageFromUnknown(e, 'Upload failed'));
   }
 };

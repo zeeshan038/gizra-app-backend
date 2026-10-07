@@ -28,6 +28,10 @@ node scripts/prepare-compose-env.js
 echo "Starting Postgres…"
 ./scripts/docker-compose.sh up -d postgres
 
+# Old Cloudflare Tunnel container (removed from compose) must not keep receiving prod traffic
+docker stop gizra-cloudflared 2>/dev/null || true
+docker rm gizra-cloudflared 2>/dev/null || true
+
 echo "Postgres LOGIN + password (fixes NOLOGIN)…"
 ./scripts/ensure-postgres-login.sh
 

@@ -1,0 +1,392 @@
+{
+  "paths": {
+    "/consumer/reviews/": {
+      "get": {
+        "summary": "Read reviews (food, driver, or pending food items on an order)",
+        "description": "Single GET endpoint with **exactly one** query parameter.\n\n| Query | Auth | Use on screen |\n|-------|------|----------------|\n| `food_id` | None (public) | Food detail — show average rating + review list |\n| `delivery_man_id` | None (public) | Driver profile — show average rating + review list |\n| `order_id` | **Bearer JWT** (registered customer, not guest) | After delivery — list order line items the customer has **not** reviewed yet (food only; driver is separate) |\n\n**Important:** Food reviews and driver reviews are independent. This GET does not return driver pending state — use POST with `delivery_man_id` when the user rates the driver.\n\nErrors: `{ \"status\": false, \"msg\": \"...\" }`.",
+        "tags": ["Consumer Reviews"],
+        "parameters": [
+          {
+            "name": "food_id",
+            "in": "query",
+            "description": "Food item id. Mutually exclusive with `order_id` and `delivery_man_id`.",
+            "schema": { "type": "integer", "example": 42 }
+          },
+          {
+            "name": "delivery_man_id",
+            "in": "query",
+            "description": "Delivery man id. Mutually exclusive with `food_id` and `order_id`.",
+            "schema": { "type": "integer", "example": 7 }
+          },
+          {
+            "name": "order_id",
+            "in": "query",
+            "description": "Order id (must belong to logged-in user). Mutually exclusive with `food_id` and `delivery_man_id`. Requires Authorization header.",
+            "schema": { "type": "integer", "example": 100001 }
+          },
+          { "$ref": "#/components/parameters/ConsumerAuthorizationHeader" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shape depends on which query param you sent (see examples).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    { "$ref": "#/components/schemas/ConsumerFoodReviewsResponse" },
+                    { "$ref": "#/components/schemas/ConsumerDriverReviewsResponse" },
+                    { "$ref": "#/components/schemas/ConsumerPendingFoodReviewsResponse" }
+                  ]
+                },
+                "examples": {
+                  "foodReviews": {
+                    "summary": "GET ?food_id=42",
+                    "value": {
+                      "avg_rating": 4.5,
+                      "rating_count": 12,
+                      "reviews": [
+                        {
+                          "id": 901,
+                          "food_id": 42,
+                          "user_id": 15,
+                          "comment": "Great taste",
+                          "attachment": [],
+                          "rating": 5,
+                          "order_id": 100001,
+                          "item_campaign_id": null,
+                          "status": true,
+                          "restaurant_id": 3,
+                          "reply": null,
+                          "created_at": "2026-03-01T12:00:00.000Z",
+                          "updated_at": "2026-03-01T12:00:00.000Z",
+                          "food_name": "Margherita Pizza",
+                          "customer": {
+                            "f_name": "Jane",
+                            "l_name": "Doe",
+                            "image": "https://cdn.example.com/avatar.png"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "driverReviews": {
+                    "summary": "GET ?delivery_man_id=7",
+                    "value": {
+                      "avg_rating": 4.2,
+                      "review_count": 8,
+                      "reviews": [
+                        {
+                          "id": 501,
+                          "delivery_man_id": 7,
+                          "user_id": 15,
+                          "order_id": 100001,
+                          "comment": "Fast delivery",
+                          "rating": 4,
+                          "attachment": [],
+                          "status": true,
+                          "created_at": "2026-03-02T09:00:00.000Z",
+                          "updated_at": "2026-03-02T09:00:00.000Z",
+                          "customer": {
+                            "f_name": "Jane",
+                            "l_name": "Doe",
+                            "image": null
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "pendingFoodOnOrder": {
+                    "summary": "GET ?order_id=100001 (logged in)",
+                    "value": {
+                      "details": [
+                        {
+                          "id": 8801,
+                          "food_id": 42,
+                          "order_id": 100001,
+                          "item_campaign_id": null,
+                          "quantity": 2,
+                          "price": 25.5,
+                          "food_details": {
+                            "name": "Margherita Pizza",
+                            "image": "food.png"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`order_id` used without a registered customer token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Login required for order reviews" }
+              }
+            }
+          },
+          "403": {
+            "description": "Invalid query (missing param, multiple params, or validation)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": {
+                  "status": false,
+                  "msg": "Provide exactly one of food_id, order_id, or delivery_man_id"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Food, driver, or order not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "examples": {
+                  "foodNotFound": {
+                    "summary": "Invalid food_id",
+                    "value": { "status": false, "msg": "Food not found" }
+                  },
+                  "driverNotFound": {
+                    "summary": "Invalid delivery_man_id",
+                    "value": { "status": false, "msg": "Delivery man not found" }
+                  },
+                  "orderNotFound": {
+                    "summary": "order_id not owned by user",
+                    "value": { "status": false, "msg": "Order not found" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Submit a food review OR a driver review (separate requests)",
+        "description": "Registered customer only (`Authorization: Bearer <token>`).\n\n**Two body shapes — send one per request:**\n1. **Food** — include `food_id` + `order_id` + `rating`. `comment` optional. One POST per dish if the order had multiple items.\n2. **Driver** — include `delivery_man_id` + `order_id` + `rating` + **`comment` (required)**.\n\nThe customer may submit **food only**, **driver only**, **both** (two POSTs), or **neither**. Do not send `food_id` and `delivery_man_id` in the same body.\n\nDuplicate review for the same user + order + food (or driver) returns 403 with `msg: \"Already submitted\"`.",
+        "tags": ["Consumer Reviews"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/ConsumerAuthorizationHeader" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  { "$ref": "#/components/schemas/ConsumerSubmitFoodReviewBody" },
+                  { "$ref": "#/components/schemas/ConsumerSubmitDriverReviewBody" }
+                ]
+              },
+              "examples": {
+                "rateFood": {
+                  "summary": "Food review only",
+                  "value": {
+                    "food_id": 42,
+                    "order_id": 100001,
+                    "rating": 5,
+                    "comment": "Great taste"
+                  }
+                },
+                "rateDriver": {
+                  "summary": "Driver review only",
+                  "value": {
+                    "delivery_man_id": 7,
+                    "order_id": 100001,
+                    "rating": 4,
+                    "comment": "Fast delivery"
+                  }
+                },
+                "foodWithImages": {
+                  "summary": "Optional attachment URLs",
+                  "value": {
+                    "food_id": 42,
+                    "order_id": 100001,
+                    "rating": 4,
+                    "comment": "",
+                    "attachment": ["https://cdn.example.com/review1.jpg"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Review saved",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConsumerReviewSubmitSuccess" },
+                "example": { "status": true, "msg": "Review submitted successfully" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/ApiError401" },
+          "403": {
+            "description": "Validation, not found, or already submitted",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "examples": {
+                  "foodNotFound": { "value": { "status": false, "msg": "Food not found" } },
+                  "orderNotFound": { "value": { "status": false, "msg": "Order not found" } },
+                  "alreadySubmitted": { "value": { "status": false, "msg": "Already submitted" } },
+                  "driverCommentRequired": {
+                    "value": { "status": false, "msg": "\"comment\" is required" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ConsumerReviewCustomerSnippet": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "f_name": { "type": "string", "nullable": true },
+          "l_name": { "type": "string", "nullable": true },
+          "image": { "type": "string", "nullable": true, "description": "Absolute URL when stored path is resolvable" }
+        }
+      },
+      "ConsumerFoodReviewItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "food_id": { "type": "integer" },
+          "user_id": { "type": "integer" },
+          "comment": { "type": "string", "nullable": true },
+          "attachment": { "type": "array", "items": { "type": "string" } },
+          "rating": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "order_id": { "type": "integer", "nullable": true },
+          "item_campaign_id": { "type": "integer", "nullable": true },
+          "status": { "type": "boolean" },
+          "restaurant_id": { "type": "integer", "nullable": true },
+          "reply": { "type": "string", "nullable": true, "description": "Vendor reply to this review" },
+          "created_at": { "type": "string", "format": "date-time", "nullable": true },
+          "updated_at": { "type": "string", "format": "date-time", "nullable": true },
+          "food_name": { "type": "string", "nullable": true },
+          "customer": { "$ref": "#/components/schemas/ConsumerReviewCustomerSnippet" }
+        }
+      },
+      "ConsumerFoodReviewsResponse": {
+        "type": "object",
+        "description": "Response when GET includes `food_id`.",
+        "properties": {
+          "avg_rating": { "type": "number", "example": 4.5 },
+          "rating_count": { "type": "integer", "example": 12 },
+          "reviews": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ConsumerFoodReviewItem" }
+          }
+        }
+      },
+      "ConsumerDriverReviewItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "delivery_man_id": { "type": "integer" },
+          "user_id": { "type": "integer" },
+          "order_id": { "type": "integer" },
+          "comment": { "type": "string" },
+          "rating": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "attachment": { "type": "array", "items": { "type": "string" } },
+          "status": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time", "nullable": true },
+          "updated_at": { "type": "string", "format": "date-time", "nullable": true },
+          "customer": { "$ref": "#/components/schemas/ConsumerReviewCustomerSnippet" }
+        }
+      },
+      "ConsumerDriverReviewsResponse": {
+        "type": "object",
+        "description": "Response when GET includes `delivery_man_id`.",
+        "properties": {
+          "avg_rating": { "type": "number", "example": 4.2 },
+          "review_count": { "type": "integer", "example": 8 },
+          "reviews": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ConsumerDriverReviewItem" }
+          }
+        }
+      },
+      "ConsumerPendingFoodReviewDetail": {
+        "type": "object",
+        "description": "One order line still eligible for a food review.",
+        "properties": {
+          "id": { "type": "integer", "description": "order_details.id" },
+          "food_id": { "type": "integer", "nullable": true },
+          "order_id": { "type": "integer" },
+          "item_campaign_id": { "type": "integer", "nullable": true },
+          "quantity": { "type": "number" },
+          "price": { "type": "number" },
+          "food_details": {
+            "type": "object",
+            "nullable": true,
+            "description": "Snapshot JSON from order (name, image, etc.)"
+          }
+        }
+      },
+      "ConsumerPendingFoodReviewsResponse": {
+        "type": "object",
+        "description": "Response when GET includes `order_id` (authenticated).",
+        "properties": {
+          "details": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ConsumerPendingFoodReviewDetail" }
+          }
+        }
+      },
+      "ConsumerSubmitFoodReviewBody": {
+        "type": "object",
+        "required": ["food_id", "order_id", "rating"],
+        "properties": {
+          "food_id": { "type": "integer", "description": "Must match a line on the order" },
+          "order_id": { "type": "integer", "description": "Customer's order id" },
+          "rating": { "type": "number", "minimum": 1, "maximum": 5 },
+          "comment": { "type": "string", "nullable": true },
+          "attachment": {
+            "description": "Image URL(s) — string or array of strings",
+            "oneOf": [
+              { "type": "string" },
+              { "type": "array", "items": { "type": "string" } }
+            ]
+          }
+        }
+      },
+      "ConsumerSubmitDriverReviewBody": {
+        "type": "object",
+        "required": ["delivery_man_id", "order_id", "rating", "comment"],
+        "properties": {
+          "delivery_man_id": { "type": "integer" },
+          "order_id": { "type": "integer" },
+          "rating": { "type": "number", "minimum": 1, "maximum": 5 },
+          "comment": { "type": "string", "minLength": 1 },
+          "attachment": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "array", "items": { "type": "string" } }
+            ]
+          }
+        }
+      },
+      "ConsumerReviewSubmitSuccess": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "boolean", "example": true },
+          "msg": { "type": "string", "example": "Review submitted successfully" }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Consumer Reviews",
+      "description": "Food and delivery-man reviews for the customer app. **Base path:** `/api/consumer/reviews`. Read with GET (one query param). Write with POST (food body OR driver body — optional to do both via two calls). Restaurant rating on listings is derived from food reviews, not a separate submit API."
+    }
+  ]
+}

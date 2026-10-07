@@ -5870,17 +5870,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConsumerPlaceOrderError"
+                  "$ref": "#/components/schemas/ApiError"
                 },
                 "example": {
                   "status": false,
-                  "msg": "You cannot place an empty order",
-                  "errors": [
-                    {
-                      "code": "empty_order",
-                      "message": "You cannot place an empty order"
-                    }
-                  ]
+                  "msg": "You cannot place an empty order"
                 }
               }
             }
@@ -6201,13 +6195,7 @@
                 },
                 "example": {
                   "status": false,
-                  "msg": "Order not found",
-                  "errors": [
-                    {
-                      "code": "order_not_found",
-                      "message": "Order not found"
-                    }
-                  ]
+                  "msg": "Order not found"
                 }
               }
             }
@@ -6285,13 +6273,7 @@
                 },
                 "example": {
                   "status": false,
-                  "msg": "You cannot cancel after the order is confirmed",
-                  "errors": [
-                    {
-                      "code": "order",
-                      "message": "You cannot cancel after confirm"
-                    }
-                  ]
+                  "msg": "You cannot cancel after the order is confirmed"
                 }
               }
             }
@@ -10150,6 +10132,10 @@
     "schemas": {
       "ApiError": {
         "type": "object",
+        "required": [
+          "status",
+          "msg"
+        ],
         "properties": {
           "status": {
             "type": "boolean",
@@ -10159,6 +10145,10 @@
             "type": "string",
             "example": "Something went wrong"
           }
+        },
+        "example": {
+          "status": false,
+          "msg": "Something went wrong"
         }
       },
       "ApiResponse": {
@@ -10481,30 +10471,12 @@
         }
       },
       "ConsumerPlaceOrderError": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "boolean",
-            "example": false
-          },
-          "msg": {
-            "type": "string"
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "code": {
-                  "type": "string"
-                },
-                "message": {
-                  "type": "string"
-                }
-              }
-            }
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiError"
           }
-        }
+        ],
+        "description": "Deprecated alias — same shape as ApiError ({ status: false, msg })."
       },
       "ConsumerAddress": {
         "type": "object",

@@ -3,6 +3,8 @@ const path = require('path');
 
 const OVERLAY_FILE = path.join(__dirname, 'swagger.openapi-overlay.json');
 const CHAT_OVERLAY_FILE = path.join(__dirname, 'swagger.chat.overlay.json');
+const REVIEWS_OVERLAY_FILE = path.join(__dirname, 'swagger.reviews.overlay.json');
+const PAYMENT_OVERLAY_FILE = path.join(__dirname, 'swagger.payment.overlay.json');
 
 function normalizePathKey(routePath) {
   if (!routePath) return routePath;
@@ -10,6 +12,17 @@ function normalizePathKey(routePath) {
   if (p.startsWith('/api/')) p = p.slice(4);
   if (p.length > 1 && p.endsWith('/')) p = p.slice(0, -1);
   return p;
+}
+
+/** Match autogen path keys that differ only by a trailing slash. */
+function resolveExistingPathKey(paths, rawPath) {
+  if (paths[rawPath]) return rawPath;
+  const normalized = normalizePathKey(rawPath);
+  if (paths[normalized]) return normalized;
+  for (const key of Object.keys(paths)) {
+    if (normalizePathKey(key) === normalized) return key;
+  }
+  return rawPath;
 }
 
 function loadOverlayFile(filePath, label) {
@@ -25,13 +38,32 @@ function loadOverlay() {
   if (!main) return null;
 
   const chat = loadOverlayFile(CHAT_OVERLAY_FILE, 'swagger.chat.overlay.json');
-  if (!chat) return main;
-
-  main.paths = { ...(main.paths || {}), ...(chat.paths || {}) };
-  mergeComponents(main, chat.components);
-  if (Array.isArray(chat.tags) && chat.tags.length) {
-    main.tags = [...(main.tags || []), ...chat.tags];
+  if (chat) {
+    main.paths = { ...(main.paths || {}), ...(chat.paths || {}) };
+    mergeComponents(main, chat.components);
+    if (Array.isArray(chat.tags) && chat.tags.length) {
+      main.tags = [...(main.tags || []), ...chat.tags];
+    }
   }
+
+  const reviews = loadOverlayFile(REVIEWS_OVERLAY_FILE, 'swagger.reviews.overlay.json');
+  if (reviews) {
+    main.paths = { ...(main.paths || {}), ...(reviews.paths || {}) };
+    mergeComponents(main, reviews.components);
+    if (Array.isArray(reviews.tags) && reviews.tags.length) {
+      main.tags = [...(main.tags || []), ...reviews.tags];
+    }
+  }
+
+  const payment = loadOverlayFile(PAYMENT_OVERLAY_FILE, 'swagger.payment.overlay.json');
+  if (payment) {
+    main.paths = { ...(main.paths || {}), ...(payment.paths || {}) };
+    mergeComponents(main, payment.components);
+    if (Array.isArray(payment.tags) && payment.tags.length) {
+      main.tags = [...(main.tags || []), ...payment.tags];
+    }
+  }
+
   return main;
 }
 
@@ -154,7 +186,7 @@ function applyOpenApiOverlay(swaggerDoc, paths) {
   // Routes documented only in overlay (e.g. new consumer endpoints before autogen picks them up)
   for (const [rawPath, overlayMethods] of Object.entries(overlay.paths || {})) {
     if (rawPath.startsWith('/swagger')) continue;
-    const routePath = normalizePathKey(rawPath);
+    const routePath = resolveExistingPathKey(paths, rawPath);
     if (!paths[routePath]) paths[routePath] = {};
     for (const [method, overlayOp] of Object.entries(overlayMethods)) {
       if (method === 'parameters' || !overlayOp || typeof overlayOp !== 'object') continue;

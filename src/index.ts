@@ -4,7 +4,8 @@ import http from 'http';
 import express, { Request, Response } from 'express';
 import { initSocketServer } from './sockets';
 import cors from 'cors';
-import apiRouter from './routes/index'
+import apiRouter from './routes/index';
+import hyperPayRoutes from './routes/payment/hyperpay';
 import './config/firebase';
 import { connectDB } from './config/database';
 import swaggerUi from 'swagger-ui-express';
@@ -32,9 +33,12 @@ app.use(cors({
 
 // Middleware to parse JSON bodies
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Mount our routes
-app.use('/api', apiRouter)
+app.use('/api', apiRouter);
+/** PHP parity: /payment/hyperpay/* (not under /api) — register notify URL with HYP as-is */
+app.use('/payment/hyperpay', hyperPayRoutes);
 
 // Swagger Setup (role specs at repo root — same pattern as Jikanzo)
 const openApiDir = path.join(__dirname, '..');

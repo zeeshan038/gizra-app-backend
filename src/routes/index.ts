@@ -1,21 +1,12 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 
 const router = express.Router();
 
-/** Isolated probe — never $disconnect the app-wide Prisma singleton (Docker hits this every 30s). */
-async function probePostgres(): Promise<void> {
-  const probe = new PrismaClient();
-  try {
-    await probe.$queryRaw`SELECT 1`;
-  } finally {
-    await probe.$disconnect();
-  }
-}
-
+/** Same pool as the running API (startup already called connectDB). Never $disconnect here. */
 router.get('/health/db', async (_req, res) => {
   try {
-    await probePostgres();
+    await prisma.$queryRaw`SELECT 1`;
     return res.status(200).json({ status: true, db: 'ok' });
   } catch (err) {
     console.error('[health/db]', err);
@@ -31,6 +22,11 @@ import vendorRestaurantRoutes from './vendor/restaurant';
 import vendorShopRoutes from './vendor/shop';
 import vendorDispatchRoutes from './vendor/dispatch';
 import vendorMessageRoutes from './vendor/message';
+import vendorDashboardRoutes from './vendor/dashboard';
+import vendorCouponRoutes from './vendor/coupon';
+import vendorReviewRoutes from './vendor/review';
+import vendorWalletRoutes from './vendor/wallet';
+import vendorWithdrawMethodRoutes from './vendor/withdrawMethod';
 //consumer
 import consumerUserRoutes from './consumer/user';
 //deliveryman
@@ -52,9 +48,16 @@ router.use('/vendor/restaurant', vendorRestaurantRoutes);
 router.use('/vendor/shop', vendorShopRoutes);
 router.use('/vendor/dispatch', vendorDispatchRoutes);
 router.use('/vendor/message', vendorMessageRoutes);
+router.use('/vendor/dashboard', vendorDashboardRoutes);
+router.use('/vendor/coupons', vendorCouponRoutes);
+router.use('/vendor/reviews', vendorReviewRoutes);
+router.use('/vendor/wallet', vendorWalletRoutes);
+router.use('/vendor/withdraw-method', vendorWithdrawMethodRoutes);
 
 //consumer
 import consumerCartRoutes from './consumer/cart';
+import consumerCouponRoutes from './consumer/coupon';
+import consumerReviewRoutes from './consumer/review';
 import consumerOrderRoutes from './consumer/order';
 import consumerRestaurantRoutes from './consumer/restaurant';
 import consumerFoodRoutes from './consumer/food';
@@ -76,6 +79,8 @@ router.use('/consumer/restaurants', consumerRestaurantRoutes);
 router.use('/consumer/foods', consumerFoodRoutes);
 router.use('/consumer', consumerDashboardRoutes);
 router.use('/consumer/cart', consumerCartRoutes);
+router.use('/consumer/coupon', consumerCouponRoutes);
+router.use('/consumer/reviews', consumerReviewRoutes);
 router.use('/consumer/order', consumerOrderRoutes);
 router.use('/consumer/addresses', consumerAddressRoutes);
 router.use('/consumer/favourites', consumerFavouriteRoutes);

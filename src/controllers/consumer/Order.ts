@@ -116,7 +116,7 @@ export const placeOrder = async (req: Request, res: Response): Promise<any> => {
       where: { id: BigInt(Number(orderResult.restaurant_id)) },
       select: { vendor_id: true },
     });
-    if (restaurant?.vendor_id) {
+    if (restaurant?.vendor_id && orderResult.payment_method !== 'digital_payment') {
       void sendNewOrderNotification({
         order_id: mappedOrder.id,
         restaurant_id: Number(orderResult.restaurant_id),
@@ -140,14 +140,12 @@ export const placeOrder = async (req: Request, res: Response): Promise<any> => {
       return res.status(e.statusCode).json({
         status: false,
         msg: e.message,
-        errors: [{ code: e.code, message: e.message }],
       });
     }
     if (e.message === 'EMPTY_ORDER') {
       return res.status(403).json({
         status: false,
         msg: 'You cannot place an empty order',
-        errors: [{ code: 'empty_order', message: 'You cannot place an empty order' }],
       });
     }
     if (e.message === 'ADDRESS_NOT_FOUND') {
@@ -326,7 +324,6 @@ export const trackOrder = async (req: Request, res: Response): Promise<any> => {
       return res.status(404).json({
         status: false,
         msg: 'Order not found',
-        errors: [{ code: 'order_not_found', message: 'Order not found' }],
       });
     }
 
@@ -334,7 +331,6 @@ export const trackOrder = async (req: Request, res: Response): Promise<any> => {
       return res.status(404).json({
         status: false,
         msg: 'Order not found',
-        errors: [{ code: 'order_not_found', message: 'Order not found' }],
       });
     }
 
@@ -460,7 +456,6 @@ export const cancelOrder = async (req: Request, res: Response): Promise<any> => 
       return res.status(404).json({
         status: false,
         msg: 'Order not found',
-        errors: [{ code: 'order', message: 'Order not found' }],
       });
     }
 
@@ -468,7 +463,6 @@ export const cancelOrder = async (req: Request, res: Response): Promise<any> => 
       return res.status(403).json({
         status: false,
         msg: 'You cannot cancel after the order is confirmed',
-        errors: [{ code: 'order', message: 'You cannot cancel after confirm' }],
       });
     }
 

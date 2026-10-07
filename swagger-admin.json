@@ -35,6 +35,10 @@
     "schemas": {
       "ApiError": {
         "type": "object",
+        "required": [
+          "status",
+          "msg"
+        ],
         "properties": {
           "status": {
             "type": "boolean",
@@ -44,6 +48,10 @@
             "type": "string",
             "example": "Something went wrong"
           }
+        },
+        "example": {
+          "status": false,
+          "msg": "Something went wrong"
         }
       },
       "ApiResponse": {
@@ -578,30 +586,12 @@
         }
       },
       "ConsumerPlaceOrderError": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "boolean",
-            "example": false
-          },
-          "msg": {
-            "type": "string"
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "code": {
-                  "type": "string"
-                },
-                "message": {
-                  "type": "string"
-                }
-              }
-            }
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiError"
           }
-        }
+        ],
+        "description": "Deprecated alias — same shape as ApiError ({ status: false, msg })."
       },
       "ConsumerAddress": {
         "type": "object",
@@ -6132,37 +6122,6 @@
           }
         }
       },
-      "ChatValidationErrorResponse": {
-        "type": "object",
-        "required": [
-          "errors"
-        ],
-        "properties": {
-          "errors": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "code": {
-                  "type": "string",
-                  "example": "validation"
-                },
-                "message": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        },
-        "example": {
-          "errors": [
-            {
-              "code": "validation",
-              "message": "receiver_id is required for vendor or delivery_man"
-            }
-          ]
-        }
-      },
       "ChatConsumerSendRequest": {
         "type": "object",
         "description": "Provide either conversation_id (existing thread) OR receiver_type + receiver_id (new thread). Pagination fields echo PHP send response paging.",
@@ -6258,6 +6217,363 @@
           "offset": {
             "type": "integer",
             "default": 1
+          }
+        }
+      },
+      "ConsumerReviewCustomerSnippet": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "f_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "l_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "description": "Absolute URL when stored path is resolvable"
+          }
+        }
+      },
+      "ConsumerFoodReviewItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "food_id": {
+            "type": "integer"
+          },
+          "user_id": {
+            "type": "integer"
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true
+          },
+          "attachment": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rating": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "order_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "item_campaign_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "status": {
+            "type": "boolean"
+          },
+          "restaurant_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "reply": {
+            "type": "string",
+            "nullable": true,
+            "description": "Vendor reply to this review"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "food_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "customer": {
+            "$ref": "#/components/schemas/ConsumerReviewCustomerSnippet"
+          }
+        }
+      },
+      "ConsumerFoodReviewsResponse": {
+        "type": "object",
+        "description": "Response when GET includes `food_id`.",
+        "properties": {
+          "avg_rating": {
+            "type": "number",
+            "example": 4.5
+          },
+          "rating_count": {
+            "type": "integer",
+            "example": 12
+          },
+          "reviews": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerFoodReviewItem"
+            }
+          }
+        }
+      },
+      "ConsumerDriverReviewItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "delivery_man_id": {
+            "type": "integer"
+          },
+          "user_id": {
+            "type": "integer"
+          },
+          "order_id": {
+            "type": "integer"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "rating": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "attachment": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "customer": {
+            "$ref": "#/components/schemas/ConsumerReviewCustomerSnippet"
+          }
+        }
+      },
+      "ConsumerDriverReviewsResponse": {
+        "type": "object",
+        "description": "Response when GET includes `delivery_man_id`.",
+        "properties": {
+          "avg_rating": {
+            "type": "number",
+            "example": 4.2
+          },
+          "review_count": {
+            "type": "integer",
+            "example": 8
+          },
+          "reviews": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerDriverReviewItem"
+            }
+          }
+        }
+      },
+      "ConsumerPendingFoodReviewDetail": {
+        "type": "object",
+        "description": "One order line still eligible for a food review.",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "order_details.id"
+          },
+          "food_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "order_id": {
+            "type": "integer"
+          },
+          "item_campaign_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "price": {
+            "type": "number"
+          },
+          "food_details": {
+            "type": "object",
+            "nullable": true,
+            "description": "Snapshot JSON from order (name, image, etc.)"
+          }
+        }
+      },
+      "ConsumerPendingFoodReviewsResponse": {
+        "type": "object",
+        "description": "Response when GET includes `order_id` (authenticated).",
+        "properties": {
+          "details": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerPendingFoodReviewDetail"
+            }
+          }
+        }
+      },
+      "ConsumerSubmitFoodReviewBody": {
+        "type": "object",
+        "required": [
+          "food_id",
+          "order_id",
+          "rating"
+        ],
+        "properties": {
+          "food_id": {
+            "type": "integer",
+            "description": "Must match a line on the order"
+          },
+          "order_id": {
+            "type": "integer",
+            "description": "Customer's order id"
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true
+          },
+          "attachment": {
+            "description": "Image URL(s) — string or array of strings",
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "ConsumerSubmitDriverReviewBody": {
+        "type": "object",
+        "required": [
+          "delivery_man_id",
+          "order_id",
+          "rating",
+          "comment"
+        ],
+        "properties": {
+          "delivery_man_id": {
+            "type": "integer"
+          },
+          "order_id": {
+            "type": "integer"
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "comment": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attachment": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "ConsumerReviewSubmitSuccess": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Review submitted successfully"
+          }
+        }
+      },
+      "ConsumerGeneratePaymentLinkRequest": {
+        "type": "object",
+        "required": [
+          "order_id",
+          "payment_method",
+          "callback"
+        ],
+        "properties": {
+          "order_id": {
+            "oneOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "Unpaid order id belonging to the logged-in user"
+          },
+          "payment_method": {
+            "type": "string",
+            "example": "hyper_pay",
+            "description": "Gateway key stored on payment_requests (PHP uses hyper_pay / hypay after pay)"
+          },
+          "callback": {
+            "type": "string",
+            "description": "App deep link or web URL for final redirect after HyperPay"
+          },
+          "payment_platform": {
+            "type": "string",
+            "enum": [
+              "app",
+              "web"
+            ],
+            "default": "app"
+          }
+        }
+      },
+      "ConsumerGeneratePaymentLinkResponse": {
+        "type": "object",
+        "properties": {
+          "redirect_link": {
+            "type": "string",
+            "format": "uri",
+            "description": "Backend URL that 302s to HyperPay — open in WebView/browser"
           }
         }
       }
@@ -8455,496 +8771,6 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/RegistrationInitBody"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/config": {
-      "get": {
-        "summary": "App configuration (all apps)",
-        "description": "Legacy PHP **GET /api/v1/config** — flat JSON (no `status`/`data` wrapper). Customer, vendor, and driver apps call this on launch for **terms_and_conditions**, **privacy_policy**, **about_us**, refund/cancellation/shipping policies (+ `*_status` flags), **cookies_text**, payment/wallet/loyalty toggles, map keys, and **app_minimum_version_*** / store URLs per app.\n\nOptional header **`X-localization`** (e.g. `en`, `he`) returns translated legal HTML from `data_settings` + `translations`.\n\nSame body as **GET /consumer/config**.",
-        "parameters": [
-          {
-            "name": "X-localization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "en"
-            },
-            "description": "Locale for terms/privacy/about/policy HTML (legacy PHP localization)"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Configuration object",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AppConfigurationResponse"
-                },
-                "example": {
-                  "business_name": "Gizra",
-                  "logo_full_url": "https://cdn.example.com/business/logo.png",
-                  "terms_and_conditions": "<p>Terms and conditions HTML…</p>",
-                  "privacy_policy": "<p>Privacy policy HTML…</p>",
-                  "about_us": "<p>About us content…</p>",
-                  "refund_policy_status": 1,
-                  "refund_policy_data": "<p>Refund policy…</p>",
-                  "cancellation_policy_status": 0,
-                  "cancellation_policy_data": "",
-                  "shipping_policy_status": 0,
-                  "shipping_policy_data": "",
-                  "cookies_text": "We use cookies to improve your experience.",
-                  "footer_text": "© Gizra",
-                  "cash_on_delivery": true,
-                  "digital_payment": false,
-                  "home_delivery": true,
-                  "take_away": true,
-                  "maintenance_mode": false,
-                  "order_confirmation_model": "restaurant",
-                  "app_minimum_version_android": 1,
-                  "app_minimum_version_android_restaurant": 1,
-                  "app_minimum_version_android_deliveryman": 1,
-                  "app_url_android_deliveryman": "https://play.google.com/store/apps/details?id=app.gizra.driver",
-                  "centralize_login": {
-                    "manual_login_status": 1,
-                    "otp_login_status": 1,
-                    "social_login_status": 0
-                  },
-                  "deliveryman_additional_join_us_page_data": null,
-                  "restaurant_additional_join_us_page_data": null,
-                  "language": [
-                    {
-                      "key": "en",
-                      "value": "en"
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "App Config (All Apps)"
-        ]
-      }
-    },
-    "/admin/banners": {
-      "post": {
-        "description": "",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Created",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                },
-                "example": {
-                  "status": true,
-                  "msg": "Banner created successfully",
-                  "data": {
-                    "id": "1",
-                    "zone_id": 1
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Bad Request"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - Invalid or missing authentication token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Unauthorized"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Forbidden"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found - The requested resource could not be found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Not Found"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error - Something went wrong on the server",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "title": {
-                    "example": "any"
-                  },
-                  "type": {
-                    "example": "any"
-                  },
-                  "image": {
-                    "example": "any"
-                  },
-                  "data": {
-                    "example": "any"
-                  },
-                  "zone_id": {
-                    "example": "any"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Admin"
-        ]
-      },
-      "get": {
-        "description": "",
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful operation",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                },
-                "example": {
-                  "status": true,
-                  "msg": "Banners fetched successfully",
-                  "data": "…"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Bad Request"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - Invalid or missing authentication token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Unauthorized"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Forbidden"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found - The requested resource could not be found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Not Found"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error - Something went wrong on the server",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Admin"
-        ]
-      }
-    },
-    "/upload": {
-      "post": {
-        "tags": [
-          "Upload"
-        ],
-        "summary": "Upload file to Cloudflare R2",
-        "description": "Multipart upload. **Registration (recommended):** set `role`, `cloudflare_id` (from registration-init), and `category` (`restaurant` | `identity` | `profile` | `assets`). Use response `path` on register/apply. **Legacy:** `subfolder` only (defaults to `assets/`).",
-        "parameters": [
-          {
-            "name": "file",
-            "in": "formData",
-            "required": true,
-            "description": "The file to upload",
-            "schema": {
-              "type": "file"
-            }
-          },
-          {
-            "name": "role",
-            "in": "formData",
-            "required": false,
-            "description": "Registration uploads: vendor | deliveryman",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "vendor",
-                "deliveryman"
-              ]
-            }
-          },
-          {
-            "name": "cloudflare_id",
-            "in": "formData",
-            "required": false,
-            "description": "12-char hex from POST /storage/registration-init (required with role for scoped uploads)",
-            "schema": {
-              "type": "string",
-              "pattern": "^[a-f0-9]{12}$",
-              "example": "a1b2c3d4e5f6"
-            }
-          },
-          {
-            "name": "category",
-            "in": "formData",
-            "required": false,
-            "description": "With role + cloudflare_id: restaurant (vendor logo/cover), identity, profile, assets",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "restaurant",
-                "identity",
-                "profile",
-                "assets"
-              ],
-              "default": "assets"
-            }
-          },
-          {
-            "name": "subfolder",
-            "in": "formData",
-            "required": false,
-            "description": "Legacy optional path e.g. vendors/abc/assets (must match cloudflare_id prefix if role is set)",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "File uploaded successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UploadSuccessResponse"
-                },
-                "example": {
-                  "status": true,
-                  "msg": "Operation successful"
-                }
-              },
-              "application/xml": {
-                "schema": {
-                  "$ref": "#/components/schemas/UploadSuccessResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Bad Request"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - Invalid or missing authentication token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Unauthorized"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Forbidden"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found - The requested resource could not be found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Not Found"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error - Something went wrong on the server",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "subfolder": {
-                    "example": "any"
-                  }
-                }
               }
             }
           }
