@@ -46,7 +46,7 @@ repair_nologin_offline() {
   printf "ALTER ROLE postgres WITH LOGIN SUPERUSER PASSWORD '%s';\n" "${SQL_PASS}" >"$repair_sql"
   echo "Stopping Postgres for offline NOLOGIN repair (volume ${vol})…"
   docker stop "$CONTAINER" >/dev/null
-  docker run --rm \
+  docker run --rm -u postgres \
     -v "${vol}:/var/lib/postgresql/data" \
     -v "${repair_sql}:/tmp/gizra-repair.sql:ro" \
     "$image" \
