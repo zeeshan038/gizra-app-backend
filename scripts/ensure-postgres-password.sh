@@ -25,8 +25,20 @@ done
 sleep 3
 
 SQL_PASS="${PW//\'/\'\'}"
-docker exec -u postgres "$CONTAINER" psql -d postgres -v ON_ERROR_STOP=1 \
-  -c "ALTER ROLE postgres WITH LOGIN SUPERUSER PASSWORD '${SQL_PASS}';"
+PGDATA="${PGDATA:-/var/lib/postgresql/data}"
+
+apply_role_password() {
+  docker exec -u postgres "$CONTAINER" psql -d postgres -v ON_ERROR_STOP=1 \
+    -c "ALTER ROLE postgres WITH LOGIN SUPERUSER PASSWORD '${SQL_PASS}';"
+}
+
+if ! apply_role_password 2>/dev/null; then
+  echo "Peer psql failed (often NOLOGIN from old repair scripts) — fixing via single-user mode…"
+  printf '%s\n' "ALTER ROLE postgres WITH LOGIN SUPERUSER PASSWORD '${SQL_PASS}';" \
+    | docker exec -i -u postgres "$CONTAINER" postgres --single -D "$PGDATA" template1 >/dev/null
+  apply_role_password
+fi
+echo "OK: postgres role LOGIN + password synced from .env"
 
 NET="$(docker inspect "$CONTAINER" --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}' | head -1)"
 if [[ -n "$NET" ]]; then
