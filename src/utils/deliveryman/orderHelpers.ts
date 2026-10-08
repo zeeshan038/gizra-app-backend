@@ -204,10 +204,12 @@ export async function getEligibleRestaurantIdsForDm(dm: {
   const zoneId = dm.zone_id != null ? Number(dm.zone_id) : NaN;
   if (!Number.isFinite(zoneId)) return [];
 
+  const zoneDecimal = new Prisma.Decimal(String(zoneId));
+
   const [commissionRestaurants, subscriptionRestaurants] = await Promise.all([
     prisma.restaurants.findMany({
       where: {
-        zone_id: zoneId,
+        zone_id: zoneDecimal,
         restaurant_model: 'commission',
         self_delivery_system: false,
       },
@@ -215,7 +217,7 @@ export async function getEligibleRestaurantIdsForDm(dm: {
     }),
     prisma.restaurants.findMany({
       where: {
-        zone_id: zoneId,
+        zone_id: zoneDecimal,
         restaurant_model: 'subscription',
       },
       select: { id: true },
@@ -283,12 +285,47 @@ export function passesScheduleWindow(order: orders, intervalMinutes: number): bo
 
 export function passesVehicleFilter(
   order: orders,
-  dmVehicleId: number | null
+  dmVehicleId: number | null,
+  dmType?: string
 ): boolean {
+  // Socket/FCM `order_request` is broadcast on zone topics — all zone-wise DMs may be pinged.
+  if (dmType === 'zone_wise') return true;
   if (dmVehicleId == null) return true;
   if (order.is_manual_dispatch) return true;
   if (order.vehicle_id == null) return true;
   return Number(order.vehicle_id) === dmVehicleId;
+}
+
+/** Pool orders a zone-wise DM may claim (restaurant allow-list or same zone on the order row). */
+export function buildLatestOrdersAreaFilter(
+  dm: {
+    type: string;
+    zone_id: Prisma.Decimal | null;
+    restaurant_id: Prisma.Decimal | null;
+  },
+  restaurantIds: number[]
+): Prisma.ordersWhereInput {
+  if (dm.type === 'restaurant_wise') {
+    const rid = dm.restaurant_id != null ? Number(dm.restaurant_id) : NaN;
+    if (!Number.isFinite(rid)) return { id: BigInt(-1) };
+    return { restaurant_id: new Prisma.Decimal(String(rid)) };
+  }
+
+  const zoneId = dm.zone_id != null ? Number(dm.zone_id) : NaN;
+  const scopes: Prisma.ordersWhereInput[] = [];
+
+  if (restaurantIds.length > 0) {
+    scopes.push({
+      restaurant_id: { in: restaurantIds.map((id) => new Prisma.Decimal(String(id))) },
+    });
+  }
+  if (Number.isFinite(zoneId)) {
+    scopes.push({ zone_id: new Prisma.Decimal(String(zoneId)) });
+  }
+
+  if (scopes.length === 0) return { id: BigInt(-1) };
+  if (scopes.length === 1) return scopes[0]!;
+  return { OR: scopes };
 }
 
 export function passesNotDigitalPending(order: orders): boolean {

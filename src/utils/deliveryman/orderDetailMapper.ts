@@ -58,7 +58,13 @@ export async function deliveryManCanViewOrder(
   }
 
   const restaurantIds = await getEligibleRestaurantIdsForDm(dm);
-  if (!restaurantIds.includes(Number(order.restaurant_id))) {
+  const inRestaurantList = restaurantIds.includes(Number(order.restaurant_id));
+  const zoneMatch =
+    dm.type === 'zone_wise' &&
+    dm.zone_id != null &&
+    order.zone_id != null &&
+    Number(order.zone_id) === Number(dm.zone_id);
+  if (!inRestaurantList && !zoneMatch) {
     return false;
   }
 
@@ -91,7 +97,7 @@ export async function deliveryManCanViewOrder(
   const dmVehicleId = dm.vehicle_id != null ? Number(dm.vehicle_id) : null;
   return (
     passesScheduleWindow(order, 30) &&
-    passesVehicleFilter(order, dmVehicleId) &&
+    passesVehicleFilter(order, dmVehicleId, dm.type) &&
     passesNotDigitalPending(order)
   );
 }

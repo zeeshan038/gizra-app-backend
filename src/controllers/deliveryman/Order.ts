@@ -9,6 +9,7 @@ import {
 } from '../../utils/order/createOrderTransaction';
 import {
   buildLatestOrderStatusFilter,
+  buildLatestOrdersAreaFilter,
   DM_ACTIVE_ORDER_STATUSES,
   getBusinessSetting,
   getEligibleRestaurantIdsForDm,
@@ -190,7 +191,11 @@ export const getLatestOrders = async (req: Request, res: Response): Promise<any>
     }
 
     const restaurantIds = await getEligibleRestaurantIdsForDm(dm);
-    if (restaurantIds.length === 0) {
+    const zoneId = dm.zone_id != null ? Number(dm.zone_id) : NaN;
+    if (
+      restaurantIds.length === 0 &&
+      (dm.type !== 'zone_wise' || !Number.isFinite(zoneId))
+    ) {
       return res.status(200).json({ status: true, msg: 'Success', data: [] });
     }
 
@@ -201,13 +206,18 @@ export const getLatestOrders = async (req: Request, res: Response): Promise<any>
 
     const statusFilter = buildLatestOrderStatusFilter(dm.type, orderConfirmationModel);
     const dmVehicleId = dm.vehicle_id != null ? Number(dm.vehicle_id) : null;
+    const areaFilter = buildLatestOrdersAreaFilter(dm, restaurantIds);
 
     const candidates = await prisma.orders.findMany({
       where: {
-        ...statusFilter,
-        delivery_man_id: null,
-        order_type: 'delivery',
-        restaurant_id: { in: restaurantIds },
+        AND: [
+          statusFilter,
+          {
+            delivery_man_id: null,
+            order_type: 'delivery',
+          },
+          areaFilter,
+        ],
       },
       orderBy: [{ schedule_at: 'desc' }, { id: 'desc' }],
       take: 100,
@@ -216,7 +226,7 @@ export const getLatestOrders = async (req: Request, res: Response): Promise<any>
     const filtered = candidates.filter(
       (order) =>
         passesScheduleWindow(order, 30) &&
-        passesVehicleFilter(order, dmVehicleId) &&
+        passesVehicleFilter(order, dmVehicleId, dm.type) &&
         passesNotDigitalPending(order)
     );
 
@@ -271,7 +281,13 @@ export const acceptOrder = async (req: Request, res: Response): Promise<any> => 
     }
 
     const restaurantIds = await getEligibleRestaurantIdsForDm(dm);
-    if (!restaurantIds.includes(Number(order.restaurant_id))) {
+    const inRestaurantList = restaurantIds.includes(Number(order.restaurant_id));
+    const zoneMatch =
+      dm.type === 'zone_wise' &&
+      dm.zone_id != null &&
+      order.zone_id != null &&
+      Number(order.zone_id) === Number(dm.zone_id);
+    if (!inRestaurantList && !zoneMatch) {
       return res.status(403).json({ status: false, msg: 'Order is outside your delivery area' });
     }
 
