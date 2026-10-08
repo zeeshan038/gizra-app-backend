@@ -32,10 +32,35 @@ apply_role_password() {
     -c "ALTER ROLE postgres WITH LOGIN SUPERUSER PASSWORD '${SQL_PASS}';"
 }
 
+# Single-user mode cannot run while postmaster is up (postmaster.pid lock).
+repair_nologin_offline() {
+  local vol image
+  vol="$(docker inspect "$CONTAINER" --format '{{ range .Mounts }}{{ if eq .Destination "/var/lib/postgresql/data" }}{{ .Name }}{{ end }}{{ end }}')"
+  if [[ -z "$vol" ]]; then
+    echo "FAIL: could not find pgdata volume on $CONTAINER" >&2
+    exit 1
+  fi
+  image="$(docker inspect "$CONTAINER" --format '{{.Config.Image}}')"
+  echo "Stopping Postgres for offline NOLOGIN repair (volume ${vol})…"
+  docker stop "$CONTAINER" >/dev/null
+  docker run --rm \
+    -e GIZRA_PG_PW="$PW" \
+    -v "${vol}:/var/lib/postgresql/data" \
+    "$image" \
+    bash -c 'p="${GIZRA_PG_PW//'"'"'/''"'"'}"; printf "%s\n" "ALTER ROLE postgres WITH LOGIN SUPERUSER PASSWORD '"'"'"${p}"'"'"';" | postgres --single -D /var/lib/postgresql/data template1' \
+    >/dev/null
+  docker start "$CONTAINER" >/dev/null
+  for i in $(seq 1 60); do
+    docker exec "$CONTAINER" pg_isready -U postgres -d gizra_db >/dev/null 2>&1 && break
+    [[ "$i" -eq 60 ]] && { echo "FAIL: Postgres did not become ready after offline repair."; exit 1; }
+    sleep 2
+  done
+  sleep 2
+}
+
 if ! apply_role_password 2>/dev/null; then
-  echo "Peer psql failed (often NOLOGIN from old repair scripts) — fixing via single-user mode…"
-  printf '%s\n' "ALTER ROLE postgres WITH LOGIN SUPERUSER PASSWORD '${SQL_PASS}';" \
-    | docker exec -i -u postgres "$CONTAINER" postgres --single -D "$PGDATA" template1 >/dev/null
+  echo "Peer psql failed (often NOLOGIN from old repair scripts) — offline single-user repair…"
+  repair_nologin_offline
   apply_role_password
 fi
 echo "OK: postgres role LOGIN + password synced from .env"
@@ -50,6 +75,6 @@ if [[ -n "$NET" ]]; then
     fi
     sleep 2
   done
-  echo "FAIL: TCP password check to postgres:5432 (Postgres may still be restarting after pg_hba reload)."
+  echo "FAIL: TCP password check to postgres:5432 (Postgres may still be restarting)."
   exit 1
 fi
