@@ -1,5 +1,4 @@
-#!/usr/bin/env bash
-# Align Postgres role with password in DATABASE_URL (.env). Used by repair/sync, not normal deploy.
+
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"

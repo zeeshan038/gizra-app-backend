@@ -10,6 +10,8 @@ const DEFAULT_ORIGINS = [
   'http://localhost:5174',
   'https://vendor.gizra.app',
   'https://www.gizra.app',
+  'https://restaurant.gizra.app',
+  'https://gizra-restaurant-pannel.vercel.app',
 ];
 
 function parseCorsOrigins(): string[] {

@@ -27,7 +27,8 @@ export async function authenticateSocketToken(token: string): Promise<SocketActo
       where: { id: Number(subjectId) },
       select: { id: true, auth_token: true, status: true },
     });
-    if (!vendor?.status || vendor.auth_token !== token.trim()) return null;
+    // Match vendor login: null/undefined status is treated as active (schema default true).
+    if (!vendor || vendor.status === false || vendor.auth_token !== token.trim()) return null;
 
     let restaurantId = decoded.restaurant_id ? Number(decoded.restaurant_id) : null;
     if (!restaurantId) {
@@ -65,7 +66,7 @@ export async function authenticateSocketToken(token: string): Promise<SocketActo
         restaurant_id: true,
       },
     });
-    if (!dm || !dm.status || dm.application_status !== 'approved') return null;
+    if (!dm || dm.status === false || dm.application_status !== 'approved') return null;
     if (dm.auth_token !== token.trim()) return null;
     const subscribeTopics = await getDeliveryManFcmTopics(dm);
     return {

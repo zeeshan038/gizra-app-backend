@@ -28,9 +28,11 @@ export function getSocketServer(): Server | null {
 }
 
 export function publishOrderNew(payload: OrderNewPayload): void {
-  if (!io) return;
-  const room = restaurantRoom(payload.restaurant_id);
-  io.to(room).emit(SocketEvents.NEW_ORDER, payload);
+  if (!io) {
+    console.warn('[socket] publishOrderNew skipped — Socket.IO not initialized');
+    return;
+  }
+  io.to(restaurantRoom(payload.restaurant_id)).emit(SocketEvents.NEW_ORDER, payload);
 }
 
 export function publishOrderRequest(topics: string[], payload: OrderRequestPayload): void {
