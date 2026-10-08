@@ -67,7 +67,7 @@ function isStatusEligibleForDriverPool(
   order: orders,
   orderConfirmationModel: string
 ): boolean {
-  if (['confirmed', 'processing', 'handover'].includes(order.order_status)) {
+  if (['confirmed', 'accepted', 'processing', 'handover'].includes(order.order_status)) {
     return true;
   }
   if (order.order_status === 'pending') {

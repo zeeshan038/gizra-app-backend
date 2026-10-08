@@ -15,7 +15,7 @@ export const DM_ACTIVE_ORDER_STATUSES = [
   'handover',
 ] as const;
 
-export const DM_LATEST_BASE_STATUSES = ['confirmed', 'processing', 'handover'] as const;
+export const DM_LATEST_BASE_STATUSES = ['confirmed', 'accepted', 'processing', 'handover'] as const;
 
 export function requireDmIdFromRequest(req: {
   user?: { id?: string };
@@ -250,7 +250,7 @@ export function buildLatestOrderStatusFilter(
 ): Prisma.ordersWhereInput {
   if (orderConfirmationModel === 'deliveryman' && dmType === 'zone_wise') {
     return {
-      order_status: { in: ['pending', 'confirmed', 'processing', 'handover'] },
+      order_status: { in: ['pending', 'confirmed', 'accepted', 'processing', 'handover'] },
     };
   }
 
@@ -261,7 +261,7 @@ export function buildLatestOrderStatusFilter(
         subscription_id: { not: null },
       },
       {
-        order_status: { in: ['confirmed', 'processing', 'handover'] },
+        order_status: { in: ['confirmed', 'accepted', 'processing', 'handover'] },
       },
     ],
   };
