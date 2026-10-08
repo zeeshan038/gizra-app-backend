@@ -9,7 +9,10 @@ import {
   passesScheduleWindow,
 } from '../deliveryman/orderHelpers';
 import { sendFcmToDevice, sendFcmToTopic, type FcmPushData } from './fcm';
-import { isPushNotificationEnabled } from './notificationSettings';
+import {
+  isPushNotificationEnabled,
+  isVendorPushEnabled,
+} from './notificationSettings';
 import { buildOrderStatusDescription } from './orderStatusMessage';
 import { persistUserNotification } from './persistUserNotification';
 
@@ -94,6 +97,7 @@ async function notifyCustomerOrderStatus(
 
 async function notifyVendor(
   vendorId: number,
+  restaurantId: number | null,
   deviceToken: string | null | undefined,
   data: FcmPushData,
   settingKey = 'restaurant_order_notification'
@@ -104,7 +108,21 @@ async function notifyVendor(
     console.error('[notify] failed to save vendor user_notifications', e);
   }
 
-  const enabled = await isPushNotificationEnabled('restaurant', settingKey);
+  const enabled =
+    restaurantId != null
+      ? await isVendorPushEnabled(restaurantId, settingKey)
+      : await isPushNotificationEnabled('restaurant', settingKey);
+
+  if (!enabled) {
+    console.warn(
+      `[notify] vendor push skipped (notification settings off): vendor=${vendorId} key=${settingKey}`
+    );
+  } else if (!deviceToken?.trim()) {
+    console.warn(
+      `[notify] vendor push skipped (no device token): vendor=${vendorId} — register via PUT /api/vendor/fcm-token`
+    );
+  }
+
   await pushToDeviceIfEnabled(enabled, deviceToken, data);
 }
 
@@ -208,7 +226,12 @@ export async function sendOrderNotification(orderInput: orders | bigint): Promis
       type: 'order_status',
       order_status: order.order_status,
     };
-    await notifyVendor(vendorId, vendorToken, vendorData);
+    await notifyVendor(
+      vendorId,
+      ctx.restaurant?.id != null ? Number(ctx.restaurant.id) : null,
+      vendorToken,
+      vendorData
+    );
   }
 
   if (
@@ -251,6 +274,7 @@ export async function sendOrderNotification(orderInput: orders | bigint): Promis
 export async function persistAndPushVendorNewOrder(input: {
   order_id: string;
   vendor_id: number;
+  restaurant_id: number;
   order_type: string;
   deviceToken?: string | null;
 }): Promise<void> {
@@ -263,5 +287,5 @@ export async function persistAndPushVendorNewOrder(input: {
     order_type: input.order_type,
   };
 
-  await notifyVendor(input.vendor_id, input.deviceToken, data);
+  await notifyVendor(input.vendor_id, input.restaurant_id, input.deviceToken, data);
 }

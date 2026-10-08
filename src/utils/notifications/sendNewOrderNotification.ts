@@ -35,6 +35,7 @@ export async function sendNewOrderNotification(payload: NewOrderPushPayload): Pr
     await persistAndPushVendorNewOrder({
       order_id: payload.order_id,
       vendor_id: payload.vendor_id,
+      restaurant_id: payload.restaurant_id,
       order_type: payload.order_type,
       deviceToken,
     });

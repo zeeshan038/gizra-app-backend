@@ -46,8 +46,17 @@ async function sendViaFirebaseAdmin(
       apns: { payload: { aps: { sound: 'notification.wav' } } },
     });
     return true;
-  } catch (error) {
+  } catch (error: unknown) {
+    const code =
+      error && typeof error === 'object' && 'code' in error
+        ? String((error as { code?: string }).code)
+        : '';
     console.error('[notify] Firebase Admin send failed', error);
+    if (code.includes('registration-token-not-registered') || code.includes('invalid-argument')) {
+      console.warn(
+        '[notify] FCM token invalid or expired — vendor must re-open POS and call PUT /api/vendor/fcm-token'
+      );
+    }
     return false;
   }
 }

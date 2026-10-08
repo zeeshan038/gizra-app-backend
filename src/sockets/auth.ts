@@ -27,7 +27,7 @@ export async function authenticateSocketToken(token: string): Promise<SocketActo
       where: { id: Number(subjectId) },
       select: { id: true, auth_token: true, status: true },
     });
-    // Match vendor login: null/undefined status is treated as active (schema default true).
+ 
     if (!vendor || vendor.status === false || vendor.auth_token !== token.trim()) return null;
 
     let restaurantId = decoded.restaurant_id ? Number(decoded.restaurant_id) : null;
