@@ -14,11 +14,11 @@ repair_sql="$(mktemp)"
 printf "ALTER ROLE postgres WITH LOGIN SUPERUSER PASSWORD '%s';\n" "${SQL_PASS}" >"$repair_sql"
 docker stop "$CONTAINER" gizra-backend 2>/dev/null || true
 echo "Offline repair on volume ${vol}…"
-docker run --rm -u postgres \
+docker run --rm -i -u postgres \
   -v "${vol}:/var/lib/postgresql/data" \
-  -v "${repair_sql}:/tmp/gizra-repair.sql:ro" \
   "$image" \
-  bash -c 'postgres --single -D /var/lib/postgresql/data template1 < /tmp/gizra-repair.sql'
+  bash -c 'postgres --single -D /var/lib/postgresql/data template1' \
+  <"$repair_sql"
 rm -f "$repair_sql"
 docker start "$CONTAINER"
 echo "Done. Run: npm run deploy:server"
