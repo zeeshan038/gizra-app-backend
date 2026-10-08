@@ -18,6 +18,10 @@ docker exec "$BACKEND" sh -c "
   $EXPORT_SNIPPET
   echo \"\$DATABASE_URL\" | sed -E 's#(postgresql://[^:]+:)[^@]+#\\1***#'
   echo \"\$DATABASE_URL\" | sed -nE 's#.*@([^:/]+).*#DB host in URL: \\1#p'
+  case \"\$DATABASE_URL\" in
+    postgresql://*:*@postgres:5432/*|postgresql://*:*@postgres:5432?*) ;;
+    *) echo 'FAIL: URL must be postgresql://user:password@postgres:5432/...'; exit 1 ;;
+  esac
 " || exit 1
 
 HOST=$(docker exec "$BACKEND" sh -c "$EXPORT_SNIPPET; node -e \"
@@ -30,7 +34,8 @@ if [[ "$HOST" == "127.0.0.1" || "$HOST" == "localhost" ]]; then
   exit 1
 fi
 if [[ "$HOST" != "postgres" ]]; then
-  echo "WARN: expected DB host postgres in container (got $HOST). Re-run npm run deploy:server."
+  echo "FAIL: API container must use host postgres (got ${HOST:-empty}) — .env 167.x leaked; run npm run deploy:server"
+  exit 1
 fi
 
 echo "=== HTTP health (running API process) ==="
@@ -83,7 +88,7 @@ if docker exec -u postgres "$POSTGRES" psql -d gizra_db -c 'SELECT 1 AS ok;' >/d
   echo "OK: psql as OS user postgres"
 else
   echo "SKIP: peer psql failed (NOLOGIN noise — API connection above is what matters)"
-  echo "      To fix for manual psql: npm run repair:prod-stack once"
+  echo "      To fix for manual psql: npm run deploy:server (syncs POSTGRES_PASSWORD)"
 fi
 
 echo "All checks passed."

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Production deploy: git pull (optional), docker compose up --build, verify. Same pattern as other apps — DATABASE_URL in .env.
+# Production deploy — Raidr-style: one password in .env, compose up, verify. No trust/single-user on routine deploy.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -11,37 +11,35 @@ if [[ ! -f .env ]] || ! grep -qE '^DATABASE_URL=' .env; then
 fi
 
 if grep -qE '^DATABASE_URL=.*(127\.0\.0\.1|localhost)' .env; then
-  echo "Fix .env: on the server, DATABASE_URL must not use localhost (use server IP:5434 or postgres:5432)."
+  echo "Fix .env: on the server use postgres:5432 or 167.x:5434 — not localhost."
   exit 1
 fi
 
-# Shell exports override compose .env and cause drift — clear before up
 unset DATABASE_URL POSTGRES_PASSWORD
 
 if [[ "${1:-}" == "--pull" ]]; then
   git pull "${@:2}"
 fi
 
-chmod +x scripts/verify-db-docker.sh scripts/ensure-postgres-password.sh scripts/read-db-password-from-env.sh scripts/docker-compose.sh scripts/ensure-postgres-docker-trust.sh scripts/ensure-postgres-login.sh
+chmod +x scripts/preflight-server-env.sh scripts/verify-db-docker.sh scripts/ensure-postgres-password.sh scripts/read-db-password-from-env.sh scripts/docker-compose.sh
+./scripts/preflight-server-env.sh
 node scripts/prepare-compose-env.js
 
-echo "Starting Postgres…"
-./scripts/docker-compose.sh up -d postgres
+if ! grep -qE '^GIZRA_DATABASE_URL_INTERNAL=postgresql://[^:]+:[^@]+@postgres:5432/' .env.compose; then
+  echo "FAIL: .env.compose must set postgres:5432 URL with password (run prepare-compose-env.js)."
+  exit 1
+fi
 
-# Old Cloudflare Tunnel container (removed from compose) must not keep receiving prod traffic
+echo "Starting Postgres + Redis…"
+./scripts/docker-compose.sh up -d postgres redis
+
 docker stop gizra-cloudflared 2>/dev/null || true
 docker rm gizra-cloudflared 2>/dev/null || true
 
-echo "Postgres LOGIN + password (fixes NOLOGIN)…"
-./scripts/ensure-postgres-login.sh
-
-echo "Docker internal pg_hba trust (backend auth)…"
-./scripts/ensure-postgres-docker-trust.sh
-
-echo "TCP password check for Mac/host :5434…"
+echo "Sync Postgres role password with .env (for host :5434 + container)…"
 ./scripts/ensure-postgres-password.sh
 
-./scripts/docker-compose.sh up -d --build --force-recreate backend
+./scripts/docker-compose.sh up -d --build --force-recreate --remove-orphans backend
 
 echo "Waiting for API…"
 for i in $(seq 1 45); do
@@ -50,6 +48,7 @@ for i in $(seq 1 45); do
   fi
   if docker logs gizra-backend 2>&1 | tail -12 | grep -qE 'FATAL:|P1000|Authentication failed'; then
     docker logs --tail=30 gizra-backend
+    echo "If this persists once, run: npm run fix:prod-db — then use only deploy:server."
     exit 1
   fi
   sleep 2
@@ -58,8 +57,8 @@ done
 for attempt in 1 2 3 4 5; do
   if ./scripts/verify-db-docker.sh; then
     echo "Deploy OK."
+    echo "  curl -s http://127.0.0.1:3002/api/health/db"
     echo "  curl -s https://backend-prod.gizra.app/api/health/db"
-    echo "  curl -sI https://backend-prod.gizra.app/swagger/ | head -1"
     exit 0
   fi
   echo "Verify attempt $attempt failed; retry in 5s…"

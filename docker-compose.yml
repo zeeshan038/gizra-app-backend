@@ -6,13 +6,14 @@ services:
     env_file:
       - .env
     ports:
-      - "3002:3000"   # 3001 may be in use by other local containers
+      # nginx on host → 127.0.0.1:3002 only (not public)
+      - "127.0.0.1:3002:3000"
     environment:
       - PORT=3000
-      # Host in .env may be 167.x for Mac; backend container always uses compose network postgres:5432
-      - GIZRA_DATABASE_URL_INTERNAL=${GIZRA_DATABASE_URL_INTERNAL:?Run node scripts/prepare-compose-env.js or npm run deploy:server}
+      - NODE_ENV=production
+      # Overrides DATABASE_URL from .env (167.x is for host tools only). Password + postgres:5432 from prepare-compose-env.js
+      - GIZRA_DATABASE_URL_INTERNAL=${GIZRA_DATABASE_URL_INTERNAL:?Run npm run deploy:server}
       - DATABASE_URL=${GIZRA_DATABASE_URL_INTERNAL}
-      # Always use the compose Redis service (ignore Mac REDIS_URL=localhost:6380 in .env).
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-your_jwt_secret_here}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}

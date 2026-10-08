@@ -17,11 +17,12 @@ if [[ -x "$ROOT_DIR/scripts/docker-compose.sh" ]]; then
 else
   docker compose up -d postgres
 fi
-for i in $(seq 1 30); do
+for i in $(seq 1 60); do
   docker exec "$CONTAINER" pg_isready -U postgres -d gizra_db >/dev/null 2>&1 && break
-  [[ "$i" -eq 30 ]] && exit 1
-  sleep 1
+  [[ "$i" -eq 60 ]] && exit 1
+  sleep 2
 done
+sleep 3
 
 SQL_PASS="${PW//\'/\'\'}"
 docker exec -u postgres "$CONTAINER" psql -d postgres -v ON_ERROR_STOP=1 \
@@ -29,7 +30,14 @@ docker exec -u postgres "$CONTAINER" psql -d postgres -v ON_ERROR_STOP=1 \
 
 NET="$(docker inspect "$CONTAINER" --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}' | head -1)"
 if [[ -n "$NET" ]]; then
-  docker run --rm --network "$NET" -e PGPASSWORD="$PW" postgres:16-alpine \
-    psql -h postgres -U postgres -d gizra_db -v ON_ERROR_STOP=1 -c 'SELECT 1;' >/dev/null
-  echo "TCP password check OK."
+  for i in $(seq 1 15); do
+    if docker run --rm --network "$NET" -e PGPASSWORD="$PW" postgres:16-alpine \
+      psql -h postgres -U postgres -d gizra_db -v ON_ERROR_STOP=1 -c 'SELECT 1;' >/dev/null 2>&1; then
+      echo "TCP password check OK."
+      exit 0
+    fi
+    sleep 2
+  done
+  echo "FAIL: TCP password check to postgres:5432 (Postgres may still be restarting after pg_hba reload)."
+  exit 1
 fi

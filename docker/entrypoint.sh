@@ -4,10 +4,10 @@ set -e
 export DATABASE_URL="$(node /app/docker/resolve-database-url.js)"
 
 case "$DATABASE_URL" in
-  *@postgres:*|*@postgres/*)
+  postgresql://*:*@postgres:5432/*|postgresql://*:*@postgres:5432?*)
     ;;
   *)
-    echo "FATAL: Could not resolve DATABASE_URL to postgres:5432"
+    echo "FATAL: DATABASE_URL must be postgresql://USER:PASSWORD@postgres:5432/... (P1000 if password missing or wrong host)"
     exit 1
     ;;
 esac

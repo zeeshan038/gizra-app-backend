@@ -46,6 +46,10 @@ node scripts/prepare-compose-env.js
 echo "Fresh deploy (Postgres init uses POSTGRES_PASSWORD from .env.compose)…"
 npm run deploy:server
 
+echo "Applying Prisma schema to empty database…"
+docker exec gizra-backend npx prisma db push --accept-data-loss
+docker exec gizra-backend npm run enable-postgis 2>/dev/null || true
+
 echo ""
 echo "Done. Verify:"
 echo "  curl -s https://backend-prod.gizra.app/api/health/db"
