@@ -12,7 +12,7 @@ import {
 import { generatePaymentLink } from '../../controllers/consumer/PaymentLink';
 import { verifyConsumer } from '../../middlewares/verifyConsumer';
 
-router.post('/place', placeOrder);
+router.post('/place', verifyConsumer, placeOrder);
 
 router.use(verifyConsumer);
 
