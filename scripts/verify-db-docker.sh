@@ -42,7 +42,7 @@ echo "=== HTTP health (running API process) ==="
 if ! docker exec "$BACKEND" node -e "
 require('http').get('http://127.0.0.1:3000/swagger/', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1));
 " 2>/dev/null; then
-  echo "FAIL: /swagger/ not 200"
+  echo "FAIL: /swagger/ not 200 (API still starting? wait and re-run verify-db-docker.sh)"
   exit 1
 fi
 echo "OK: API responds 200 on /swagger/"

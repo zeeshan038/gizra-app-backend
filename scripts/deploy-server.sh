@@ -41,18 +41,26 @@ echo "Sync Postgres role password with .env (for host :5434 + container)…"
 
 ./scripts/docker-compose.sh up -d --build --force-recreate --remove-orphans backend
 
-echo "Waiting for API…"
-for i in $(seq 1 45); do
-  if docker logs gizra-backend 2>&1 | tail -25 | grep -q 'Server is running on port'; then
+echo "Waiting for API (entrypoint DB check + npm start can take 2–3 min on small VPS)…"
+api_ready=0
+for i in $(seq 1 120); do
+  if docker logs gizra-backend 2>&1 | tail -40 | grep -q 'Server is running on port'; then
+    api_ready=1
     break
   fi
-  if docker logs gizra-backend 2>&1 | tail -12 | grep -qE 'FATAL:|P1000|Authentication failed'; then
-    docker logs --tail=30 gizra-backend
+  if docker logs gizra-backend 2>&1 | tail -20 | grep -qE 'FATAL:|P1000|Authentication failed'; then
+    docker logs --tail=40 gizra-backend
     echo "If this persists once, run: npm run fix:prod-db — then use only deploy:server."
     exit 1
   fi
   sleep 2
 done
+if [[ "$api_ready" -ne 1 ]]; then
+  echo "FAIL: API did not log 'Server is running on port' within ~4 minutes."
+  docker logs --tail=50 gizra-backend
+  exit 1
+fi
+sleep 3
 
 for attempt in 1 2 3 4 5; do
   if ./scripts/verify-db-docker.sh; then
