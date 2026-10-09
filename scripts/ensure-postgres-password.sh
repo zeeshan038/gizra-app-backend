@@ -68,15 +68,23 @@ fi
 echo "OK: postgres role LOGIN + password synced from .env"
 
 NET="$(docker inspect "$CONTAINER" --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}' | head -1)"
+tcp_ok=0
 if [[ -n "$NET" ]]; then
   for i in $(seq 1 15); do
     if docker run --rm --network "$NET" -e PGPASSWORD="$PW" postgres:16-alpine \
       psql -h postgres -U postgres -d gizra_db -v ON_ERROR_STOP=1 -c 'SELECT 1;' >/dev/null 2>&1; then
+      tcp_ok=1
       echo "TCP password check OK."
-      exit 0
+      break
     fi
     sleep 2
   done
-  echo "FAIL: TCP password check to postgres:5432 (Postgres may still be restarting)."
+fi
+if [[ "$tcp_ok" -ne 1 ]]; then
+  echo "FAIL: TCP password check to postgres:5432 (Postgres may still be restarting or NOLOGIN)."
   exit 1
+fi
+
+if [[ -x "$ROOT_DIR/scripts/fix-postgres-grants.sh" ]]; then
+  "$ROOT_DIR/scripts/fix-postgres-grants.sh"
 fi

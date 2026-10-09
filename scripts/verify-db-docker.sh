@@ -48,16 +48,31 @@ fi
 echo "OK: API responds 200 on /swagger/"
 
 echo "=== DB health route ==="
-if docker exec "$BACKEND" node -e "
+HEALTH_BODY="$(docker exec "$BACKEND" node -e "
 require('http').get('http://127.0.0.1:3000/api/health/db', (r) => {
-  let b=''; r.on('data',d=>b+=d); r.on('end',()=>process.exit(r.statusCode===200?0:1));
+  let b=''; r.on('data',d=>b+=d); r.on('end',()=>{ process.stdout.write(b); process.exit(r.statusCode===200?0:1); });
 }).on('error',()=>process.exit(1));
-" 2>/dev/null; then
-  echo "OK: GET /api/health/db"
-else
+" 2>/dev/null)" || {
   echo "FAIL: /api/health/db not 200 — DB auth or Prisma broken"
   exit 1
+}
+echo "$HEALTH_BODY"
+echo "OK: GET /api/health/db"
+
+echo "=== Prisma table read (catches gizra_db.public denied) ==="
+if ! docker exec "$BACKEND" sh -c "
+  $EXPORT_SNIPPET
+  node -e \"
+const { PrismaClient } = require('@prisma/client');
+const p = new PrismaClient();
+p.restaurants.findFirst({ select: { id: true } })
+  .then(() => p.\\\$disconnect().then(() => process.exit(0)))
+  .catch((e) => { console.error(e.message); p.\\\$disconnect().finally(() => process.exit(1)); });
+\"" 2>&1; then
+  echo "FAIL: Prisma cannot read public tables — run ./scripts/fix-postgres-grants.sh"
+  exit 1
 fi
+echo "OK: Prisma restaurants.findFirst"
 
 if docker logs "$BACKEND" 2>&1 | tail -40 | grep -q 'Connected to PostgreSQL Database via Prisma'; then
   echo "OK: running API process is connected to Postgres (authoritative)"
