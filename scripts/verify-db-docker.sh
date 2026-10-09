@@ -74,6 +74,21 @@ p.restaurants.findFirst({ select: { id: true } })
 fi
 echo "OK: Prisma restaurants.findFirst"
 
+echo "=== Prisma users read (login) ==="
+if ! docker exec "$BACKEND" sh -c "
+  $EXPORT_SNIPPET
+  node -e \"
+const { PrismaClient } = require('@prisma/client');
+const p = new PrismaClient();
+p.users.findFirst({ where: { id: BigInt(1) }, select: { id: true } })
+  .then(() => p.\\\$disconnect().then(() => process.exit(0)))
+  .catch((e) => { console.error(e.message); p.\\\$disconnect().finally(() => process.exit(1)); });
+\"" 2>&1; then
+  echo "FAIL: Prisma users query — run ./scripts/apply-schema-patches.sh (missing columns?)"
+  exit 1
+fi
+echo "OK: Prisma users.findFirst"
+
 if docker logs "$BACKEND" 2>&1 | tail -40 | grep -q 'Connected to PostgreSQL Database via Prisma'; then
   echo "OK: running API process is connected to Postgres (authoritative)"
 else

@@ -37,6 +37,7 @@ docker stop gizra-cloudflared 2>/dev/null || true
 docker rm gizra-cloudflared 2>/dev/null || true
 
 echo "Sync Postgres role password with .env (for host :5434 + container)…"
+chmod +x scripts/fix-postgres-grants.sh scripts/apply-schema-patches.sh 2>/dev/null || true
 ./scripts/ensure-postgres-password.sh
 
 ./scripts/docker-compose.sh up -d --build --force-recreate --remove-orphans backend

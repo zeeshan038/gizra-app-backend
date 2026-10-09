@@ -2,6 +2,21 @@
 import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
+
+/** Login/session only — avoids 503 when prod DB is missing optional columns (e.g. is_notification_on). */
+const CONSUMER_LOGIN_USER_SELECT = {
+  id: true,
+  f_name: true,
+  l_name: true,
+  email: true,
+  phone: true,
+  password: true,
+  status: true,
+  is_phone_verified: true,
+  ref_code: true,
+} as const;
+
+type ConsumerLoginUser = Prisma.usersGetPayload<{ select: typeof CONSUMER_LOGIN_USER_SELECT }>;
 import { safeApiErrorMessage } from '../../utils/safeApiError';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
@@ -61,10 +76,16 @@ function manualLoginUserWhere(field_type: string, email_or_phone: string) {
 // Helper to generate unique referral code
 const generateReferralCode = async (f_name: string, id: number): Promise<string> => {
     let code = `${f_name.substring(0, 3).toUpperCase()}${crypto.randomBytes(2).toString('hex').toUpperCase()}${id}`;
-    let exists = await prisma.users.findFirst({ where: { ref_code: code } });
+    let exists = await prisma.users.findFirst({
+      where: { ref_code: code },
+      select: { id: true },
+    });
     while (exists) {
         code = `${f_name.substring(0, 3).toUpperCase()}${crypto.randomBytes(2).toString('hex').toUpperCase()}${id}`;
-        exists = await prisma.users.findFirst({ where: { ref_code: code } });
+        exists = await prisma.users.findFirst({
+          where: { ref_code: code },
+          select: { id: true },
+        });
     }
     return code;
 };
@@ -234,10 +255,8 @@ const checkGuestCart = async (userId: number, guestId: number): Promise<void> =>
   }
 };
 
-type ConsumerUserRecord = NonNullable<Awaited<ReturnType<typeof prisma.users.findFirst>>>;
-
 async function issueConsumerLoginSession(
-  user: ConsumerUserRecord,
+  user: ConsumerLoginUser,
   res: Response,
   options?: { guest_id?: number; login_type?: 'manual' | 'otp' }
 ): Promise<any> {
@@ -301,7 +320,10 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<any> =>
   const phone = String(validated.value.phone).trim();
 
   try {
-    const user = await prisma.users.findFirst({ where: { phone } });
+    const user = await prisma.users.findFirst({
+      where: { phone },
+      select: CONSUMER_LOGIN_USER_SELECT,
+    });
     if (!user) {
       return res.status(401).json({
         status: false,
@@ -375,7 +397,10 @@ export const verifyLoginOtp = async (req: Request, res: Response): Promise<any> 
   const phone = rawPhone.trim();
 
   try {
-    const user = await prisma.users.findFirst({ where: { phone } });
+    const user = await prisma.users.findFirst({
+      where: { phone },
+      select: CONSUMER_LOGIN_USER_SELECT,
+    });
     if (!user) {
       return res.status(401).json({
         status: false,
@@ -420,6 +445,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         if (payload.login_type === 'manual') {
             const user = await prisma.users.findFirst({
                 where: manualLoginUserWhere(payload.field_type, payload.email_or_phone),
+                select: CONSUMER_LOGIN_USER_SELECT,
             });
 
             if (!user) {
