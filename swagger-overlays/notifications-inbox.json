@@ -35,6 +35,57 @@
         "tags": ["Delivery Man Notifications"]
       }
     },
+    "/delivery-man/notifications/toggle": {
+      "put": {
+        "summary": "Toggle push notifications (on/off)",
+        "description": "Updates `is_notification_on` on the driver row. When **false**, direct FCM device pushes are skipped (inbox rows may still be stored). Send `{ \"enabled\": true|false }` to set explicitly; send `{}` or omit body to **flip** the current value.",
+        "parameters": [{ "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" }],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PushNotificationToggleBody" },
+              "examples": {
+                "setOn": { "summary": "Turn on", "value": { "enabled": true } },
+                "setOff": { "summary": "Turn off", "value": { "enabled": false } },
+                "flip": { "summary": "Flip current", "value": {} }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preference updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PushNotificationToggleResponse" },
+                "examples": {
+                  "enabled": {
+                    "value": {
+                      "status": true,
+                      "msg": "Push notifications enabled",
+                      "data": { "is_notification_on": true }
+                    }
+                  },
+                  "disabled": {
+                    "value": {
+                      "status": true,
+                      "msg": "Push notifications disabled",
+                      "data": { "is_notification_on": false }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError400" },
+          "401": { "$ref": "#/components/responses/ApiError401" },
+          "404": { "$ref": "#/components/responses/ApiError404" },
+          "500": { "$ref": "#/components/responses/ApiError500" }
+        },
+        "tags": ["Delivery Man Notifications"]
+      }
+    },
     "/delivery-man/notifications": {
       "get": {
         "summary": "Notification inbox (paginated)",
@@ -182,6 +233,42 @@
         "tags": ["Vendor Notifications"]
       }
     },
+    "/vendor/notifications/toggle": {
+      "put": {
+        "summary": "Toggle push notifications (on/off)",
+        "description": "Updates `is_notification_on` on the vendor row (POS mobile `firebase_token` and web `fcm_token_web`). When **false**, direct FCM pushes are skipped. Optional body `{ \"enabled\": boolean }`; empty body **flips** current value.",
+        "parameters": [{ "$ref": "#/components/parameters/VendorAuthorizationHeader" }],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PushNotificationToggleBody" },
+              "examples": {
+                "setOn": { "value": { "enabled": true } },
+                "setOff": { "value": { "enabled": false } },
+                "flip": { "value": {} }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preference updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PushNotificationToggleResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError400" },
+          "401": { "$ref": "#/components/responses/ApiError401" },
+          "403": { "$ref": "#/components/responses/ApiError403" },
+          "404": { "$ref": "#/components/responses/ApiError404" },
+          "500": { "$ref": "#/components/responses/ApiError500" }
+        },
+        "tags": ["Vendor Notifications"]
+      }
+    },
     "/vendor/notifications/{id}": {
       "delete": {
         "summary": "Delete one inbox item",
@@ -264,6 +351,41 @@
         "tags": ["Consumer Notifications"]
       }
     },
+    "/consumer/notifications/toggle": {
+      "put": {
+        "summary": "Toggle push notifications (on/off)",
+        "description": "Updates `is_notification_on` on the customer user row. When **false**, direct FCM pushes (`cm_firebase_token`) are skipped. Optional `{ \"enabled\": boolean }`; empty body **flips** current value. Read current state from **GET /consumer/whoami** → `data.is_notification_on`.",
+        "parameters": [{ "$ref": "#/components/parameters/ConsumerAuthorizationHeader" }],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PushNotificationToggleBody" },
+              "examples": {
+                "setOn": { "value": { "enabled": true } },
+                "setOff": { "value": { "enabled": false } },
+                "flip": { "value": {} }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preference updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PushNotificationToggleResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError400" },
+          "401": { "$ref": "#/components/responses/ApiError401" },
+          "404": { "$ref": "#/components/responses/ApiError404" },
+          "500": { "$ref": "#/components/responses/ApiError500" }
+        },
+        "tags": ["Consumer Notifications"]
+      }
+    },
     "/consumer/notifications/{id}": {
       "delete": {
         "summary": "Delete one inbox item",
@@ -332,6 +454,40 @@
       }
     },
     "schemas": {
+      "PushNotificationToggleBody": {
+        "type": "object",
+        "description": "All properties optional. Omit `enabled` to flip the stored boolean.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "true = enable push, false = disable push"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PushNotificationToggleData": {
+        "type": "object",
+        "required": ["is_notification_on"],
+        "properties": {
+          "is_notification_on": {
+            "type": "boolean",
+            "description": "Master switch for FCM device pushes for this account"
+          }
+        }
+      },
+      "PushNotificationToggleResponse": {
+        "type": "object",
+        "required": ["status", "msg", "data"],
+        "properties": {
+          "status": { "type": "boolean", "example": true },
+          "msg": {
+            "type": "string",
+            "example": "Push notifications enabled",
+            "description": "Human-readable confirmation"
+          },
+          "data": { "$ref": "#/components/schemas/PushNotificationToggleData" }
+        }
+      },
       "FcmTokenUpdateBody": {
         "type": "object",
         "required": ["fcm_token"],
@@ -481,15 +637,15 @@
   "tags": [
     {
       "name": "Delivery Man Notifications",
-      "description": "GET /delivery-man/notifications, DELETE /notifications/{id}, PUT /fcm-token. Paginated inbox + FCM device token."
+      "description": "GET /delivery-man/notifications, PUT /notifications/toggle, DELETE /notifications/{id}, PUT /fcm-token. Paginated inbox + push on/off + FCM device token."
     },
     {
       "name": "Vendor Notifications",
-      "description": "GET /vendor/notifications, DELETE /notifications/{id}. New-order and admin broadcasts."
+      "description": "GET /vendor/notifications, PUT /notifications/toggle, DELETE /notifications/{id}. New-order and admin broadcasts."
     },
     {
       "name": "Consumer Notifications",
-      "description": "GET /consumer/notifications, DELETE /notifications/{id}. Use zoneId header or zone_id query."
+      "description": "GET /consumer/notifications, PUT /notifications/toggle, DELETE /notifications/{id}. Use zoneId header or zone_id query."
     }
   ]
 }

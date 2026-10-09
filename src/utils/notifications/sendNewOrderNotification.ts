@@ -29,7 +29,7 @@ export async function sendNewOrderNotification(payload: NewOrderPushPayload): Pr
   try {
     const vendor = await prisma.vendors.findUnique({
       where: { id: BigInt(payload.vendor_id) },
-      select: { firebase_token: true, fcm_token_web: true },
+      select: { firebase_token: true, fcm_token_web: true, is_notification_on: true },
     });
     const deviceToken = vendor?.firebase_token || vendor?.fcm_token_web;
     await persistAndPushVendorNewOrder({
@@ -38,6 +38,7 @@ export async function sendNewOrderNotification(payload: NewOrderPushPayload): Pr
       restaurant_id: payload.restaurant_id,
       order_type: payload.order_type,
       deviceToken,
+      recipientPushOn: vendor?.is_notification_on,
     });
   } catch (e) {
     console.error('[notify] vendor new order failed', e);

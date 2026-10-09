@@ -27,6 +27,11 @@ import {
 } from '../../utils/consumer/passwordResetDb';
 import { maskEmailForClient, sendConsumerOtpEmail } from '../../utils/consumer/sendConsumerOtpEmail';
 import { sendConsumerOtpSms } from '../../utils/consumer/sendConsumerOtpSms';
+import {
+  exposeOtpInApiResponse,
+  otpTestingFields,
+  treatOtpDeliveryAsSuccess,
+} from '../../utils/otp/otpTestingResponse';
 import { provisionAccountStorage } from '../../utils/accountStorage';
 import { normalizeStoredMedia } from '../../utils/mediaStorage';
 import { clientSafeErrorMessage } from '../../utils/safeClientError';
@@ -484,28 +489,33 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
 
     if (channel === 'email') {
       const sent = await sendConsumerOtpEmail(value, token);
-      if (!sent) {
+      if (!treatOtpDeliveryAsSuccess(sent)) {
         return res.status(405).json({ status: false, msg: 'Failed to send email' });
       }
       return res.status(200).json({
         status: true,
-        msg: 'OTP successfully sent to your email',
+        msg: exposeOtpInApiResponse()
+          ? 'OTP generated (testing — see data.otp)'
+          : 'OTP successfully sent to your email',
         data: {
           field_type: 'email',
           email_mask: maskEmailForClient(value),
+          ...otpTestingFields(token),
         },
       });
     }
 
     const sent = await sendConsumerOtpSms(value, token);
-    if (!sent) {
+    if (!treatOtpDeliveryAsSuccess(sent)) {
       return res.status(405).json({ status: false, msg: 'Failed to send SMS' });
     }
 
     return res.status(200).json({
       status: true,
-      msg: 'OTP successfully sent to your phone',
-      data: { field_type: 'phone' },
+      msg: exposeOtpInApiResponse()
+        ? 'OTP generated (testing — see data.otp)'
+        : 'OTP successfully sent to your phone',
+      data: { field_type: 'phone', ...otpTestingFields(token) },
     });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });

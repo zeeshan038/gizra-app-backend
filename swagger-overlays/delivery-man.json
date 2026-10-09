@@ -425,6 +425,43 @@
       }
     },
     "/delivery-man/profile": {
+      "put": {
+        "summary": "Update profile",
+        "description": "Edit driver name, email, optional password, profile image path, and vehicle. Legacy PHP path: **PUT /delivery-man/update-profile** (same handler).",
+        "parameters": [{ "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/DeliveryManUpdateProfileBody" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated profile",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DeliveryManUpdateProfileResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError400" },
+          "401": { "$ref": "#/components/responses/ApiError401" },
+          "403": {
+            "description": "Email already taken",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Email is already taken" }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/ApiError404" },
+          "500": { "$ref": "#/components/responses/ApiError500" }
+        },
+        "tags": ["Delivery Man Profile"]
+      },
       "get": {
         "summary": "Get profile",
         "description": "Delivery man row without password. Prefer **GET /delivery-man/whoami** for app session; this endpoint also accepts legacy `dm_id` query when testing without JWT.",
@@ -465,6 +502,37 @@
             }
           },
           "404": { "description": "Driver not found" }
+        },
+        "tags": ["Delivery Man Profile"]
+      }
+    },
+    "/delivery-man/update-profile": {
+      "put": {
+        "summary": "Update profile (legacy path)",
+        "description": "Same handler as **PUT /delivery-man/profile** (PHP parity).",
+        "parameters": [{ "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/DeliveryManUpdateProfileBody" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated profile",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DeliveryManUpdateProfileResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ApiError400" },
+          "401": { "$ref": "#/components/responses/ApiError401" },
+          "403": { "$ref": "#/components/responses/ApiError403" },
+          "404": { "$ref": "#/components/responses/ApiError404" },
+          "500": { "$ref": "#/components/responses/ApiError500" }
         },
         "tags": ["Delivery Man Profile"]
       }
@@ -884,6 +952,10 @@
           "identity_image": { "type": "string", "nullable": true, "description": "JSON array string of R2 paths" },
           "image": { "type": "string", "nullable": true, "description": "Profile photo path" },
           "fcm_token": { "type": "string", "nullable": true },
+          "is_notification_on": {
+            "type": "boolean",
+            "description": "When false, direct FCM device pushes are skipped. Toggle via PUT /delivery-man/notifications/toggle."
+          },
           "zone_id": { "type": "string", "nullable": true },
           "restaurant_id": { "type": "string", "nullable": true },
           "vehicle_id": { "type": "string", "nullable": true },
@@ -907,6 +979,40 @@
         "type": "object",
         "properties": {
           "status": { "type": "boolean", "example": true },
+          "data": { "$ref": "#/components/schemas/DeliveryManProfileData" }
+        }
+      },
+      "DeliveryManUpdateProfileBody": {
+        "type": "object",
+        "required": ["f_name", "l_name", "email"],
+        "properties": {
+          "f_name": { "type": "string", "minLength": 1, "example": "Ahmed" },
+          "l_name": { "type": "string", "minLength": 1, "example": "Khan" },
+          "email": { "type": "string", "format": "email", "example": "ahmed@example.com" },
+          "password": {
+            "type": "string",
+            "minLength": 6,
+            "description": "Optional — updates login password when provided"
+          },
+          "image": {
+            "type": "string",
+            "description": "Stored media path from upload flow (category=profile)"
+          },
+          "vehicle_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Set null to clear vehicle assignment"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeliveryManUpdateProfileResponse": {
+        "type": "object",
+        "required": ["status", "msg", "data"],
+        "properties": {
+          "status": { "type": "boolean", "example": true },
+          "msg": { "type": "string", "example": "Profile updated successfully" },
+          "message": { "type": "string", "example": "successfully updated!" },
           "data": { "$ref": "#/components/schemas/DeliveryManProfileData" }
         }
       },

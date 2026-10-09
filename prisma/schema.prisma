@@ -453,6 +453,7 @@ model delivery_men {
   updated_at           DateTime?                       @db.Timestamptz(6)
   status               Boolean                         @default(true)
   active               Boolean                         @default(true)
+  is_notification_on   Boolean                         @default(true)
   earning              Boolean                         @default(true)
   current_orders       BigInt                          @default(0)
   type                 String                          @default("zone_wise") @db.VarChar(191)
@@ -1640,6 +1641,7 @@ model users {
   temp_token           String?   @db.VarChar(255)
   current_language_key String?   @default("en") @db.VarChar(255)
   is_email_verified    Boolean   @default(false)
+  is_notification_on   Boolean   @default(true)
 
   @@index([zone_id], map: "idx_17697_users_zone_id_index")
 }
@@ -1719,6 +1721,7 @@ model vendors {
   firebase_token    String?   @db.VarChar(191)
   auth_token        String?   @db.Text
   fcm_token_web     String?   @db.VarChar(191)
+  is_notification_on Boolean  @default(true)
   cloudflareId      String?   @unique
 }
 

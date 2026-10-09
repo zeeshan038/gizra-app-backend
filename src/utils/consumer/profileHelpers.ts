@@ -29,6 +29,7 @@ export function formatProfileUser(user: ProfileUserRow) {
     current_language_key: user.current_language_key ?? 'en',
     created_at: user.created_at,
     order_count: Number(user.order_count),
+    is_notification_on: user.is_notification_on !== false,
   };
 }
 

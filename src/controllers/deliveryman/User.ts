@@ -39,6 +39,11 @@ import {
 } from '../../utils/partner/loginOtpDb';
 import { maskEmailForClient, sendConsumerOtpEmail } from '../../utils/consumer/sendConsumerOtpEmail';
 import { sendConsumerOtpSms } from '../../utils/consumer/sendConsumerOtpSms';
+import {
+  exposeOtpInApiResponse,
+  otpTestingFields,
+  treatOtpDeliveryAsSuccess,
+} from '../../utils/otp/otpTestingResponse';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_here';
 
@@ -48,7 +53,7 @@ type ResetIdentityBody = {
   phone?: string;
 };
 
-function requireDeliveryManId(req: Request, res: Response): number | null {
+export function requireDeliveryManId(req: Request, res: Response): number | null {
   const dmId = Number(req.user?.id);
   if (!dmId) {
     res.status(401).json({ status: false, msg: 'Unauthorized' });
@@ -76,7 +81,7 @@ async function findDriverByResetIdentity(channel: PasswordResetChannel, value: s
   return prisma.delivery_men.findFirst({ where: { phone: value } });
 }
 
-function formatDeliveryManPublic(dm: Record<string, unknown>) {
+export function formatDeliveryManPublic(dm: Record<string, unknown>) {
   const { password, auth_token, ...rest } = dm;
   void password;
   void auth_token;
@@ -497,18 +502,21 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
       }
     }
 
-    if (!smsSent && !emailSent && process.env.APP_MODE !== 'test') {
+    if (!treatOtpDeliveryAsSuccess(smsSent || emailSent)) {
       return res.status(405).json({ status: false, msg: 'Failed to send OTP' });
     }
 
     return res.status(200).json({
       status: true,
-      msg: 'OTP successfully sent',
+      msg: exposeOtpInApiResponse()
+        ? 'OTP generated (testing — see data.otp)'
+        : 'OTP successfully sent',
       data: {
         field_type: 'phone',
         phone_mask: maskPhoneForClient(phone),
         email_mask: driver.email ? maskEmailForClient(driver.email) : null,
         resend_after_seconds: 60,
+        ...otpTestingFields(token),
       },
     });
   } catch (error: any) {

@@ -150,3 +150,69 @@ export function distanceKmForRestaurant(
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   return distanceKm(coords.lat, coords.lng, lat, lng);
 }
+
+export function parseRestaurantCoordinates(
+  latitude: string | null,
+  longitude: string | null
+): { latitude: number; longitude: number } | null {
+  if (!latitude || !longitude) return null;
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { latitude: lat, longitude: lng };
+}
+
+export type MapBounds = {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+};
+
+export function parseMapBoundsFromQuery(query: Record<string, unknown>): MapBounds | null {
+  const minLat = Number(query.min_lat ?? query.minLat);
+  const maxLat = Number(query.max_lat ?? query.maxLat);
+  const minLng = Number(query.min_lng ?? query.minLng);
+  const maxLng = Number(query.max_lng ?? query.maxLng);
+  if (![minLat, maxLat, minLng, maxLng].every(Number.isFinite)) return null;
+  if (minLat > maxLat || minLng > maxLng) return null;
+  return { minLat, maxLat, minLng, maxLng };
+}
+
+export function isRestaurantInsideBounds(
+  coords: { latitude: number; longitude: number },
+  bounds: MapBounds
+): boolean {
+  return (
+    coords.latitude >= bounds.minLat &&
+    coords.latitude <= bounds.maxLat &&
+    coords.longitude >= bounds.minLng &&
+    coords.longitude <= bounds.maxLng
+  );
+}
+
+/** Map markers — numeric lat/lng for Google/Apple Maps. */
+export function formatMapRestaurant(
+  r: DiscoverRestaurantRow,
+  options?: { distanceKm?: number | null; open?: boolean }
+) {
+  const position = parseRestaurantCoordinates(r.latitude, r.longitude);
+  const distance =
+    options?.distanceKm != null
+      ? Math.round(options.distanceKm * 100) / 100
+      : null;
+
+  return {
+    id: r.id.toString(),
+    name: r.name,
+    logo: r.logo,
+    rating: r.rating != null ? Number(r.rating) : 0,
+    address: r.address,
+    latitude: position?.latitude ?? null,
+    longitude: position?.longitude ?? null,
+    open: options?.open ?? false,
+    distance,
+    distance_text: distance != null ? `${distance} km` : null,
+  };
+}

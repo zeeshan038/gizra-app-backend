@@ -45,7 +45,7 @@
     },
     {
       "name": "Consumer Notifications",
-      "description": "GET /consumer/notifications, DELETE /notifications/{id}. Use zoneId header or zone_id query."
+      "description": "GET /consumer/notifications, PUT /notifications/toggle, DELETE /notifications/{id}. Use zoneId header or zone_id query."
     },
     {
       "name": "Consumer Chat",
@@ -2258,6 +2258,93 @@
           }
         }
       },
+      "PasswordForgotOtpData": {
+        "type": "object",
+        "properties": {
+          "field_type": {
+            "type": "string",
+            "enum": [
+              "email",
+              "phone"
+            ]
+          },
+          "email_mask": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone_mask": {
+            "type": "string",
+            "nullable": true
+          },
+          "resend_after_seconds": {
+            "type": "integer",
+            "nullable": true
+          },
+          "otp": {
+            "type": "string",
+            "description": "Reset OTP while OTP_IN_RESPONSE is enabled (testing). Hidden when OTP_IN_RESPONSE=false."
+          }
+        }
+      },
+      "PasswordForgotOtpSuccessResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PasswordForgotOtpData"
+          }
+        }
+      },
+      "DeliveryManForgotPasswordSuccessResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PasswordForgotOtpData"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "field_type",
+                  "resend_after_seconds"
+                ],
+                "properties": {
+                  "field_type": {
+                    "type": "string",
+                    "enum": [
+                      "phone"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
       "ConsumerPasswordOtpBody": {
         "type": "object",
         "required": [
@@ -3710,6 +3797,119 @@
                 },
                 "lng": {
                   "type": "number"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ConsumerRestaurantMapPin": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "latitude",
+          "longitude"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "logo": {
+            "type": "string",
+            "nullable": true
+          },
+          "rating": {
+            "type": "number"
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "open": {
+            "type": "boolean"
+          },
+          "distance": {
+            "type": "number",
+            "nullable": true,
+            "description": "km from center when lat/lng sent"
+          },
+          "distance_text": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerRestaurantMapResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "total_size",
+              "restaurants"
+            ],
+            "properties": {
+              "total_size": {
+                "type": "integer"
+              },
+              "center": {
+                "type": "object",
+                "nullable": true,
+                "properties": {
+                  "latitude": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "format": "double"
+                  }
+                }
+              },
+              "bounds": {
+                "type": "object",
+                "nullable": true,
+                "properties": {
+                  "min_lat": {
+                    "type": "number"
+                  },
+                  "max_lat": {
+                    "type": "number"
+                  },
+                  "min_lng": {
+                    "type": "number"
+                  },
+                  "max_lng": {
+                    "type": "number"
+                  }
+                }
+              },
+              "restaurants": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ConsumerRestaurantMapPin"
                 }
               }
             }
@@ -5386,6 +5586,10 @@
             "type": "string",
             "nullable": true
           },
+          "is_notification_on": {
+            "type": "boolean",
+            "description": "When false, direct FCM device pushes are skipped. Toggle via PUT /delivery-man/notifications/toggle."
+          },
           "zone_id": {
             "type": "string",
             "nullable": true
@@ -5822,6 +6026,116 @@
           "type": {
             "type": "string",
             "example": "push_notification"
+          }
+        }
+      },
+      "DeliveryManUpdateProfileBody": {
+        "type": "object",
+        "required": [
+          "f_name",
+          "l_name",
+          "email"
+        ],
+        "properties": {
+          "f_name": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Ahmed"
+          },
+          "l_name": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Khan"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "ahmed@example.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6,
+            "description": "Optional — updates login password when provided"
+          },
+          "image": {
+            "type": "string",
+            "description": "Stored media path from upload flow (category=profile)"
+          },
+          "vehicle_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Set null to clear vehicle assignment"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeliveryManUpdateProfileResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Profile updated successfully"
+          },
+          "message": {
+            "type": "string",
+            "example": "successfully updated!"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DeliveryManProfileData"
+          }
+        }
+      },
+      "PushNotificationToggleBody": {
+        "type": "object",
+        "description": "All properties optional. Omit `enabled` to flip the stored boolean.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "true = enable push, false = disable push"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PushNotificationToggleData": {
+        "type": "object",
+        "required": [
+          "is_notification_on"
+        ],
+        "properties": {
+          "is_notification_on": {
+            "type": "boolean",
+            "description": "Master switch for FCM device pushes for this account"
+          }
+        }
+      },
+      "PushNotificationToggleResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Push notifications enabled",
+            "description": "Human-readable confirmation"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PushNotificationToggleData"
           }
         }
       },
@@ -8145,7 +8459,7 @@
     },
     "/consumer/restaurants/nearby": {
       "get": {
-        "description": "**All Restaurants near you** / Find Nearby map flow. Requires customer **latitude** and **longitude** (query or headers) plus **zone_id**. Returns active restaurants in the zone with valid coordinates, sorted **open first**, then **nearest** (legacy PHP `get-restaurants` + `nearest_first`).",
+        "description": "**All Restaurants near you** / list flow (paginated). Requires customer **latitude** and **longitude** (query or headers) plus **zone_id**. Returns active restaurants in the zone with valid coordinates, sorted **open first**, then **nearest** (legacy PHP `get-restaurants` + `nearest_first`). For **map pins** use GET `/consumer/restaurants/discover/map` instead.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerZoneIdQuery"
@@ -8332,6 +8646,226 @@
         "tags": [
           "Consumer Discover"
         ]
+      }
+    },
+    "/consumer/restaurants/discover/map": {
+      "get": {
+        "description": "**Find Nearby / See Location** map screen. Returns **all** active restaurants in the customer zone that have coordinates (not paginated). Optional **latitude** / **longitude** set map center and distance on each pin. Optional **min_lat**, **max_lat**, **min_lng**, **max_lng** filter to the visible map viewport. Optional **radius_km** (requires lat/lng) limits pins to a circle around the user. Public; no Bearer token.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ConsumerZoneIdQuery"
+          },
+          {
+            "name": "latitude",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            },
+            "description": "User / map center latitude (or header `latitude`)"
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            },
+            "description": "User / map center longitude (or header `longitude`)"
+          },
+          {
+            "name": "min_lat",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "max_lat",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "min_lng",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "max_lng",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "radius_km",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double",
+              "minimum": 0.1
+            },
+            "description": "Requires latitude & longitude"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "veg",
+                "non_veg",
+                "home_delivery",
+                "take_away"
+              ]
+            }
+          },
+          {
+            "name": "veg",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "non_veg",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Map pin list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerRestaurantMapResponse"
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "total_size": 2,
+                    "center": {
+                      "latitude": 32.0853,
+                      "longitude": 34.7818
+                    },
+                    "bounds": null,
+                    "restaurants": [
+                      {
+                        "id": "12",
+                        "name": "Nickel Barn & Coffee",
+                        "logo": "restaurant/logo.png",
+                        "rating": 4.9,
+                        "address": "1631 W 2nd St",
+                        "latitude": 32.086,
+                        "longitude": 34.782,
+                        "open": true,
+                        "distance": 0.42,
+                        "distance_text": "0.42 km"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError500"
+          }
+        },
+        "tags": [
+          "Consumer Discover"
+        ],
+        "summary": "Map discover — restaurant pins"
       }
     },
     "/consumer/restaurants/all": {
@@ -10881,6 +11415,15 @@
     "/consumer/order/place": {
       "post": {
         "description": "Place a marketplace order (Figma checkout / legacy PHP parity). Default: line items loaded from server `carts` for the authenticated user or guest (`guest_id`). Buy-now: set `is_buy_now` true and send `cart` or `items`. Delivery requires `distance` plus either `delivery_address_id` (from GET /consumer/addresses) or inline `address`, `latitude`, `longitude`. Totals (tax, delivery, platform fee, tips) are calculated server-side. Triggers vendor FCM for Web Panel & POS.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "201": {
             "description": "Order created",
@@ -11003,15 +11546,6 @@
         "security": [
           {
             "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
           }
         ]
       }
@@ -14348,22 +14882,39 @@
     },
     "/consumer/password/forgot": {
       "post": {
-        "description": "Consumer app: email OTP (default). Set `field_type: phone` for SMS. Dev/test OTP is `123456` (server log). User must exist with that email/phone.",
+        "description": "Consumer app: email OTP (default). Set `field_type: phone` for SMS. User must exist with that email/phone.\n\n**Testing:** while `OTP_IN_RESPONSE` is not `false`, success responses include **`data.otp`** (email/SMS may still be attempted). Set `OTP_IN_RESPONSE=false` before production go-live.",
         "responses": {
           "200": {
-            "description": "OTP sent",
+            "description": "OTP sent (or returned in body during testing)",
             "content": {
               "application/json": {
-                "example": {
-                  "status": true,
-                  "msg": "OTP successfully sent to your email",
-                  "data": {
-                    "field_type": "email",
-                    "email_mask": "te***@example.com"
-                  }
-                },
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/PasswordForgotOtpSuccessResponse"
+                },
+                "examples": {
+                  "emailTesting": {
+                    "summary": "Email (testing — OTP in response)",
+                    "value": {
+                      "status": true,
+                      "msg": "OTP generated (testing — see data.otp)",
+                      "data": {
+                        "field_type": "email",
+                        "email_mask": "te***@example.com",
+                        "otp": "482913"
+                      }
+                    }
+                  },
+                  "phoneTesting": {
+                    "summary": "Phone (testing)",
+                    "value": {
+                      "status": true,
+                      "msg": "OTP generated (testing — see data.otp)",
+                      "data": {
+                        "field_type": "phone",
+                        "otp": "482913"
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -14422,7 +14973,7 @@
             }
           },
           "405": {
-            "description": "Resend cooldown or send failure",
+            "description": "Resend cooldown or send failure (when OTP_IN_RESPONSE=false and delivery failed)",
             "content": {
               "application/json": {
                 "examples": {
@@ -14435,7 +14986,7 @@
                   "emailFail": {
                     "value": {
                       "status": false,
-                      "msg": "Failed to send email"
+                      "msg": "Failed to send email. Check admin mail settings or contact support."
                     }
                   }
                 }
@@ -16049,6 +16600,135 @@
           "Consumer Notifications"
         ],
         "summary": "Notification inbox (paginated)"
+      }
+    },
+    "/consumer/notifications/toggle": {
+      "put": {
+        "description": "Updates `is_notification_on` on the customer user row. When **false**, direct FCM pushes (`cm_firebase_token`) are skipped. Optional `{ \"enabled\": boolean }`; empty body **flips** current value. Read current state from **GET /consumer/whoami** → `data.is_notification_on`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ConsumerAuthorizationHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Preference updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushNotificationToggleResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError404"
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError500"
+          }
+        },
+        "tags": [
+          "Consumer Notifications"
+        ],
+        "summary": "Toggle push notifications (on/off)",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushNotificationToggleBody"
+              },
+              "examples": {
+                "setOn": {
+                  "value": {
+                    "enabled": true
+                  }
+                },
+                "setOff": {
+                  "value": {
+                    "enabled": false
+                  }
+                },
+                "flip": {
+                  "value": {}
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/consumer/notifications/{id}": {

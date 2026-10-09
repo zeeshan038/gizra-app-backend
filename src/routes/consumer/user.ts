@@ -30,6 +30,7 @@ import {
   getNotifications,
   testNotification,
 } from '../../controllers/consumer/notifications';
+import { toggleConsumerPushNotification } from '../../controllers/notifications/togglePushNotification';
 
 const router = express.Router();
 
@@ -60,6 +61,7 @@ router.get('/whoami', getProfile);
 router.put('/update-profile', updateProfile);
 router.delete('/delete-account', removeAccount);
 router.get('/notifications', getNotifications);
+router.put('/notifications/toggle', toggleConsumerPushNotification);
 router.delete('/notifications/:id', deleteNotification);
 
 export default router;

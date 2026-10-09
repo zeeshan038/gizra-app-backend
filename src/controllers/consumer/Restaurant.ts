@@ -10,9 +10,13 @@ import {
     DISCOVER_RESTAURANT_SELECT,
     distanceKmForRestaurant,
     formatDiscoverRestaurant,
+    formatMapRestaurant,
     isOpenFromSchedules,
+    isRestaurantInsideBounds,
     loadTodaySchedulesByRestaurantId,
     parseDiscoverType,
+    parseMapBoundsFromQuery,
+    parseRestaurantCoordinates,
 } from '../../utils/consumer/restaurantDiscoverHelpers';
 
 /*
@@ -260,6 +264,128 @@ export const getNearbyRestaurants = async (req: Request, res: Response): Promise
                 total_size: ranked.length,
                 limit,
                 offset: page,
+                restaurants,
+            },
+        });
+    } catch (error: any) {
+        return res.status(500).json({ status: false, msg: error.message });
+    }
+};
+
+/*
+ * @Description Map discover — all active restaurants with coordinates for map pins (Find Nearby / See Location)
+ * @Route GET api/consumer/restaurants/discover/map
+ * @Access Public
+ * @Query zone_id — required (from GET /consumer/config/zone-id)
+ * @Query latitude, longitude — optional (query or headers); map center + distance on pins
+ * @Query min_lat, max_lat, min_lng, max_lng — optional viewport filter (visible map region)
+ * @Query radius_km — optional; with lat/lng, only restaurants within this radius
+ * @Query type — all | veg | non_veg | home_delivery | take_away
+ */
+export const getDiscoverMapRestaurants = async (req: Request, res: Response): Promise<any> => {
+    const zoneIds = requireZoneIds(req, res);
+    if (!zoneIds) return;
+
+    const coords = parseCoordinatesFromRequest(req);
+    const bounds = parseMapBoundsFromQuery(req.query as Record<string, unknown>);
+    const radiusRaw = req.query.radius_km ?? req.query.radius;
+    const radiusKm =
+        radiusRaw != null && String(radiusRaw).trim() !== ''
+            ? Number(radiusRaw)
+            : null;
+
+    if (radiusKm != null && (!Number.isFinite(radiusKm) || radiusKm <= 0)) {
+        return res.status(400).json({ status: false, msg: 'radius_km must be a positive number' });
+    }
+    if (radiusKm != null && !coords) {
+        return res.status(400).json({
+            status: false,
+            msg: 'latitude and longitude are required when radius_km is set',
+        });
+    }
+
+    const name = (req.query.name as string)?.trim();
+    const veg = req.query.veg === 'true' || req.query.veg === '1';
+    const non_veg = req.query.non_veg === 'true' || req.query.non_veg === '1';
+    const type = parseDiscoverType(req.query.type);
+
+    const whereClause: Record<string, unknown> = {
+        status: true,
+        zone_id: { in: zoneIds },
+        latitude: { not: null },
+        longitude: { not: null },
+    };
+    applyDiscoverTypeFilter(whereClause, type);
+    if (veg) whereClause.veg = true;
+    if (non_veg) whereClause.non_veg = true;
+    if (name) {
+        whereClause.name = { contains: name, mode: 'insensitive' };
+    }
+
+    try {
+        const rows = await prisma.restaurants.findMany({
+            where: whereClause,
+            select: DISCOVER_RESTAURANT_SELECT,
+            orderBy: [{ order_count: 'desc' }, { id: 'desc' }],
+        });
+
+        const scheduleMap = await loadTodaySchedulesByRestaurantId(rows.map((r) => r.id));
+
+        let filtered = rows
+            .map((row) => {
+                const position = parseRestaurantCoordinates(row.latitude, row.longitude);
+                if (!position) return null;
+
+                const schedules = scheduleMap.get(row.id.toString()) ?? [];
+                const open = isOpenFromSchedules(schedules);
+                const distKm = distanceKmForRestaurant(coords, row.latitude, row.longitude);
+
+                return { row, open, position, distKm };
+            })
+            .filter((item): item is NonNullable<typeof item> => item != null);
+
+        if (bounds) {
+            filtered = filtered.filter(({ position }) =>
+                isRestaurantInsideBounds(position, bounds)
+            );
+        }
+
+        if (radiusKm != null && coords) {
+            filtered = filtered.filter(
+                ({ distKm }) => distKm != null && distKm <= radiusKm
+            );
+        }
+
+        filtered.sort((a, b) => {
+            if (a.open !== b.open) return a.open ? -1 : 1;
+            const distA = a.distKm ?? Number.POSITIVE_INFINITY;
+            const distB = b.distKm ?? Number.POSITIVE_INFINITY;
+            if (distA !== distB) return distA - distB;
+            return Number(b.row.order_count) - Number(a.row.order_count);
+        });
+
+        const restaurants = filtered.map(({ row, open, distKm }) =>
+            formatMapRestaurant(row, {
+                open,
+                distanceKm: distKm,
+            })
+        );
+
+        return res.status(200).json({
+            status: true,
+            data: {
+                total_size: restaurants.length,
+                center: coords
+                    ? { latitude: coords.lat, longitude: coords.lng }
+                    : null,
+                bounds: bounds
+                    ? {
+                          min_lat: bounds.minLat,
+                          max_lat: bounds.maxLat,
+                          min_lng: bounds.minLng,
+                          max_lng: bounds.maxLng,
+                      }
+                    : null,
                 restaurants,
             },
         });

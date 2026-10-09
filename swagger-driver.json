@@ -34,7 +34,7 @@
     },
     {
       "name": "Delivery Man Notifications",
-      "description": "GET /delivery-man/notifications, DELETE /notifications/{id}, PUT /fcm-token. Paginated inbox + FCM device token."
+      "description": "GET /delivery-man/notifications, PUT /notifications/toggle, DELETE /notifications/{id}, PUT /fcm-token. Paginated inbox + push on/off + FCM device token."
     },
     {
       "name": "Delivery Man Chat",
@@ -2235,6 +2235,93 @@
           }
         }
       },
+      "PasswordForgotOtpData": {
+        "type": "object",
+        "properties": {
+          "field_type": {
+            "type": "string",
+            "enum": [
+              "email",
+              "phone"
+            ]
+          },
+          "email_mask": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone_mask": {
+            "type": "string",
+            "nullable": true
+          },
+          "resend_after_seconds": {
+            "type": "integer",
+            "nullable": true
+          },
+          "otp": {
+            "type": "string",
+            "description": "Reset OTP while OTP_IN_RESPONSE is enabled (testing). Hidden when OTP_IN_RESPONSE=false."
+          }
+        }
+      },
+      "PasswordForgotOtpSuccessResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PasswordForgotOtpData"
+          }
+        }
+      },
+      "DeliveryManForgotPasswordSuccessResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PasswordForgotOtpData"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "field_type",
+                  "resend_after_seconds"
+                ],
+                "properties": {
+                  "field_type": {
+                    "type": "string",
+                    "enum": [
+                      "phone"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
       "ConsumerPasswordOtpBody": {
         "type": "object",
         "required": [
@@ -3687,6 +3774,119 @@
                 },
                 "lng": {
                   "type": "number"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ConsumerRestaurantMapPin": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "latitude",
+          "longitude"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "logo": {
+            "type": "string",
+            "nullable": true
+          },
+          "rating": {
+            "type": "number"
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "open": {
+            "type": "boolean"
+          },
+          "distance": {
+            "type": "number",
+            "nullable": true,
+            "description": "km from center when lat/lng sent"
+          },
+          "distance_text": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerRestaurantMapResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "total_size",
+              "restaurants"
+            ],
+            "properties": {
+              "total_size": {
+                "type": "integer"
+              },
+              "center": {
+                "type": "object",
+                "nullable": true,
+                "properties": {
+                  "latitude": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "format": "double"
+                  }
+                }
+              },
+              "bounds": {
+                "type": "object",
+                "nullable": true,
+                "properties": {
+                  "min_lat": {
+                    "type": "number"
+                  },
+                  "max_lat": {
+                    "type": "number"
+                  },
+                  "min_lng": {
+                    "type": "number"
+                  },
+                  "max_lng": {
+                    "type": "number"
+                  }
+                }
+              },
+              "restaurants": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ConsumerRestaurantMapPin"
                 }
               }
             }
@@ -5363,6 +5563,10 @@
             "type": "string",
             "nullable": true
           },
+          "is_notification_on": {
+            "type": "boolean",
+            "description": "When false, direct FCM device pushes are skipped. Toggle via PUT /delivery-man/notifications/toggle."
+          },
           "zone_id": {
             "type": "string",
             "nullable": true
@@ -5799,6 +6003,116 @@
           "type": {
             "type": "string",
             "example": "push_notification"
+          }
+        }
+      },
+      "DeliveryManUpdateProfileBody": {
+        "type": "object",
+        "required": [
+          "f_name",
+          "l_name",
+          "email"
+        ],
+        "properties": {
+          "f_name": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Ahmed"
+          },
+          "l_name": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Khan"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "ahmed@example.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6,
+            "description": "Optional — updates login password when provided"
+          },
+          "image": {
+            "type": "string",
+            "description": "Stored media path from upload flow (category=profile)"
+          },
+          "vehicle_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Set null to clear vehicle assignment"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeliveryManUpdateProfileResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Profile updated successfully"
+          },
+          "message": {
+            "type": "string",
+            "example": "successfully updated!"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DeliveryManProfileData"
+          }
+        }
+      },
+      "PushNotificationToggleBody": {
+        "type": "object",
+        "description": "All properties optional. Omit `enabled` to flip the stored boolean.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "true = enable push, false = disable push"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PushNotificationToggleData": {
+        "type": "object",
+        "required": [
+          "is_notification_on"
+        ],
+        "properties": {
+          "is_notification_on": {
+            "type": "boolean",
+            "description": "Master switch for FCM device pushes for this account"
+          }
+        }
+      },
+      "PushNotificationToggleResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Push notifications enabled",
+            "description": "Human-readable confirmation"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PushNotificationToggleData"
           }
         }
       },
@@ -8853,6 +9167,236 @@
           "Delivery Man Profile"
         ],
         "summary": "Get profile"
+      },
+      "put": {
+        "description": "Edit driver name, email, optional password, profile image path, and vehicle. Legacy PHP path: **PUT /delivery-man/update-profile** (same handler).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManUpdateProfileResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "403": {
+            "description": "Email already taken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Email is already taken"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError404"
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError500"
+          }
+        },
+        "tags": [
+          "Delivery Man Profile"
+        ],
+        "summary": "Update profile",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryManUpdateProfileBody"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/delivery-man/update-profile": {
+      "put": {
+        "description": "Same handler as **PUT /delivery-man/profile** (PHP parity).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManUpdateProfileResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Profile updated successfully",
+                  "message": "successfully updated!",
+                  "data": "…",
+                  "unknown": "…"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError403"
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError404"
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError500"
+          }
+        },
+        "tags": [
+          "Delivery Man Profile"
+        ],
+        "summary": "Update profile (legacy path)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryManUpdateProfileBody"
+              }
+            }
+          }
+        }
       }
     },
     "/delivery-man/profile/status": {
@@ -9222,6 +9766,154 @@
           "Delivery Man Notifications"
         ],
         "summary": "Notification inbox (paginated)"
+      }
+    },
+    "/delivery-man/notifications/toggle": {
+      "put": {
+        "description": "Updates `is_notification_on` on the driver row. When **false**, direct FCM device pushes are skipped (inbox rows may still be stored). Send `{ \"enabled\": true|false }` to set explicitly; send `{}` or omit body to **flip** the current value.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Preference updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushNotificationToggleResponse"
+                },
+                "examples": {
+                  "enabled": {
+                    "value": {
+                      "status": true,
+                      "msg": "Push notifications enabled",
+                      "data": {
+                        "is_notification_on": true
+                      }
+                    }
+                  },
+                  "disabled": {
+                    "value": {
+                      "status": true,
+                      "msg": "Push notifications disabled",
+                      "data": {
+                        "is_notification_on": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError404"
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            },
+            "$ref": "#/components/responses/ApiError500"
+          }
+        },
+        "tags": [
+          "Delivery Man Notifications"
+        ],
+        "summary": "Toggle push notifications (on/off)",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushNotificationToggleBody"
+              },
+              "examples": {
+                "setOn": {
+                  "summary": "Turn on",
+                  "value": {
+                    "enabled": true
+                  }
+                },
+                "setOff": {
+                  "summary": "Turn off",
+                  "value": {
+                    "enabled": false
+                  }
+                },
+                "flip": {
+                  "summary": "Flip current",
+                  "value": {}
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/delivery-man/notifications/{id}": {

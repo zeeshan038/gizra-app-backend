@@ -142,3 +142,23 @@ export const dmFcmTokenSchema = Joi.object({
   }),
 });
 
+/** Driver app — edit profile (legacy PHP PUT update-profile). */
+export const dmUpdateProfileSchema = Joi.object({
+  f_name: Joi.string().trim().min(1).required().messages({
+    'string.empty': 'First name is required',
+    'any.required': 'First name is required',
+  }),
+  l_name: Joi.string().trim().min(1).required().messages({
+    'string.empty': 'Last name is required',
+    'any.required': 'Last name is required',
+  }),
+  email: Joi.string().email().required().messages({
+    'string.empty': 'Email is required',
+    'string.email': 'Email is invalid',
+  }),
+  password: Joi.string().min(6).optional().allow('', null),
+  /** Storage path from POST /upload (category=profile). */
+  image: Joi.string().trim().optional().allow('', null),
+  vehicle_id: Joi.number().integer().optional().allow(null),
+});
+

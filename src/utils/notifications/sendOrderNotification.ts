@@ -15,6 +15,7 @@ import {
 } from './notificationSettings';
 import { buildOrderStatusDescription } from './orderStatusMessage';
 import { persistUserNotification } from './persistUserNotification';
+import { isRecipientPushOn } from './pushNotificationPreference';
 
 const ORDER_PUSH_TITLE = 'Order notification';
 
@@ -41,7 +42,12 @@ async function loadOrderContext(order: orders) {
     restaurant?.vendor_id
       ? prisma.vendors.findUnique({
           where: { id: BigInt(Number(restaurant.vendor_id)) },
-          select: { id: true, firebase_token: true, fcm_token_web: true },
+          select: {
+            id: true,
+            firebase_token: true,
+            fcm_token_web: true,
+            is_notification_on: true,
+          },
         })
       : Promise.resolve(null),
     order.user_id && !order.is_guest
@@ -53,13 +59,14 @@ async function loadOrderContext(order: orders) {
             l_name: true,
             cm_firebase_token: true,
             current_language_key: true,
+            is_notification_on: true,
           },
         })
       : Promise.resolve(null),
     order.delivery_man_id
       ? prisma.delivery_men.findUnique({
           where: { id: BigInt(Number(order.delivery_man_id)) },
-          select: { id: true, fcm_token: true },
+          select: { id: true, fcm_token: true, is_notification_on: true },
         })
       : Promise.resolve(null),
   ]);
@@ -92,7 +99,11 @@ async function notifyCustomerOrderStatus(
   }
 
   const enabled = await isPushNotificationEnabled('customer', 'customer_order_notification');
-  await pushToDeviceIfEnabled(enabled, ctx.customer.cm_firebase_token, data);
+  await pushToDeviceIfEnabled(
+    enabled && isRecipientPushOn(ctx.customer.is_notification_on),
+    ctx.customer.cm_firebase_token,
+    data
+  );
 }
 
 async function notifyVendor(
@@ -100,7 +111,8 @@ async function notifyVendor(
   restaurantId: number | null,
   deviceToken: string | null | undefined,
   data: FcmPushData,
-  settingKey = 'restaurant_order_notification'
+  settingKey = 'restaurant_order_notification',
+  recipientPushOn = true
 ): Promise<void> {
   try {
     await persistUserNotification({ vendor_id: vendorId }, data);
@@ -123,13 +135,18 @@ async function notifyVendor(
     );
   }
 
-  await pushToDeviceIfEnabled(enabled, deviceToken, data);
+  await pushToDeviceIfEnabled(
+    enabled && isRecipientPushOn(recipientPushOn),
+    deviceToken,
+    data
+  );
 }
 
 async function notifyDeliveryMan(
   dmId: number,
   fcmToken: string | null | undefined,
-  data: FcmPushData
+  data: FcmPushData,
+  recipientPushOn = true
 ): Promise<void> {
   try {
     await persistUserNotification({ delivery_man_id: dmId }, data);
@@ -138,7 +155,11 @@ async function notifyDeliveryMan(
   }
 
   const enabled = await isPushNotificationEnabled('deliveryman', 'deliveryman_order_notification');
-  await pushToDeviceIfEnabled(enabled, fcmToken, data);
+  await pushToDeviceIfEnabled(
+    enabled && isRecipientPushOn(recipientPushOn),
+    fcmToken,
+    data
+  );
 }
 
 async function persistOrderRequestForZoneDrivers(order: orders, data: FcmPushData): Promise<void> {
@@ -159,12 +180,17 @@ async function persistOrderRequestForZoneDrivers(order: orders, data: FcmPushDat
       status: true,
       ...(vehicleId != null ? { vehicle_id: vehicleId } : {}),
     },
-    select: { id: true, fcm_token: true },
+    select: { id: true, fcm_token: true, is_notification_on: true },
   });
 
   await Promise.all(
     drivers.map(async (dm) => {
-      await notifyDeliveryMan(Number(dm.id), dm.fcm_token, data);
+      await notifyDeliveryMan(
+        Number(dm.id),
+        dm.fcm_token,
+        data,
+        dm.is_notification_on
+      );
     })
   );
 
@@ -230,7 +256,9 @@ export async function sendOrderNotification(orderInput: orders | bigint): Promis
       vendorId,
       ctx.restaurant?.id != null ? Number(ctx.restaurant.id) : null,
       vendorToken,
-      vendorData
+      vendorData,
+      'restaurant_order_notification',
+      ctx.vendor?.is_notification_on
     );
   }
 
@@ -266,7 +294,12 @@ export async function sendOrderNotification(orderInput: orders | bigint): Promis
       type: 'order_status',
       order_status: order.order_status,
     };
-    await notifyDeliveryMan(Number(ctx.deliveryMan.id), ctx.deliveryMan.fcm_token, dmData);
+    await notifyDeliveryMan(
+      Number(ctx.deliveryMan.id),
+      ctx.deliveryMan.fcm_token,
+      dmData,
+      ctx.deliveryMan.is_notification_on
+    );
   }
 }
 
@@ -277,6 +310,7 @@ export async function persistAndPushVendorNewOrder(input: {
   restaurant_id: number;
   order_type: string;
   deviceToken?: string | null;
+  recipientPushOn?: boolean;
 }): Promise<void> {
   const data: FcmPushData = {
     title: 'New order',
@@ -287,5 +321,12 @@ export async function persistAndPushVendorNewOrder(input: {
     order_type: input.order_type,
   };
 
-  await notifyVendor(input.vendor_id, input.restaurant_id, input.deviceToken, data);
+  await notifyVendor(
+    input.vendor_id,
+    input.restaurant_id,
+    input.deviceToken,
+    data,
+    'restaurant_order_notification',
+    input.recipientPushOn ?? true
+  );
 }
