@@ -39,6 +39,24 @@ import { issueGuestJwt } from '../../utils/consumer/guestAuth';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_here';
 
+async function verifyStoredPassword(plain: string, stored: string | null | undefined): Promise<boolean> {
+  if (!stored || !plain) return false;
+  try {
+    return await bcrypt.compare(plain, stored);
+  } catch (err) {
+    console.error('[consumer/login] password hash compare failed', err);
+    return false;
+  }
+}
+
+function manualLoginUserWhere(field_type: string, email_or_phone: string) {
+  const raw = String(email_or_phone).trim();
+  if (field_type === 'email') {
+    return { email: { equals: raw, mode: 'insensitive' as const } };
+  }
+  return { phone: raw };
+}
+
 // Helper to generate unique referral code
 const generateReferralCode = async (f_name: string, id: number): Promise<string> => {
     let code = `${f_name.substring(0, 3).toUpperCase()}${crypto.randomBytes(2).toString('hex').toUpperCase()}${id}`;
@@ -379,9 +397,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     try {
         if (payload.login_type === 'manual') {
             const user = await prisma.users.findFirst({
-                where: payload.field_type === 'email' 
-                    ? { email: payload.email_or_phone } 
-                    : { phone: payload.email_or_phone }
+                where: manualLoginUserWhere(payload.field_type, payload.email_or_phone),
             });
 
             if (!user) {
@@ -391,8 +407,14 @@ export const login = async (req: Request, res: Response): Promise<any> => {
                 });
             }
 
-            // Verify password
-            const isPasswordValid = await bcrypt.compare(payload.password, user.password || '');
+            if (!user.password) {
+                return res.status(401).json({
+                    status: false,
+                    msg: 'Credential do not match, please try again.',
+                });
+            }
+
+            const isPasswordValid = await verifyStoredPassword(payload.password, user.password);
             if (!isPasswordValid) {
                 return res.status(401).json({
                     status: false,
@@ -400,7 +422,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
                 });
             }
 
-            return issueConsumerLoginSession(user, res, {
+            return await issueConsumerLoginSession(user, res, {
                 guest_id: payload.guest_id,
                 login_type: 'manual',
             });
