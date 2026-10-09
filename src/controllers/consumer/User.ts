@@ -1,5 +1,6 @@
 //NPM Packages
 import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import { safeApiErrorMessage } from '../../utils/safeApiError';
 import bcrypt from 'bcrypt';
@@ -152,64 +153,85 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     }
 };
 
-/**
- * Helper to check and merge guest cart to user cart
- */
-const checkGuestCart = async (userId: number, guestId: number) => {
-    if (!guestId || !userId) return;
+function cartUserId(value: number): Prisma.Decimal {
+  return new Prisma.Decimal(String(value));
+}
 
-    // Get all guest cart items
+/**
+ * Merge guest cart (guests.id → carts.user_id + is_guest) into the logged-in customer.
+ * Never throws — login must succeed even if merge fails.
+ */
+const checkGuestCart = async (userId: number, guestId: number): Promise<void> => {
+  if (!guestId || !userId || guestId === userId) return;
+
+  try {
+    const guestUserId = cartUserId(guestId);
+    const customerUserId = cartUserId(userId);
+
     const guestCartItems = await prisma.carts.findMany({
-        where: { user_id: guestId }
+      where: { user_id: guestUserId, is_guest: true },
     });
 
     if (guestCartItems.length === 0) return;
 
-    const itemIds = guestCartItems.map(c => Number(c.item_id));
+    const itemIds = guestCartItems
+      .map((c) => Number(c.item_id))
+      .filter((id) => Number.isFinite(id));
 
-    // Get the corresponding food items to find the restaurant_ids
-    const foodItems = await prisma.food.findMany({
-        where: { id: { in: itemIds.map(id => BigInt(id)) } },
-        select: { id: true, restaurant_id: true }
-    });
+    if (itemIds.length > 0) {
+      const foodItems = await prisma.food.findMany({
+        where: { id: { in: itemIds.map((id) => BigInt(id)) } },
+        select: { id: true, restaurant_id: true },
+      });
 
-    const guestStoreIds = foodItems.map(f => Number(f.restaurant_id)).filter(id => !isNaN(id));
+      const guestStoreIds = [
+        ...new Set(
+          foodItems
+            .map((f) => (f.restaurant_id != null ? Number(f.restaurant_id) : NaN))
+            .filter((id) => Number.isFinite(id))
+        ),
+      ];
 
-    if (guestStoreIds.length > 0) {
-        // Delete user's existing cart items from these restaurants to avoid collision
-        // We have to find carts matching the user and those store IDs
-        // Since carts don't have a direct relation in Prisma, we do it in two steps:
+      if (guestStoreIds.length > 0) {
         const userCarts = await prisma.carts.findMany({
-            where: { user_id: userId }
+          where: { user_id: customerUserId, is_guest: false },
         });
-        
-        const userCartItemIds = userCarts.map(c => Number(c.item_id));
-        
-        const userFoods = await prisma.food.findMany({
+
+        const userCartItemIds = userCarts
+          .map((c) => Number(c.item_id))
+          .filter((id) => Number.isFinite(id));
+
+        if (userCartItemIds.length > 0) {
+          const userFoods = await prisma.food.findMany({
             where: {
-                id: { in: userCartItemIds.map(id => BigInt(id)) },
-                restaurant_id: { in: guestStoreIds }
+              id: { in: userCartItemIds.map((id) => BigInt(id)) },
+              restaurant_id: { in: guestStoreIds.map((id) => new Prisma.Decimal(String(id))) },
             },
-            select: { id: true }
-        });
+            select: { id: true },
+          });
 
-        const foodIdsToDelete = userFoods.map(f => Number(f.id));
+          const foodIdsToDelete = userFoods.map((f) => cartUserId(Number(f.id)));
 
-        if (foodIdsToDelete.length > 0) {
+          if (foodIdsToDelete.length > 0) {
             await prisma.carts.deleteMany({
-                where: {
-                    user_id: userId,
-                    item_id: { in: foodIdsToDelete }
-                }
+              where: {
+                user_id: customerUserId,
+                is_guest: false,
+                item_id: { in: foodIdsToDelete },
+              },
             });
+          }
         }
-
-        // Update guest cart to belong to the logged-in user
-        await prisma.carts.updateMany({
-            where: { user_id: guestId },
-            data: { user_id: userId, is_guest: false }
-        });
+      }
     }
+
+    await prisma.carts.updateMany({
+      where: { user_id: guestUserId, is_guest: true },
+      data: { user_id: customerUserId, is_guest: false },
+    });
+  } catch (err) {
+    console.error('[consumer/login] guest cart merge failed', { userId, guestId, err });
+  }
 };
 
 type ConsumerUserRecord = NonNullable<Awaited<ReturnType<typeof prisma.users.findFirst>>>;
