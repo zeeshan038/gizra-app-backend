@@ -39,6 +39,8 @@ docker rm gizra-cloudflared 2>/dev/null || true
 echo "Sync Postgres role password with .env (for host :5434 + container)…"
 chmod +x scripts/fix-postgres-grants.sh scripts/apply-schema-patches.sh 2>/dev/null || true
 ./scripts/ensure-postgres-password.sh
+echo "Ensure public schema grants (fixes Prisma P1010 gizra_db.public)…"
+./scripts/fix-postgres-grants.sh
 
 ./scripts/docker-compose.sh up -d --build --force-recreate --remove-orphans backend
 
@@ -48,6 +50,12 @@ for i in $(seq 1 120); do
   if docker logs gizra-backend 2>&1 | tail -40 | grep -q 'Server is running on port'; then
     api_ready=1
     break
+  fi
+  if docker logs gizra-backend 2>&1 | tail -30 | grep -qE 'P1010|denied access on the database'; then
+    echo "Detected Prisma P1010 (Postgres grants) — repairing…"
+    ./scripts/fix-postgres-grants.sh
+    ./scripts/docker-compose.sh up -d --force-recreate backend
+    sleep 5
   fi
   if docker logs gizra-backend 2>&1 | tail -20 | grep -qE 'FATAL:|P1000|Authentication failed'; then
     docker logs --tail=40 gizra-backend
@@ -75,4 +83,11 @@ for attempt in 1 2 3 4 5; do
 done
 
 docker logs --tail=40 gizra-backend
+if docker logs gizra-backend 2>&1 | tail -60 | grep -qE 'P1010|denied access on the database'; then
+  echo ""
+  echo "Fix on server:"
+  echo "  cd ~/gizra-app-backend && unset DATABASE_URL POSTGRES_PASSWORD"
+  echo "  ./scripts/ensure-postgres-password.sh && ./scripts/fix-postgres-grants.sh"
+  echo "  npm run deploy:server"
+fi
 exit 1
