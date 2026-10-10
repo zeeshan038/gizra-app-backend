@@ -31,13 +31,15 @@ export async function sendNewOrderNotification(payload: NewOrderPushPayload): Pr
       where: { id: BigInt(payload.vendor_id) },
       select: { firebase_token: true, fcm_token_web: true, is_notification_on: true },
     });
-    const deviceToken = vendor?.firebase_token || vendor?.fcm_token_web;
     await persistAndPushVendorNewOrder({
       order_id: payload.order_id,
       vendor_id: payload.vendor_id,
       restaurant_id: payload.restaurant_id,
       order_type: payload.order_type,
-      deviceToken,
+      vendorTokens: {
+        firebase_token: vendor?.firebase_token,
+        fcm_token_web: vendor?.fcm_token_web,
+      },
       recipientPushOn: vendor?.is_notification_on,
     });
   } catch (e) {

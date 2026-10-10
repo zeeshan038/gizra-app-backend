@@ -18,7 +18,7 @@ const FALLBACK_EN: Record<string, string> = {
   pending: 'Your order is pending.',
   confirmed: 'Your order has been confirmed.',
   processing: 'Your order is being prepared.',
-  picked_up: 'Your order is out for delivery.',
+  picked_up: 'Your order has been picked up and is on the way.',
   handover: 'Your order is ready.',
   delivered: 'Your order has been delivered.',
   delivery_boy_delivered: 'Your order has been delivered.',

@@ -19,6 +19,17 @@ import { isRecipientPushOn } from './pushNotificationPreference';
 
 const ORDER_PUSH_TITLE = 'Order notification';
 
+export type VendorPushTargets = {
+  firebase_token?: string | null;
+  fcm_token_web?: string | null;
+};
+
+function uniqueDeviceTokens(targets: VendorPushTargets): string[] {
+  const mobile = targets.firebase_token?.trim();
+  const web = targets.fcm_token_web?.trim();
+  return [...new Set([mobile, web].filter(Boolean) as string[])];
+}
+
 async function pushToDeviceIfEnabled(
   enabled: boolean,
   token: string | null | undefined,
@@ -66,12 +77,60 @@ async function loadOrderContext(order: orders) {
     order.delivery_man_id
       ? prisma.delivery_men.findUnique({
           where: { id: BigInt(Number(order.delivery_man_id)) },
-          select: { id: true, fcm_token: true, is_notification_on: true },
+          select: {
+            id: true,
+            f_name: true,
+            l_name: true,
+            fcm_token: true,
+            is_notification_on: true,
+          },
         })
       : Promise.resolve(null),
   ]);
 
   return { restaurant, vendor, customer, deliveryMan };
+}
+
+/** Customer copy for handover on delivery orders matches “picked up / on the way”. */
+function customerMessageStatus(order: orders): string {
+  if (order.order_status === 'delivered' && order.delivery_man_id) {
+    return 'delivery_boy_delivered';
+  }
+  if (order.order_type === 'delivery' && order.order_status === 'handover') {
+    return 'picked_up';
+  }
+  return order.order_status;
+}
+
+/** Avoid duplicate “on the way” push when handover already notified the customer. */
+function shouldNotifyCustomerOrderStatus(order: orders): boolean {
+  if (order.order_status === 'picked_up' && order.handover != null) {
+    return false;
+  }
+  return true;
+}
+
+async function pushVendorFcmDevices(
+  pushAllowed: boolean,
+  restaurantId: number | null,
+  targets: VendorPushTargets,
+  data: FcmPushData
+): Promise<void> {
+  if (!pushAllowed) return;
+
+  const tokens = uniqueDeviceTokens(targets);
+  if (tokens.length === 0) {
+    if (restaurantId != null) {
+      try {
+        await sendFcmToTopic(`restaurant_panel_${restaurantId}_message`, data);
+      } catch (e) {
+        console.error('[notify] FCM restaurant panel topic send failed', e);
+      }
+    }
+    return;
+  }
+
+  await Promise.all(tokens.map((token) => pushToDeviceIfEnabled(true, token, data)));
 }
 
 async function notifyCustomerOrderStatus(
@@ -109,7 +168,7 @@ async function notifyCustomerOrderStatus(
 async function notifyVendor(
   vendorId: number,
   restaurantId: number | null,
-  deviceToken: string | null | undefined,
+  targets: VendorPushTargets,
   data: FcmPushData,
   settingKey = 'restaurant_order_notification',
   recipientPushOn = true
@@ -129,15 +188,16 @@ async function notifyVendor(
     console.warn(
       `[notify] vendor push skipped (notification settings off): vendor=${vendorId} key=${settingKey}`
     );
-  } else if (!deviceToken?.trim()) {
+  } else if (uniqueDeviceTokens(targets).length === 0 && restaurantId == null) {
     console.warn(
       `[notify] vendor push skipped (no device token): vendor=${vendorId} — register via PUT /api/vendor/fcm-token`
     );
   }
 
-  await pushToDeviceIfEnabled(
+  await pushVendorFcmDevices(
     enabled && isRecipientPushOn(recipientPushOn),
-    deviceToken,
+    restaurantId,
+    targets,
     data
   );
 }
@@ -221,10 +281,7 @@ export async function sendOrderNotification(orderInput: orders | bigint): Promis
   const ctx = await loadOrderContext(order);
   const orderId = order.id.toString();
 
-  const notifyStatus =
-    order.order_status === 'delivered' && order.delivery_man_id
-      ? 'delivery_boy_delivered'
-      : order.order_status;
+  const notifyStatus = customerMessageStatus(order);
 
   const userName = ctx.customer
     ? `${ctx.customer.f_name ?? ''} ${ctx.customer.l_name ?? ''}`.trim()
@@ -238,10 +295,16 @@ export async function sendOrderNotification(orderInput: orders | bigint): Promis
     order_id: orderId,
   });
 
-  await notifyCustomerOrderStatus(order, ctx, description);
+  if (shouldNotifyCustomerOrderStatus(order)) {
+    await notifyCustomerOrderStatus(order, ctx, description);
+  }
 
   const vendorId = ctx.restaurant?.vendor_id != null ? Number(ctx.restaurant.vendor_id) : null;
-  const vendorToken = ctx.vendor?.firebase_token || ctx.vendor?.fcm_token_web;
+  const restaurantId = ctx.restaurant?.id != null ? Number(ctx.restaurant.id) : null;
+  const vendorTargets: VendorPushTargets = {
+    firebase_token: ctx.vendor?.firebase_token,
+    fcm_token_web: ctx.vendor?.fcm_token_web,
+  };
 
   if (vendorId != null && order.order_status === 'picked_up') {
     const vendorData: FcmPushData = {
@@ -254,8 +317,37 @@ export async function sendOrderNotification(orderInput: orders | bigint): Promis
     };
     await notifyVendor(
       vendorId,
-      ctx.restaurant?.id != null ? Number(ctx.restaurant.id) : null,
-      vendorToken,
+      restaurantId,
+      vendorTargets,
+      vendorData,
+      'restaurant_order_notification',
+      ctx.vendor?.is_notification_on
+    );
+  }
+
+  if (
+    vendorId != null &&
+    order.delivery_man_id != null &&
+    order.order_status === 'accepted'
+  ) {
+    const dmName = ctx.deliveryMan
+      ? `${ctx.deliveryMan.f_name ?? ''} ${ctx.deliveryMan.l_name ?? ''}`.trim()
+      : '';
+    const vendorDescription = dmName
+      ? `${dmName} accepted the delivery request — Order ID: ${orderId}`
+      : `A delivery partner accepted the order request — Order ID: ${orderId}`;
+    const vendorData: FcmPushData = {
+      title: ORDER_PUSH_TITLE,
+      description: vendorDescription,
+      order_id: orderId,
+      image: '',
+      type: 'order_status',
+      order_status: order.order_status,
+    };
+    await notifyVendor(
+      vendorId,
+      restaurantId,
+      vendorTargets,
       vendorData,
       'restaurant_order_notification',
       ctx.vendor?.is_notification_on
@@ -309,7 +401,7 @@ export async function persistAndPushVendorNewOrder(input: {
   vendor_id: number;
   restaurant_id: number;
   order_type: string;
-  deviceToken?: string | null;
+  vendorTokens?: VendorPushTargets;
   recipientPushOn?: boolean;
 }): Promise<void> {
   const data: FcmPushData = {
@@ -324,7 +416,7 @@ export async function persistAndPushVendorNewOrder(input: {
   await notifyVendor(
     input.vendor_id,
     input.restaurant_id,
-    input.deviceToken,
+    input.vendorTokens ?? {},
     data,
     'restaurant_order_notification',
     input.recipientPushOn ?? true
