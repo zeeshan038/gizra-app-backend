@@ -20,6 +20,9 @@ export async function isPushNotificationEnabled(
     if (userType === 'customer' && key === 'customer_order_notification') {
       return true;
     }
+    if (userType === 'deliveryman' && key === 'deliveryman_order_notification') {
+      return true;
+    }
     return false;
   }
   return row.push_notification_status === 'active';

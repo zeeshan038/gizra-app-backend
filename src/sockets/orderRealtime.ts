@@ -92,6 +92,10 @@ export async function emitDriverOrderRequestIfEligible(order: orders): Promise<v
   if (!eligible) return;
 
   const topics = await getOrderRequestBroadcastTopics(order);
+  if (topics.length === 0) {
+    console.warn(`[socket] order_request skipped — no topics order=${order.id}`);
+    return;
+  }
   publishOrderRequest(topics, buildOrderRequestPayload(order));
 }
 

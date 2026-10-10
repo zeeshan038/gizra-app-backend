@@ -18,13 +18,14 @@ export async function getDeliveryManFcmTopics(dm: DeliveryManTopicSource): Promi
     if (dm.vehicle_id) {
       topics.push(`delivery_man_${zoneId}_${Number(dm.vehicle_id)}`);
     }
-    if (dm.type === 'zone_wise') {
+    if (dm.type === 'zone_wise' || !dm.type) {
       const zone = await prisma.zones.findUnique({
         where: { id: BigInt(zoneId) },
         select: { deliveryman_wise_topic: true },
       });
       topics.push(zone?.deliveryman_wise_topic || `zone_${zoneId}_delivery_man`);
-    } else if (dm.restaurant_id != null) {
+    }
+    if (dm.type === 'restaurant_wise' && dm.restaurant_id != null) {
       topics.push(`restaurant_dm_${Number(dm.restaurant_id)}`);
     }
   } else if (dm.type === 'restaurant_wise' && dm.restaurant_id != null) {
@@ -67,7 +68,7 @@ function isStatusEligibleForDriverPool(
   order: orders,
   orderConfirmationModel: string
 ): boolean {
-  if (['confirmed', 'accepted', 'processing', 'handover'].includes(order.order_status)) {
+  if (['confirmed', 'handover'].includes(order.order_status)) {
     return true;
   }
   if (order.order_status === 'pending') {
@@ -91,7 +92,23 @@ export async function getOrderRequestBroadcastTopics(order: orders): Promise<str
 
   if (!platformDelivery) {
     topics.push(`restaurant_dm_${restaurantId}`);
-    return topics;
+    const restaurant = await prisma.restaurants.findUnique({
+      where: { id: BigInt(restaurantId) },
+      select: { zone_id: true },
+    });
+    const zid =
+      restaurant?.zone_id != null ? Number(restaurant.zone_id) : Number.NaN;
+    if (Number.isFinite(zid)) {
+      if (order.vehicle_id != null) {
+        topics.push(`delivery_man_${zid}_${Number(order.vehicle_id)}`);
+      }
+      const zone = await prisma.zones.findUnique({
+        where: { id: BigInt(zid) },
+        select: { deliveryman_wise_topic: true },
+      });
+      topics.push(zone?.deliveryman_wise_topic || `zone_${zid}_delivery_man`);
+    }
+    return [...new Set(topics)];
   }
 
   const zoneId =

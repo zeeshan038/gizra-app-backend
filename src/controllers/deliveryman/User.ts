@@ -246,6 +246,7 @@ async function issueDeliveryManLoginSession(driver: DeliveryManRecord, res: Resp
     data: {
       token,
       topic,
+      topics: fcmTopics,
       id: driver.id.toString(),
       f_name: driver.f_name,
       l_name: driver.l_name,

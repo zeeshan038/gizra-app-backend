@@ -108,12 +108,41 @@ function customerMessageStatus(order: orders): string {
   return order.order_status;
 }
 
-/** Avoid duplicate “on the way” push when handover already notified the customer. */
+/** Customer push rules after POS accept — no push on kitchen (processing) or ready (handover). */
 function shouldNotifyCustomerOrderStatus(order: orders): boolean {
   if (order.order_status === 'picked_up' && order.handover != null) {
     return false;
   }
+  if (order.order_type === 'delivery') {
+    if (order.order_status === 'processing' || order.order_status === 'handover') {
+      return false;
+    }
+  }
   return true;
+}
+
+function driverPoolPushForStatus(order: orders, orderId: string): FcmPushData | null {
+  if (order.order_status === 'confirmed') {
+    return {
+      title: ORDER_PUSH_TITLE,
+      description: 'You have received an order',
+      order_id: orderId,
+      image: '',
+      type: 'order_request',
+      order_type: order.order_type,
+    };
+  }
+  if (order.order_status === 'handover') {
+    return {
+      title: ORDER_PUSH_TITLE,
+      description: 'Your order is ready for pickup',
+      order_id: orderId,
+      image: '',
+      type: 'order_request',
+      order_type: order.order_type,
+    };
+  }
+  return null;
 }
 
 async function pushVendorFcmDevices(
@@ -271,41 +300,33 @@ async function notifyDeliveryMan(
   );
 }
 
-async function persistOrderRequestForZoneDrivers(order: orders, data: FcmPushData): Promise<void> {
-  if (order.zone_id == null) return;
-
-  const zoneId = Number(order.zone_id);
-  if (!Number.isFinite(zoneId)) return;
-
-  const vehicleId =
-    order.vehicle_id != null && Number.isFinite(Number(order.vehicle_id))
-      ? Number(order.vehicle_id)
-      : null;
-
-  const drivers = await prisma.delivery_men.findMany({
-    where: {
-      zone_id: zoneId,
-      application_status: 'approved',
-      status: true,
-      ...(vehicleId != null ? { vehicle_id: vehicleId } : {}),
-    },
-    select: { id: true, fcm_token: true, is_notification_on: true },
+async function resolveOrderZoneId(order: orders): Promise<number | null> {
+  if (order.zone_id != null) {
+    const zid = Number(order.zone_id);
+    if (Number.isFinite(zid)) return zid;
+  }
+  const restaurant = await prisma.restaurants.findUnique({
+    where: { id: BigInt(Number(order.restaurant_id)) },
+    select: { zone_id: true },
   });
+  if (restaurant?.zone_id == null) return null;
+  const zid = Number(restaurant.zone_id);
+  return Number.isFinite(zid) ? zid : null;
+}
 
-  await Promise.all(
-    drivers.map(async (dm) => {
-      await notifyDeliveryMan(
-        Number(dm.id),
-        dm.fcm_token,
-        data,
-        dm.is_notification_on
-      );
-    })
-  );
+/** Driver pool FCM — topic broadcast (login subscriptions) plus per-device tokens when present. */
+export async function persistOrderRequestForZoneDrivers(
+  order: orders,
+  data: FcmPushData
+): Promise<void> {
+  const topics = await getOrderRequestBroadcastTopics(order);
+  if (topics.length === 0) {
+    console.warn(`[notify] driver order_request skipped — no FCM topics order=${order.id}`);
+    return;
+  }
 
   const enabled = await isPushNotificationEnabled('deliveryman', 'deliveryman_order_notification');
   if (enabled) {
-    const topics = await getOrderRequestBroadcastTopics(order);
     await Promise.all(
       topics.map((topic) =>
         sendFcmToTopic(topic, data).catch((e) => {
@@ -313,6 +334,51 @@ async function persistOrderRequestForZoneDrivers(order: orders, data: FcmPushDat
         })
       )
     );
+  } else {
+    console.warn(
+      `[notify] driver topic push skipped (settings off) order=${order.id} topics=${topics.join(',')}`
+    );
+  }
+
+  const zoneId = await resolveOrderZoneId(order);
+  const restaurantId = Number(order.restaurant_id);
+  const vehicleId =
+    order.vehicle_id != null && Number.isFinite(Number(order.vehicle_id))
+      ? Number(order.vehicle_id)
+      : null;
+
+  const zoneDrivers =
+    zoneId != null
+      ? await prisma.delivery_men.findMany({
+          where: {
+            zone_id: zoneId,
+            application_status: 'approved',
+            status: true,
+            type: 'zone_wise',
+            ...(vehicleId != null ? { vehicle_id: vehicleId } : {}),
+          },
+          select: { id: true, fcm_token: true, is_notification_on: true },
+        })
+      : [];
+
+  const restaurantDrivers = Number.isFinite(restaurantId)
+    ? await prisma.delivery_men.findMany({
+        where: {
+          restaurant_id: restaurantId,
+          application_status: 'approved',
+          status: true,
+          type: 'restaurant_wise',
+        },
+        select: { id: true, fcm_token: true, is_notification_on: true },
+      })
+    : [];
+
+  const seen = new Set<number>();
+  for (const dm of [...zoneDrivers, ...restaurantDrivers]) {
+    const id = Number(dm.id);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    await notifyDeliveryMan(Number(dm.id), dm.fcm_token, data, dm.is_notification_on);
   }
 }
 
@@ -403,33 +469,18 @@ export async function sendOrderNotification(orderInput: orders | bigint): Promis
     );
   }
 
-  if (
-    passesScheduleWindow(order, 30) &&
-    passesNotDigitalPending(order) &&
-    (await shouldEmitDriverOrderRequest(order))
-  ) {
-    const requestData: FcmPushData = {
-      title: ORDER_PUSH_TITLE,
-      description: `New delivery request — Order ID: ${orderId}`,
-      order_id: orderId,
-      image: '',
-      type: 'order_request',
-      order_type: order.order_type,
-    };
-    await persistOrderRequestForZoneDrivers(order, requestData);
+  if (passesScheduleWindow(order, 30) && passesNotDigitalPending(order)) {
+    const poolEligible = await shouldEmitDriverOrderRequest(order);
+    const poolPush = poolEligible ? driverPoolPushForStatus(order, orderId) : null;
+    if (poolPush) {
+      await persistOrderRequestForZoneDrivers(order, poolPush);
+    }
   }
 
-  if (
-    ctx.deliveryMan &&
-    ['processing', 'handover'].includes(order.order_status)
-  ) {
-    const dmDescription =
-      order.order_status === 'processing'
-        ? 'Proceed for cooking / pickup when ready'
-        : 'Order is ready for delivery';
+  if (ctx.deliveryMan && order.order_status === 'handover') {
     const dmData: FcmPushData = {
       title: ORDER_PUSH_TITLE,
-      description: dmDescription,
+      description: 'Your order is ready for pickup',
       order_id: orderId,
       image: '',
       type: 'order_status',

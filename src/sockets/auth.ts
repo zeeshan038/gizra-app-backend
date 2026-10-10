@@ -75,6 +75,31 @@ export async function authenticateSocketToken(token: string): Promise<SocketActo
     };
   }
 
+  if (role == null) {
+    const dmByToken = await prisma.delivery_men.findFirst({
+      where: {
+        auth_token: token.trim(),
+        application_status: 'approved',
+        status: true,
+      },
+      select: {
+        id: true,
+        type: true,
+        zone_id: true,
+        vehicle_id: true,
+        restaurant_id: true,
+      },
+    });
+    if (dmByToken) {
+      const subscribeTopics = await getDeliveryManFcmTopics(dmByToken);
+      return {
+        role: 'delivery_man',
+        deliveryManId: Number(dmByToken.id),
+        subscribeTopics,
+      };
+    }
+  }
+
   if (role === 'guest') {
     const guestId = Number(subjectId);
     if (!Number.isFinite(guestId)) return null;

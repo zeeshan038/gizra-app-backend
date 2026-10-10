@@ -17,7 +17,7 @@ const STATUS_TO_MESSAGE_KEY: Record<string, string> = {
 
 const FALLBACK_EN: Record<string, string> = {
   pending: 'Your order is pending.',
-  confirmed: 'Your order is being prepared.',
+  confirmed: 'Your order has been accepted.',
   processing: 'Your order is being prepared.',
   picked_up: 'Your order has been picked up and is on the way.',
   handover: 'Your order is ready.',
