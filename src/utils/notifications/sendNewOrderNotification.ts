@@ -1,5 +1,8 @@
 import prisma from '../../config/database';
-import { emitNewOrderRealtime } from '../../sockets/orderRealtime';
+import {
+  emitDriverOrderRequestIfEligible,
+  emitNewOrderRealtime,
+} from '../../sockets/orderRealtime';
 import { persistAndPushVendorNewOrder, sendOrderNotification } from './sendOrderNotification';
 
 export type NewOrderPushPayload = {
@@ -13,18 +16,34 @@ export type NewOrderPushPayload = {
 
 /**
  * Mirrors legacy `Helpers::send_order_notification` for new marketplace orders (vendor leg):
+ * - Vendor `new_order` socket (restaurant room and vendor room)
+ * - Driver `order_request` socket when the order is already in the delivery pool
  * - Persists `user_notifications` for the vendor panel
- * - Sends FCM to vendor `firebase_token` (POS / vendor mobile app) when configured
- * - Driver pool FCM when the placed order is immediately pool-eligible
+ * - Sends FCM to vendor devices and the driver pool when configured
  */
-export async function sendNewOrderNotification(payload: NewOrderPushPayload): Promise<void> {
-  emitNewOrderRealtime({
-    order_id: payload.order_id,
-    restaurant_id: payload.restaurant_id,
-    order_amount: payload.order_amount,
-    order_type: payload.order_type,
-    payment_method: payload.payment_method,
-  });
+export async function sendNewOrderNotification(
+  payload: NewOrderPushPayload,
+  options?: { skipVendorSocket?: boolean }
+): Promise<void> {
+  if (!options?.skipVendorSocket) {
+    emitNewOrderRealtime({
+      order_id: payload.order_id,
+      restaurant_id: payload.restaurant_id,
+      order_amount: payload.order_amount,
+      order_type: payload.order_type,
+      payment_method: payload.payment_method,
+      vendor_id: payload.vendor_id,
+    });
+  }
+
+  try {
+    const order = await prisma.orders.findUnique({
+      where: { id: BigInt(payload.order_id) },
+    });
+    if (order) await emitDriverOrderRequestIfEligible(order);
+  } catch (e) {
+    console.error('[socket] driver order_request on new order failed', e);
+  }
 
   try {
     const vendor = await prisma.vendors.findUnique({

@@ -68,14 +68,18 @@ export async function runOrderPlacePaymentHook(payment: PaymentRequestRow): Prom
   await updateUnpaidOrderPayment(orderId, payMethod);
 
   if (restaurant?.vendor_id) {
-    void sendNewOrderNotification({
-      order_id: orderId.toString(),
-      restaurant_id: Number(order.restaurant_id),
-      vendor_id: Number(restaurant.vendor_id),
-      order_type: order.order_type ?? 'delivery',
-      payment_method: payMethod,
-      order_amount: Number(order.order_amount) || 0,
-    });
+    void sendNewOrderNotification(
+      {
+        order_id: orderId.toString(),
+        restaurant_id: Number(order.restaurant_id),
+        vendor_id: Number(restaurant.vendor_id),
+        order_type: order.order_type ?? 'delivery',
+        payment_method: payMethod,
+        order_amount: Number(order.order_amount) || 0,
+      },
+      // Vendor `new_order` already went out when the customer placed the order.
+      { skipVendorSocket: true }
+    )
   }
 }
 

@@ -25,7 +25,7 @@ import {
   resolveConsumerOrderUser,
 } from '../../utils/consumer/orderListHelpers';
 import { sendNewOrderNotification } from '../../utils/notifications/sendNewOrderNotification';
-import { emitOrderStatusRealtime } from '../../sockets/orderRealtime';
+import { emitNewOrderRealtime, emitOrderStatusRealtime } from '../../sockets/orderRealtime';
 import { executePlaceOrder, PlaceOrderError } from './placeOrderLogic';
 import { notPosWhere } from '../../utils/vendor/order/query';
 
@@ -119,15 +119,22 @@ export const placeOrder = async (req: Request, res: Response): Promise<any> => {
       where: { id: BigInt(Number(orderResult.restaurant_id)) },
       select: { vendor_id: true },
     });
-    if (restaurant?.vendor_id && orderResult.payment_method !== 'digital_payment') {
-      void sendNewOrderNotification({
+    if (restaurant?.vendor_id) {
+      const notifyPayload = {
         order_id: mappedOrder.id,
         restaurant_id: Number(orderResult.restaurant_id),
         vendor_id: Number(restaurant.vendor_id),
         order_type: orderResult.order_type,
         payment_method: orderResult.payment_method,
         order_amount: mappedOrder.order_amount,
-      });
+      };
+      if (orderResult.payment_method === 'digital_payment') {
+        // Card checkout is unpaid until HyperPay confirms. Tell the open vendor app now;
+        // push + driver pool run from the payment success hook.
+        emitNewOrderRealtime(notifyPayload);
+      } else {
+        void sendNewOrderNotification(notifyPayload);
+      }
     }
 
     return res.status(201).json({

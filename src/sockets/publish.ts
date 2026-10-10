@@ -27,12 +27,18 @@ export function getSocketServer(): Server | null {
   return io;
 }
 
-export function publishOrderNew(payload: OrderNewPayload): void {
+export function publishOrderNew(payload: OrderNewPayload, vendorId?: number): void {
   if (!io) {
     console.warn('[socket] publishOrderNew skipped — Socket.IO not initialized');
     return;
   }
-  io.to(restaurantRoom(payload.restaurant_id)).emit(SocketEvents.NEW_ORDER, payload);
+  const restaurant = restaurantRoom(payload.restaurant_id);
+  // Union of rooms: a socket in both still receives the event once.
+  const target = vendorId != null ? io.to(restaurant).to(vendorRoom(vendorId)) : io.to(restaurant);
+  target.emit(SocketEvents.NEW_ORDER, payload);
+  console.log(
+    `[socket] new_order order=${payload.order_id} room=${restaurant} vendor=${vendorId ?? '-'}`
+  );
 }
 
 export function publishOrderRequest(topics: string[], payload: OrderRequestPayload): void {
@@ -40,6 +46,9 @@ export function publishOrderRequest(topics: string[], payload: OrderRequestPaylo
   for (const topic of topics) {
     io.to(fcmTopicRoom(topic)).emit(SocketEvents.ORDER_REQUEST, payload);
   }
+  console.log(
+    `[socket] order_request order=${payload.order_id} topics=${topics.join(',')}`
+  );
 }
 
 export function publishOrderUpdatedToTopics(

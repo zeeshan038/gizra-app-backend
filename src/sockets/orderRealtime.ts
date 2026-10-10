@@ -24,6 +24,7 @@ export function emitNewOrderRealtime(payload: {
   order_amount: number;
   order_type: string;
   payment_method: string | null;
+  vendor_id?: number;
 }): void {
   publishNewOrderToRestaurant(payload.restaurant_id, {
     order_id: payload.order_id,
@@ -32,13 +33,16 @@ export function emitNewOrderRealtime(payload: {
     payment_method: payload.payment_method,
   });
 
-  publishOrderNew({
-    order_id: payload.order_id,
-    restaurant_id: payload.restaurant_id,
-    order_amount: payload.order_amount,
-    order_type: payload.order_type,
-    payment_method: payload.payment_method,
-  });
+  publishOrderNew(
+    {
+      order_id: payload.order_id,
+      restaurant_id: payload.restaurant_id,
+      order_amount: payload.order_amount,
+      order_type: payload.order_type,
+      payment_method: payload.payment_method,
+    },
+    payload.vendor_id
+  );
 }
 
 export function buildOrderRequestPayload(order: orders): OrderRequestPayload {
@@ -69,7 +73,8 @@ export async function emitManualDispatchOrderRequest(order: orders): Promise<voi
   publishOrderRequest(topics, buildOrderRequestPayload(order));
 }
 
-async function maybeEmitDriverOrderRequest(order: orders): Promise<void> {
+/** `order_request` for drivers when a delivery job is in the unassigned pool. */
+export async function emitDriverOrderRequestIfEligible(order: orders): Promise<void> {
   if (
     !passesScheduleWindow(order, 30) ||
     !passesNotDigitalPending(order)
@@ -99,7 +104,7 @@ export function emitOrderStatusRealtime(order: orders): void {
 
   void (async () => {
     try {
-      await maybeEmitDriverOrderRequest(order);
+      await emitDriverOrderRequestIfEligible(order);
 
       if (order.order_type === 'delivery' && order.delivery_man_id != null) {
         const topics = await getOrderRequestBroadcastTopics(order);
