@@ -21,7 +21,10 @@ export function resolveConsumerOrderUser(
   guestIdFromQuery?: number
 ): { userId: number; isGuest: boolean } | null {
   if (req.user?.id) {
-    return { userId: Number(req.user.id), isGuest: false };
+    return {
+      userId: Number(req.user.id),
+      isGuest: req.user.isGuest === true || req.user.role === 'guest',
+    };
   }
   if (guestIdFromQuery != null && Number.isFinite(guestIdFromQuery)) {
     return { userId: guestIdFromQuery, isGuest: true };

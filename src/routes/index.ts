@@ -1,12 +1,12 @@
 import express from 'express';
-import prisma from '../config/database';
+import { prismaPing } from '../config/database';
 
 const router = express.Router();
 
 /** Same pool as the running API (startup already called connectDB). Never $disconnect here. */
 router.get('/health/db', async (_req, res) => {
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    await prismaPing();
     return res.status(200).json({ status: true, db: 'ok' });
   } catch (err) {
     console.error('[health/db]', err);
@@ -70,7 +70,7 @@ import consumerMessageRoutes from './consumer/message';
 import sharedConfigRoutes from './config';
 import legalPagesRoutes from './pages';
 
-//consumer — public discover/config first; `/consumer` user router last (it applies verifyConsumer to unmatched paths)
+//consumer — public discover/config first; `/consumer` user router last (auth is per-route, not a catch-all)
 router.use('/config', sharedConfigRoutes);
 router.use('/pages', legalPagesRoutes);
 router.use('/consumer/config', consumerConfigRoutes);

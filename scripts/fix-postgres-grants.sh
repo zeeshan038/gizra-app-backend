@@ -42,7 +42,9 @@ psql_tcp -d postgres -v ON_ERROR_STOP=1 -c "
 "
 
 psql_tcp -d "$DB" -v ON_ERROR_STOP=1 <<'SQL'
+ALTER SCHEMA public OWNER TO postgres;
 GRANT USAGE, CREATE ON SCHEMA public TO postgres;
+GRANT USAGE ON SCHEMA public TO public;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres;
 GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO postgres;

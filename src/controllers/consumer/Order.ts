@@ -34,7 +34,10 @@ function resolveOrderUser(req: Request, payload: PlaceOrderInput): {
   isGuest: boolean;
 } | null {
   if (req.user?.id) {
-    return { userId: Number(req.user.id), isGuest: false };
+    return {
+      userId: Number(req.user.id),
+      isGuest: req.user.isGuest === true || req.user.role === 'guest',
+    };
   }
   if (payload.guest_id) {
     return { userId: Number(payload.guest_id), isGuest: true };

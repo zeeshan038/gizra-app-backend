@@ -16,5 +16,7 @@ router.get('/discover/map', getDiscoverMapRestaurants);
 router.get('/all', getRestaurants);
 router.get('/:id/foods', getRestaurantFoods);
 router.get('/specfic/:id', getRestaurantDetails);
+router.get('/specific/:id', getRestaurantDetails);
+router.get('/:id', getRestaurantDetails);
 
 export default router;

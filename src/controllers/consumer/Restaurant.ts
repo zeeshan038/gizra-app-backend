@@ -605,8 +605,8 @@ export const searchFoods = async (req: Request, res: Response): Promise<any> => 
 
 
 /**
- * @Description Specific Restaurant Details
- * @Route GET api/consumer/restaurants/specfic/:id
+ * @Description Specific restaurant details
+ * @Route GET /api/consumer/restaurants/specific/:id
  * @Access Public
  */
 export const getRestaurantDetails = async (req: Request, res: Response): Promise<any> => {

@@ -48,20 +48,22 @@ router.put('/password/reset', resetPassword);
 router.post('/notifications/test', testNotification);
 router.get('/notifications/test', testNotification);
 
-router.use(verifyConsumer);
-router.use(requireRegisteredConsumer);
-router.post('/apply/restaurant', applyForRestaurant);
-router.put('/password/change', changePassword);
+const requireCustomer = [verifyConsumer, requireRegisteredConsumer];
 
-router.get('/suggested-foods', getSuggestedFoods);
-router.put('/update-firebase-token', updateFirebaseToken);
-router.put('/update-zone', updateProfileZone);
-router.post('/update-interest', updateInterest);
-router.get('/whoami', getProfile);
-router.put('/update-profile', updateProfile);
-router.delete('/delete-account', removeAccount);
-router.get('/notifications', getNotifications);
-router.put('/notifications/toggle', toggleConsumerPushNotification);
-router.delete('/notifications/:id', deleteNotification);
+router.post('/apply/restaurant', ...requireCustomer, applyForRestaurant);
+router.put('/password/change', ...requireCustomer, changePassword);
+
+router.get('/suggested-foods', ...requireCustomer, getSuggestedFoods);
+router.put('/update-firebase-token', ...requireCustomer, updateFirebaseToken);
+router.put('/update-zone', ...requireCustomer, updateProfileZone);
+router.post('/update-interest', ...requireCustomer, updateInterest);
+router.get('/whoami', ...requireCustomer, getProfile);
+router.get('/info', ...requireCustomer, getProfile);
+router.get('/profile', ...requireCustomer, getProfile);
+router.put('/update-profile', ...requireCustomer, updateProfile);
+router.delete('/delete-account', ...requireCustomer, removeAccount);
+router.get('/notifications', ...requireCustomer, getNotifications);
+router.put('/notifications/toggle', ...requireCustomer, toggleConsumerPushNotification);
+router.delete('/notifications/:id', ...requireCustomer, deleteNotification);
 
 export default router;

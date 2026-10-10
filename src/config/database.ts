@@ -1,7 +1,36 @@
 import '../loadEnv';
 import { PrismaClient } from '@prisma/client';
+import { isTransientDbError } from '../utils/safeApiError';
 
-const prisma = new PrismaClient();
+const base = new PrismaClient();
+
+async function resetPool(): Promise<void> {
+  try {
+    await base.$disconnect();
+  } catch {
+    /* ignore a dead socket */
+  }
+  await base.$connect();
+}
+
+async function withTransientRetry<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    if (!isTransientDbError(error)) throw error;
+    console.warn('[prisma] transient DB error (P1000/P1010) — reset pool and retry once');
+    await resetPool();
+    return run();
+  }
+}
+
+const prisma = base.$extends({
+  query: {
+    async $allOperations({ args, query }) {
+      return withTransientRetry(() => query(args));
+    },
+  },
+}) as unknown as PrismaClient;
 
 function databaseUrlHint(): string {
   const raw = process.env.DATABASE_URL ?? '';
@@ -20,16 +49,20 @@ function databaseUrlHint(): string {
   } catch {
     /* ignore parse errors */
   }
-  return 'Verify DATABASE_URL user/password matches Postgres (P1000 = wrong password). On server: docker exec gizra-postgres psql -U postgres -c "ALTER USER postgres WITH PASSWORD \'...\';" then update .env and recreate backend.';
+  return 'Verify DATABASE_URL user/password matches Postgres (P1000 = wrong password, P1010 = role denied on gizra_db.public). On server: npm run deploy:server (syncs password + GRANT on public).';
+}
+
+export async function prismaPing(): Promise<void> {
+  await withTransientRetry(() => base.$queryRaw`SELECT 1`);
 }
 
 //Test Connection
 export const connectDB = async (): Promise<void> => {
   try {
-    await prisma.$connect();
-    await prisma.$queryRaw`SELECT 1`;
+    await base.$connect();
+    await prismaPing();
     try {
-      await prisma.$executeRawUnsafe('CREATE EXTENSION IF NOT EXISTS postgis;');
+      await base.$executeRawUnsafe('CREATE EXTENSION IF NOT EXISTS postgis;');
     } catch (postgisErr) {
       console.warn(
         'PostGIS extension could not be enabled (zone APIs need postgis/postgis image or CREATE EXTENSION postgis):',
