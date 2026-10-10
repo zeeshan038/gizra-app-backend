@@ -49,7 +49,7 @@ async function loadOrderContext(order: orders) {
     select: { id: true, name: true, vendor_id: true, zone_id: true },
   });
 
-  const [vendor, customer, deliveryMan] = await Promise.all([
+  const [vendor, customer, guest, deliveryMan] = await Promise.all([
     restaurant?.vendor_id
       ? prisma.vendors.findUnique({
           where: { id: BigInt(Number(restaurant.vendor_id)) },
@@ -74,6 +74,12 @@ async function loadOrderContext(order: orders) {
           },
         })
       : Promise.resolve(null),
+    order.user_id && order.is_guest
+      ? prisma.guests.findUnique({
+          where: { id: BigInt(Number(order.user_id)) },
+          select: { id: true, fcm_token: true },
+        })
+      : Promise.resolve(null),
     order.delivery_man_id
       ? prisma.delivery_men.findUnique({
           where: { id: BigInt(Number(order.delivery_man_id)) },
@@ -88,7 +94,7 @@ async function loadOrderContext(order: orders) {
       : Promise.resolve(null),
   ]);
 
-  return { restaurant, vendor, customer, deliveryMan };
+  return { restaurant, vendor, customer, guest, deliveryMan };
 }
 
 /** Customer copy for handover on delivery orders matches “picked up / on the way”. */
@@ -138,9 +144,19 @@ async function notifyCustomerOrderStatus(
   ctx: Awaited<ReturnType<typeof loadOrderContext>>,
   description: string
 ): Promise<void> {
-  if (!ctx.customer || order.user_id == null) return;
+  if (order.user_id == null) return;
 
   const userId = Number(order.user_id);
+  if (!Number.isFinite(userId)) return;
+
+  const token = order.is_guest ? ctx.guest?.fcm_token : ctx.customer?.cm_firebase_token;
+  const recipientOn = order.is_guest ? true : ctx.customer?.is_notification_on;
+
+  if (!order.is_guest && !ctx.customer) {
+    console.warn(`[notify] customer push skipped order=${order.id} reason=user_not_found`);
+    return;
+  }
+
   const data: FcmPushData = {
     title: ORDER_PUSH_TITLE,
     description,
@@ -158,11 +174,22 @@ async function notifyCustomerOrderStatus(
   }
 
   const enabled = await isPushNotificationEnabled('customer', 'customer_order_notification');
-  await pushToDeviceIfEnabled(
-    enabled && isRecipientPushOn(ctx.customer.is_notification_on),
-    ctx.customer.cm_firebase_token,
-    data
-  );
+  if (!enabled) {
+    console.warn(`[notify] customer push skipped order=${order.id} reason=settings_off`);
+    return;
+  }
+  if (!isRecipientPushOn(recipientOn)) {
+    console.warn(`[notify] customer push skipped order=${order.id} reason=user_toggle_off`);
+    return;
+  }
+  if (!token?.trim()) {
+    console.warn(
+      `[notify] customer push skipped order=${order.id} reason=no_fcm_token — app must call PUT /api/consumer/update-firebase-token`
+    );
+    return;
+  }
+
+  await pushToDeviceIfEnabled(true, token, data);
 }
 
 async function notifyVendor(

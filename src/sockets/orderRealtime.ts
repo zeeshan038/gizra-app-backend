@@ -17,6 +17,13 @@ import {
   passesScheduleWindow,
 } from '../utils/deliveryman/orderHelpers';
 import { sendOrderNotification } from '../utils/notifications/sendOrderNotification';
+import { customerTrackingCopy } from '../utils/notifications/orderStatusMessage';
+
+function plainId(value: { toString(): string } | null | undefined): string | null {
+  if (value == null) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? String(n) : null;
+}
 
 export function emitNewOrderRealtime(payload: {
   order_id: string;
@@ -89,12 +96,15 @@ export async function emitDriverOrderRequestIfEligible(order: orders): Promise<v
 }
 
 export function emitOrderStatusRealtime(order: orders): void {
+  const tracking = customerTrackingCopy(order.order_status);
   const payload: OrderUpdatedPayload = {
     order_id: order.id.toString(),
     restaurant_id: Number(order.restaurant_id),
-    user_id: order.user_id?.toString() ?? null,
-    delivery_man_id: order.delivery_man_id?.toString() ?? null,
+    user_id: plainId(order.user_id),
+    delivery_man_id: plainId(order.delivery_man_id),
     order_status: order.order_status,
+    status_label: tracking.status_label,
+    message: tracking.message,
     order_amount: Number(order.order_amount) || 0,
     order_type: order.order_type,
     payment_method: order.payment_method,

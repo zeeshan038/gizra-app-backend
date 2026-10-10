@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 
 const STATUS_TO_MESSAGE_KEY: Record<string, string> = {
@@ -16,7 +17,7 @@ const STATUS_TO_MESSAGE_KEY: Record<string, string> = {
 
 const FALLBACK_EN: Record<string, string> = {
   pending: 'Your order is pending.',
-  confirmed: 'Your order has been confirmed.',
+  confirmed: 'Your order is being prepared.',
   processing: 'Your order is being prepared.',
   picked_up: 'Your order has been picked up and is on the way.',
   handover: 'Your order is ready.',
@@ -27,6 +28,25 @@ const FALLBACK_EN: Record<string, string> = {
   refunded: 'Your order has been refunded.',
   refund_request_canceled: 'Your refund request was not approved.',
 };
+
+/** Customer tracking copy. Vendor accept (`confirmed`) and cooking (`processing`) both read as preparing. */
+export function customerTrackingCopy(orderStatus: string): {
+  status_label: string;
+  message: string;
+} {
+  if (orderStatus === 'confirmed' || orderStatus === 'processing') {
+    return {
+      status_label: 'Preparing',
+      message: FALLBACK_EN.processing,
+    };
+  }
+  const message = FALLBACK_EN[orderStatus] ?? `Order status: ${orderStatus}`;
+  const label = orderStatus.replace(/_/g, ' ');
+  return {
+    status_label: label.charAt(0).toUpperCase() + label.slice(1),
+    message,
+  };
+}
 
 function applyTemplate(
   template: string,
@@ -52,14 +72,35 @@ export async function buildOrderStatusDescription(input: {
   if (key) {
     const row = await prisma.notification_messages.findFirst({
       where: { key, status: true },
-      select: { message: true },
+      select: { id: true, message: true },
     });
-    if (row?.message) {
-      return applyTemplate(row.message, {
+    if (row) {
+      const vars = {
         user_name: input.user_name,
         restaurant_name: input.restaurant_name,
         order_id: input.order_id,
-      });
+      };
+      if (lang !== 'en') {
+        try {
+          const translated = await prisma.translations.findFirst({
+            where: {
+              translationable_type: 'App\\Models\\NotificationMessage',
+              translationable_id: new Prisma.Decimal(row.id.toString()),
+              locale: lang,
+              key,
+            },
+            select: { value: true },
+          });
+          if (translated?.value?.trim()) {
+            return applyTemplate(translated.value, vars);
+          }
+        } catch (e) {
+          console.error('[notify] notification translation lookup failed', e);
+        }
+      }
+      if (row.message?.trim()) {
+        return applyTemplate(row.message, vars);
+      }
     }
   }
 

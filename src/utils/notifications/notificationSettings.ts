@@ -17,6 +17,9 @@ export async function isPushNotificationEnabled(
     if (userType === 'restaurant' && key === 'restaurant_order_notification') {
       return true;
     }
+    if (userType === 'customer' && key === 'customer_order_notification') {
+      return true;
+    }
     return false;
   }
   return row.push_notification_status === 'active';

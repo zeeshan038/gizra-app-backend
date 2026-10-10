@@ -45,6 +45,10 @@ export type OrderUpdatedPayload = {
   user_id: string | null;
   delivery_man_id: string | null;
   order_status: string;
+  /** Customer-facing label. Vendor accept (`confirmed`) and cooking are both `Preparing`. */
+  status_label: string;
+  /** Sentence for the tracking screen and the push body. */
+  message: string;
   order_amount: number;
   order_type: string;
   payment_method: string | null;
