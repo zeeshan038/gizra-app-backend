@@ -29,15 +29,57 @@ const FALLBACK_EN: Record<string, string> = {
   refund_request_canceled: 'Your refund request was not approved.',
 };
 
+/** 1–5 step for customer order tracking progress bars. */
+export function customerTrackingStep(orderStatus: string): number {
+  switch (orderStatus) {
+    case 'pending':
+      return 1;
+    case 'confirmed':
+    case 'accepted':
+      return 2;
+    case 'processing':
+      return 3;
+    case 'handover':
+      return 4;
+    case 'picked_up':
+      return 4;
+    case 'delivered':
+      return 5;
+    case 'canceled':
+    case 'failed':
+      return 1;
+    default:
+      return 2;
+  }
+}
+
 /** Customer tracking copy. Vendor accept (`confirmed`) and cooking (`processing`) both read as preparing. */
 export function customerTrackingCopy(orderStatus: string): {
   status_label: string;
   message: string;
+  tracking_step: number;
 } {
+  const tracking_step = customerTrackingStep(orderStatus);
+
   if (orderStatus === 'confirmed' || orderStatus === 'processing') {
     return {
       status_label: 'Preparing',
       message: FALLBACK_EN.processing,
+      tracking_step,
+    };
+  }
+  if (orderStatus === 'picked_up') {
+    return {
+      status_label: 'On the way',
+      message: FALLBACK_EN.picked_up,
+      tracking_step,
+    };
+  }
+  if (orderStatus === 'delivered') {
+    return {
+      status_label: 'Delivered',
+      message: FALLBACK_EN.delivered,
+      tracking_step,
     };
   }
   const message = FALLBACK_EN[orderStatus] ?? `Order status: ${orderStatus}`;
@@ -45,6 +87,7 @@ export function customerTrackingCopy(orderStatus: string): {
   return {
     status_label: label.charAt(0).toUpperCase() + label.slice(1),
     message,
+    tracking_step,
   };
 }
 

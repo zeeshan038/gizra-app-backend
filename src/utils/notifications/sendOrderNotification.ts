@@ -132,11 +132,33 @@ async function pushVendorFcmDevices(
       } catch (e) {
         console.error('[notify] FCM restaurant panel topic send failed', e);
       }
+    } else {
+      console.warn('[notify] vendor push skipped (no device token and no restaurant_id)');
     }
     return;
   }
 
   await Promise.all(tokens.map((token) => pushToDeviceIfEnabled(true, token, data)));
+}
+
+/** POS / vendor panel topic fan-out (legacy PHP `restaurant_panel_{id}_message` + zone topic). */
+async function broadcastVendorPosTopics(restaurantId: number, data: FcmPushData): Promise<void> {
+  await sendFcmToTopic(`restaurant_panel_${restaurantId}_message`, data);
+
+  const restaurant = await prisma.restaurants.findUnique({
+    where: { id: BigInt(restaurantId) },
+    select: { zone_id: true },
+  });
+  const zoneId =
+    restaurant?.zone_id != null ? Number(restaurant.zone_id) : Number.NaN;
+  if (!Number.isFinite(zoneId)) return;
+
+  const zone = await prisma.zones.findUnique({
+    where: { id: BigInt(zoneId) },
+    select: { restaurant_wise_topic: true },
+  });
+  const topic = zone?.restaurant_wise_topic || `zone_${zoneId}_restaurant`;
+  await sendFcmToTopic(topic, data);
 }
 
 async function notifyCustomerOrderStatus(
@@ -448,4 +470,11 @@ export async function persistAndPushVendorNewOrder(input: {
     'restaurant_order_notification',
     input.recipientPushOn ?? true
   );
+
+  // Always topic-broadcast new orders — POS may have a stale `firebase_token` but still subscribe to FCM topics.
+  try {
+    await broadcastVendorPosTopics(input.restaurant_id, data);
+  } catch (e) {
+    console.error('[notify] vendor new order POS topic broadcast failed', e);
+  }
 }

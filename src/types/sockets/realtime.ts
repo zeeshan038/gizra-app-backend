@@ -49,6 +49,8 @@ export type OrderUpdatedPayload = {
   status_label: string;
   /** Sentence for the tracking screen and the push body. */
   message: string;
+  /** 1–5 progress step for customer tracking UI (5 = delivered). */
+  tracking_step: number;
   order_amount: number;
   order_type: string;
   payment_method: string | null;
@@ -60,6 +62,7 @@ export type SessionReadyPayload = {
   restaurant_id?: number;
   user_id?: number;
   delivery_man_id?: number;
+  is_guest?: boolean;
 };
 
 /** @deprecated use SessionReadyPayload */

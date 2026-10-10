@@ -73,6 +73,10 @@ export function publishOrderUpdated(payload: OrderUpdatedPayload): void {
   if (payload.delivery_man_id) {
     io.to(deliveryManRoom(payload.delivery_man_id)).emit(SocketEvents.ORDER_STATUS_CHANGED, payload);
   }
+
+  console.log(
+    `[socket] order_status_changed order=${payload.order_id} status=${payload.order_status} user=${payload.user_id ?? '-'} step=${payload.tracking_step}`
+  );
 }
 
 /** Live chat — REST send is source of truth; socket updates open threads and inbox badges. */

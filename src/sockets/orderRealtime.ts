@@ -105,6 +105,7 @@ export function emitOrderStatusRealtime(order: orders): void {
     order_status: order.order_status,
     status_label: tracking.status_label,
     message: tracking.message,
+    tracking_step: tracking.tracking_step,
     order_amount: Number(order.order_amount) || 0,
     order_type: order.order_type,
     payment_method: order.payment_method,

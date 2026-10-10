@@ -57,6 +57,7 @@ export function registerSocketHandlers(io: Server): void {
       restaurant_id: actor.role === 'vendor' ? actor.restaurantId : undefined,
       user_id: actor.role === 'customer' ? actor.userId : undefined,
       delivery_man_id: actor.role === 'delivery_man' ? actor.deliveryManId : undefined,
+      is_guest: actor.role === 'customer' ? actor.isGuest === true : undefined,
     };
     socket.emit(SocketEvents.SESSION_READY, sessionReady);
 

@@ -1,6 +1,6 @@
 export type SocketActor =
   | { role: 'vendor'; vendorId: number; restaurantId: number }
-  | { role: 'customer'; userId: number }
+  | { role: 'customer'; userId: number; isGuest?: boolean }
   | { role: 'delivery_man'; deliveryManId: number; subscribeTopics: string[] };
 
 export type SocketJwtPayload = {

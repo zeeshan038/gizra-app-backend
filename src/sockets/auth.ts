@@ -7,6 +7,31 @@ export type { SocketActor } from '../types/sockets/auth';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_here';
 
+async function authenticateVendor(
+  token: string,
+  subjectId: string,
+  decoded: SocketJwtPayload
+): Promise<SocketActor | null> {
+  const vendor = await prisma.vendors.findUnique({
+    where: { id: Number(subjectId) },
+    select: { id: true, auth_token: true, status: true },
+  });
+
+  if (!vendor || vendor.status === false || vendor.auth_token !== token.trim()) return null;
+
+  let restaurantId = decoded.restaurant_id ? Number(decoded.restaurant_id) : null;
+  if (!restaurantId) {
+    const restaurant = await prisma.restaurants.findFirst({
+      where: { vendor_id: Number(vendor.id) },
+      select: { id: true },
+    });
+    restaurantId = restaurant ? Number(restaurant.id) : null;
+  }
+  if (!restaurantId) return null;
+
+  return { role: 'vendor', vendorId: Number(vendor.id), restaurantId };
+}
+
 export async function authenticateSocketToken(token: string): Promise<SocketActor | null> {
   if (!token?.trim()) return null;
 
@@ -20,36 +45,10 @@ export async function authenticateSocketToken(token: string): Promise<SocketActo
   const subjectId = decoded.id || decoded._id;
   if (!subjectId) return null;
 
-  const role = decoded.role ?? 'vendor';
+  const role = decoded.role;
 
   if (role === 'vendor') {
-    const vendor = await prisma.vendors.findUnique({
-      where: { id: Number(subjectId) },
-      select: { id: true, auth_token: true, status: true },
-    });
- 
-    if (!vendor || vendor.status === false || vendor.auth_token !== token.trim()) return null;
-
-    let restaurantId = decoded.restaurant_id ? Number(decoded.restaurant_id) : null;
-    if (!restaurantId) {
-      const restaurant = await prisma.restaurants.findFirst({
-        where: { vendor_id: Number(vendor.id) },
-        select: { id: true },
-      });
-      restaurantId = restaurant ? Number(restaurant.id) : null;
-    }
-    if (!restaurantId) return null;
-
-    return { role: 'vendor', vendorId: Number(vendor.id), restaurantId };
-  }
-
-  if (role === 'customer') {
-    const user = await prisma.users.findUnique({
-      where: { id: Number(subjectId) },
-      select: { id: true, status: true },
-    });
-    if (!user?.status) return null;
-    return { role: 'customer', userId: Number(user.id) };
+    return authenticateVendor(token, subjectId, decoded);
   }
 
   if (role === 'delivery_man') {
@@ -76,6 +75,35 @@ export async function authenticateSocketToken(token: string): Promise<SocketActo
     };
   }
 
+  if (role === 'guest') {
+    const guestId = Number(subjectId);
+    if (!Number.isFinite(guestId)) return null;
+    const guest = await prisma.guests.findUnique({
+      where: { id: BigInt(guestId) },
+      select: { id: true },
+    });
+    if (!guest) return null;
+    return { role: 'customer', userId: guestId, isGuest: true };
+  }
+
+  if (role === 'customer' || role == null) {
+    const userId = Number(subjectId);
+    if (!Number.isFinite(userId)) return null;
+    const user = await prisma.users.findUnique({
+      where: { id: userId },
+      select: { id: true, status: true },
+    });
+    if (user && user.status !== false) {
+      return { role: 'customer', userId: Number(user.id), isGuest: false };
+    }
+    if (role === 'customer') return null;
+  }
+
+  // Legacy vendor JWTs without a role claim
+  if (role == null) {
+    return authenticateVendor(token, subjectId, decoded);
+  }
+
   return null;
 }
 
@@ -87,6 +115,7 @@ export async function canAccessOrder(actor: SocketActor, orderId: number): Promi
       user_id: true,
       delivery_man_id: true,
       order_type: true,
+      is_guest: true,
     },
   });
   if (!order || order.order_type === 'pos') return false;
@@ -95,7 +124,10 @@ export async function canAccessOrder(actor: SocketActor, orderId: number): Promi
     return Number(order.restaurant_id) === actor.restaurantId;
   }
   if (actor.role === 'customer') {
-    return order.user_id != null && Number(order.user_id) === actor.userId;
+    if (order.user_id == null) return false;
+    if (Number(order.user_id) !== actor.userId) return false;
+    if (actor.isGuest) return order.is_guest === true;
+    return order.is_guest !== true;
   }
   if (actor.role === 'delivery_man') {
     return (
