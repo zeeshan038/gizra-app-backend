@@ -40,6 +40,12 @@ function htmlResultPage(flag: 'success' | 'fail'): string {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Payment Failed</title></head><body style="font-family:sans-serif;text-align:center;padding:2rem;background:#fff8f8"><h2 style="color:#b00020">&#10007; Payment Failed</h2><p>Your payment could not be processed. Please try again.</p></body></html>`;
 }
 
+/** PHP PaypalPaymentController::sendFinalResponse — WebViews often ignore 302 to custom schemes. */
+function htmlDeepLinkRedirect(deepLink: string): string {
+  const safe = deepLink.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><script>window.location.replace("${safe}");</script></head><body></body></html>`;
+}
+
 async function sendFinalResponse(res: Response, paymentId: string, flag: 'success' | 'fail') {
   const payment = await findPaymentRequestById(paymentId);
   const redirect = buildFinalRedirect(payment, flag);
@@ -53,14 +59,20 @@ async function sendFinalResponse(res: Response, paymentId: string, flag: 'succes
   });
   if (redirect) {
     const ourHost = new URL(getPaymentPublicBaseUrl()).host;
+    let scheme = '';
     let redirectHost: string | null = null;
     try {
-      redirectHost = new URL(redirect).host;
+      const parsed = new URL(redirect);
+      scheme = parsed.protocol.replace(':', '');
+      redirectHost = parsed.host;
     } catch {
       redirectHost = null;
     }
     if (redirectHost === ourHost) {
       return res.status(flag === 'success' ? 200 : 402).type('html').send(htmlResultPage(flag));
+    }
+    if (scheme && scheme !== 'http' && scheme !== 'https') {
+      return res.status(200).type('html').send(htmlDeepLinkRedirect(redirect));
     }
     return res.redirect(302, redirect);
   }
@@ -132,9 +144,31 @@ export const hyperPaySuccess = async (req: Request, res: Response): Promise<any>
     params: sanitizeHypParams({ ...req.query, ...(req.body ?? {}) }),
   });
 
-  if (Object.keys(hypParams).length === 0 || hypParams.Order == null) {
-    hyperPayLog('success_skip', { reason: 'connectivity_or_missing_order' });
+  const missingHypFields =
+    Object.keys(hypParams).length === 0 || hypParams.Order == null || hypParams.Order === '';
+
+  // HyP portal connectivity probe: empty request, no payment_id.
+  if (!paymentId && missingHypFields) {
+    hyperPayLog('success_skip', { reason: 'connectivity_test' });
     return res.status(200).type('html').send('<html><body><p>OK</p></body></html>');
+  }
+
+  // Browser hit SuccessUrl with only our payment_id (no Order/CCode/Sign) — common in WebView.
+  if (paymentId && missingHypFields) {
+    const payment = await findPaymentRequestById(paymentId);
+    hyperPayLog('success_incomplete_redirect', {
+      payment_id: paymentId,
+      order_id: payment?.attribute_id ?? null,
+      already_paid: payment?.is_paid ?? null,
+      method: req.method,
+    });
+    if (payment?.is_paid) {
+      return sendFinalResponse(res, payment.id, 'success');
+    }
+    if (payment && !payment.is_paid) {
+      return sendFinalResponse(res, payment.id, 'fail');
+    }
+    return res.status(402).type('html').send(htmlResultPage('fail'));
   }
 
   const resolvedId = paymentId || String(hypParams.Order ?? '');
