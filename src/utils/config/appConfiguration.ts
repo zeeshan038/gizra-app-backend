@@ -30,6 +30,11 @@ function num(raw: string | null | undefined, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+/** Legacy PHP: `(bool)($row['status'] == 1)` — accepts `"1"` or `1`. */
+function paymentSettingEnabled(status: unknown): boolean {
+  return Number(status) === 1;
+}
+
 async function loadBusinessSettingsMap(): Promise<Map<string, string | null>> {
   const rows = await prisma.business_settings.findMany({
     where: { key: { in: [...CONFIG_BUSINESS_SETTING_KEYS] } },
@@ -74,8 +79,8 @@ export async function buildAppConfiguration(locale?: string): Promise<Record<str
     {}
   );
 
-  const cod = parseJson<{ status?: number }>(s(settings, 'cash_on_delivery'), { status: 0 });
-  const digital = parseJson<{ status?: number }>(s(settings, 'digital_payment'), { status: 0 });
+  const cod = parseJson<{ status?: unknown }>(s(settings, 'cash_on_delivery'), { status: 0 });
+  const digital = parseJson<{ status?: unknown }>(s(settings, 'digital_payment'), { status: 0 });
   const businessPlan = parseJson<{ commission?: number; subscription?: number }>(
     s(settings, 'business_model'),
     { commission: 1, subscription: 0 }
@@ -209,8 +214,8 @@ export async function buildAppConfiguration(locale?: string): Promise<Record<str
     customer_verification: bool(s(settings, 'customer_verification')),
     schedule_order: bool(s(settings, 'schedule_order')),
     order_delivery_verification: bool(s(settings, 'order_delivery_verification')),
-    cash_on_delivery: cod.status === 1,
-    digital_payment: digital.status === 1,
+    cash_on_delivery: paymentSettingEnabled(cod.status),
+    digital_payment: paymentSettingEnabled(digital.status),
     free_delivery_over: s(settings, 'free_delivery_over')
       ? num(s(settings, 'free_delivery_over'))
       : null,
@@ -293,7 +298,7 @@ export async function buildAppConfiguration(locale?: string): Promise<Record<str
     additional_charge: num(s(settings, 'additional_charge')),
     dm_picture_upload_status: num(s(settings, 'dm_picture_upload_status')),
     digital_payment_info: {
-      digital_payment: digital.status === 1,
+      digital_payment: paymentSettingEnabled(digital.status),
       plugin_payment_gateways: false,
       default_payment_gateways: true,
     },

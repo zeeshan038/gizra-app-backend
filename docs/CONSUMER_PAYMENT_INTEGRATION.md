@@ -376,7 +376,26 @@ Auth:    Bearer on all order endpoints; generate-payment-link requires registere
 
 ---
 
-## 15. Questions / support
+## 15. Backend checklist (for mobile / QA)
+
+| Item | Status |
+|------|--------|
+| `GET /api/consumer/config/` flat JSON with `cash_on_delivery`, `digital_payment`, `digital_payment_info.digital_payment` | Implemented (`buildAppConfiguration`) |
+| Payment flags read legacy JSON `{"status":"1"}` or `{"status":1}` | Fixed in Node (matches PHP `status == 1`) |
+| Platform DB: enable COD + digital | `business_settings` keys `cash_on_delivery`, `digital_payment` → run `npm run seed:business-settings` or legacy admin **Payment** toggles |
+| **Prod** must run latest backend after DB update | Until deploy, prod may still return both flags `false` despite DB |
+| `POST /consumer/order/place` | `cash_on_delivery` or `digital_payment` |
+| `POST /consumer/order/generate-payment-link` | **`hyper_pay` only**; body: `order_id`, `callback` (e.g. `gizra://payment-result`), `payment_platform`: `"app"` |
+| Success body | `{ "redirect_link": "https://…/payment/hyperpay/pay?payment_id=…" }` |
+| Guest JWT on generate-payment-link | **401** `"Login required"` (registered customer only) |
+| After HyperPay | `GET /consumer/order/track?order_id=…` → `payment_status`: `"paid"` when successful |
+| HyperPay env on server | `API_PUBLIC_URL`, `HYP_MASOF`, `HYP_PASSP`, `HYP_API_KEY`, `HYP_BASE_URL` |
+
+**App UI rule (confirmed with mobile):** If `cash_on_delivery` is `false`, hide COD and show card/HyperPay only when `digital_payment` (or `digital_payment_info.digital_payment`) is `true`. Both `false` → no valid checkout method until admin enables at least one.
+
+---
+
+## 16. Questions / support
 
 - API contract: `gizra-backend/swagger-customer.json`  
 - Server env (DevOps): `API_PUBLIC_URL`, `HYP_MASOF`, `HYP_PASSP`, `HYP_API_KEY`, `HYP_BASE_URL`  

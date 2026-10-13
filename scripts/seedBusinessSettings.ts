@@ -15,7 +15,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   instant_order: '1',
   repeat_order_option: '1',
   digital_payment: '{"status":"1"}',
-  cash_on_delivery: '{"status":null}',
+  cash_on_delivery: '{"status":"1"}',
   guest_checkout_status: '0',
   wallet_status: '0',
   dm_tips_status: '1',

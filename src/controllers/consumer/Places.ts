@@ -14,7 +14,10 @@ import {
   placeAutocomplete,
   placeDetails,
 } from '../../utils/consumer/googlePlaces';
-import { getBusinessSettingFlag } from '../../utils/consumer/businessSettings';
+import {
+  getBusinessSetting,
+  parseJsonSetting,
+} from '../../utils/consumer/businessSettings';
 import { publicMediaUrl } from '../../utils/mediaStorage';
 
 /**
@@ -156,7 +159,11 @@ export const getVehicles = async (_req: Request, res: Response): Promise<any> =>
  */
 export const getPaymentMethods = async (_req: Request, res: Response): Promise<any> => {
   try {
-    const digitalOn = await getBusinessSettingFlag('digital_payment');
+    const digital = parseJsonSetting<{ status?: unknown }>(
+      await getBusinessSetting('digital_payment'),
+      { status: 0 }
+    );
+    const digitalOn = Number(digital.status) === 1;
     const methods: Array<{
       gateway: string;
       gateway_title: string;
