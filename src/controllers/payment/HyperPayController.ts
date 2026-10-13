@@ -14,6 +14,7 @@ import {
   markPaymentRequestPaid,
   updatePaymentRequestGatewaySign,
 } from '../../utils/payment/paymentRequestRepository';
+import { hyperPayLog, sanitizeHypParams } from '../../utils/payment/hyperPayLogger';
 
 const STORED_METHOD = 'hypay';
 
@@ -42,6 +43,14 @@ function htmlResultPage(flag: 'success' | 'fail'): string {
 async function sendFinalResponse(res: Response, paymentId: string, flag: 'success' | 'fail') {
   const payment = await findPaymentRequestById(paymentId);
   const redirect = buildFinalRedirect(payment, flag);
+  hyperPayLog('final_response', {
+    payment_id: paymentId,
+    flag,
+    attribute: payment?.attribute ?? null,
+    attribute_id: payment?.attribute_id ?? null,
+    has_app_redirect: Boolean(redirect),
+    callback: payment?.external_redirect_link ?? null,
+  });
   if (redirect) {
     const ourHost = new URL(getPaymentPublicBaseUrl()).host;
     let redirectHost: string | null = null;
@@ -63,6 +72,14 @@ async function sendFinalResponse(res: Response, paymentId: string, flag: 'succes
  */
 export const hyperPayCheckout = async (req: Request, res: Response): Promise<any> => {
   const paymentId = String(req.query.payment_id ?? '').trim();
+  hyperPayLog('pay_incoming', {
+    payment_id: paymentId || null,
+    method: req.method,
+    ip: req.ip,
+    user_agent: req.get('user-agent')?.slice(0, 120) ?? null,
+    referer: req.get('referer') ?? null,
+  });
+
   if (!paymentId) {
     return res.status(400).json({ status: false, msg: 'Invalid payment_id' });
   }
@@ -70,6 +87,7 @@ export const hyperPayCheckout = async (req: Request, res: Response): Promise<any
   try {
     const payment = await findUnpaidPaymentRequest(paymentId);
     if (!payment) {
+      hyperPayLog('pay_not_found', { payment_id: paymentId });
       return res.status(404).json({ status: false, msg: 'Payment not found' });
     }
 
@@ -79,9 +97,16 @@ export const hyperPayCheckout = async (req: Request, res: Response): Promise<any
       errorUrl: `${base}/payment/hyperpay/failed?payment_id=${payment.id}`,
     });
 
+    hyperPayLog('pay_redirect_hyp', {
+      payment_id: payment.id,
+      order_id: payment.attribute_id,
+      amount: payment.payment_amount,
+    });
+
     return res.redirect(302, checkoutUrl);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'HyperPay checkout failed';
+    hyperPayLog('pay_error', { payment_id: paymentId, error: msg });
     return res.status(500).json({ status: false, msg });
   }
 };
@@ -101,13 +126,21 @@ export const hyperPaySuccess = async (req: Request, res: Response): Promise<any>
   const paymentId = String(req.query.payment_id ?? req.body?.payment_id ?? '').trim();
   const hypParams = extractHypParams(req);
 
+  hyperPayLog('success_callback', {
+    payment_id: paymentId || null,
+    method: req.method,
+    params: sanitizeHypParams({ ...req.query, ...(req.body ?? {}) }),
+  });
+
   if (Object.keys(hypParams).length === 0 || hypParams.Order == null) {
+    hyperPayLog('success_skip', { reason: 'connectivity_or_missing_order' });
     return res.status(200).type('html').send('<html><body><p>OK</p></body></html>');
   }
 
   const resolvedId = paymentId || String(hypParams.Order ?? '');
   const payment = await findPaymentRequestById(resolvedId);
   if (!payment) {
+    hyperPayLog('success_payment_not_found', { resolved_id: resolvedId });
     return res.status(402).type('html').send(htmlResultPage('fail'));
   }
 
@@ -117,6 +150,11 @@ export const hyperPaySuccess = async (req: Request, res: Response): Promise<any>
 
   const verified = await hyperPayVerifyCallback(hypParams);
   if (!verified) {
+    hyperPayLog('success_verify_failed', {
+      payment_id: payment.id,
+      order_id: payment.attribute_id,
+      ccode: hypParams.CCode ?? null,
+    });
     return sendFinalResponse(res, payment.id, 'fail');
   }
 
@@ -131,9 +169,19 @@ export const hyperPaySuccess = async (req: Request, res: Response): Promise<any>
       const fresh = await findPaymentRequestById(payment.id);
       if (fresh) await dispatchPaymentHook(fresh.success_hook, fresh);
     }
+    hyperPayLog('success_paid', {
+      payment_id: payment.id,
+      order_id: payment.attribute_id,
+      ccode: hypParams.CCode ?? null,
+    });
     return sendFinalResponse(res, payment.id, 'success');
   }
 
+  hyperPayLog('success_declined_ccode', {
+    payment_id: payment.id,
+    order_id: payment.attribute_id,
+    ccode: hypParams.CCode ?? null,
+  });
   if (!payment.is_paid) {
     await dispatchPaymentHook(payment.failure_hook, payment);
   }
@@ -147,15 +195,37 @@ export const hyperPayFailed = async (req: Request, res: Response): Promise<any> 
   const paymentId = String(req.query.payment_id ?? req.body?.payment_id ?? '').trim();
   const allParams = { ...req.query, ...(req.body ?? {}) };
 
-  if (Object.keys(allParams).length === 0 || allParams.Order == null) {
+  hyperPayLog('failed_callback', {
+    payment_id: paymentId || null,
+    method: req.method,
+    ip: req.ip,
+    params: sanitizeHypParams(allParams as Record<string, unknown>),
+  });
+
+  if (Object.keys(allParams).length === 0) {
+    hyperPayLog('failed_skip', { reason: 'empty_params' });
+    return res.status(200).type('html').send('<html><body><p>OK</p></body></html>');
+  }
+
+  const hasOrder = allParams.Order != null && String(allParams.Order) !== '';
+  if (!hasOrder && !paymentId) {
+    hyperPayLog('failed_skip', { reason: 'missing_order_and_payment_id' });
     return res.status(200).type('html').send('<html><body><p>OK</p></body></html>');
   }
 
   const resolvedId = paymentId || String(allParams.Order ?? '');
   const payment = await findPaymentRequestById(resolvedId);
   if (!payment) {
+    hyperPayLog('failed_payment_not_found', { resolved_id: resolvedId });
     return res.status(402).type('html').send(htmlResultPage('fail'));
   }
+
+  hyperPayLog('failed_processing', {
+    payment_id: payment.id,
+    order_id: payment.attribute_id,
+    ccode: allParams.CCode ?? allParams.ccode ?? null,
+    already_paid: payment.is_paid,
+  });
 
   if (!payment.is_paid) {
     await dispatchPaymentHook(payment.failure_hook, payment);
@@ -172,8 +242,15 @@ export const hyperPayWebhook = async (req: Request, res: Response): Promise<any>
       ? (req.body as Record<string, unknown>)
       : (req.query as Record<string, unknown>);
 
+  hyperPayLog('notify_incoming', {
+    method: req.method,
+    ip: req.ip,
+    params: sanitizeHypParams(responseData),
+  });
+
   const paymentId = responseData.Order != null ? String(responseData.Order) : '';
   if (!paymentId) {
+    hyperPayLog('notify_missing_order', {});
     return res.status(400).send('Missing Order');
   }
 
@@ -191,6 +268,11 @@ export const hyperPayWebhook = async (req: Request, res: Response): Promise<any>
   const verified = await hyperPayVerifyCallback(responseData);
 
   if (!verified) {
+    hyperPayLog('notify_verify_failed', {
+      payment_id: payment.id,
+      ccode,
+      is_success_ccode: isSuccess,
+    });
     if (isSuccess) return res.status(400).send('Invalid signature');
   }
 
@@ -205,7 +287,9 @@ export const hyperPayWebhook = async (req: Request, res: Response): Promise<any>
       const fresh = await findPaymentRequestById(payment.id);
       if (fresh) await dispatchPaymentHook(fresh.success_hook, fresh);
     }
+    hyperPayLog('notify_success', { payment_id: payment.id, order_id: payment.attribute_id, ccode });
   } else if (!payment.is_paid) {
+    hyperPayLog('notify_declined', { payment_id: payment.id, order_id: payment.attribute_id, ccode });
     await dispatchPaymentHook(payment.failure_hook, payment);
   }
 

@@ -1,4 +1,5 @@
 import { getHyperPayConfig, HYP_SUCCESS_CCODES } from './hyperPayConfig';
+import { hyperPayLog } from './hyperPayLogger';
 import type { PaymentRequestRow } from './paymentRequestRepository';
 
 function parseQueryBody(body: string): Record<string, string> {
@@ -46,9 +47,26 @@ export async function hyperPayCreateSignedCheckoutUrl(payment: PaymentRequestRow
   };
 
   const url = `${baseUrl}?${new URLSearchParams(params).toString()}`;
+  hyperPayLog('apisign_request', {
+    payment_id: payment.id,
+    order_id: payment.attribute_id,
+    amount: payment.payment_amount,
+    attribute: payment.attribute,
+    success_url: urls.successUrl,
+    error_url: urls.errorUrl,
+  });
+
   const response = await fetch(url, { method: 'GET' });
   const text = await response.text();
   const signedParams = parseQueryBody(text);
+
+  hyperPayLog('apisign_response', {
+    payment_id: payment.id,
+    http_status: response.status,
+    has_signature: Boolean(signedParams.signature),
+    ccode: signedParams.CCode ?? signedParams.ccode ?? null,
+    body_preview: text.slice(0, 400),
+  });
 
   if (!signedParams.signature) {
     throw new Error('HyperPay did not return a signature');
@@ -81,7 +99,14 @@ export async function hyperPayVerifyCallback(responseData: Record<string, unknow
   const response = await fetch(verifyUrl, { method: 'GET', signal: AbortSignal.timeout(15_000) });
   const text = await response.text();
   const result = parseQueryBody(text);
-  return result.CCode === '0';
+  const ok = result.CCode === '0';
+  hyperPayLog('verify_callback', {
+    order: normalized.Order ?? null,
+    hyp_ccode: normalized.CCode ?? null,
+    verify_ccode: result.CCode ?? null,
+    verified: ok,
+  });
+  return ok;
 }
 
 export function isHyperPaySuccessCCode(ccode: unknown): boolean {

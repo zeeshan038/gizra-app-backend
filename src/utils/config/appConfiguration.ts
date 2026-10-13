@@ -30,7 +30,6 @@ function num(raw: string | null | undefined, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-/** Legacy PHP: `(bool)($row['status'] == 1)` — accepts `"1"` or `1`. */
 function paymentSettingEnabled(status: unknown): boolean {
   return Number(status) === 1;
 }

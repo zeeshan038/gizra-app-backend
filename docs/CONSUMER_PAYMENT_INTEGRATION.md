@@ -390,6 +390,7 @@ Auth:    Bearer on all order endpoints; generate-payment-link requires registere
 | Guest JWT on generate-payment-link | **401** `"Login required"` (registered customer only) |
 | After HyperPay | `GET /consumer/order/track?order_id=…` → `payment_status`: `"paid"` when successful |
 | HyperPay env on server | `API_PUBLIC_URL`, `HYP_MASOF`, `HYP_PASSP`, `HYP_API_KEY`, `HYP_BASE_URL` |
+| Debug failed WebView checkout | SSH: `docker logs -f gizra-backend \| grep hyperpay` — tags: `pay_incoming`, `apisign_response`, `failed_callback`, `failed_processing`, `verify_callback`, `final_response` |
 
 **App UI rule (confirmed with mobile):** If `cash_on_delivery` is `false`, hide COD and show card/HyperPay only when `digital_payment` (or `digital_payment_info.digital_payment`) is `true`. Both `false` → no valid checkout method until admin enables at least one.
 

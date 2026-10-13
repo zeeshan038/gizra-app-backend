@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { sendApiError, joiFirstMessage } from '../../utils/apiErrorResponse';
 import { generatePaymentLinkSchema } from '../../schemas/consumer/PaymentLink';
 import { generateOrderPaymentLink } from '../../utils/payment/generatePaymentLink';
+import { hyperPayLog } from '../../utils/payment/hyperPayLogger';
 
 /**
  * @Description Create HyperPay (or other gateway) checkout URL for an unpaid order
@@ -41,6 +42,14 @@ export const generatePaymentLink = async (req: Request, res: Response): Promise<
         email: req.user?.email ?? 'noemail@guest.com',
         phone: req.user?.phone ?? '0000000000',
       },
+    });
+    hyperPayLog('generate_payment_link', {
+      user_id: userId,
+      order_id: orderId,
+      payment_method,
+      payment_platform,
+      payment_request_id: result.payment_id,
+      callback,
     });
     return res.status(200).json({ redirect_link: result.redirect_link });
   } catch (e: unknown) {
