@@ -131,6 +131,44 @@ export const verifyConsumer = async (req: Request, res: Response, next: NextFunc
   }
 };
 
+/** Attach customer/guest from JWT when present; never reject. Used for visit logs. */
+export const optionalVerifyConsumer = async (
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const token = extractConsumerToken(req);
+  if (!token) {
+    next();
+    return;
+  }
+  try {
+    const decoded: any = jwt.verify(
+      token,
+      process.env.JWT_SECRET || "your_jwt_secret_here"
+    );
+    if (decoded.role === "guest") {
+      const guestId = toBigIntId(decoded.id ?? decoded._id);
+      if (guestId) {
+        req.user = { id: guestId.toString(), isGuest: true, role: "guest" };
+      }
+      next();
+      return;
+    }
+    const userId = toBigIntId(decoded.id ?? decoded._id);
+    if (userId) {
+      req.user = {
+        id: userId.toString(),
+        isGuest: false,
+        role: decoded.role || "customer",
+      };
+    }
+  } catch {
+    /* ignore invalid token on public routes */
+  }
+  next();
+};
+
 /** Blocks guest-session JWT from profile, favourites, etc. */
 export function requireRegisteredConsumer(
   req: Request,

@@ -35,6 +35,7 @@ export const CONFIG_BUSINESS_SETTING_KEYS = [
   'loyalty_point_status',
   'loyalty_point_minimum_point',
   'wallet_status',
+  'wallet_add_refund',
   'schedule_order',
   'dm_tips_status',
   'ref_earning_status',

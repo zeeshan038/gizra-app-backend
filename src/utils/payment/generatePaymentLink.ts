@@ -71,3 +71,67 @@ export async function generateOrderPaymentLink(params: {
   const redirect_link = `${base}${route}?payment_id=${paymentId}`;
   return { redirect_link, payment_id: paymentId };
 }
+
+/** PHP customer wallet add-fund — HyperPay checkout for a pending wallet_payments row. */
+export async function generateWalletAddFundLink(params: {
+  userId: number;
+  amount: number;
+  paymentMethod: string;
+  callback: string;
+  paymentPlatform: 'app' | 'web';
+  payer: { name: string; email: string; phone: string };
+}) {
+  const route = GATEWAY_ROUTE[params.paymentMethod];
+  if (!route) {
+    throw new Error(`Payment method ${params.paymentMethod} is not supported`);
+  }
+  if (params.amount <= 0) {
+    throw new Error('Payment amount can not be 0');
+  }
+
+  const now = new Date();
+  const walletPayment = await prisma.wallet_payments.create({
+    data: {
+      user_id: params.userId,
+      amount: params.amount,
+      payment_status: 'pending',
+      payment_method: params.paymentMethod,
+      created_at: now,
+      updated_at: now,
+    },
+  });
+
+  const [businessName, logoSetting, currency] = await Promise.all([
+    getBusinessSetting('business_name'),
+    getBusinessSetting('logo'),
+    getBusinessSetting('currency'),
+  ]);
+
+  const paymentId = await createPaymentRequest({
+    payer_id: String(params.userId),
+    receiver_id: '100',
+    payment_amount: params.amount,
+    success_hook: 'wallet_success',
+    failure_hook: 'wallet_failed',
+    currency_code: (currency ?? 'ILS').toUpperCase(),
+    payment_method: params.paymentMethod,
+    additional_data: {
+      business_name: businessName,
+      business_logo: logoSetting,
+    },
+    payer_information: {
+      name: params.payer.name,
+      email: params.payer.email,
+      phone: params.payer.phone,
+    },
+    receiver_information: { name: 'receiver_name', image: 'example.png' },
+    external_redirect_link: params.callback,
+    attribute: 'wallet_payments',
+    attribute_id: String(walletPayment.id),
+    payment_platform: params.paymentPlatform,
+  });
+
+  const base = getPaymentPublicBaseUrl();
+  const redirect_link = `${base}${route}?payment_id=${paymentId}`;
+  return { redirect_link, payment_id: paymentId };
+}

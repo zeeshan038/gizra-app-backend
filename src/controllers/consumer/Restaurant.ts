@@ -18,6 +18,15 @@ import {
     parseMapBoundsFromQuery,
     parseRestaurantCoordinates,
 } from '../../utils/consumer/restaurantDiscoverHelpers';
+import {
+    buildRestaurantFoodWhere,
+    formatRestaurantMenuFood,
+    loadRestaurantMenuCategories,
+    parseMenuFoodType,
+    parseOptionalCategoryId,
+} from '../../utils/consumer/restaurantMenuHelpers';
+import { publicMediaUrl } from '../../utils/mediaStorage';
+import { recordRestaurantVisit } from '../../utils/consumer/visitorLog';
 
 /*
  * @Description Get active restaurants in the customer zone(s) (query zone_id, e.g. ?zone_id=2)
@@ -395,59 +404,90 @@ export const getDiscoverMapRestaurants = async (req: Request, res: Response): Pr
 };
 
 /**
- * @Description Get all foods for a specific restaurant
+ * @Description Menu categories for a restaurant (horizontal filter chips: All, Pizza, …)
+ * @Route GET api/consumer/restaurants/:id/categories
+ * @Access Public
+ */
+export const getRestaurantMenuCategories = async (req: Request, res: Response): Promise<any> => {
+    const restaurantId = Number(req.params.id);
+    if (!Number.isFinite(restaurantId) || restaurantId <= 0) {
+        return res.status(400).json({ status: false, msg: 'Invalid restaurant ID' });
+    }
+
+    try {
+        const restaurant = await prisma.restaurants.findFirst({
+            where: { id: BigInt(restaurantId), status: true },
+            select: { id: true, name: true },
+        });
+        if (!restaurant) {
+            return res.status(404).json({ status: false, msg: 'Restaurant not found' });
+        }
+
+        const categories = await loadRestaurantMenuCategories(restaurantId);
+
+        return res.status(200).json({
+            status: true,
+            data: {
+                restaurant_id: String(restaurantId),
+                categories,
+                category_ids: categories.map((c) => Number(c.id)),
+            },
+        });
+    } catch (error: any) {
+        return res.status(500).json({ status: false, msg: error.message });
+    }
+};
+
+/**
+ * @Description Get foods for a restaurant (menu list + category/search filters)
  * @Route GET api/consumer/restaurants/:id/foods
  * @Access Public
+ * @Query category_id — optional; omit or `all` for every item; matches parent + subcategories
+ * @Query name — optional search within this restaurant menu
+ * @Query type — all | veg | non_veg
  */
 export const getRestaurantFoods = async (req: Request, res: Response): Promise<any> => {
     try {
         const restaurantId = Number(req.params.id as string);
+        if (!Number.isFinite(restaurantId) || restaurantId <= 0) {
+            return res.status(400).json({ status: false, msg: 'Invalid restaurant ID' });
+        }
+
         const page = parseInt(req.query.page as string) || 1;
-        const limit = parseInt(req.query.limit as string) || 20;
+        const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
         const skip = (page - 1) * limit;
+        const categoryId = parseOptionalCategoryId(req.query.category_id);
+        const name = (req.query.name as string) ?? (req.query.search as string);
+        const type = parseMenuFoodType(req.query.type);
+
+        const restaurant = await prisma.restaurants.findFirst({
+            where: { id: BigInt(restaurantId), status: true },
+            select: { id: true, name: true },
+        });
+        if (!restaurant) {
+            return res.status(404).json({ status: false, msg: 'Restaurant not found' });
+        }
+
+        const whereClause = await buildRestaurantFoodWhere({
+            restaurantId,
+            categoryId,
+            name,
+            type,
+        });
 
         const [total, foods] = await Promise.all([
-            prisma.food.count({
-                where: {
-                    restaurant_id: restaurantId,
-                    status: true
-                }
-            }),
+            prisma.food.count({ where: whereClause }),
             prisma.food.findMany({
-                where: {
-                    restaurant_id: restaurantId,
-                    status: true
-                },
+                where: whereClause,
                 skip,
                 take: limit,
-                orderBy: { id: 'desc' }
-            })
+                orderBy: [{ order_count: 'desc' }, { id: 'desc' }],
+            }),
         ]);
 
-        const formattedFoods = foods.map(f => {
-            let parsedVariations = [];
-            let parsedAddOns = [];
-            let parsedChoiceOptions = [];
-            
-            try { if (f.variations) parsedVariations = JSON.parse(f.variations); } catch (e) {}
-            try { if (f.add_ons) parsedAddOns = JSON.parse(f.add_ons); } catch (e) {}
-            try { if (f.choice_options) parsedChoiceOptions = JSON.parse(f.choice_options); } catch (e) {}
-
-            return {
-                id: f.id.toString(),
-                name: f.name,
-                description: f.description,
-                image: f.image,
-                category_id: f.category_id?.toString() || null,
-                restaurant_id: f.restaurant_id?.toString() || null,
-                price: Number(f.price),
-                discount: Number(f.discount),
-                veg: f.veg,
-                status: f.status,
-                variations: parsedVariations,
-                add_ons: parsedAddOns
-            };
-        });
+        const formattedFoods = foods.map((f) =>
+            formatRestaurantMenuFood(f, { restaurant_name: restaurant.name })
+        );
 
         return res.status(200).json({
             status: true,
@@ -455,8 +495,9 @@ export const getRestaurantFoods = async (req: Request, res: Response): Promise<a
                 total_size: total,
                 limit,
                 offset: page,
-                foods: formattedFoods
-            }
+                category_id: categoryId != null ? String(categoryId) : null,
+                foods: formattedFoods,
+            },
         });
     } catch (error: any) {
         return res.status(500).json({ status: false, msg: error.message });
@@ -638,13 +679,32 @@ export const getRestaurantDetails = async (req: Request, res: Response): Promise
             return res.status(404).json({ status: false, msg: 'Restaurant not found' });
         }
 
+        if (req.user?.id && !req.user.isGuest) {
+            void recordRestaurantVisit(Number(req.user.id), id);
+        }
+
+        const [scheduleMap, categories] = await Promise.all([
+            loadTodaySchedulesByRestaurantId([restaurant.id]),
+            loadRestaurantMenuCategories(id),
+        ]);
+        const schedules = scheduleMap.get(restaurant.id.toString()) ?? [];
+        const open = isOpenFromSchedules(schedules);
+
+        const logo = restaurant.logo ?? null;
+        const cover = restaurant.cover_photo ?? null;
+
         return res.status(200).json({
             status: true,
             data: {
                 ...restaurant,
                 id: restaurant.id.toString(),
                 minimum_order: restaurant.minimum_order ? Number(restaurant.minimum_order) : 0,
-                rating: restaurant.rating ? Number(restaurant.rating) : 0
+                rating: restaurant.rating ? Number(restaurant.rating) : 0,
+                logo_full_url: logo ? publicMediaUrl(logo) : null,
+                cover_photo_full_url: cover ? publicMediaUrl(cover) : null,
+                open,
+                categories,
+                category_ids: categories.map((c) => Number(c.id)),
             }
         });
 

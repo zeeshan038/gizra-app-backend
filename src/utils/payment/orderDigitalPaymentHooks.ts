@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import { sendNewOrderNotification } from '../notifications/sendNewOrderNotification';
 import type { PaymentRequestRow } from './paymentRequestRepository';
+import { createWalletTransaction } from '../consumer/walletTransactions';
 
 const STORED_PAYMENT_METHOD = 'hypay';
 
@@ -104,6 +105,41 @@ export async function runOrderFailedPaymentHook(payment: PaymentRequestRow): Pro
   });
 }
 
+/** PHP `wallet_success` after HyperPay add-fund. */
+export async function runWalletSuccessPaymentHook(payment: PaymentRequestRow): Promise<void> {
+  if (payment.attribute !== 'wallet_payments' || !payment.attribute_id) return;
+  const walletPaymentId = BigInt(payment.attribute_id);
+  const row = await prisma.wallet_payments.findUnique({ where: { id: walletPaymentId } });
+  if (!row || row.payment_status === 'paid') return;
+
+  await prisma.wallet_payments.update({
+    where: { id: walletPaymentId },
+    data: {
+      payment_status: 'paid',
+      transaction_ref: payment.transaction_id,
+      updated_at: new Date(),
+    },
+  });
+
+  await createWalletTransaction(prisma, {
+    userId: Number(row.user_id),
+    amount: Number(row.amount),
+    transactionType: 'add_fund',
+    reference: payment.payment_method,
+  });
+}
+
+export async function runWalletFailedPaymentHook(payment: PaymentRequestRow): Promise<void> {
+  if (payment.attribute !== 'wallet_payments' || !payment.attribute_id) return;
+  const walletPaymentId = BigInt(payment.attribute_id);
+  const row = await prisma.wallet_payments.findUnique({ where: { id: walletPaymentId } });
+  if (!row || row.payment_status === 'paid') return;
+  await prisma.wallet_payments.update({
+    where: { id: walletPaymentId },
+    data: { payment_status: 'failed', updated_at: new Date() },
+  });
+}
+
 export async function dispatchPaymentHook(
   hookName: string | null | undefined,
   payment: PaymentRequestRow
@@ -115,5 +151,13 @@ export async function dispatchPaymentHook(
   }
   if (hookName === 'order_failed') {
     await runOrderFailedPaymentHook(payment);
+    return;
+  }
+  if (hookName === 'wallet_success') {
+    await runWalletSuccessPaymentHook(payment);
+    return;
+  }
+  if (hookName === 'wallet_failed') {
+    await runWalletFailedPaymentHook(payment);
   }
 }

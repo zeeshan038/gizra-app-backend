@@ -5,6 +5,7 @@ const router = express.Router();
 import {
     getCart,
     addToCart,
+    addMultipleToCart,
     updateCart,
     removeCartItem,
     clearCart
@@ -17,6 +18,7 @@ router.use(verifyConsumer);
 // Cart endpoints
 router.get('/', getCart);
 router.post('/add', addToCart);
+router.post('/add-multiple', addMultipleToCart);
 router.put('/update', updateCart);
 router.delete('/remove-item/:id', removeCartItem);
 router.delete('/clear/:user_id', clearCart);

@@ -25,6 +25,8 @@ import {
   resolveConsumerOrderUser,
 } from '../../utils/consumer/orderListHelpers';
 import { sendNewOrderNotification } from '../../utils/notifications/sendNewOrderNotification';
+import { getBusinessSettingFlag } from '../../utils/consumer/businessSettings';
+import { createWalletTransaction } from '../../utils/consumer/walletTransactions';
 import { emitNewOrderRealtime, emitOrderStatusRealtime } from '../../sockets/orderRealtime';
 import { executePlaceOrder, PlaceOrderError } from './placeOrderLogic';
 import { notPosWhere } from '../../utils/vendor/order/query';
@@ -490,10 +492,32 @@ export const cancelOrder = async (req: Request, res: Response): Promise<any> => 
 
     emitOrderStatusRealtime(updated);
 
+    let msg = 'Order canceled successfully';
+    if (!identity.isGuest && order.payment_status === 'paid') {
+      const paidRows = await prisma.order_payments.findMany({
+        where: { order_id: Number(order.id), payment_status: 'paid' },
+      });
+      const refundAmount =
+        paidRows.reduce((sum, row) => sum + Number(row.amount), 0) || Number(order.order_amount);
+      const walletOn = await getBusinessSettingFlag('wallet_status');
+      const refundToWallet = await getBusinessSettingFlag('wallet_add_refund');
+      if (walletOn && refundToWallet && refundAmount > 0) {
+        await createWalletTransaction(prisma, {
+          userId: identity.userId,
+          amount: refundAmount,
+          transactionType: 'order_refund',
+          reference: Number(order.id),
+        });
+        msg = 'Order canceled successfully and refunded to wallet';
+      } else if (refundAmount > 0) {
+        msg = 'Order canceled successfully and for refund amount contact admin';
+      }
+    }
+
     return res.status(200).json({
       status: true,
-      msg: 'Order canceled successfully',
-      message: 'Order canceled successfully',
+      msg,
+      message: msg,
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Request failed';

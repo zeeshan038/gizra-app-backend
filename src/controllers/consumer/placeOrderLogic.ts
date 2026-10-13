@@ -13,6 +13,7 @@ import {
 } from '../../utils/consumer/businessSettings';
 import { getZoneById } from '../../utils/consumer/zone';
 import { calculateCouponDiscount, validateCouponForUser } from '../../utils/consumer/couponHelpers';
+import { createWalletTransaction } from '../../utils/consumer/walletTransactions';
 
 
 function roundMoney(value: number): number {
@@ -793,6 +794,16 @@ export async function executePlaceOrder(params: {
       await tx.users.update({
         where: { id: BigInt(userId) },
         data: { zone_id: restaurant.zone_id ?? undefined },
+      });
+    }
+
+    if (payload.payment_method === 'wallet' && !isGuest) {
+      await createWalletTransaction(tx, {
+        userId,
+        amount: orderAmount,
+        transactionType: 'order_place',
+        reference: Number(created.id),
+        skipStatusCheck: true,
       });
     }
 

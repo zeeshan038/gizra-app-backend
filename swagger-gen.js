@@ -268,6 +268,10 @@ swaggerAutogen(outputFile, endpointsFiles, doc).then(() => {
     { name: 'Consumer Foods' },
     { name: 'Consumer Cart' },
     { name: 'Consumer Orders' },
+    { name: 'Consumer Wallet' },
+    { name: 'Consumer Loyalty' },
+    { name: 'Consumer Cashback' },
+    { name: 'Consumer Marketing' },
     {
       name: 'Consumer Addresses',
       description:

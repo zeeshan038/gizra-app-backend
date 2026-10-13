@@ -67,6 +67,13 @@ import consumerFavouriteRoutes from './consumer/favourite';
 import consumerZoneRoutes from './consumer/zone';
 import consumerConfigRoutes from './consumer/config';
 import consumerMessageRoutes from './consumer/message';
+import consumerWalletRoutes from './consumer/wallet';
+import consumerLoyaltyRoutes from './consumer/loyalty';
+import consumerCashbackRoutes from './consumer/cashback';
+import consumerBannerRoutes from './consumer/banner';
+import consumerCampaignRoutes from './consumer/campaign';
+import consumerCuisineRoutes from './consumer/cuisine';
+import consumerAdvertisementRoutes from './consumer/advertisement';
 import sharedConfigRoutes from './config';
 import legalPagesRoutes from './pages';
 
@@ -85,6 +92,13 @@ router.use('/consumer/order', consumerOrderRoutes);
 router.use('/consumer/addresses', consumerAddressRoutes);
 router.use('/consumer/favourites', consumerFavouriteRoutes);
 router.use('/consumer/message', consumerMessageRoutes);
+router.use('/consumer/wallet', consumerWalletRoutes);
+router.use('/consumer/loyalty-point', consumerLoyaltyRoutes);
+router.use('/consumer/cashback', consumerCashbackRoutes);
+router.use('/consumer/banners', consumerBannerRoutes);
+router.use('/consumer/campaigns', consumerCampaignRoutes);
+router.use('/consumer/cuisines', consumerCuisineRoutes);
+router.use('/consumer/advertisements', consumerAdvertisementRoutes);
 router.use('/consumer', consumerUserRoutes);
 
 //general upload
