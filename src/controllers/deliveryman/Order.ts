@@ -382,8 +382,42 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
       return res.status(404).json({ status: false, msg: 'Order not found' });
     }
 
-    if (order.delivery_man_id?.toString() !== String(deliveryManId)) {
+    const isAssigned = order.delivery_man_id?.toString() === String(deliveryManId);
+
+    if (!isAssigned) {
+      if (status === 'canceled') {
+        const dm = await prisma.delivery_men.findUnique({
+          where: { id: BigInt(deliveryManId) },
+        });
+        if (!dm) {
+          return res.status(404).json({ status: false, msg: 'Delivery man not found' });
+        }
+        const canView = await deliveryManCanViewOrder(dm, order);
+        if (!canView) {
+          return res.status(403).json({ status: false, msg: 'You are not assigned to this order' });
+        }
+        return res.status(200).json({
+          status: true,
+          msg: 'Order request ignored',
+          data: { id: order.id.toString(), order_status: order.order_status },
+        });
+      }
       return res.status(403).json({ status: false, msg: 'You are not assigned to this order' });
+    }
+
+    if (status === 'delivered') {
+      if (order.order_type === 'delivery' && order.picked_up == null) {
+        return res.status(403).json({
+          status: false,
+          msg: 'Mark the order as picked up before delivery',
+        });
+      }
+      if (order.order_type === 'delivery' && order.order_status !== 'picked_up') {
+        return res.status(403).json({
+          status: false,
+          msg: 'Order must be picked up before it can be delivered',
+        });
+      }
     }
 
     if (status === 'canceled') {

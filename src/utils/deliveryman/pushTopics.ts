@@ -68,12 +68,15 @@ function isStatusEligibleForDriverPool(
   order: orders,
   orderConfirmationModel: string
 ): boolean {
-  if (['confirmed', 'handover'].includes(order.order_status)) {
+  if (order.order_status === 'handover') {
     return true;
   }
-  if (order.order_status === 'pending') {
+  if (order.order_status === 'confirmed') {
+    return true;
+  }
+  if (order.order_status === 'pending' && orderConfirmationModel === 'deliveryman') {
     if (order.subscription_id != null) return true;
-    if (orderConfirmationModel === 'deliveryman') return true;
+    if (order.payment_method === 'cash_on_delivery') return true;
   }
   return false;
 }

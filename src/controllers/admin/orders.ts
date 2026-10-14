@@ -1,0 +1,145 @@
+import { Request, Response } from 'express';
+import {
+  adminOrdersListQuerySchema,
+  adminSubscriptionsListQuerySchema,
+} from '../../schemas/admin/Orders';
+import { getAdminOrderCounts } from '../../utils/admin/orders/counts';
+import { getAdminOrderDetail } from '../../utils/admin/orders/orderDetail';
+import { listAdminOrders } from '../../utils/admin/orders/listOrders';
+import { getAdminNewOrderAlert } from '../../utils/admin/orders/newOrderAlert';
+import {
+  getAdminSubscriptionDetail,
+  listAdminSubscriptions,
+} from '../../utils/admin/orders/subscriptions';
+
+/**
+ * @Description Order sidebar badge counts
+ * @Route GET /api/admin/orders/counts
+ */
+export const getAdminOrderCountsHandler = async (_req: Request, res: Response): Promise<any> => {
+  try {
+    const data = await getAdminOrderCounts();
+    return res.status(200).json({ status: true, msg: 'Success', data });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message });
+  }
+};
+
+/**
+ * @Description Poll for unchecked orders (legacy admin sound alert, 10s interval)
+ * @Route GET /api/admin/orders/new-order-alert
+ */
+export const getAdminNewOrderAlertHandler = async (_req: Request, res: Response): Promise<any> => {
+  try {
+    const data = await getAdminNewOrderAlert();
+    return res.status(200).json({ status: true, data });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message });
+  }
+};
+
+/**
+ * @Description Paginated admin order list
+ * @Route GET /api/admin/orders
+ */
+export const listAdminOrdersHandler = async (req: Request, res: Response): Promise<any> => {
+  const validated = adminOrdersListQuerySchema.validate(req.query, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(', '),
+    });
+  }
+
+  const q = validated.value as {
+    status: string;
+    search?: string;
+    limit: number;
+    offset: number;
+    manual_only: boolean;
+    dispatch_status?: string;
+    refund_status?: string;
+  };
+
+  try {
+    const data = await listAdminOrders({
+      status: q.status,
+      search: q.search,
+      limit: q.limit,
+      offset: q.offset,
+      manualOnly: q.manual_only,
+      dispatchStatus: q.dispatch_status || null,
+      refundStatus: q.refund_status || null,
+    });
+    return res.status(200).json({ status: true, msg: 'Success', data });
+  } catch (e: any) {
+    console.error('[admin/orders/list]', e);
+    return res.status(500).json({ status: false, msg: e.message });
+  }
+};
+
+/**
+ * @Description Order detail for admin order view
+ * @Route GET /api/admin/orders/:orderId
+ */
+export const getAdminOrderDetailHandler = async (req: Request, res: Response): Promise<any> => {
+  const orderId = Number(req.params.orderId);
+  if (!Number.isFinite(orderId) || orderId <= 0) {
+    return res.status(400).json({ status: false, msg: 'Invalid order id' });
+  }
+
+  try {
+    const data = await getAdminOrderDetail(orderId);
+    if (!data) {
+      return res.status(404).json({ status: false, msg: 'Order not found' });
+    }
+    return res.status(200).json({ status: true, msg: 'Success', data });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message });
+  }
+};
+
+/**
+ * @Description Subscription orders list
+ * @Route GET /api/admin/orders/subscriptions/list
+ */
+export const listAdminSubscriptionsHandler = async (req: Request, res: Response): Promise<any> => {
+  const validated = adminSubscriptionsListQuerySchema.validate(req.query, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(', '),
+    });
+  }
+
+  try {
+    const data = await listAdminSubscriptions(validated.value);
+    return res.status(200).json({ status: true, msg: 'Success', data });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message });
+  }
+};
+
+/**
+ * @Description Subscription detail
+ * @Route GET /api/admin/orders/subscriptions/:subscriptionId
+ */
+export const getAdminSubscriptionDetailHandler = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const subscriptionId = Number(req.params.subscriptionId);
+  if (!Number.isFinite(subscriptionId) || subscriptionId <= 0) {
+    return res.status(400).json({ status: false, msg: 'Invalid subscription id' });
+  }
+
+  try {
+    const data = await getAdminSubscriptionDetail(subscriptionId);
+    if (!data) {
+      return res.status(404).json({ status: false, msg: 'Subscription not found' });
+    }
+    return res.status(200).json({ status: true, msg: 'Success', data });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message });
+  }
+};

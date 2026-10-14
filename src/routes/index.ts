@@ -39,6 +39,8 @@ import adminAuthRoutes from './admin/auth';
 import adminVendorRoutes from './admin/vendors';
 import adminBannerRoutes from './admin/banners';
 import adminZoneRoutes from './admin/zones';
+import adminDashboardRoutes from './admin/dashboard';
+import adminOrderRoutes from './admin/orders';
 
 //vendor
 router.use('/vendor',vendorUserRoutes);
@@ -115,6 +117,8 @@ router.use('/admin/auth', adminAuthRoutes);
 router.use('/admin/vendors', adminVendorRoutes);
 router.use('/admin/banners', adminBannerRoutes);
 router.use('/admin/zones', adminZoneRoutes);
+router.use('/admin/dashboard', adminDashboardRoutes);
+router.use('/admin/orders', adminOrderRoutes);
 
 
 router.use('/upload', uploadRouter);

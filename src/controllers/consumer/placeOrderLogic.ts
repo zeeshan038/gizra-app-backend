@@ -731,7 +731,6 @@ export async function executePlaceOrder(params: {
   let orderStatus = 'pending';
   let paymentStatus = 'unpaid';
   if (payload.payment_method === 'wallet') {
-    orderStatus = 'confirmed';
     paymentStatus = 'paid';
   }
 

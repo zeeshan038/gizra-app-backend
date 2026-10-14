@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { notPosWhere } from '../vendor/order/query';
 import { publicMediaUrl, publicRestaurantMediaUrl } from '../mediaStorage';
+import { customerOrderStatusLabel } from './customerOrderTracking';
 
 /** Past orders tab (PHP `get_order_list`). */
 export const HISTORY_ORDER_STATUSES = [
@@ -75,23 +76,15 @@ export function paginationSkip(limit: number, page: number): number {
   return (safePage - 1) * limit;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Pending',
-  confirmed: 'Confirmed',
-  accepted: 'Accepted',
-  processing: 'Processing',
-  handover: 'Handover',
-  picked_up: 'On the way',
-  delivered: 'Completed',
-  canceled: 'Canceled',
+const EXTRA_STATUS_LABELS: Record<string, string> = {
   refund_requested: 'Refund requested',
   refund_request_canceled: 'Refund canceled',
   refunded: 'Refunded',
-  failed: 'Failed',
 };
 
 export function orderStatusLabel(status: string): string {
-  return STATUS_LABELS[status] ?? status.replace(/_/g, ' ');
+  if (EXTRA_STATUS_LABELS[status]) return EXTRA_STATUS_LABELS[status];
+  return customerOrderStatusLabel(status);
 }
 
 function formatOrderDateTime(createdAt: Date | null | undefined): {

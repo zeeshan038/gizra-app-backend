@@ -9,10 +9,10 @@ import {
   formattedCoordinatesFromGeoJson,
   getZoneWithGeoById,
   insertZone,
-  listZonesWithGeo,
   updateZonePolygon,
   zoneExists,
 } from '../../utils/zone/db';
+import { listAdminZonesWithCounts } from '../../utils/admin/zones/listZonesAdmin';
 import { LngLatPair } from '../../utils/zone/geometry';
 
 function mapZoneAdmin(row: Awaited<ReturnType<typeof getZoneWithGeoById>>) {
@@ -44,20 +44,13 @@ function mapZoneAdmin(row: Awaited<ReturnType<typeof getZoneWithGeoById>>) {
  */
 export const listAdminZones = async (req: Request, res: Response): Promise<any> => {
   try {
-    const rows = await listZonesWithGeo();
-    const data = rows.map((row) => ({
-      id: Number(row.id),
-      name: row.name,
-      display_name: row.display_name,
-      status: row.status,
-      per_km_shipping_charge: row.per_km_shipping_charge,
-      minimum_shipping_charge: row.minimum_shipping_charge,
-      maximum_shipping_charge: row.maximum_shipping_charge,
-      max_cod_order_amount: row.max_cod_order_amount,
-      formated_coordinates: formattedCoordinatesFromGeoJson(row.geojson),
-      created_at: row.created_at,
-    }));
-    return res.status(200).json({ status: true, msg: 'Success', data });
+    const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+    const zones = await listAdminZonesWithCounts(search);
+    return res.status(200).json({
+      status: true,
+      msg: 'Success',
+      data: { zones, total: zones.length },
+    });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });
   }

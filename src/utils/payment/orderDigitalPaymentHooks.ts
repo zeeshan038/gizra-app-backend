@@ -33,13 +33,12 @@ export async function runOrderPlacePaymentHook(payment: PaymentRequestRow): Prom
 
   const payMethod = payment.payment_method ?? STORED_PAYMENT_METHOD;
 
+  // Keep order pending until the restaurant accepts — only payment is confirmed (legacy restaurant flow).
   await prisma.orders.update({
     where: { id: orderId },
     data: {
-      order_status: 'confirmed',
       payment_status: 'paid',
       payment_method: order.payment_method === 'partial_payment' ? order.payment_method : payMethod,
-      confirmed: new Date(),
       checked: false,
       updated_at: new Date(),
     },

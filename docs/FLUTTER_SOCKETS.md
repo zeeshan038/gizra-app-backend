@@ -315,7 +315,7 @@ Use **`emitWithAck`**. Server responses:
 | Login | `POST /api/delivery-man/login` | Connect; subscribe **`data.topic`** | Topic subscription |
 | **Order Request** | **`GET /api/delivery-man/orders/latest`** | Stay connected (no pool event) | Refresh list on notification |
 | **Order detail** (tap pool card or active trip) | **`GET /api/delivery-man/orders/:id`** — items, pricing, restaurant/customer, `can_accept`, `user_id` / `vendor_id` for chat | `watch_order` + `order_status_changed` | — |
-| Accept / Ignore | **`PUT .../orders/:id/accept`** (ignore = don’t call accept; card disappears for others via their poll) | After accept: `order_status_changed` | — |
+| Accept / Ignore | **`PUT .../orders/:id/accept`**; ignore = **`PUT .../orders/:id/status`** with `{ "status": "canceled", "reason": "…" }` while **not** assigned (returns 200, order unchanged) | After accept: `order_status_changed` | — |
 | **Home / active trip** | `GET /api/delivery-man/orders/active` | `watch_order` + `order_status_changed` | Optional |
 | Status (picked up, delivered, …) | **`PUT .../orders/:id/status`** | `order_status_changed` | — |
 | My Orders / History | `GET .../history` | `order_status_changed` for assigned orders | — |

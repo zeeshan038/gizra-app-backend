@@ -1,8 +1,5 @@
 import prisma from '../../config/database';
-import {
-  emitDriverOrderRequestIfEligible,
-  emitNewOrderRealtime,
-} from '../../sockets/orderRealtime';
+import { emitNewOrderRealtime } from '../../sockets/orderRealtime';
 import { persistAndPushVendorNewOrder, sendOrderNotification } from './sendOrderNotification';
 
 export type NewOrderPushPayload = {
@@ -17,9 +14,8 @@ export type NewOrderPushPayload = {
 /**
  * Mirrors legacy `Helpers::send_order_notification` for new marketplace orders (vendor leg):
  * - Vendor `new_order` socket (restaurant room and vendor room)
- * - Driver `order_request` socket when the order is already in the delivery pool
  * - Persists `user_notifications` for the vendor panel
- * - Sends FCM to vendor devices and the driver pool when configured
+ * - Sends FCM to vendor devices (drivers are notified only after restaurant accept — see `emitOrderStatusRealtime`)
  */
 export async function sendNewOrderNotification(
   payload: NewOrderPushPayload,
@@ -34,15 +30,6 @@ export async function sendNewOrderNotification(
       payment_method: payload.payment_method,
       vendor_id: payload.vendor_id,
     });
-  }
-
-  try {
-    const order = await prisma.orders.findUnique({
-      where: { id: BigInt(payload.order_id) },
-    });
-    if (order) await emitDriverOrderRequestIfEligible(order);
-  } catch (e) {
-    console.error('[socket] driver order_request on new order failed', e);
   }
 
   try {

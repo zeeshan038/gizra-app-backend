@@ -24,6 +24,7 @@ import {
   orderStatusLabel,
   resolveConsumerOrderUser,
 } from '../../utils/consumer/orderListHelpers';
+import { customerTrackingCopy } from '../../utils/consumer/customerOrderTracking';
 import { sendNewOrderNotification } from '../../utils/notifications/sendNewOrderNotification';
 import { getBusinessSettingFlag } from '../../utils/consumer/businessSettings';
 import { createWalletTransaction } from '../../utils/consumer/walletTransactions';
@@ -385,6 +386,8 @@ export const trackOrder = async (req: Request, res: Response): Promise<any> => {
 
     const delivery_address = parseDeliveryAddressJson(order.delivery_address);
 
+    const tracking = customerTrackingCopy(order.order_status);
+
     const payload = {
       id: order.id.toString(),
       user_id: order.user_id?.toString() ?? null,
@@ -394,7 +397,9 @@ export const trackOrder = async (req: Request, res: Response): Promise<any> => {
       total_tax_amount: Number(order.total_tax_amount) || 0,
       payment_status: order.payment_status,
       order_status: order.order_status,
-      status_label: orderStatusLabel(order.order_status),
+      status_label: tracking.status_label,
+      tracking_step: tracking.tracking_step,
+      tracking_message: tracking.message,
       payment_method: order.payment_method,
       order_type: order.order_type,
       schedule_at: order.schedule_at,

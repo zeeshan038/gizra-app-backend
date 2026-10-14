@@ -49,7 +49,7 @@ export type OrderUpdatedPayload = {
   status_label: string;
   /** Sentence for the tracking screen and the push body. */
   message: string;
-  /** 1–5 progress step for customer tracking UI (5 = delivered). */
+  /** 1–6 progress step for customer tracking UI (6 = completed). */
   tracking_step: number;
   order_amount: number;
   order_type: string;
