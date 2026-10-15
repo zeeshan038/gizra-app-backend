@@ -2,6 +2,7 @@ import express from 'express';
 import {
   getAdminNewOrderAlertHandler,
   getAdminOrderCountsHandler,
+  deleteAdminOrderHandler,
   getAdminOrderDetailHandler,
   getAdminSubscriptionDetailHandler,
   listAdminOrdersHandler,
@@ -17,6 +18,7 @@ router.get('/counts', getAdminOrderCountsHandler);
 router.get('/new-order-alert', getAdminNewOrderAlertHandler);
 router.get('/subscriptions/list', listAdminSubscriptionsHandler);
 router.get('/subscriptions/:subscriptionId', getAdminSubscriptionDetailHandler);
+router.delete('/:orderId', deleteAdminOrderHandler);
 router.get('/:orderId', getAdminOrderDetailHandler);
 router.get('/', listAdminOrdersHandler);
 

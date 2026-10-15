@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../../config/database';
 import { publicRestaurantMediaUrl } from '../../utils/mediaStorage';
+import { sendVendorRegistrationDecisionPush } from '../../utils/notifications/sendRegistrationDecisionPush';
 
 /**
  * @Description List vendors with restaurant summary (pending approval first)
@@ -133,6 +134,10 @@ export const approveVendor = async (req: Request, res: Response): Promise<any> =
                 }
             });
         });
+
+        void sendVendorRegistrationDecisionPush(Number(vendorIdStr), 'approved').catch((err) =>
+          console.error('[notify] vendor registration push failed', err)
+        );
 
         return res.status(200).json({
             status: true,

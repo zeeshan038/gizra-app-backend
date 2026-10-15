@@ -11,6 +11,7 @@ import {
   getAdminSubscriptionDetail,
   listAdminSubscriptions,
 } from '../../utils/admin/orders/subscriptions';
+import { deleteAdminOrder } from '../../utils/admin/orders/deleteAdminOrder';
 
 /**
  * @Description Order sidebar badge counts
@@ -76,6 +77,23 @@ export const listAdminOrdersHandler = async (req: Request, res: Response): Promi
     console.error('[admin/orders/list]', e);
     return res.status(500).json({ status: false, msg: e.message });
   }
+};
+
+/**
+ * @Description Permanently delete an order (admin only)
+ * @Route DELETE /api/admin/orders/:orderId
+ */
+export const deleteAdminOrderHandler = async (req: Request, res: Response): Promise<any> => {
+  const orderId = Number(req.params.orderId);
+  if (!Number.isFinite(orderId) || orderId <= 0) {
+    return res.status(400).json({ status: false, msg: 'Invalid order id' });
+  }
+  const result = await deleteAdminOrder(orderId);
+  if (!result.ok) {
+    const status = result.msg === 'Order not found' ? 404 : 500;
+    return res.status(status).json({ status: false, msg: result.msg });
+  }
+  return res.status(200).json({ status: true, msg: 'Order deleted successfully' });
 };
 
 /**
