@@ -133,6 +133,6 @@ export async function markPaymentRequestPaid(params: {
 export async function updatePaymentRequestGatewaySign(id: string, sign: string): Promise<void> {
   await prisma.$executeRaw`
     UPDATE payment_requests SET gateway_callback_url = ${sign}, updated_at = ${new Date()}
-    WHERE id = ${id}::uuid
+    WHERE id = ${id}
   `;
 }
