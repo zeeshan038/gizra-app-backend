@@ -4,9 +4,9 @@ import type { PaymentRequestRow } from './paymentRequestRepository';
 
 function parseQueryBody(body: string): Record<string, string> {
   const out: Record<string, string> = {};
-  const params = new URLSearchParams(body);
+  const params = new URLSearchParams(body.trim());
   params.forEach((value, key) => {
-    out[key] = value;
+    out[key.trim()] = value.trim();
   });
   return out;
 }
@@ -99,11 +99,12 @@ export async function hyperPayVerifyCallback(responseData: Record<string, unknow
   const response = await fetch(verifyUrl, { method: 'GET', signal: AbortSignal.timeout(15_000) });
   const text = await response.text();
   const result = parseQueryBody(text);
-  const ok = result.CCode === '0';
+  const ccode = (result.CCode ?? '').trim();
+  const ok = isHyperPaySuccessCCode(ccode);
   hyperPayLog('verify_callback', {
     order: normalized.Order ?? null,
     hyp_ccode: normalized.CCode ?? null,
-    verify_ccode: result.CCode ?? null,
+    verify_ccode: ccode || (result.CCode ?? null),
     verified: ok,
   });
   return ok;
