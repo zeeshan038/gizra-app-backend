@@ -61,10 +61,18 @@ export type DmOrderListItem = {
   customer_name: string | null;
   item_title: string | null;
   delivery_address_snippet: string | null;
+  delivery_address: any;
   latitude: string | number | null;
   longitude: string | number | null;
+  restaurant_address: string | null;
+  restaurant_lat: string | number | null;
+  restaurant_lng: string | number | null;
+  restaurant_latitude: string | number | null;
+  restaurant_longitude: string | number | null;
   restaurant_image_url: string | null;
   customer_image_url: string | null;
+  restaurant?: any;
+  delivery_address_data?: any;
 };
 
 const DEFAULT_RESTAURANT_IMAGE = 'default_logo.png';
@@ -131,7 +139,15 @@ export async function mapOrdersForDeliveryManList(
   const [restaurants, users, itemTitles] = await Promise.all([
     prisma.restaurants.findMany({
       where: { id: { in: restaurantIds.map((id) => BigInt(id)) } },
-      select: { id: true, name: true, logo: true, cover_photo: true },
+      select: {
+        id: true,
+        name: true,
+        logo: true,
+        cover_photo: true,
+        address: true,
+        latitude: true,
+        longitude: true,
+      },
     }),
     userIds.length
       ? prisma.users.findMany({
@@ -145,7 +161,14 @@ export async function mapOrdersForDeliveryManList(
   const restaurantById = new Map(
     restaurants.map((r) => [
       Number(r.id),
-      { name: r.name, logo: r.logo, cover_photo: r.cover_photo },
+      {
+        name: r.name,
+        logo: r.logo,
+        cover_photo: r.cover_photo,
+        address: r.address,
+        latitude: r.latitude,
+        longitude: r.longitude,
+      },
     ])
   );
   const userById = new Map(users.map((u) => [Number(u.id), u]));
@@ -182,8 +205,26 @@ export async function mapOrdersForDeliveryManList(
       customer_name: customerName,
       item_title: itemTitles.get(id) ?? null,
       delivery_address_snippet: formatAddressSnippet(addressRaw),
+      delivery_address: parsed ?? addressRaw,
+      delivery_address_data: parsed,
       latitude: parsed?.latitude ?? null,
       longitude: parsed?.longitude ?? null,
+      restaurant_address: restaurant?.address ?? null,
+      restaurant_lat: restaurant?.latitude ?? null,
+      restaurant_lng: restaurant?.longitude ?? null,
+      restaurant_latitude: restaurant?.latitude ?? null,
+      restaurant_longitude: restaurant?.longitude ?? null,
+      restaurant: restaurant
+        ? {
+            id: String(order.restaurant_id),
+            name: restaurant.name,
+            address: restaurant.address,
+            latitude: restaurant.latitude,
+            longitude: restaurant.longitude,
+            logo: restaurant.logo,
+            cover_photo: restaurant.cover_photo,
+          }
+        : null,
       restaurant_image_url: driverMediaUrl(restaurantImageStored, DEFAULT_RESTAURANT_IMAGE),
       customer_image_url: driverMediaUrl(customerImageStored, DEFAULT_CUSTOMER_IMAGE),
     };

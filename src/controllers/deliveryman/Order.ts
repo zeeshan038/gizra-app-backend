@@ -385,24 +385,40 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
     const isAssigned = order.delivery_man_id?.toString() === String(deliveryManId);
 
     if (!isAssigned) {
-      if (status === 'canceled') {
+      if (status === 'canceled' || status === 'ignore' || status === 'ignored') {
         const dm = await prisma.delivery_men.findUnique({
           where: { id: BigInt(deliveryManId) },
         });
         if (!dm) {
-          return res.status(404).json({ status: false, msg: 'Delivery man not found' });
-        }
-        const canView = await deliveryManCanViewOrder(dm, order);
-        if (!canView) {
-          return res.status(403).json({ status: false, msg: 'You are not assigned to this order' });
+          return res.status(404).json({ status: false, msg: 'Delivery man not found', message: 'Delivery man not found' });
         }
         return res.status(200).json({
           status: true,
           msg: 'Order request ignored',
+          message: 'Status updated',
           data: { id: order.id.toString(), order_status: order.order_status },
         });
       }
-      return res.status(403).json({ status: false, msg: 'You are not assigned to this order' });
+      return res.status(403).json({ status: false, msg: 'You are not assigned to this order', message: 'You are not assigned to this order' });
+    }
+
+    if (status === 'ignore' || status === 'ignored') {
+      return res.status(200).json({
+        status: true,
+        msg: 'Order request ignored',
+        message: 'Status updated',
+        data: { id: order.id.toString(), order_status: order.order_status },
+      });
+    }
+
+    if (status === 'picked_up') {
+      // Driver cannot pick up order before kitchen prepares it (processing or handover)
+      if (order.order_status !== 'handover' && order.order_status !== 'processing') {
+        return res.status(403).json({
+          status: false,
+          msg: 'Order has not been prepared or handed over by the restaurant yet',
+        });
+      }
     }
 
     if (status === 'delivered') {

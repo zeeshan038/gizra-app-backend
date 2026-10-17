@@ -60,7 +60,72 @@ export async function loadTodaySchedulesByRestaurantId(
     map.set(key, list);
   }
   return map;
+}export async function loadActiveDiscountRestaurantIds(candidateIds?: bigint[]): Promise<bigint[]> {
+  const now = new Date();
+  const todayDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+
+  const discountWhere: any = {
+    start_date: { lte: todayDate },
+    end_date: { gte: todayDate },
+  };
+
+  if (candidateIds && candidateIds.length > 0) {
+    discountWhere.restaurant_id = { in: candidateIds.map((id) => Number(id)) };
+  }
+
+  // 1. Check restaurant discounts
+  const activeDiscounts = await prisma.discounts.findMany({
+    where: discountWhere,
+    select: {
+      restaurant_id: true,
+      start_time: true,
+      end_time: true,
+    },
+  });
+
+  const validRestaurantIdSet = new Set<string>();
+
+  for (const d of activeDiscounts) {
+    const startStr = formatTime(d.start_time);
+    const endStr = formatTime(d.end_time);
+    if (!startStr || !endStr) {
+      validRestaurantIdSet.add(d.restaurant_id.toString());
+      continue;
+    }
+    const startMin = toMinutes(startStr);
+    const endMin = toMinutes(endStr);
+    if (startMin <= endMin) {
+      if (nowMin >= startMin && nowMin <= endMin) {
+        validRestaurantIdSet.add(d.restaurant_id.toString());
+      }
+    } else if (nowMin >= startMin || nowMin <= endMin) {
+      validRestaurantIdSet.add(d.restaurant_id.toString());
+    }
+  }
+
+  // 2. Also check active foods with discounts
+  const foodWhere: any = {
+    status: true,
+    discount: { gt: 0 },
+  };
+  if (candidateIds && candidateIds.length > 0) {
+    foodWhere.restaurant_id = { in: candidateIds.map((id) => Number(id)) };
+  }
+
+  const discountedFoods = await prisma.food.findMany({
+    where: foodWhere,
+    select: { restaurant_id: true },
+    distinct: ['restaurant_id'],
+  });
+
+  for (const f of discountedFoods) {
+    validRestaurantIdSet.add(f.restaurant_id.toString());
+  }
+
+  return Array.from(validRestaurantIdSet).map((id) => BigInt(id));
 }
+
 
 export const DISCOVER_RESTAURANT_SELECT = {
   id: true,

@@ -13,6 +13,7 @@ import {
     formatMapRestaurant,
     isOpenFromSchedules,
     isRestaurantInsideBounds,
+    loadActiveDiscountRestaurantIds,
     loadTodaySchedulesByRestaurantId,
     parseDiscoverType,
     parseMapBoundsFromQuery,
@@ -46,7 +47,11 @@ export const getRestaurants = async (req: Request, res: Response): Promise<any> 
         const veg = req.query.veg === 'true' || req.query.veg === '1';
         const non_veg = req.query.non_veg === 'true' || req.query.non_veg === '1';
         const top_rated = req.query.top_rated === 'true' || req.query.top_rated === '1';
-        const discounted = req.query.discounted === 'true' || req.query.discounted === '1'; // Placeholder if needed
+        const discounted =
+            req.query.discounted === 'true' ||
+            req.query.discounted === '1' ||
+            req.query.discount === 'true' ||
+            req.query.discount === '1';
 
         const whereClause: any = {
             status: true,
@@ -57,6 +62,11 @@ export const getRestaurants = async (req: Request, res: Response): Promise<any> 
         }
         if (veg) whereClause.veg = true;
         if (non_veg) whereClause.non_veg = true;
+
+        if (discounted) {
+            const discountedIds = await loadActiveDiscountRestaurantIds();
+            whereClause.id = { in: discountedIds };
+        }
 
         let orderBy: any = { id: 'desc' };
         if (top_rated) {
@@ -127,6 +137,11 @@ export const getPopularRestaurants = async (req: Request, res: Response): Promis
     const veg = req.query.veg === 'true' || req.query.veg === '1';
     const non_veg = req.query.non_veg === 'true' || req.query.non_veg === '1';
     const top_rated = req.query.top_rated === 'true' || req.query.top_rated === '1';
+    const discounted =
+        req.query.discounted === 'true' ||
+        req.query.discounted === '1' ||
+        req.query.discount === 'true' ||
+        req.query.discount === '1';
     const type = parseDiscoverType(req.query.type);
     const coords = parseCoordinatesFromRequest(req);
 
@@ -139,6 +154,10 @@ export const getPopularRestaurants = async (req: Request, res: Response): Promis
     if (non_veg) whereClause.non_veg = true;
 
     try {
+        if (discounted) {
+            const discountedIds = await loadActiveDiscountRestaurantIds();
+            whereClause.id = { in: discountedIds };
+        }
         const candidateCap = 50;
         const orderBy = top_rated
             ? [{ rating: 'desc' as const }, { order_count: 'desc' as const }]
@@ -209,6 +228,11 @@ export const getNearbyRestaurants = async (req: Request, res: Response): Promise
     const veg = req.query.veg === 'true' || req.query.veg === '1';
     const non_veg = req.query.non_veg === 'true' || req.query.non_veg === '1';
     const top_rated = req.query.top_rated === 'true' || req.query.top_rated === '1';
+    const discounted =
+        req.query.discounted === 'true' ||
+        req.query.discounted === '1' ||
+        req.query.discount === 'true' ||
+        req.query.discount === '1';
     const type = parseDiscoverType(req.query.type);
 
     const whereClause: Record<string, unknown> = {
@@ -225,6 +249,10 @@ export const getNearbyRestaurants = async (req: Request, res: Response): Promise
     }
 
     try {
+        if (discounted) {
+            const discountedIds = await loadActiveDiscountRestaurantIds();
+            whereClause.id = { in: discountedIds };
+        }
         const rows = await prisma.restaurants.findMany({
             where: whereClause,
             select: DISCOVER_RESTAURANT_SELECT,

@@ -658,7 +658,19 @@
                       "item_title": "Chicken Biryani",
                       "delivery_address_snippet": "block B, Soan Garden",
                       "latitude": "33.123456",
-                      "longitude": "73.654321"
+                      "longitude": "73.654321",
+                      "restaurant_address": "Main Commercial, Sector F, Islamabad",
+                      "restaurant_lat": "33.729388",
+                      "restaurant_lng": "73.093146",
+                      "restaurant": {
+                        "id": "5",
+                        "name": "Quatta Cafe",
+                        "address": "Main Commercial, Sector F, Islamabad",
+                        "latitude": "33.729388",
+                        "longitude": "73.093146",
+                        "logo": "logo.png",
+                        "cover_photo": "cover.png"
+                      }
                     }
                   ]
                 }
@@ -700,7 +712,19 @@
                       "item_title": "Beef Burger",
                       "delivery_address_snippet": "block B, Soan Garden",
                       "latitude": "33.123456",
-                      "longitude": "73.654321"
+                      "longitude": "73.654321",
+                      "restaurant_address": "Main Commercial, Sector F, Islamabad",
+                      "restaurant_lat": "33.729388",
+                      "restaurant_lng": "73.093146",
+                      "restaurant": {
+                        "id": "5",
+                        "name": "Quatta Cafe",
+                        "address": "Main Commercial, Sector F, Islamabad",
+                        "latitude": "33.729388",
+                        "longitude": "73.093146",
+                        "logo": "logo.png",
+                        "cover_photo": "cover.png"
+                      }
                     }
                   ]
                 }

@@ -9,6 +9,7 @@ import {
   distanceKmForRestaurant,
   formatDiscoverRestaurant,
   isOpenFromSchedules,
+  loadActiveDiscountRestaurantIds,
   loadTodaySchedulesByRestaurantId,
   parseDiscoverType,
 } from '../../utils/consumer/restaurantDiscoverHelpers';
@@ -56,6 +57,12 @@ export const searchRestaurants = async (req: Request, res: Response): Promise<an
   const type = parseDiscoverType(req.query.type);
   const coords = parseCoordinatesFromRequest(req);
   const dineIn = req.query.dine_in === '1' || req.query.dine_in === 'true';
+  const topRated = req.query.top_rated === '1' || req.query.top_rated === 'true';
+  const discounted =
+    req.query.discounted === '1' ||
+    req.query.discounted === 'true' ||
+    req.query.discount === '1' ||
+    req.query.discount === 'true';
 
   const where: Record<string, unknown> = {
     status: true,
@@ -67,13 +74,24 @@ export const searchRestaurants = async (req: Request, res: Response): Promise<an
   if (req.query.non_veg === '1' || req.query.non_veg === 'true') where.non_veg = true;
 
   try {
+    if (discounted) {
+      const discountedIds = await loadActiveDiscountRestaurantIds();
+      where.id = { in: discountedIds };
+    }
+
     if (dineIn) {
       const dineInConfigs = await prisma.restaurant_configs.findMany({
         where: { dine_in: true },
         select: { restaurant_id: true },
       });
       const dineInIds = dineInConfigs.map((c) => Number(c.restaurant_id));
-      where.id = { in: dineInIds.map((id) => BigInt(id)) };
+      const existingIn = (where.id as any)?.in as bigint[] | undefined;
+      const dineInBigInts = dineInIds.map((id) => BigInt(id));
+      if (existingIn) {
+        where.id = { in: existingIn.filter((id) => dineInBigInts.includes(id)) };
+      } else {
+        where.id = { in: dineInBigInts };
+      }
     }
 
     const [total_size, rows] = await Promise.all([
@@ -84,7 +102,7 @@ export const searchRestaurants = async (req: Request, res: Response): Promise<an
         skip: paginationSkip(limit, offset),
         take: limit,
         orderBy:
-          req.query.sort_by === 'rating'
+          req.query.sort_by === 'rating' || topRated
             ? [{ rating: 'desc' }, { id: 'desc' }]
             : req.query.new === '1'
               ? [{ created_at: 'desc' }]

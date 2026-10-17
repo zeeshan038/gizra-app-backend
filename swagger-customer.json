@@ -9245,6 +9245,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "discounted",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "When set (1 or true), filter restaurants having active discounts or items on discount"
           }
         ],
         "responses": {
@@ -9440,6 +9448,14 @@
               "type": "string"
             },
             "description": "When set, sort by rating then distance"
+          },
+          {
+            "name": "discounted",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "When set (1 or true), filter restaurants having active discounts or items on discount"
           }
         ],
         "responses": {
@@ -9947,102 +9963,11 @@
     "/consumer/restaurants/search": {
       "get": {
         "description": "",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "type",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "dine_in",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "veg",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "non_veg",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "sort_by",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "new",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Successful operation",
             "content": {
               "application/json": {
-                "example": {
-                  "status": true,
-                  "total_size": 42,
-                  "limit": 20,
-                  "offset": 0,
-                  "restaurants": [
-                    {
-                      "id": "12",
-                      "name": "Demo Kitchen",
-                      "logo": "https://cdn.example.com/logo.png",
-                      "cover_photo": "https://cdn.example.com/cover.png",
-                      "delivery_time": "30-40 min",
-                      "minimum_order": 10,
-                      "tax": 5,
-                      "rating": 4.5,
-                      "address": "123 Main Street"
-                    }
-                  ]
-                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -10150,6 +10075,25 @@
                       }
                     ]
                   }
+                },
+                "example": {
+                  "status": true,
+                  "total_size": 42,
+                  "limit": 20,
+                  "offset": 0,
+                  "restaurants": [
+                    {
+                      "id": "12",
+                      "name": "Demo Kitchen",
+                      "logo": "https://cdn.example.com/logo.png",
+                      "cover_photo": "https://cdn.example.com/cover.png",
+                      "delivery_time": "30-40 min",
+                      "minimum_order": 10,
+                      "tax": 5,
+                      "rating": 4.5,
+                      "address": "123 Main Street"
+                    }
+                  ]
                 }
               }
             }
@@ -10233,74 +10177,11 @@
     "/consumer/restaurants/dine-in": {
       "get": {
         "description": "",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "type",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "veg",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "non_veg",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Successful operation",
             "content": {
               "application/json": {
-                "example": {
-                  "status": true,
-                  "total_size": 42,
-                  "limit": 20,
-                  "offset": 0,
-                  "restaurants": [
-                    {
-                      "id": "12",
-                      "name": "Demo Kitchen",
-                      "logo": "https://cdn.example.com/logo.png",
-                      "cover_photo": "https://cdn.example.com/cover.png",
-                      "delivery_time": "30-40 min",
-                      "minimum_order": 10,
-                      "tax": 5,
-                      "rating": 4.5,
-                      "address": "123 Main Street"
-                    }
-                  ]
-                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -10408,6 +10289,25 @@
                       }
                     ]
                   }
+                },
+                "example": {
+                  "status": true,
+                  "total_size": 42,
+                  "limit": 20,
+                  "offset": 0,
+                  "restaurants": [
+                    {
+                      "id": "12",
+                      "name": "Demo Kitchen",
+                      "logo": "https://cdn.example.com/logo.png",
+                      "cover_photo": "https://cdn.example.com/cover.png",
+                      "delivery_time": "30-40 min",
+                      "minimum_order": 10,
+                      "tax": 5,
+                      "rating": 4.5,
+                      "address": "123 Main Street"
+                    }
+                  ]
                 }
               }
             }
@@ -10493,13 +10393,9 @@
         "description": "",
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Successful operation",
             "content": {
               "application/json": {
-                "example": {
-                  "status": true,
-                  "data": "…"
-                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -10516,6 +10412,10 @@
                     "status": true,
                     "data": "…"
                   }
+                },
+                "example": {
+                  "status": true,
+                  "data": "…"
                 }
               }
             }
@@ -10720,24 +10620,11 @@
     "/consumer/restaurants/recently-viewed": {
       "get": {
         "description": "",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Successful operation",
             "content": {
               "application/json": {
-                "example": {
-                  "status": true,
-                  "data": "…"
-                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -10754,6 +10641,10 @@
                     "status": true,
                     "data": "…"
                   }
+                },
+                "example": {
+                  "status": true,
+                  "data": "…"
                 }
               }
             }
@@ -10842,13 +10733,9 @@
         "description": "",
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Successful operation",
             "content": {
               "application/json": {
-                "example": {
-                  "status": true,
-                  "data": "…"
-                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -10865,6 +10752,10 @@
                     "status": true,
                     "data": "…"
                   }
+                },
+                "example": {
+                  "status": true,
+                  "data": "…"
                 }
               }
             }

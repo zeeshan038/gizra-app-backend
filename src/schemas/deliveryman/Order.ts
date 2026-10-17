@@ -10,11 +10,7 @@ export const dmMyOrdersQuerySchema = Joi.object({
 
 export const dmUpdateOrderStatusSchema = Joi.object({
   status: Joi.string()
-    .valid('confirmed', 'canceled', 'picked_up', 'delivered', 'handover')
+    .valid('confirmed', 'canceled', 'picked_up', 'delivered', 'handover', 'ignore', 'ignored')
     .required(),
-  reason: Joi.string().trim().when('status', {
-    is: 'canceled',
-    then: Joi.required(),
-    otherwise: Joi.optional(),
-  }),
+  reason: Joi.string().trim().optional().allow('', null),
 });
