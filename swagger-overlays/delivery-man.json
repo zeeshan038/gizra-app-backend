@@ -1,5 +1,40 @@
 {
   "paths": {
+    "/delivery-man/zones": {
+      "get": {
+        "summary": "List active zones for driver signup",
+        "description": "Public zone/city list for register step 2 (legacy PHP `GET /api/v1/zone/list`). Driver selects a city and sends its `id` as `zone_id` on `POST /delivery-man/register`. No auth required.",
+        "responses": {
+          "200": {
+            "description": "Active zones",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DeliveryManZonesResponse" },
+                "example": {
+                  "status": true,
+                  "msg": "Zones fetched successfully",
+                  "data": {
+                    "zones": [
+                      { "id": "1", "name": "Tel Aviv", "display_name": "Tel Aviv" },
+                      { "id": "2", "name": "Jerusalem", "display_name": "Jerusalem" }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          }
+        },
+        "tags": ["Delivery Man Auth"]
+      }
+    },
     "/delivery-man/login": {
       "post": {
         "summary": "Login (driver app)",
@@ -61,7 +96,7 @@
     "/delivery-man/register": {
       "post": {
         "summary": "Register delivery man (driver app)",
-        "description": "Figma 2-step registration. **Media:** `POST /storage/registration-init` `{ \"role\": \"deliveryman\" }` → `POST /upload` (category `profile` / `identity`) → pass `cloudflare_id` + R2 paths. Requires **`delivery_type` or `earning`**. Admin approval (`npm run approve-riders` or admin panel) before login.",
+        "description": "Figma 2-step registration. **Zones:** `GET /delivery-man/zones` for city picker → send `zone_id`. **Media:** `POST /storage/registration-init` `{ \"role\": \"deliveryman\" }` → `POST /upload` (category `profile` / `identity`) → pass `cloudflare_id` + R2 paths. Requires **`delivery_type` or `earning`**. Admin approval (`npm run approve-riders` or admin panel) before login.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1461,13 +1496,36 @@
             "description": "Required when status is canceled"
           }
         }
+      },
+      "DeliveryManZonesResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "boolean", "example": true },
+          "msg": { "type": "string", "example": "Zones fetched successfully" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "zones": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string", "example": "1" },
+                    "name": { "type": "string", "example": "Tel Aviv" },
+                    "display_name": { "type": "string", "nullable": true, "example": "Tel Aviv" }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
   },
   "tags": [
     {
       "name": "Delivery Man Auth",
-      "description": "POST /delivery-man/login, /register, /password/forgot, /password/verify-otp, PUT /password/reset, PUT /password/change. Approve pending drivers: `npm run approve-riders`."
+      "description": "GET /delivery-man/zones (signup city list). POST /delivery-man/login, /register, /password/forgot, /password/verify-otp, PUT /password/reset, PUT /password/change. Approve pending drivers: `npm run approve-riders`."
     },
     {
       "name": "Delivery Man Home",

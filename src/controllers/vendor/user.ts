@@ -3,6 +3,7 @@ import prisma from '../../config/database';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { genrateToken } from '../../utils/methods/methods';
+import { verifyPassword } from '../../utils/passwordHash';
 import {
   vendorFcmTokenSchema,
   vendorLoginSchema,
@@ -36,6 +37,7 @@ import { provisionAccountStorage } from '../../utils/accountStorage';
 import { normalizeStoredMedia } from '../../utils/mediaStorage';
 import { clientSafeErrorMessage } from '../../utils/safeClientError';
 import { maskPhoneForClient } from '../../utils/deliveryman/authHelpers';
+import { readPosAppSettingsFromAdditionalData } from '../../utils/vendor/posAppSettings';
 import {
   deleteLoginOtp,
   findLoginOtp,
@@ -95,6 +97,14 @@ function formatRestaurantPublic(restaurant: Record<string, unknown>) {
   if (formatted.vendor_id != null) formatted.vendor_id = String(formatted.vendor_id);
   if (formatted.zone_id != null) formatted.zone_id = String(formatted.zone_id);
   if (formatted.package_id != null) formatted.package_id = String(formatted.package_id);
+
+  const posSettings = readPosAppSettingsFromAdditionalData(
+    restaurant.additional_data != null ? String(restaurant.additional_data) : null
+  );
+  formatted.autoAcceptOrder = posSettings.autoAcceptOrder;
+  formatted.autoPrintOnAccept = posSettings.autoPrintOnAccept;
+  formatted.use58mmPaper = posSettings.use58mmPaper;
+
   return formatted;
 }
 
@@ -161,16 +171,16 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       }
   try {
 
-    const vendor = await prisma.vendors.findUnique({
-      where: { email : payload.email},
+    const vendor = await prisma.vendors.findFirst({
+      where: { email: { equals: String(payload.email).trim(), mode: 'insensitive' } },
     });
 
     if (!vendor) {
       return res.status(401).json({ status: false, msg: 'Credential do not match, please try again.' });
     }
 
-    const isPasswordValid = await bcrypt.compare(payload.password, vendor?.password || '');
-    
+    const isPasswordValid = await verifyPassword(payload.password, vendor.password);
+
     if (!isPasswordValid) {
       return res.status(401).json({
         status: false,
@@ -433,7 +443,7 @@ export const changePassword = async (req: Request, res: Response): Promise<any> 
       return res.status(400).json({ status: false, msg: 'Password login is not set for this account' });
     }
 
-    const matches = await bcrypt.compare(current_password, vendor.password);
+    const matches = await verifyPassword(current_password, vendor.password);
     if (!matches) {
       return res.status(403).json({ status: false, msg: 'Current password is incorrect' });
     }
@@ -657,7 +667,7 @@ export const updateFcmToken = async (req: Request, res: Response): Promise<any> 
 
 
 /**
- * @Description Get vendor details
+ * @Description Get vendor details (+ POS toggles autoAcceptOrder, autoPrintOnAccept, use58mmPaper on restaurant and posSettings)
  * @Route GET /api/vendor/whoami
  * @Access Private (Bearer vendor JWT)
  */
@@ -680,18 +690,25 @@ export const whoami = async (req: Request, res: Response): Promise<any> => {
     });
 
     const primary = restaurants[0] ?? null;
+    const restaurant = primary
+      ? formatRestaurantPublic(primary as unknown as Record<string, unknown>)
+      : null;
+    const posSettings = readPosAppSettingsFromAdditionalData(primary?.additional_data ?? null);
 
     return res.status(200).json({
       status: true,
       msg: 'Success',
       data: {
         vendor: formatVendorPublic(vendor as unknown as Record<string, unknown>),
-        restaurant: primary
-          ? formatRestaurantPublic(primary as unknown as Record<string, unknown>)
-          : null,
+        restaurant,
         restaurants: restaurants.map((row) =>
           formatRestaurantPublic(row as unknown as Record<string, unknown>)
         ),
+        /** POS app toggles (also mirrored on data.restaurant) */
+        autoAcceptOrder: posSettings.autoAcceptOrder,
+        autoPrintOnAccept: posSettings.autoPrintOnAccept,
+        use58mmPaper: posSettings.use58mmPaper,
+        posSettings,
       },
     });
   } catch (error: unknown) {

@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import prisma from '../../config/database';
-import { requireCoordinates, requireZoneIds } from '../../utils/consumer/zoneHeaders';
+import {
+    requireCoordinates,
+    requireZoneIds
+} from '../../utils/consumer/zoneHeaders';
 import {
     parseCoordinatesFromRequest,
     parseZoneIdsFromRequest,
@@ -417,11 +420,11 @@ export const getDiscoverMapRestaurants = async (req: Request, res: Response): Pr
                     : null,
                 bounds: bounds
                     ? {
-                          min_lat: bounds.minLat,
-                          max_lat: bounds.maxLat,
-                          min_lng: bounds.minLng,
-                          max_lng: bounds.maxLng,
-                      }
+                        min_lat: bounds.minLat,
+                        max_lat: bounds.maxLat,
+                        min_lng: bounds.minLng,
+                        max_lng: bounds.maxLng,
+                    }
                     : null,
                 restaurants,
             },
@@ -628,10 +631,10 @@ export const searchFoods = async (req: Request, res: Response): Promise<any> => 
 
             try {
                 if (f.variations) parsedVariations = JSON.parse(f.variations);
-            } catch (e) {}
+            } catch (e) { }
             try {
                 if (f.add_ons) parsedAddOns = JSON.parse(f.add_ons);
-            } catch (e) {}
+            } catch (e) { }
 
             return {
                 id: f.id.toString(),

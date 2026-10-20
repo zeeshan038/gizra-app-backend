@@ -11,6 +11,7 @@ import {
   whoami,
   updateFcmToken,
 } from '../../controllers/deliveryman/User';
+import { listDeliveryManZones } from '../../controllers/deliveryman/Zone';
 import { deleteNotification, getNotifications } from '../../controllers/deliveryman/notification';
 import { toggleDeliveryManPushNotification } from '../../controllers/notifications/togglePushNotification';
 import { activeStatus, getProfile, updateProfile } from '../../controllers/deliveryman/Profile';
@@ -20,6 +21,7 @@ import { verifyDeliveryMan } from '../../middlewares/verifyDeliveryMan';
 
 const router = express.Router();
 
+router.get('/zones', listDeliveryManZones);
 router.post('/login', login);
 router.post('/login/send-otp', sendLoginOtp);
 router.post('/login/verify-otp', verifyLoginOtp);

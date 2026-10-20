@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../../config/database';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { verifyPassword } from '../../utils/passwordHash';
 import {
   dmChangePasswordSchema,
   dmForgotPasswordSchema,
@@ -109,7 +110,7 @@ export function formatDeliveryManPublic(dm: Record<string, unknown>) {
  * @Route POST /api/delivery-man/register
  * @Access Public
  * @Body Step 1: f_name, l_name, phone, email, password, confirm_password, image (portrait upload path)
- * @Body Step 2: zone_id (city), delivery_type|earning, identity_type, identity_number, identity_image (1–2 ID doc paths)
+ * @Body Step 2: zone_id (city from GET /delivery-man/zones), delivery_type|earning, identity_type, identity_number, identity_image (1–2 ID doc paths)
  * @Body Media: POST /storage/registration-init { role: deliveryman } → POST /upload → cloudflare_id + paths
  */
 export const register = async (req: Request, res: Response): Promise<any> => {
@@ -151,6 +152,17 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       return res.status(400).json({
         status: false,
         msg: 'Phone or email already exists.',
+      });
+    }
+
+    const zone = await prisma.zones.findFirst({
+      where: { id: BigInt(data.zone_id), status: true },
+      select: { id: true },
+    });
+    if (!zone) {
+      return res.status(400).json({
+        status: false,
+        msg: 'Invalid or inactive zone. Please select a city from the list.',
       });
     }
 
@@ -284,7 +296,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    const isPasswordValid = await bcrypt.compare(payload.password, driver.password);
+    const isPasswordValid = await verifyPassword(payload.password, driver.password);
     if (!isPasswordValid) {
       return res.status(401).json({
         status: false,
@@ -433,7 +445,7 @@ export const changePassword = async (req: Request, res: Response): Promise<any> 
       return res.status(400).json({ status: false, msg: 'Password login is not set for this account' });
     }
 
-    const matches = await bcrypt.compare(current_password, driver.password);
+    const matches = await verifyPassword(current_password, driver.password);
     if (!matches) {
       return res.status(403).json({ status: false, msg: 'Current password is incorrect' });
     }

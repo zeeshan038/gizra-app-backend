@@ -21,6 +21,7 @@ import { safeApiErrorMessage } from '../../utils/safeApiError';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { verifyPassword } from '../../utils/passwordHash';
 
 //Schema
 import {
@@ -56,13 +57,7 @@ import { issueGuestJwt } from '../../utils/consumer/guestAuth';
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_here';
 
 async function verifyStoredPassword(plain: string, stored: string | null | undefined): Promise<boolean> {
-  if (!stored || !plain) return false;
-  try {
-    return await bcrypt.compare(plain, stored);
-  } catch (err) {
-    console.error('[consumer/login] password hash compare failed', err);
-    return false;
-  }
+  return verifyPassword(plain, stored);
 }
 
 function manualLoginUserWhere(field_type: string, email_or_phone: string) {

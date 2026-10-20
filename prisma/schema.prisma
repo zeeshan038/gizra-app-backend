@@ -1802,7 +1802,8 @@ model withdraw_requests {
   admin_id                 Decimal?  @db.Decimal
   transaction_note         String?   @db.VarChar(191)
   amount                   Decimal   @default(0.000) @db.Decimal(23, 3)
-  approved                 Boolean   @default(false)
+  /// 0 pending, 1 approved, 2 denied (PHP / MySQL tinyint parity)
+  approved                 Int       @default(0) @db.SmallInt
   created_at               DateTime? @db.Timestamptz(6)
   updated_at               DateTime? @db.Timestamptz(6)
   delivery_man_id          Decimal?  @db.Decimal

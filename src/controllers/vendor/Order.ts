@@ -25,6 +25,12 @@ import {
   loadCustomersForOrders,
 } from '../../utils/vendor/order/customers';
 import { parseOrderIdParam } from '../../utils/vendor/order/params';
+import {
+  createOrderTransactionIfNeeded,
+  ORDER_SETTLEMENT_TX_OPTIONS,
+  OrderSettlementError,
+} from '../../utils/order/createOrderTransaction';
+import { buildOrderInvoice } from '../../utils/order/invoiceMapper';
 
 //Schema
 import {
@@ -296,6 +302,49 @@ export const getOrderDetails = async (req: Request, res: Response): Promise<any>
 };
 
 /**
+ * @Description Order invoice payload for browser/thermal print (legacy PHP generate-invoice). Frontend renders and prints; backend only returns receipt JSON.
+ * @Route GET /api/vendor/orders/:id/invoice
+ * @Access Vendor
+ */
+export const getOrderInvoice = async (req: Request, res: Response): Promise<any> => {
+  const ctx = getVendorContext(req);
+  if (!ctx) {
+    return res.status(403).json({ status: false, msg: 'Restaurant context not found for vendor' });
+  }
+
+  const orderId = parseOrderIdParam(req);
+  if (!orderId) {
+    return res.status(400).json({ status: false, msg: 'Order id required' });
+  }
+
+  try {
+    const order = await prisma.orders.findFirst({
+      where: {
+        id: BigInt(orderId),
+        ...restaurantOrdersBase(ctx.restaurantId),
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ status: false, msg: 'Order not found' });
+    }
+
+    const data = await buildOrderInvoice(order, { restaurantId: ctx.restaurantId });
+    if (!data) {
+      return res.status(404).json({ status: false, msg: 'Invoice not available for this order' });
+    }
+
+    return res.status(200).json({
+      status: true,
+      msg: 'Invoice fetched successfully',
+      data,
+    });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message });
+  }
+};
+
+/**
  * @Description Update marketplace order workflow status (confirm, processing, handover, delivered, cancel)
  * @Route PUT /api/vendor/orders/:id/status
  * @Access Vendor
@@ -349,17 +398,44 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
     if (status === 'accepted') updateData.accepted = now;
     if (status === 'processing') updateData.processing = now;
     if (status === 'handover') updateData.handover = now;
-    if (status === 'delivered') updateData.delivered = now;
+    if (status === 'delivered') {
+      updateData.delivered = now;
+      updateData.payment_status = 'paid';
+    }
     if (status === 'canceled') {
       updateData.canceled = now;
       updateData.canceled_by = 'restaurant';
       if (cancellation_reason) updateData.cancellation_reason = cancellation_reason;
     }
 
-    const updated = await prisma.orders.update({
-      where: { id: order.id },
-      data: updateData,
-    });
+    const updated = await prisma.$transaction(async (tx) => {
+      if (status === 'delivered') {
+        const isCod = order.payment_method === 'cash_on_delivery';
+        // Match PHP vendor deliver: COD → restaurant cash-in-hand; else admin/digital path.
+        const settled = await createOrderTransactionIfNeeded(
+          tx,
+          order.id,
+          isCod ? 'restaurant' : 'admin'
+        );
+        if (!settled) {
+          throw new OrderSettlementError();
+        }
+      }
+
+      const row = await tx.orders.update({
+        where: { id: order.id },
+        data: updateData,
+      });
+
+      if (status === 'delivered') {
+        await tx.restaurants.update({
+          where: { id: BigInt(Number(row.restaurant_id)) },
+          data: { order_count: { increment: 1 }, updated_at: now },
+        });
+      }
+
+      return row;
+    }, ORDER_SETTLEMENT_TX_OPTIONS);
 
     emitOrderStatusRealtime(updated);
 
@@ -369,6 +445,9 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
       data: mapOrderSummary(updated, null),
     });
   } catch (e: any) {
+    if (e instanceof OrderSettlementError) {
+      return res.status(400).json({ status: false, msg: e.message });
+    }
     return res.status(500).json({ status: false, msg: e.message });
   }
 };

@@ -8,6 +8,7 @@ import { verifyVendor } from '../../middlewares/verifyVendor';
 import {
   getOrderCounts,
   getOrderDetails,
+  getOrderInvoice,
   getPosOrderHistory,
   listOrders,
   pollRecentOrders,
@@ -24,6 +25,7 @@ router.get('/events', streamVendorOrderEvents);
 router.get('/recent', pollRecentOrders);
 router.get('/pos-history', getPosOrderHistory);
 router.get('/', listOrders);
+router.get('/:id/invoice', getOrderInvoice);
 router.get('/:id', getOrderDetails);
 router.put('/:id/status', updateOrderStatus);
 

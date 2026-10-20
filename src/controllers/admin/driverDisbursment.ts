@@ -10,6 +10,7 @@ import {
   bulkUpdateDmDisbursementStatus,
   updateDmDisbursementDetailStatus,
 } from '../../utils/admin/disbursement/dmDetailStatus';
+import { generateDeliveryManDisbursement } from '../../utils/admin/disbursement/generateDisbursement';
 import { listDmDisbursementDetails } from '../../utils/admin/disbursement/listDisbursementDetails';
 
 function parseDetailQuery(req: Request) {
@@ -25,6 +26,26 @@ function parseDetailQuery(req: Request) {
     limit: Number(req.query.limit) || 15,
   };
 }
+
+/**
+ * @Route POST /api/admin/disbursement/delivery-man/generate
+ */
+export const generateAdminDeliveryManDisbursement = async (
+  _req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const result = await generateDeliveryManDisbursement();
+    return res.status(result.created ? 201 : 200).json({
+      status: result.created,
+      msg: result.msg,
+      data: result.data,
+    });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Generate failed';
+    return res.status(400).json({ status: false, msg });
+  }
+};
 
 /**
  * @Route GET /api/admin/disbursement/delivery-man/list

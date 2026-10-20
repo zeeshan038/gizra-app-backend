@@ -17,6 +17,7 @@
     "seed:discover-restaurants:apply": "ts-node scripts/seedDiscoverRestaurants.ts --apply",
     "seed:demo-checkout": "ts-node scripts/seedDemoCheckout.ts",
     "seed:demo": "npm run seed:business-settings && npm run seed:demo-checkout",
+    "credit:restaurant-wallet": "ts-node scripts/creditRestaurantWallet.ts",
     "deploy:server": "bash scripts/deploy-server.sh",
     "fix:prod-db": "bash scripts/fix-prod-now.sh",
     "repair:prod-stack": "npm run deploy:server",

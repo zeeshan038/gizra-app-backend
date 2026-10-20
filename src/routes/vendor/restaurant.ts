@@ -4,6 +4,7 @@ import {
   addRestaurantSchedule,
   getRestaurantSetup,
   removeRestaurantSchedule,
+  updatePosAppSettings,
   updateRestaurantActive,
   updateRestaurantMeta,
   updateRestaurantSetup,
@@ -19,6 +20,7 @@ router.put('/business-setup', updateRestaurantSetup);
 router.put('/active-status', updateRestaurantActive);
 router.put('/setting-toggle', updateRestaurantToggle);
 router.put('/meta-data', updateRestaurantMeta);
+router.put('/pos-settings', updatePosAppSettings);
 router.post('/schedules', addRestaurantSchedule);
 router.delete('/schedules/:scheduleId', removeRestaurantSchedule);
 

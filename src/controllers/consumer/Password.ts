@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import prisma from '../../config/database';
+import { verifyPassword } from '../../utils/passwordHash';
 import {
   changePasswordSchema,
   forgotPasswordSchema,
@@ -87,7 +88,7 @@ export const changePassword = async (req: Request, res: Response): Promise<any> 
       return res.status(400).json({ status: false, msg: 'Password login is not set for this account' });
     }
 
-    const matches = await bcrypt.compare(current_password, user.password);
+    const matches = await verifyPassword(current_password, user.password);
     if (!matches) {
       return res.status(403).json({ status: false, msg: 'Current password is incorrect' });
     }

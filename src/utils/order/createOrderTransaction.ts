@@ -184,14 +184,28 @@ export async function createOrderTransactionIfNeeded(
   }
 
   const order = await tx.orders.findUnique({ where: { id: orderId } });
-  if (!order?.delivery_man_id) return false;
+  if (!order) return false;
 
   const restaurantId = BigInt(n(order.restaurant_id));
-  const dmId = BigInt(n(order.delivery_man_id));
+  const restaurant = await tx.restaurants.findUnique({ where: { id: restaurantId } });
+  if (!restaurant) return false;
 
-  const [restaurant, dm, unpaid, settingsMap] = await Promise.all([
-    tx.restaurants.findUnique({ where: { id: restaurantId } }),
-    tx.delivery_men.findUnique({ where: { id: dmId } }),
+  const restSubEarly =
+    restaurant.restaurant_model === 'subscription'
+      ? await tx.restaurant_subscriptions.findFirst({
+          where: { restaurant_id: dec(restaurant.id), status: true },
+        })
+      : null;
+
+  const selfDelivery = isSelfDelivery(restaurant, restSubEarly);
+  if (!order.delivery_man_id && !selfDelivery && !receivedByOverride) return false;
+
+  const dm = order.delivery_man_id
+    ? await tx.delivery_men.findUnique({ where: { id: BigInt(n(order.delivery_man_id)) } })
+    : null;
+  if (order.delivery_man_id && !dm) return false;
+
+  const [unpaid, settingsMap] = await Promise.all([
     tx.order_payments.findFirst({
       where: { order_id: orderIdDec, payment_status: 'unpaid' },
     }),
@@ -202,18 +216,8 @@ export async function createOrderTransactionIfNeeded(
     ]),
   ]);
 
-  if (!restaurant || !dm) return false;
-
   const vendorId = n(restaurant.vendor_id);
-  const restSub =
-    restaurant.restaurant_model === 'subscription'
-      ? await tx.restaurant_subscriptions.findFirst({
-          where: {
-            restaurant_id: dec(restaurant.id),
-            status: true,
-          },
-        })
-      : null;
+  const restSub = restSubEarly;
 
   const adminCommissionSetting = settingFrom(settingsMap, 'admin_commission');
   const commissionRate =
@@ -302,7 +306,15 @@ export async function createOrderTransactionIfNeeded(
         n(order.delivery_charge) > 0 ? comission_on_delivery : 0;
     }
 
-    received_by = resolveReceivedBy(order, dm, unpaid?.payment_method);
+    if (dm) {
+      received_by = resolveReceivedBy(order, dm, unpaid?.payment_method);
+    } else {
+      // Vendor / self-delivery without DM — PHP credits restaurant; COD cash stays with restaurant.
+      const isCod =
+        order.payment_method === 'cash_on_delivery' ||
+        unpaid?.payment_method === 'cash_on_delivery';
+      received_by = isCod ? 'restaurant' : 'admin';
+    }
   }
 
   if (receivedByOverride) {
@@ -382,7 +394,7 @@ export async function createOrderTransactionIfNeeded(
     n(order.additional_charge) -
     ref_bonus_amount;
 
-  if (platformDelivery && !dm.earning) {
+  if (platformDelivery && dm && !dm.earning) {
     adminCommissionIncrement += dmEarningIncrement;
   }
 
@@ -394,7 +406,7 @@ export async function createOrderTransactionIfNeeded(
 
   const adminDigitalIncrement = adminWallet && received_by === 'admin' ? collectAmount : 0;
 
-  if (platformDelivery && dm.earning) {
+  if (platformDelivery && dm?.earning && order.delivery_man_id) {
     dmWallet = await getOrCreateDmWallet(tx, n(order.delivery_man_id));
     await tx.delivery_man_wallets.update({
       where: { id: dmWallet.id },
@@ -437,7 +449,8 @@ export async function createOrderTransactionIfNeeded(
     await recordCashCollection(tx, 'restaurant', vendorId, collectAmount, orderId, before);
   } else if (
     received_by === 'deliveryman' &&
-    dm.type === 'zone_wise' &&
+    dm?.type === 'zone_wise' &&
+    order.delivery_man_id &&
     (order.payment_method === 'cash_on_delivery' || unpaidPayMethod === 'cash_on_delivery')
   ) {
     if (!dmWallet) {

@@ -126,8 +126,7 @@ export const getVendorWallet = async (req: Request, res: Response): Promise<any>
 
   const paymentRows = await prisma.account_transactions.findMany({
     where: {
-      type: 'collected',
-      created_by: 'restaurant',
+      type: { in: ['collected', 'cash_in'] },
       from_type: 'restaurant',
       from_id: toDecimal(ctx.vendorId),
     },
@@ -232,35 +231,93 @@ export const requestVendorWithdraw = async (req: Request, res: Response): Promis
   }
 
   const now = new Date();
+  let withdrawId: number | null = null;
   try {
-    await prisma.$transaction([
-      prisma.withdraw_requests.create({
+    const created = await prisma.$transaction(async (tx) => {
+      const row = await tx.withdraw_requests.create({
         data: {
           vendor_id: toDecimal(ctx.vendorId),
           amount,
           transaction_note: null,
           withdrawal_method_id: toDecimal(method.id),
           withdrawal_method_fields: JSON.stringify(methodData),
-          approved: false,
+          approved: 0,
           type: 'manual',
           created_at: now,
           updated_at: now,
         },
-      }),
-      prisma.restaurant_wallets.update({
+      });
+      await tx.restaurant_wallets.update({
         where: { id: wallet.id },
         data: {
           pending_withdraw: decimalToNumber(wallet.pending_withdraw) + amount,
           updated_at: now,
         },
-      }),
-    ]);
+      });
+      return row;
+    });
+    withdrawId = Number(created.id);
   } catch (e) {
     console.error(e);
     return sendApiError(res, 500, 'Withdraw request failed');
   }
 
+  const { notifyAdminOfWithdrawRequest } = await import('../../utils/notifications/sendWithdrawNotifications');
+  void notifyAdminOfWithdrawRequest({
+    vendorId: ctx.vendorId,
+    amount,
+    withdrawId: withdrawId ?? undefined,
+  }).catch((err) => console.error('[notify] admin withdraw request failed', err));
+
   return res.status(200).json({ status: true, msg: 'Withdraw request placed successfully' });
+};
+
+/**
+ * Cancel a pending withdraw request (PHP close_request).
+ * @Route DELETE /api/vendor/wallet/withdraw-request/:id
+ */
+export const cancelVendorWithdraw = async (req: Request, res: Response): Promise<any> => {
+  const ctx = getVendorContext(req);
+  if (!ctx) return sendApiError(res, 403, 'Restaurant context not found for vendor');
+
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return sendApiError(res, 400, 'Invalid withdraw request id');
+
+  const rows = await prisma.$queryRaw<
+    Array<{ id: bigint; amount: unknown; approved: number }>
+  >`
+    SELECT id, amount, approved::int AS approved
+    FROM withdraw_requests
+    WHERE id = ${id} AND vendor_id = ${toDecimal(ctx.vendorId)}
+    LIMIT 1
+  `;
+  const wr = rows[0];
+  if (!wr) return sendApiError(res, 404, 'Withdraw request not found');
+  if (Number(wr.approved) !== 0) {
+    return sendApiError(res, 400, 'Only pending withdraw requests can be canceled');
+  }
+
+  const amount = roundMoney(decimalToNumber(wr.amount as never));
+  const wallet = await loadOrCreateWallet(ctx.vendorId);
+  const now = new Date();
+
+  try {
+    await prisma.$transaction([
+      prisma.restaurant_wallets.update({
+        where: { id: wallet.id },
+        data: {
+          pending_withdraw: Math.max(0, decimalToNumber(wallet.pending_withdraw) - amount),
+          updated_at: now,
+        },
+      }),
+      prisma.withdraw_requests.delete({ where: { id: BigInt(id) } }),
+    ]);
+  } catch (e) {
+    console.error(e);
+    return sendApiError(res, 500, 'Failed to cancel withdraw request');
+  }
+
+  return res.status(200).json({ status: true, msg: 'Withdraw request canceled' });
 };
 
 /**

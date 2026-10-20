@@ -5,6 +5,7 @@ export const SocketEvents = {
   ORDER_REQUEST: 'order_request',
   ORDER_STATUS_CHANGED: 'order_status_changed',
   CHAT_MESSAGE: 'chat_message',
+  WITHDRAW_STATUS: 'withdraw_status',
 } as const;
 
 export type SocketServerEventName = (typeof SocketEvents)[keyof typeof SocketEvents];

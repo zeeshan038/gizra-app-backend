@@ -23,6 +23,15 @@ export async function isPushNotificationEnabled(
     if (userType === 'deliveryman' && key === 'deliveryman_order_notification') {
       return true;
     }
+    if (userType === 'admin' && key === 'withdraw_request') {
+      return true;
+    }
+    if (
+      userType === 'restaurant' &&
+      (key === 'restaurant_withdraw_approve' || key === 'restaurant_withdraw_rejaction')
+    ) {
+      return true;
+    }
     return false;
   }
   return row.push_notification_status === 'active';
@@ -42,6 +51,9 @@ export async function isRestaurantPushNotificationEnabled(
   });
   if (!row) {
     if (key === 'restaurant_order_notification') {
+      return true;
+    }
+    if (key === 'restaurant_withdraw_approve' || key === 'restaurant_withdraw_rejaction') {
       return true;
     }
     return false;

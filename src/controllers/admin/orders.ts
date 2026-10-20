@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import prisma from '../../config/database';
 import {
   adminOrdersListQuerySchema,
   adminSubscriptionsListQuerySchema,
@@ -12,6 +13,8 @@ import {
   listAdminSubscriptions,
 } from '../../utils/admin/orders/subscriptions';
 import { deleteAdminOrder } from '../../utils/admin/orders/deleteAdminOrder';
+import { buildOrderInvoice } from '../../utils/order/invoiceMapper';
+import { notPosWhere } from '../../utils/vendor/order/query';
 
 /**
  * @Description Order sidebar badge counts
@@ -112,6 +115,39 @@ export const getAdminOrderDetailHandler = async (req: Request, res: Response): P
       return res.status(404).json({ status: false, msg: 'Order not found' });
     }
     return res.status(200).json({ status: true, msg: 'Success', data });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message });
+  }
+};
+
+/**
+ * @Description Order invoice payload for browser/thermal print (legacy PHP generate-invoice)
+ * @Route GET /api/admin/orders/:orderId/invoice
+ */
+export const getAdminOrderInvoiceHandler = async (req: Request, res: Response): Promise<any> => {
+  const orderId = Number(req.params.orderId);
+  if (!Number.isFinite(orderId) || orderId <= 0) {
+    return res.status(400).json({ status: false, msg: 'Invalid order id' });
+  }
+
+  try {
+    const order = await prisma.orders.findFirst({
+      where: { id: BigInt(orderId), ...notPosWhere },
+    });
+    if (!order) {
+      return res.status(404).json({ status: false, msg: 'Order not found' });
+    }
+
+    const data = await buildOrderInvoice(order);
+    if (!data) {
+      return res.status(404).json({ status: false, msg: 'Invoice not available for this order' });
+    }
+
+    return res.status(200).json({
+      status: true,
+      msg: 'Invoice fetched successfully',
+      data,
+    });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });
   }

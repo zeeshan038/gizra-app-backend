@@ -6,6 +6,7 @@ import {
   adminDisbursementListQuerySchema,
   adminRestaurantDisbursementBulkStatusSchema,
 } from '../../schemas/admin/Disbursement';
+import { generateRestaurantDisbursement } from '../../utils/admin/disbursement/generateDisbursement';
 import { listRestaurantDisbursementDetails } from '../../utils/admin/disbursement/listDisbursementDetails';
 import {
   bulkUpdateRestaurantDisbursementStatus,
@@ -25,6 +26,26 @@ function parseDetailQuery(req: Request) {
     limit: Number(req.query.limit) || 15,
   };
 }
+
+/**
+ * @Route POST /api/admin/disbursement/restaurant/generate
+ */
+export const generateAdminRestaurantDisbursement = async (
+  _req: Request,
+  res: Response
+): Promise<any> => {
+  try {
+    const result = await generateRestaurantDisbursement();
+    return res.status(result.created ? 201 : 200).json({
+      status: result.created,
+      msg: result.msg,
+      data: result.data,
+    });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Generate failed';
+    return res.status(400).json({ status: false, msg });
+  }
+};
 
 /**
  * @Route GET /api/admin/disbursement/restaurant/list

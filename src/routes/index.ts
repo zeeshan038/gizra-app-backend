@@ -47,6 +47,8 @@ import adminCampaignRoutes from './admin/campaigns';
 import adminDeliveryMenRoutes from './admin/delivery-men';
 import adminCouponRoutes from './admin/coupons';
 import adminDisbursementRoutes from './admin/disbursement';
+import adminTransactionsRoutes from './admin/transactions';
+import adminBusinessSetupRoutes from './admin/business-setup';
 
 //vendor
 router.use('/vendor',vendorUserRoutes);
@@ -131,6 +133,8 @@ router.use('/admin/campaigns', adminCampaignRoutes);
 router.use('/admin/delivery-men', adminDeliveryMenRoutes);
 router.use('/admin/coupons', adminCouponRoutes);
 router.use('/admin/disbursement', adminDisbursementRoutes);
+router.use('/admin/transactions', adminTransactionsRoutes);
+router.use('/admin/business-setup', adminBusinessSetupRoutes);
 
 
 router.use('/upload', uploadRouter);

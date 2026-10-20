@@ -60,7 +60,7 @@ async function applyRestaurantDetailStatus(
             amount: amount,
             withdrawal_method_id: withdrawMethod?.withdrawal_method_id ?? null,
             withdrawal_method_fields: withdrawMethod?.method_fields ?? null,
-            approved: true,
+            approved: 1,
             transaction_note: String(detailId),
             type: 'disbursement',
             created_at: now,
