@@ -11,6 +11,7 @@ import {
   updateFcmToken,
   verifyPasswordOtp,
   whoami,
+  whoamiMobile,
 } from '../../controllers/vendor/user';
 import { verifyVendor } from '../../middlewares/verifyVendor';
 import {
@@ -30,6 +31,7 @@ router.put('/password/reset', resetPassword);
 
 router.use(verifyVendor);
 router.get('/whoami', whoami);
+router.get('/whoami-mobile', whoamiMobile);
 router.put('/password/change', changePassword);
 router.get('/notifications', getNotifications);
 router.put('/notifications/toggle', toggleVendorPushNotification);

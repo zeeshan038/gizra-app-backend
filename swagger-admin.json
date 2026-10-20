@@ -6406,6 +6406,108 @@
           }
         }
       },
+      "VendorWhoamiMobileResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/VendorWhoamiMobileData"
+          }
+        }
+      },
+      "VendorWhoamiMobileData": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "39"
+          },
+          "f_name": {
+            "type": "string"
+          },
+          "l_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "example": "Zeeshan kha"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "is_notification_on": {
+            "type": "boolean"
+          },
+          "restaurant": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string",
+                "nullable": true
+              },
+              "logo": {
+                "type": "string",
+                "nullable": true
+              },
+              "address": {
+                "type": "string",
+                "nullable": true
+              },
+              "zone_id": {
+                "type": "string",
+                "nullable": true
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "status": {
+                "type": "boolean"
+              }
+            }
+          },
+          "autoAcceptOrder": {
+            "type": "boolean"
+          },
+          "autoPrintOnAccept": {
+            "type": "boolean"
+          },
+          "use58mmPaper": {
+            "type": "boolean"
+          },
+          "posSettings": {
+            "$ref": "#/components/schemas/VendorPosAppSettings"
+          }
+        }
+      },
       "ChatUserInfo": {
         "type": "object",
         "properties": {

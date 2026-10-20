@@ -34,7 +34,11 @@ import {
   treatOtpDeliveryAsSuccess,
 } from '../../utils/otp/otpTestingResponse';
 import { provisionAccountStorage } from '../../utils/accountStorage';
-import { normalizeStoredMedia } from '../../utils/mediaStorage';
+import {
+  normalizeStoredMedia,
+  publicMediaUrl,
+  publicRestaurantMediaUrl,
+} from '../../utils/mediaStorage';
 import { clientSafeErrorMessage } from '../../utils/safeClientError';
 import { maskPhoneForClient } from '../../utils/deliveryman/authHelpers';
 import { readPosAppSettingsFromAdditionalData } from '../../utils/vendor/posAppSettings';
@@ -198,6 +202,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
+
 /**
  * @Description Send login OTP (vendor / POS app — phone sign-in)
  * @Route POST /api/vendor/login/send-otp
@@ -259,6 +264,7 @@ export const sendLoginOtp = async (req: Request, res: Response): Promise<any> =>
     });
   }
 };
+
 
 /**
  * @Description Verify login OTP and issue JWT (vendor / POS app)
@@ -713,6 +719,91 @@ export const whoami = async (req: Request, res: Response): Promise<any> => {
     });
   } catch (error: unknown) {
     console.error('vendor whoami error:', error);
+    return res.status(503).json({ status: false, msg: clientSafeErrorMessage(error) });
+  }
+};
+
+/**
+ * @Description Lean profile for POS / vendor mobile app (name, email, phone, image, notification + POS toggles). Full restaurant row stays on GET /vendor/whoami for web panel.
+ * @Route GET /api/vendor/whoami-mobile
+ * @Access Private (Bearer vendor JWT)
+ */
+export const whoamiMobile = async (req: Request, res: Response): Promise<any> => {
+  const vendorId = requireVendorId(req, res);
+  if (vendorId == null) return;
+
+  try {
+    const vendor = await prisma.vendors.findUnique({
+      where: { id: BigInt(vendorId) },
+      select: {
+        id: true,
+        f_name: true,
+        l_name: true,
+        phone: true,
+        email: true,
+        image: true,
+        status: true,
+        is_notification_on: true,
+      },
+    });
+
+    if (!vendor) {
+      return res.status(404).json({ status: false, msg: 'Vendor not found' });
+    }
+
+    const restaurant = await prisma.restaurants.findFirst({
+      where: { vendor_id: vendorId },
+      orderBy: { id: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        logo: true,
+        address: true,
+        zone_id: true,
+        active: true,
+        status: true,
+        additional_data: true,
+      },
+    });
+
+    const posSettings = readPosAppSettingsFromAdditionalData(restaurant?.additional_data ?? null);
+
+    return res.status(200).json({
+      status: true,
+      msg: 'Success',
+      data: {
+        id: vendor.id.toString(),
+        f_name: vendor.f_name,
+        l_name: vendor.l_name,
+        name: [vendor.f_name, vendor.l_name].filter(Boolean).join(' ').trim(),
+        phone: vendor.phone,
+        email: vendor.email,
+        image: publicMediaUrl(vendor.image),
+        status: vendor.status,
+        is_notification_on: vendor.is_notification_on,
+        restaurant: restaurant
+          ? {
+              id: restaurant.id.toString(),
+              name: restaurant.name,
+              phone: restaurant.phone,
+              email: restaurant.email,
+              logo: publicRestaurantMediaUrl(restaurant.logo, 'logo'),
+              address: restaurant.address,
+              zone_id: restaurant.zone_id != null ? String(restaurant.zone_id) : null,
+              active: restaurant.active,
+              status: restaurant.status,
+            }
+          : null,
+        autoAcceptOrder: posSettings.autoAcceptOrder,
+        autoPrintOnAccept: posSettings.autoPrintOnAccept,
+        use58mmPaper: posSettings.use58mmPaper,
+        posSettings,
+      },
+    });
+  } catch (error: unknown) {
+    console.error('vendor whoami-mobile error:', error);
     return res.status(503).json({ status: false, msg: clientSafeErrorMessage(error) });
   }
 };

@@ -504,7 +504,7 @@
     "/vendor/whoami": {
       "get": {
         "summary": "Current vendor account",
-        "description": "Returns vendor profile (password/auth_token stripped) and linked restaurant(s). Primary `restaurant` is the first row for this vendor (same as login). Includes POS toggles `autoAcceptOrder`, `autoPrintOnAccept`, `use58mmPaper` on `data`, `data.posSettings`, and `data.restaurant`. Bearer from POST /vendor/login.",
+        "description": "Returns vendor profile (password/auth_token stripped) and linked restaurant(s). Primary `restaurant` is the first row for this vendor (same as login). Includes POS toggles `autoAcceptOrder`, `autoPrintOnAccept`, `use58mmPaper` on `data`, `data.posSettings`, and `data.restaurant`. Bearer from POST /vendor/login. For POS/mobile use **GET /vendor/whoami-mobile** instead.",
         "parameters": [
           {
             "$ref": "#/components/parameters/VendorAuthorizationHeader"
@@ -8792,6 +8792,75 @@
         },
         "tags": [
           "Vendor Restaurant Setup"
+        ]
+      }
+    },
+    "/vendor/whoami-mobile": {
+      "get": {
+        "summary": "Current vendor (POS / mobile lean profile)",
+        "description": "Compact profile for the vendor **mobile/POS** app. Use `GET /vendor/whoami` for the web panel (full restaurant row). Returns name, email, phone, image, notification flag, slim restaurant, and POS toggles.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/VendorAuthorizationHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lean mobile profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorWhoamiMobileResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Success",
+                  "data": {
+                    "id": "39",
+                    "f_name": "Zeeshan",
+                    "l_name": "kha",
+                    "name": "Zeeshan kha",
+                    "phone": "+9723359902691",
+                    "email": "zeeshandev038@gmail.com",
+                    "image": null,
+                    "status": true,
+                    "is_notification_on": true,
+                    "restaurant": {
+                      "id": "39",
+                      "name": "Zeeshan restaurant",
+                      "phone": "+9723359902691",
+                      "email": "zeeshandev038@gmail.com",
+                      "logo": "https://cdn.example.com/logo.jpg",
+                      "address": "Hebron",
+                      "zone_id": "1",
+                      "active": true,
+                      "status": true
+                    },
+                    "autoAcceptOrder": false,
+                    "autoPrintOnAccept": false,
+                    "use58mmPaper": true,
+                    "posSettings": {
+                      "autoAcceptOrder": false,
+                      "autoPrintOnAccept": false,
+                      "use58mmPaper": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "404": {
+            "description": "Vendor not found"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError500"
+          }
+        },
+        "tags": [
+          "Vendor Auth"
         ]
       }
     },
@@ -17087,6 +17156,108 @@
             "type": "string"
           },
           "data": {
+            "$ref": "#/components/schemas/VendorPosAppSettings"
+          }
+        }
+      },
+      "VendorWhoamiMobileResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/VendorWhoamiMobileData"
+          }
+        }
+      },
+      "VendorWhoamiMobileData": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "39"
+          },
+          "f_name": {
+            "type": "string"
+          },
+          "l_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "example": "Zeeshan kha"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "is_notification_on": {
+            "type": "boolean"
+          },
+          "restaurant": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string",
+                "nullable": true
+              },
+              "logo": {
+                "type": "string",
+                "nullable": true
+              },
+              "address": {
+                "type": "string",
+                "nullable": true
+              },
+              "zone_id": {
+                "type": "string",
+                "nullable": true
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "status": {
+                "type": "boolean"
+              }
+            }
+          },
+          "autoAcceptOrder": {
+            "type": "boolean"
+          },
+          "autoPrintOnAccept": {
+            "type": "boolean"
+          },
+          "use58mmPaper": {
+            "type": "boolean"
+          },
+          "posSettings": {
             "$ref": "#/components/schemas/VendorPosAppSettings"
           }
         }
