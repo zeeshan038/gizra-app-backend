@@ -18,7 +18,7 @@ async function withTransientRetry<T>(run: () => Promise<T>): Promise<T> {
     return await run();
   } catch (error) {
     if (!isTransientDbError(error)) throw error;
-    console.warn('[prisma] transient DB error (P1000/P1010) — reset pool and retry once');
+    console.warn('[prisma] transient DB error (P1000/P1001/P1010) — reset pool and retry once');
     await resetPool();
     return run();
   }
@@ -31,6 +31,21 @@ const prisma = base.$extends({
     },
   },
 }) as unknown as PrismaClient;
+
+// Keepalive: ping every 4 minutes to prevent idle TCP connection drops (avoids P1001 after ~30 min silence)
+let _keepaliveTimer: ReturnType<typeof setInterval> | null = null;
+export function startKeepalive(): void {
+  if (_keepaliveTimer) return;
+  _keepaliveTimer = setInterval(async () => {
+    try {
+      await base.$queryRaw`SELECT 1`;
+    } catch (err) {
+      console.warn('[prisma] keepalive ping failed — resetting pool:', (err as Error)?.message);
+      try { await resetPool(); } catch { /* will recover on next real query */ }
+    }
+  }, 4 * 60 * 1000); // every 4 minutes
+  _keepaliveTimer.unref(); // don't block process exit
+}
 
 function databaseUrlHint(): string {
   const raw = process.env.DATABASE_URL ?? '';

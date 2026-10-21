@@ -12,6 +12,7 @@ import {
   getPosOrderHistory,
   listOrders,
   pollRecentOrders,
+  sendKitchenNote,
   streamVendorOrderEvents,
   updateOrderStatus,
 } from '../../controllers/vendor/Order';
@@ -26,6 +27,7 @@ router.get('/recent', pollRecentOrders);
 router.get('/pos-history', getPosOrderHistory);
 router.get('/', listOrders);
 router.get('/:id/invoice', getOrderInvoice);
+router.post('/:id/kitchen-note', sendKitchenNote);
 router.get('/:id', getOrderDetails);
 router.put('/:id/status', updateOrderStatus);
 

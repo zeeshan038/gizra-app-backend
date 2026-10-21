@@ -7,7 +7,7 @@ import cors from 'cors';
 import apiRouter from './routes/index';
 import hyperPayRoutes from './routes/payment/hyperpay';
 import './config/firebase';
-import { connectDB } from './config/database';
+import { connectDB, startKeepalive } from './config/database';
 import swaggerUi from 'swagger-ui-express';
 import fs from 'fs';
 import path from 'path';
@@ -110,6 +110,7 @@ const port = process.env.PORT || 3000;
 
 connectDB()
   .then(async () => {
+    startKeepalive();
     const httpServer = http.createServer(app);
     await initSocketServer(httpServer);
     httpServer.listen(port, () => {

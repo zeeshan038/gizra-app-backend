@@ -31,9 +31,15 @@ import {
   OrderSettlementError,
 } from '../../utils/order/createOrderTransaction';
 import { buildOrderInvoice } from '../../utils/order/invoiceMapper';
+import {
+  buildKitchenNoteText,
+  KITCHEN_NOTE_PRESETS,
+  notifyCustomerKitchenNote,
+} from '../../utils/vendor/order/kitchenNote';
 
 //Schema
 import {
+  kitchenNoteSchema,
   orderListQuerySchema,
   pollOrdersQuerySchema,
   posOrderHistoryQuerySchema,
@@ -338,6 +344,77 @@ export const getOrderInvoice = async (req: Request, res: Response): Promise<any>
       status: true,
       msg: 'Invoice fetched successfully',
       data,
+    });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message });
+  }
+};
+
+/**
+ * @Description POS kitchen note — save & notify customer (presets + free text). No schema change; notifies via chat + FCM (legacy Flutter used message/send).
+ * @Route POST /api/vendor/orders/:id/kitchen-note
+ * @Access Vendor
+ * @Body note — full text e.g. "Item out of stock • Running 10 min late"
+ * @Body notes — optional string[] chips; joined with " • " if note omitted
+ */
+export const sendKitchenNote = async (req: Request, res: Response): Promise<any> => {
+  const ctx = getVendorContext(req);
+  if (!ctx) {
+    return res.status(403).json({ status: false, msg: 'Restaurant context not found for vendor' });
+  }
+
+  const validated = kitchenNoteSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(', '),
+    });
+  }
+
+  const note = buildKitchenNoteText(validated.value);
+  if (!note) {
+    return res.status(400).json({ status: false, msg: 'Kitchen note cannot be empty' });
+  }
+
+  const orderId = parseOrderIdParam(req);
+  if (!orderId) {
+    return res.status(400).json({ status: false, msg: 'Order id required' });
+  }
+
+  try {
+    const order = await prisma.orders.findFirst({
+      where: {
+        id: BigInt(orderId),
+        ...restaurantOrdersBase(ctx.restaurantId),
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ status: false, msg: 'Order not found' });
+    }
+
+    const restaurant = await prisma.restaurants.findUnique({
+      where: { id: BigInt(ctx.restaurantId) },
+      select: { name: true },
+    });
+
+    const notify = await notifyCustomerKitchenNote({
+      order,
+      vendorId: ctx.vendorId,
+      restaurantName: restaurant?.name ?? 'Restaurant',
+      note,
+    });
+
+    return res.status(200).json({
+      status: true,
+      msg: 'Kitchen note sent to customer',
+      data: {
+        order_id: order.id.toString(),
+        note,
+        presets: [...KITCHEN_NOTE_PRESETS],
+        chat_sent: notify.chat_sent,
+        push_sent: notify.push_sent,
+      },
     });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });

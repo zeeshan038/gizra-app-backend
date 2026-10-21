@@ -17,6 +17,16 @@ export const updateOrderStatusSchema = Joi.object({
   cancellation_reason: Joi.string().optional().allow(''),
 });
 
+/** POS kitchen note — chips joined client-side as `note`, or send `notes[]` to join with " • ". */
+export const kitchenNoteSchema = Joi.object({
+  note: Joi.string().trim().max(500).optional().allow(''),
+  notes: Joi.array().items(Joi.string().trim().max(200)).max(10).optional(),
+})
+  .or('note', 'notes')
+  .messages({
+    'object.missing': 'note or notes is required',
+  });
+
 export const pollOrdersQuerySchema = Joi.object({
   after_id: Joi.number().integer().min(0).default(0),
 });

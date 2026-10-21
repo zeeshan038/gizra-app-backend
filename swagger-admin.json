@@ -6508,6 +6508,62 @@
           }
         }
       },
+      "VendorKitchenNoteBody": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": "string",
+            "example": "Item out of stock • Running 10 min late",
+            "description": "Full note text (app can join selected chips with \" • \")"
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Item out of stock",
+              "Running 10 min late"
+            ],
+            "description": "Optional chip list; server joins with \" • \" if note omitted"
+          }
+        }
+      },
+      "VendorKitchenNoteResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "order_id": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              },
+              "presets": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "chat_sent": {
+                "type": "boolean"
+              },
+              "push_sent": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
       "ChatUserInfo": {
         "type": "object",
         "properties": {

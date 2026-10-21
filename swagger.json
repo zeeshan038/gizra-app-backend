@@ -4746,6 +4746,130 @@
         "summary": "Order invoice for thermal / browser print"
       }
     },
+    "/vendor/orders/{id}/kitchen-note": {
+      "post": {
+        "description": "Kitchen note from POS (chips: Item out of stock, Running 10 min late, No Cutlery, Item Swapped). Sends chat message + FCM to the customer. No DB schema change (same idea as legacy Flutter message/send).",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Bearer vendor JWT"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Order ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Note notified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorKitchenNoteResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Kitchen note sent to customer",
+                  "data": {
+                    "order_id": "101",
+                    "note": "Item out of stock • Running 10 min late",
+                    "presets": [
+                      "Item out of stock",
+                      "Running 10 min late",
+                      "No Cutlery",
+                      "Item Swapped"
+                    ],
+                    "chat_sent": true,
+                    "push_sent": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Restaurant context missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Orders (Web Panel & POS)"
+        ],
+        "summary": "POS kitchen note — save & notify customer",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VendorKitchenNoteBody"
+              },
+              "example": {
+                "note": "Item out of stock • Running 10 min late"
+              }
+            }
+          }
+        }
+      }
+    },
     "/vendor/orders/{id}": {
       "get": {
         "description": "Order detail + line items. **Clients:** Web Panel drawer + POS order detail screen.",
@@ -49841,6 +49965,62 @@
           },
           "posSettings": {
             "$ref": "#/components/schemas/VendorPosAppSettings"
+          }
+        }
+      },
+      "VendorKitchenNoteBody": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": "string",
+            "example": "Item out of stock • Running 10 min late",
+            "description": "Full note text (app can join selected chips with \" • \")"
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Item out of stock",
+              "Running 10 min late"
+            ],
+            "description": "Optional chip list; server joins with \" • \" if note omitted"
+          }
+        }
+      },
+      "VendorKitchenNoteResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "order_id": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              },
+              "presets": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "chat_sent": {
+                "type": "boolean"
+              },
+              "push_sent": {
+                "type": "boolean"
+              }
+            }
           }
         }
       },
