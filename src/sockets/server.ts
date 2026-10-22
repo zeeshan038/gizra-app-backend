@@ -11,6 +11,7 @@ const DEFAULT_ORIGINS = [
   'https://vendor.gizra.app',
   'https://www.gizra.app',
   'https://restaurant.gizra.app',
+  'https://driver.gizra.app',
   'https://gizra-restaurant-pannel.vercel.app',
 ];
 

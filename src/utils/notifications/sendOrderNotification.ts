@@ -122,27 +122,24 @@ function shouldNotifyCustomerOrderStatus(order: orders): boolean {
 }
 
 function driverPoolPushForStatus(order: orders, orderId: string): FcmPushData | null {
-  if (order.order_status === 'confirmed') {
-    return {
-      title: ORDER_PUSH_TITLE,
-      description: 'You have received an order',
-      order_id: orderId,
-      image: '',
-      type: 'order_request',
-      order_type: order.order_type,
-    };
+  const notifyStatuses = ['confirmed', 'processing', 'accepted', 'handover'];
+  if (!notifyStatuses.includes(order.order_status)) {
+    return null;
   }
-  if (order.order_status === 'handover') {
-    return {
-      title: ORDER_PUSH_TITLE,
-      description: 'Your order is ready for pickup',
-      order_id: orderId,
-      image: '',
-      type: 'order_request',
-      order_type: order.order_type,
-    };
-  }
-  return null;
+
+  const description =
+    order.order_status === 'handover'
+      ? 'Your order is ready for pickup'
+      : 'You have received an order';
+
+  return {
+    title: ORDER_PUSH_TITLE,
+    description,
+    order_id: orderId,
+    image: '',
+    type: 'order_request',
+    order_type: order.order_type,
+  };
 }
 
 async function pushVendorFcmDevices(

@@ -64,16 +64,28 @@ async function isPlatformDeliveryRestaurant(restaurantId: number): Promise<boole
   return false;
 }
 
+/** Unassigned delivery jobs drivers may claim (must stay in sync with `buildLatestOrderStatusFilter`). */
 function isStatusEligibleForDriverPool(
   order: orders,
   orderConfirmationModel: string
 ): boolean {
-  if (order.order_status === 'handover') {
+  if (order.delivery_man_id != null) {
+    return false;
+  }
+
+  if (
+    order.order_status === 'confirmed' ||
+    order.order_status === 'processing' ||
+    order.order_status === 'handover'
+  ) {
     return true;
   }
-  if (order.order_status === 'confirmed') {
+
+  // Some POS builds send `accepted` before a driver is assigned — still broadcast to the zone pool.
+  if (order.order_status === 'accepted') {
     return true;
   }
+
   if (order.order_status === 'pending' && orderConfirmationModel === 'deliveryman') {
     if (order.subscription_id != null) return true;
     if (order.payment_method === 'cash_on_delivery') return true;

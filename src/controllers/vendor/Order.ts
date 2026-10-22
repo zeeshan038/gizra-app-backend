@@ -473,7 +473,10 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 
     if (status === 'confirmed') updateData.confirmed = now;
     if (status === 'accepted') updateData.accepted = now;
-    if (status === 'processing') updateData.processing = now;
+    if (status === 'processing') {
+      updateData.processing = now;
+      if (order.confirmed == null) updateData.confirmed = now;
+    }
     if (status === 'handover') updateData.handover = now;
     if (status === 'delivered') {
       updateData.delivered = now;
