@@ -3,9 +3,6 @@
 import jwt from 'jsonwebtoken';
 import prisma from '../../config/database';
 
-//Constants
-
-
 //Generate Token
 export const genrateToken = async (vendor: any, restaurant: any, JWT_SECRET: string) => {
 

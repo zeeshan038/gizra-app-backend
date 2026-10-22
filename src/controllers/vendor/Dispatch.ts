@@ -149,15 +149,11 @@ export const requestDriver = async (req: Request, res: Response): Promise<any> =
     const orderTotal = Math.round((itemPrice + deliveryFee + taxAmount) * 100) / 100;
     const prepaid = body.payment_method === 'prepaid';
 
-    const maxRow = await prisma.orders.aggregate({ _max: { id: true } });
-    const nextId = BigInt(Math.max(100000, Number(maxRow._max?.id ?? 0) + 1));
-
     const now = new Date();
     const zoneId = restaurant.zone_id != null ? Number(restaurant.zone_id) : null;
 
     const order = await prisma.orders.create({
       data: {
-        id: nextId,
         user_id: new Prisma.Decimal(Number(customer.id)),
         restaurant_id: new Prisma.Decimal(Number(restaurant.id)),
         order_type: 'delivery',
