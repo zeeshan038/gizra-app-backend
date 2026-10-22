@@ -45,7 +45,11 @@ async function isPlatformDeliveryRestaurant(restaurantId: number): Promise<boole
   });
   if (!restaurant) return false;
 
-  if (restaurant.restaurant_model === 'commission') {
+  if (
+    restaurant.restaurant_model === 'commission' ||
+    restaurant.restaurant_model === 'none' ||
+    restaurant.restaurant_model === 'unsubscribed'
+  ) {
     return !restaurant.self_delivery_system;
   }
 

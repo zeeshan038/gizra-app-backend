@@ -471,6 +471,14 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
       updated_at: now,
     };
 
+    const restaurantZone = await prisma.restaurants.findUnique({
+      where: { id: BigInt(Number(order.restaurant_id)) },
+      select: { zone_id: true },
+    });
+    if (restaurantZone?.zone_id != null) {
+      updateData.zone_id = Number(restaurantZone.zone_id);
+    }
+
     if (status === 'confirmed') updateData.confirmed = now;
     if (status === 'accepted') updateData.accepted = now;
     if (status === 'processing') {

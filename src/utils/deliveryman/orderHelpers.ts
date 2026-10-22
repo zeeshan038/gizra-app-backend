@@ -251,8 +251,8 @@ export async function getEligibleRestaurantIdsForDm(dm: {
     prisma.restaurants.findMany({
       where: {
         zone_id: zoneDecimal,
-        restaurant_model: 'commission',
         self_delivery_system: false,
+        restaurant_model: { in: ['commission', 'none', 'unsubscribed'] },
       },
       select: { id: true },
     }),
