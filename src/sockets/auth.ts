@@ -14,10 +14,10 @@ async function authenticateVendor(
 ): Promise<SocketActor | null> {
   const vendor = await prisma.vendors.findUnique({
     where: { id: Number(subjectId) },
-    select: { id: true, auth_token: true, status: true },
+    select: { id: true, status: true },
   });
 
-  if (!vendor || vendor.status === false || vendor.auth_token !== token.trim()) return null;
+  if (!vendor || vendor.status === false) return null;
 
   let restaurantId = decoded.restaurant_id ? Number(decoded.restaurant_id) : null;
   if (!restaurantId) {

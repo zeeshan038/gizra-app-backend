@@ -21,12 +21,6 @@ export const genrateToken = async (vendor: any, restaurant: any, JWT_SECRET: str
       { expiresIn: '30d' }
     );
 
-    // Save token in database
-    await prisma.vendors.update({
-      where: { id: vendor.id },
-      data: { auth_token: token }
-    });
-
     let topic = 'No_topic_found';
     if (restaurant?.zone_id) {
         const zone = await prisma.zones.findUnique({
