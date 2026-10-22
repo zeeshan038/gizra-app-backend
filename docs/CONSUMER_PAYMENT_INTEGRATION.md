@@ -134,7 +134,31 @@ Content-Type: application/json
 
 ---
 
-## 6. Flow B — Card / digital (HyperPay) — two steps
+## 6. Flow B — Card / digital (HyperPay)
+
+### Flow B1 — Payment first (recommended)
+
+Pay **before** creating the order. No `order_id` is required for checkout.
+
+```mermaid
+sequenceDiagram
+  participant App
+  participant API
+  participant HyperPay
+  App->>API: POST /consumer/order/generate-payment-link (checkout body, no order_id)
+  API-->>App: redirect_link, payment_request_id, amount
+  App->>HyperPay: Open redirect_link
+  HyperPay->>API: success callbacks
+  API->>App: callback ?flag=success
+  App->>API: POST /consumer/order/place (same checkout body + payment_request_id)
+  API-->>App: 201 order_id, payment_status=paid
+```
+
+1. **Generate link** — same fields as place order (`restaurant_id`, `distance`, cart, address, …) plus `payment_method: hyper_pay`, `callback`, `payment_platform`. **Omit `order_id`.**
+2. Save **`payment_request_id`** from the response (also in `redirect_link` query as `payment_id`).
+3. After **`flag=success`**, call **place order** with the **same checkout payload**, `payment_method: digital_payment`, and `payment_request_id`.
+
+### Flow B2 — Order first (legacy)
 
 ```mermaid
 sequenceDiagram
@@ -143,7 +167,7 @@ sequenceDiagram
   participant HyperPay
   App->>API: POST /consumer/order/place (payment_method=digital_payment)
   API-->>App: 201 order_id, payment_status=unpaid
-  App->>API: POST /consumer/order/generate-payment-link
+  App->>API: POST /consumer/order/generate-payment-link (order_id)
   API-->>App: redirect_link
   App->>HyperPay: Open redirect_link (WebView / browser)
   HyperPay->>API: success / failed / notify callbacks
@@ -152,7 +176,7 @@ sequenceDiagram
   API-->>App: payment_status=paid, order_status=confirmed
 ```
 
-### Step 1 — Place order (unpaid)
+### Step 1 — Place order (unpaid) — legacy B2 only
 
 ```http
 POST /api/consumer/order/place
@@ -184,6 +208,22 @@ Authorization: Bearer {{token}}
 Content-Type: application/json
 ```
 
+**Payment first (B1):**
+
+```json
+{
+  "restaurant_id": 4,
+  "order_type": "delivery",
+  "distance": 2.5,
+  "delivery_address_id": 12,
+  "payment_method": "hyper_pay",
+  "callback": "gizra://payment-result",
+  "payment_platform": "app"
+}
+```
+
+**Legacy (B2):**
+
 ```json
 {
   "order_id": 100042,
@@ -195,7 +235,8 @@ Content-Type: application/json
 
 | Body field | Required | Values |
 |------------|----------|--------|
-| `order_id` | Yes | From place-order response |
+| `order_id` | B2 only | From place-order response |
+| Checkout fields (`restaurant_id`, `distance`, …) | B1 only | Same as POST `/consumer/order/place` |
 | `payment_method` | Yes | **`hyper_pay`** (only supported gateway today) |
 | `callback` | Yes | Your deep link or HTTPS return URL |
 | `payment_platform` | No | **`app`** (default) or **`web`** |
@@ -204,9 +245,13 @@ Content-Type: application/json
 
 ```json
 {
-  "redirect_link": "https://backend-prod.gizra.app/payment/hyperpay/pay?payment_id=550e8400-e29b-41d4-a716-446655440000"
+  "redirect_link": "https://backend-prod.gizra.app/payment/hyperpay/pay?payment_id=550e8400-e29b-41d4-a716-446655440000",
+  "payment_request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "amount": 45.5
 }
 ```
+
+(`amount` is returned for payment-first checkout; legacy order-first may omit it.)
 
 ### Step 3 — Open payment
 

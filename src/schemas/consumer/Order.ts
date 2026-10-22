@@ -76,6 +76,8 @@ export const placeOrderSchema = Joi.object({
   items: Joi.array().items(placeOrderItemSchema).optional(),
   guest_id: Joi.number().optional(),
   is_guest: Joi.boolean().optional(),
+  /** After HyperPay checkout (payment-first flow). Links a paid `order_checkout` payment request. */
+  payment_request_id: Joi.string().trim().uuid().optional(),
 });
 
 export type PlaceOrderInput = {
@@ -121,6 +123,7 @@ export type PlaceOrderInput = {
   items?: PlaceOrderInput['cart'];
   guest_id?: number;
   is_guest?: boolean;
+  payment_request_id?: string;
 };
 
 export const trackOrderQuerySchema = Joi.object({

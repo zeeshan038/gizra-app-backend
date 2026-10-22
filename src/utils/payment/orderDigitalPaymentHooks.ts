@@ -25,6 +25,9 @@ async function updateUnpaidOrderPayment(orderId: bigint, paymentMethod: string) 
 
 /** PHP `order_place($data)` after successful digital payment. */
 export async function runOrderPlacePaymentHook(payment: PaymentRequestRow): Promise<void> {
+  if (payment.attribute === 'order_checkout') {
+    return;
+  }
   if (payment.attribute !== 'order' || !payment.attribute_id) return;
 
   const orderId = BigInt(payment.attribute_id);
@@ -85,6 +88,9 @@ export async function runOrderPlacePaymentHook(payment: PaymentRequestRow): Prom
 
 /** PHP `order_failed($data)`. */
 export async function runOrderFailedPaymentHook(payment: PaymentRequestRow): Promise<void> {
+  if (payment.attribute === 'order_checkout') {
+    return;
+  }
   if (payment.attribute !== 'order' || !payment.attribute_id) return;
 
   const orderId = BigInt(payment.attribute_id);

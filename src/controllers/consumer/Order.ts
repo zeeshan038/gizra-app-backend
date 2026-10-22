@@ -99,6 +99,10 @@ export const placeOrder = async (req: Request, res: Response): Promise<any> => {
       user: userProfile,
     });
 
+    if (!placed.order) {
+      return res.status(500).json({ status: false, msg: 'Order could not be created' });
+    }
+
     const orderResult = placed.order;
     const mappedOrder = {
       id: orderResult.id.toString(),
@@ -131,9 +135,11 @@ export const placeOrder = async (req: Request, res: Response): Promise<any> => {
         payment_method: orderResult.payment_method,
         order_amount: mappedOrder.order_amount,
       };
-      if (orderResult.payment_method === 'digital_payment') {
-        // Card checkout is unpaid until HyperPay confirms. Tell the open vendor app now;
-        // push + driver pool run from the payment success hook.
+      if (
+        orderResult.payment_method === 'digital_payment' &&
+        !orderPayload.payment_request_id
+      ) {
+        // Legacy: order created unpaid first — socket only until HyperPay hook runs.
         emitNewOrderRealtime(notifyPayload);
       } else {
         void sendNewOrderNotification(notifyPayload);

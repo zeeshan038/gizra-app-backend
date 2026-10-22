@@ -75,12 +75,14 @@ export type CreatePaymentRequestInput = {
   receiver_information: Record<string, unknown>;
   external_redirect_link: string;
   attribute: string;
-  attribute_id: string;
+  attribute_id?: string;
   payment_platform: string;
 };
 
 export async function createPaymentRequest(input: CreatePaymentRequestInput): Promise<string> {
   const id = randomUUID();
+  const attributeId =
+    input.attribute === 'order_checkout' ? id : (input.attribute_id ?? id);
   const now = new Date();
   await prisma.$executeRaw`
     INSERT INTO payment_requests (
@@ -102,7 +104,7 @@ export async function createPaymentRequest(input: CreatePaymentRequestInput): Pr
       ${JSON.stringify(input.receiver_information)},
       ${input.external_redirect_link},
       ${input.attribute},
-      ${input.attribute_id},
+      ${attributeId},
       ${input.payment_platform},
       false,
       ${now},

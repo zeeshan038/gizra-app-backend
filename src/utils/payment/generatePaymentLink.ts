@@ -72,6 +72,59 @@ export async function generateOrderPaymentLink(params: {
   return { redirect_link, payment_id: paymentId };
 }
 
+/** Payment-first checkout — HyperPay for cart totals before POST /consumer/order/place. */
+export async function generateCheckoutPaymentLink(params: {
+  userId: number;
+  restaurantId: number;
+  orderAmount: number;
+  paymentMethod: string;
+  callback: string;
+  paymentPlatform: 'app' | 'web';
+  payer: { name: string; email: string; phone: string };
+}) {
+  const route = GATEWAY_ROUTE[params.paymentMethod];
+  if (!route) {
+    throw new Error(`Payment method ${params.paymentMethod} is not supported`);
+  }
+  if (params.orderAmount <= 0) {
+    throw new Error('Payment amount can not be 0');
+  }
+
+  const [businessName, logoSetting, currencyCode] = await Promise.all([
+    getBusinessSetting('business_name'),
+    getBusinessSetting('logo'),
+    getBusinessSetting('currency'),
+  ]);
+
+  const paymentId = await createPaymentRequest({
+    payer_id: String(params.userId),
+    receiver_id: String(params.restaurantId),
+    payment_amount: params.orderAmount,
+    success_hook: 'order_place',
+    failure_hook: 'order_failed',
+    currency_code: (currencyCode ?? 'ILS').toUpperCase(),
+    payment_method: params.paymentMethod,
+    additional_data: {
+      business_name: businessName,
+      business_logo: logoSetting,
+      checkout_flow: 'payment_first',
+    },
+    payer_information: {
+      name: params.payer.name,
+      email: params.payer.email,
+      phone: params.payer.phone,
+    },
+    receiver_information: { name: 'receiver_name', image: 'example.png' },
+    external_redirect_link: params.callback,
+    attribute: 'order_checkout',
+    payment_platform: params.paymentPlatform,
+  });
+
+  const base = getPaymentPublicBaseUrl();
+  const redirect_link = `${base}${route}?payment_id=${paymentId}`;
+  return { redirect_link, payment_id: paymentId };
+}
+
 /** PHP customer wallet add-fund — HyperPay checkout for a pending wallet_payments row. */
 export async function generateWalletAddFundLink(params: {
   userId: number;

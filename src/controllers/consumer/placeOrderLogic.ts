@@ -14,6 +14,11 @@ import {
 import { getZoneById } from '../../utils/consumer/zone';
 import { calculateCouponDiscount, validateCouponForUser } from '../../utils/consumer/couponHelpers';
 import { createWalletTransaction } from '../../utils/consumer/walletTransactions';
+import {
+  assertPaidCheckoutPayment,
+  attachCheckoutPaymentToOrder,
+  CheckoutPaymentError,
+} from '../../utils/payment/checkoutPayment';
 
 
 function roundMoney(value: number): number {
@@ -499,8 +504,23 @@ export async function executePlaceOrder(params: {
   userId: number;
   isGuest: boolean;
   user?: { f_name?: string | null; l_name?: string | null; phone?: string | null; email?: string | null; wallet_balance?: unknown };
+  /** Compute totals only — used before payment (no order row). */
+  dryRun?: boolean;
 }) {
-  const { payload, userId, isGuest, user } = params;
+  const { payload, userId, isGuest, user, dryRun = false } = params;
+
+  if (payload.payment_request_id) {
+    if (payload.payment_method !== 'digital_payment') {
+      throw new PlaceOrderError(
+        'payment_request_id requires payment_method digital_payment',
+        400,
+        'payment_method'
+      );
+    }
+    if (isGuest) {
+      throw new PlaceOrderError('Login required for prepaid checkout', 401, 'payment_request_id');
+    }
+  }
   const paymentSettings = await getPaymentSettings();
 
   if (isGuest && !paymentSettings.guestCheckoutEnabled) {
@@ -730,8 +750,42 @@ export async function executePlaceOrder(params: {
 
   let orderStatus = 'pending';
   let paymentStatus = 'unpaid';
+  let storedPaymentMethod = payload.payment_method;
   if (payload.payment_method === 'wallet') {
     paymentStatus = 'paid';
+  }
+
+  let prepaidCheckout:
+    | { paymentRequestId: string; gatewayMethod: string }
+    | undefined;
+
+  if (payload.payment_request_id) {
+    try {
+      const payment = await assertPaidCheckoutPayment({
+        paymentRequestId: payload.payment_request_id,
+        userId,
+        orderAmount,
+      });
+      prepaidCheckout = {
+        paymentRequestId: payment.id,
+        gatewayMethod: payment.payment_method ?? 'hypay',
+      };
+      paymentStatus = 'paid';
+      storedPaymentMethod = prepaidCheckout.gatewayMethod;
+    } catch (e) {
+      const msg = e instanceof CheckoutPaymentError ? e.message : 'Invalid payment';
+      throw new PlaceOrderError(msg, 403, 'payment_request_id');
+    }
+  }
+
+  if (dryRun) {
+    return {
+      order: null,
+      orderAmount,
+      subtotal: totalPrice,
+      taxAdded: taxResult.tax_to_add,
+      delivery_charge: deliveryFee.delivery_charge,
+    };
   }
 
   const order = await prisma.$transaction(async (tx) => {
@@ -747,7 +801,7 @@ export async function executePlaceOrder(params: {
         payment_status: paymentStatus,
         order_status: orderStatus,
         total_tax_amount: taxResult.total_tax_amount,
-        payment_method: payload.payment_method,
+        payment_method: storedPaymentMethod,
         order_type: payload.order_type,
         delivery_charge: deliveryFee.delivery_charge,
         original_delivery_charge: deliveryFee.original_delivery_charge,
@@ -769,7 +823,7 @@ export async function executePlaceOrder(params: {
         extra_packaging_amount: extraPackaging,
         free_delivery_by: freeDelivery.free_delivery_by,
         is_guest: isGuest,
-        checked: payload.payment_method === 'digital_payment',
+        checked: payload.payment_method === 'digital_payment' && !prepaidCheckout,
         otp: String(Math.floor(1000 + Math.random() * 9000)),
         pending: new Date(),
         confirmed: orderStatus === 'confirmed' ? new Date() : null,
@@ -808,6 +862,10 @@ export async function executePlaceOrder(params: {
 
     return created;
   });
+
+  if (prepaidCheckout) {
+    await attachCheckoutPaymentToOrder(prepaidCheckout.paymentRequestId, order.id);
+  }
 
   await clearCartAfterOrder({
     userId,
