@@ -18,7 +18,7 @@ async function withTransientRetry<T>(run: () => Promise<T>): Promise<T> {
     return await run();
   } catch (error) {
     if (!isTransientDbError(error)) throw error;
-    console.warn('[prisma] transient DB error (P1000/P1001/P1010) — reset pool and retry once');
+    console.warn('[prisma] transient DB error — reset pool and retry once');
     await resetPool();
     return run();
   }

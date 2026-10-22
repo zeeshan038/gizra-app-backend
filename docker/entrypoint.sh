@@ -19,8 +19,11 @@ case "${REDIS_URL:-}" in
     ;;
 esac
 
-echo "Checking database connection before start…"
+echo "Ensuring Postgres grants + connection (fixes recurring P1010)…"
 export DATABASE_URL
+node /app/docker/ensure-db-access.js
+
+echo "Checking database connection before start…"
 node -e "
 const { PrismaClient } = require('@prisma/client');
 const p = new PrismaClient();

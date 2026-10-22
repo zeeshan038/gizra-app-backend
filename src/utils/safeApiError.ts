@@ -1,7 +1,9 @@
 const TRANSIENT_DB_RE =
-  /P1000|P1001|P1010|P2024|Authentication failed against database|denied access on the database|Can't reach database|ECONNREFUSED|password authentication failed/i;
+  /P1001|P2024|Can't reach database|ECONNREFUSED/i;
 
-/** Prisma P1000/P1010 and pool errors after Postgres password/grant repair. */
+/** Connection blips only — P1010/denied access is a server grant/password fix, not retryable. */
+const RETRYABLE_AUTH_RE = /P1000|Authentication failed against database|password authentication failed/i;
+
 export function isTransientDbError(error: unknown): boolean {
   const code =
     error && typeof error === 'object' && 'code' in error
@@ -9,7 +11,9 @@ export function isTransientDbError(error: unknown): boolean {
       : '';
   if (TRANSIENT_DB_RE.test(code)) return true;
   const msg = error instanceof Error ? error.message : String(error);
-  return TRANSIENT_DB_RE.test(msg);
+  if (TRANSIENT_DB_RE.test(msg)) return true;
+  if (/denied access on the database|P1010/i.test(msg)) return false;
+  return RETRYABLE_AUTH_RE.test(code) || RETRYABLE_AUTH_RE.test(msg);
 }
 
 /**

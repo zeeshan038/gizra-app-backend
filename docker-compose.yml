@@ -45,7 +45,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run node scripts/prepare-compose-env.js — password comes from DATABASE_URL}
       POSTGRES_DB: gizra_db
     ports:
-      - "5434:5432"   # host tools: localhost:5434
+      # Never 0.0.0.0 — use SSH tunnel (scripts/mac-db-tunnel.sh) for remote admin
+      - "127.0.0.1:5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./docker/postgis-init.sql:/docker-entrypoint-initdb.d/01-postgis.sql:ro
@@ -62,7 +63,7 @@ services:
     restart: always
     command: redis-server --appendonly yes
     ports:
-      - "6380:6379"   # 6379 may be in use by other local containers
+      - "127.0.0.1:6380:6379"
     volumes:
       - redisdata:/data
 
