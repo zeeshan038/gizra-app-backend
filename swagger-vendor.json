@@ -4187,7 +4187,8 @@
             "properties": {
               "order_id": {
                 "type": "string",
-                "example": "100042"
+                "description": "Same orders.id as consumer checkout (shared autoincrement)",
+                "example": "2847"
               },
               "commission_rate": {
                 "type": "number",
@@ -13978,7 +13979,7 @@
     },
     "/vendor/dispatch/request-driver": {
       "post": {
-        "description": "Creates a **manual dispatch** delivery order (`is_manual_dispatch=true`, `order_status=confirmed`) for phone/walk-in orders from the **Vendor POS** app. Requires **`manual_dispatch`** enabled on the restaurant (Business Setup toggle) or restaurant id listed in admin `manual_dispatch_restaurants`.\n\n**Idempotency:** repeat calls with the same `idempotency_key` return the existing order summary (no duplicate jobs).\n\n**Side effects (drivers):**\n1. **FCM** — `order_request` push to all vehicle topics in the restaurant zone + zone-wide topic.\n2. **Socket.IO** — event **`order_request`** on the same FCM topic rooms (drivers connected with delivery-man JWT). Request-tab clients should refetch `GET /delivery-man/orders/latest` on this event.\n3. **`user_notifications`** — inbox row for each approved driver in the zone.\n\nMirrors legacy PHP `POST /vendor/dispatch/request-driver`.",
+        "description": "Creates a **manual dispatch** delivery order (`is_manual_dispatch=true`, `order_status=confirmed`) for phone/walk-in orders from the **Vendor POS** app. Requires **`manual_dispatch`** enabled on the restaurant (Business Setup toggle) or restaurant id listed in admin `manual_dispatch_restaurants`.\n\n**Order ID:** Same shared `orders.id` sequence as consumer app orders (database autoincrement). Response `data.order_id` is that id as a string — not a separate 100000+ range (legacy PHP behavior).\n\n**Idempotency:** repeat calls with the same `idempotency_key` return the existing order summary (no duplicate jobs).\n\n**Side effects (drivers):**\n1. **FCM** — `order_request` push to all vehicle topics in the restaurant zone + zone-wide topic.\n2. **Socket.IO** — event **`order_request`** on the same FCM topic rooms (drivers connected with delivery-man JWT). Request-tab clients should refetch `GET /delivery-man/orders/latest` on this event.\n3. **`user_notifications`** — inbox row for each approved driver in the zone.\n\nMirrors legacy PHP `POST /vendor/dispatch/request-driver` except order id assignment.",
         "parameters": [
           {
             "name": "authorization",
@@ -14002,7 +14003,7 @@
                   "status": true,
                   "msg": "Driver requested successfully",
                   "data": {
-                    "order_id": "100042",
+                    "order_id": "2847",
                     "commission_rate": 10,
                     "commission": 13.8,
                     "delivery_fee": 18,

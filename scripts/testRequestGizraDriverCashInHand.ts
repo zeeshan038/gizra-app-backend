@@ -183,7 +183,7 @@ async function main(): Promise<void> {
     address: 'Request Gizra driver test address',
     order_amount: DEMO.itemPrice,
     delivery_fee: DEMO.deliveryFee,
-    payment_method: 'prepaid',
+    payment_method: 'cash_on_delivery',
     idempotency_key: idempotencyKey,
     tax: DEMO.taxPct,
   };

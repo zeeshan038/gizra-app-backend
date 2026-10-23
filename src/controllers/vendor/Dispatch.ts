@@ -79,8 +79,11 @@ function dispatchSummary(
 }
 
 /**
- * Manual driver dispatch from POS (phone order) — mirrors PHP
- * POST /api/v1/vendor/dispatch/request-driver
+ * Manual driver dispatch from POS (phone order).
+ *
+ * Order IDs use the same `orders.id` autoincrement sequence as consumer checkout
+ * (next id after the latest row in `orders`). Legacy PHP forced manual dispatch
+ * ids to at least 100000; this handler intentionally does not.
  *
  * @Route POST /api/vendor/dispatch/request-driver
  * @Access Private (Vendor / POS JWT)
@@ -105,7 +108,7 @@ export const requestDriver = async (req: Request, res: Response): Promise<any> =
     address: string;
     order_amount: number;
     delivery_fee: number;
-    payment_method?: 'prepaid';
+    payment_method?: 'prepaid' | 'cash_on_delivery';
     idempotency_key: string;
     zone_id?: number;
     latitude?: number;
@@ -159,6 +162,7 @@ export const requestDriver = async (req: Request, res: Response): Promise<any> =
     const deliveryFee = body.delivery_fee;
     const taxAmount = Math.round(itemPrice * (taxPct / 100) * 100) / 100;
     const orderTotal = Math.round((itemPrice + deliveryFee + taxAmount) * 100) / 100;
+    const prepaid = body.payment_method === 'prepaid';
     const now = new Date();
     const zoneId = restaurant.zone_id != null ? Number(restaurant.zone_id) : null;
 
@@ -183,7 +187,7 @@ export const requestDriver = async (req: Request, res: Response): Promise<any> =
         additional_charge: 0,
         ref_bonus_amount: 0,
         payment_method: 'cash_on_delivery',
-        payment_status: 'paid',
+        payment_status: prepaid ? 'paid' : 'unpaid',
         zone_id: zoneId != null ? zoneId : undefined,
         delivery_address: JSON.stringify({
           contact_person_name: body.customer_name,

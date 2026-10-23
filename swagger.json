@@ -6307,7 +6307,7 @@
     },
     "/vendor/dispatch/request-driver": {
       "post": {
-        "description": "Creates a **manual dispatch** delivery order (`is_manual_dispatch=true`, `order_status=confirmed`) for phone/walk-in orders from the **Vendor POS** app. Requires **`manual_dispatch`** enabled on the restaurant (Business Setup toggle) or restaurant id listed in admin `manual_dispatch_restaurants`.\n\n**Idempotency:** repeat calls with the same `idempotency_key` return the existing order summary (no duplicate jobs).\n\n**Side effects (drivers):**\n1. **FCM** — `order_request` push to all vehicle topics in the restaurant zone + zone-wide topic.\n2. **Socket.IO** — event **`order_request`** on the same FCM topic rooms (drivers connected with delivery-man JWT). Request-tab clients should refetch `GET /delivery-man/orders/latest` on this event.\n3. **`user_notifications`** — inbox row for each approved driver in the zone.\n\nMirrors legacy PHP `POST /vendor/dispatch/request-driver`.",
+        "description": "Creates a **manual dispatch** delivery order (`is_manual_dispatch=true`, `order_status=confirmed`) for phone/walk-in orders from the **Vendor POS** app. Requires **`manual_dispatch`** enabled on the restaurant (Business Setup toggle) or restaurant id listed in admin `manual_dispatch_restaurants`.\n\n**Order ID:** Same shared `orders.id` sequence as consumer app orders (database autoincrement). Response `data.order_id` is that id as a string — not a separate 100000+ range (legacy PHP behavior).\n\n**Idempotency:** repeat calls with the same `idempotency_key` return the existing order summary (no duplicate jobs).\n\n**Side effects (drivers):**\n1. **FCM** — `order_request` push to all vehicle topics in the restaurant zone + zone-wide topic.\n2. **Socket.IO** — event **`order_request`** on the same FCM topic rooms (drivers connected with delivery-man JWT). Request-tab clients should refetch `GET /delivery-man/orders/latest` on this event.\n3. **`user_notifications`** — inbox row for each approved driver in the zone.\n\nMirrors legacy PHP `POST /vendor/dispatch/request-driver` except order id assignment.",
         "parameters": [
           {
             "name": "authorization",
@@ -6331,7 +6331,7 @@
                   "status": true,
                   "msg": "Driver requested successfully",
                   "data": {
-                    "order_id": "100042",
+                    "order_id": "2847",
                     "commission_rate": 10,
                     "commission": 13.8,
                     "delivery_fee": 18,
@@ -17497,6 +17497,168 @@
       "post": {
         "description": "Place a marketplace order (Figma checkout / legacy PHP parity). Default: line items loaded from server `carts` for the authenticated user or guest (`guest_id`). Buy-now: set `is_buy_now` true and send `cart` or `items`. Delivery requires `distance` plus either `delivery_address_id` (from GET /consumer/addresses) or inline `address`, `latitude`, `longitude`. Totals (tax, delivery, platform fee, tips) are calculated server-side. Triggers vendor FCM for Web Panel & POS.",
         "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Order placed successfully"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Order placed successfully"
+                    },
+                    "order_id": {
+                      "type": "string",
+                      "example": "1001"
+                    },
+                    "total_ammount": {
+                      "type": "number",
+                      "example": 51
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "1001"
+                        },
+                        "user_id": {
+                          "type": "string",
+                          "example": "7"
+                        },
+                        "restaurant_id": {
+                          "type": "string",
+                          "example": "12"
+                        },
+                        "order_amount": {
+                          "type": "number",
+                          "example": 45.5
+                        },
+                        "delivery_charge": {
+                          "type": "number",
+                          "example": 3
+                        },
+                        "total_tax_amount": {
+                          "type": "number",
+                          "example": 2.5
+                        },
+                        "additional_charge": {
+                          "type": "number",
+                          "example": 0
+                        },
+                        "dm_tips": {
+                          "type": "number",
+                          "example": 0
+                        },
+                        "payment_status": {
+                          "type": "string",
+                          "example": "unpaid"
+                        },
+                        "order_status": {
+                          "type": "string",
+                          "example": "pending"
+                        },
+                        "payment_method": {
+                          "type": "string",
+                          "example": "cash_on_delivery"
+                        },
+                        "order_type": {
+                          "type": "string",
+                          "example": "delivery"
+                        },
+                        "scheduled": {
+                          "type": "boolean",
+                          "example": false
+                        },
+                        "schedule_at": {
+                          "nullable": true,
+                          "example": null
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "example": "2026-01-15T10:30:00.000Z"
+                        }
+                      },
+                      "example": {
+                        "id": "1001",
+                        "user_id": "7",
+                        "restaurant_id": "12",
+                        "order_amount": 45.5,
+                        "delivery_charge": 3,
+                        "total_tax_amount": 2.5,
+                        "additional_charge": 0,
+                        "dm_tips": 0,
+                        "payment_status": "unpaid",
+                        "order_status": "pending",
+                        "payment_method": "cash_on_delivery",
+                        "order_type": "delivery",
+                        "scheduled": false,
+                        "schedule_at": null,
+                        "created_at": "2026-01-15T10:30:00.000Z"
+                      }
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Order placed successfully",
+                    "message": "Order placed successfully",
+                    "order_id": "1001",
+                    "total_ammount": 51,
+                    "data": {
+                      "id": "1001",
+                      "user_id": "7",
+                      "restaurant_id": "12",
+                      "order_amount": 45.5,
+                      "delivery_charge": 3,
+                      "total_tax_amount": 2.5,
+                      "additional_charge": 0,
+                      "dm_tips": 0,
+                      "payment_status": "unpaid",
+                      "order_status": "pending",
+                      "payment_method": "cash_on_delivery",
+                      "order_type": "delivery",
+                      "scheduled": false,
+                      "schedule_at": null,
+                      "created_at": "2026-01-15T10:30:00.000Z"
+                    }
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Order placed successfully",
+                  "message": "Order placed successfully",
+                  "order_id": "1001",
+                  "total_ammount": 51,
+                  "data": {
+                    "id": "1001",
+                    "user_id": "7",
+                    "restaurant_id": "12",
+                    "order_amount": 45.5,
+                    "delivery_charge": 3,
+                    "total_tax_amount": 2.5,
+                    "additional_charge": 0,
+                    "dm_tips": 0,
+                    "payment_status": "unpaid",
+                    "order_status": "pending",
+                    "payment_method": "cash_on_delivery",
+                    "order_type": "delivery",
+                    "scheduled": false,
+                    "schedule_at": null,
+                    "created_at": "2026-01-15T10:30:00.000Z"
+                  }
+                }
+              }
+            }
+          },
           "201": {
             "description": "Order created",
             "content": {
@@ -17631,6 +17793,278 @@
               "type": "string"
             }
           }
+        ]
+      }
+    },
+    "/consumer/order/attach-checkout-payment": {
+      "post": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Payment linked to order"
+                    },
+                    "order_id": {
+                      "type": "string",
+                      "example": "1"
+                    },
+                    "payment_status": {
+                      "type": "boolean",
+                      "example": true
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Payment linked to order",
+                    "order_id": "1",
+                    "payment_status": true
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Payment linked to order",
+                  "order_id": "1",
+                  "payment_status": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable"
+          }
+        },
+        "tags": [
+          "Consumer Orders"
+        ]
+      }
+    },
+    "/consumer/order/complete-checkout-payment": {
+      "post": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Order already created for this payment"
+                    },
+                    "order_id": {
+                      "type": "string",
+                      "example": "1"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "1"
+                        },
+                        "payment_status": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "order_status": {
+                          "type": "string",
+                          "example": "…"
+                        }
+                      },
+                      "example": {
+                        "id": "1",
+                        "payment_status": "…",
+                        "order_status": "…"
+                      }
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Order already created for this payment",
+                    "order_id": "1",
+                    "data": {
+                      "id": "1",
+                      "payment_status": "…",
+                      "order_status": "…"
+                    }
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Order already created for this payment",
+                  "order_id": "1",
+                  "data": {
+                    "id": "1",
+                    "payment_status": "…",
+                    "order_status": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable"
+          }
+        },
+        "tags": [
+          "Consumer Orders"
         ]
       }
     },
@@ -47635,7 +48069,8 @@
             "properties": {
               "order_id": {
                 "type": "string",
-                "example": "100042"
+                "description": "Same orders.id as consumer checkout (shared autoincrement)",
+                "example": "2847"
               },
               "commission_rate": {
                 "type": "number",

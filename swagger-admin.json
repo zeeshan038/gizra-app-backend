@@ -4175,7 +4175,8 @@
             "properties": {
               "order_id": {
                 "type": "string",
-                "example": "100042"
+                "description": "Same orders.id as consumer checkout (shared autoincrement)",
+                "example": "2847"
               },
               "commission_rate": {
                 "type": "number",
