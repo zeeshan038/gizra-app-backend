@@ -126,6 +126,13 @@ export type PlaceOrderInput = {
   payment_request_id?: string;
 };
 
+export const attachCheckoutPaymentSchema = Joi.object({
+  order_id: Joi.alternatives()
+    .try(Joi.number().integer().positive(), Joi.string().trim().pattern(/^\d+$/))
+    .required(),
+  payment_request_id: Joi.string().trim().uuid().required(),
+});
+
 export const trackOrderQuerySchema = Joi.object({
   order_id: Joi.alternatives(
     Joi.number().integer().positive(),

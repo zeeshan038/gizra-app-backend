@@ -2,6 +2,7 @@ import express from 'express';
 const router = express.Router();
 
 import {
+  attachCheckoutPayment,
   cancelOrder,
   placeOrder,
   getOrderHistory,
@@ -34,6 +35,7 @@ router.post('/place', verifyConsumer, placeOrder);
 
 router.use(verifyConsumer);
 
+router.post('/attach-checkout-payment', attachCheckoutPayment);
 router.post('/generate-payment-link', generatePaymentLink);
 
 router.get('/track', trackOrder);

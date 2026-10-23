@@ -1,7 +1,10 @@
+import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
+import { sendNewOrderNotification } from '../notifications/sendNewOrderNotification';
 import { findPaymentRequestById } from './paymentRequestRepository';
 
 const AMOUNT_TOLERANCE = 0.02;
+const STORED_PAYMENT_METHOD = 'hypay';
 
 export class CheckoutPaymentError extends Error {
   constructor(message: string) {
@@ -34,6 +37,29 @@ export async function assertPaidCheckoutPayment(params: {
   return payment;
 }
 
+/** Latest paid checkout not yet linked to an order (payment-first flow). */
+export async function findPaidUnusedCheckoutPayment(userId: number): Promise<{
+  id: string;
+  payment_amount: number;
+} | null> {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const rows = await prisma.$queryRaw<Array<{ id: string; payment_amount: unknown }>>`
+    SELECT id, payment_amount
+    FROM payment_requests
+    WHERE payer_id = ${String(userId)}
+      AND is_paid = true
+      AND attribute = 'order_checkout'
+      AND updated_at >= ${since}
+    ORDER BY updated_at DESC
+    LIMIT 1
+  `;
+  if (!rows.length) return null;
+  return {
+    id: String(rows[0].id),
+    payment_amount: Number(rows[0].payment_amount) || 0,
+  };
+}
+
 export async function attachCheckoutPaymentToOrder(
   paymentRequestId: string,
   orderId: bigint
@@ -47,4 +73,84 @@ export async function attachCheckoutPaymentToOrder(
     WHERE id = ${paymentRequestId}
       AND attribute = 'order_checkout'
   `;
+}
+
+async function updateUnpaidOrderPayment(orderId: bigint, paymentMethod: string) {
+  await prisma.order_payments.updateMany({
+    where: {
+      order_id: new Prisma.Decimal(orderId.toString()),
+      payment_status: 'unpaid',
+    },
+    data: {
+      payment_status: 'paid',
+      payment_method: paymentMethod,
+      updated_at: new Date(),
+    },
+  });
+}
+
+/**
+ * Recovery when HyperPay succeeded but place order ran without payment_request_id.
+ */
+export async function attachPaidCheckoutToExistingOrder(params: {
+  userId: number;
+  orderId: bigint;
+  paymentRequestId: string;
+}): Promise<void> {
+  const order = await prisma.orders.findFirst({
+    where: {
+      id: params.orderId,
+      user_id: params.userId,
+      is_guest: false,
+    },
+  });
+  if (!order) {
+    throw new CheckoutPaymentError('Order not found');
+  }
+  if (order.payment_status === 'paid') {
+    throw new CheckoutPaymentError('Order is already paid');
+  }
+  if (order.order_status === 'canceled' || order.order_status === 'failed') {
+    throw new CheckoutPaymentError('Order cannot be paid');
+  }
+
+  const payment = await assertPaidCheckoutPayment({
+    paymentRequestId: params.paymentRequestId,
+    userId: params.userId,
+    orderAmount: Number(order.order_amount) || 0,
+  });
+
+  const payMethod = payment.payment_method ?? STORED_PAYMENT_METHOD;
+
+  await prisma.orders.update({
+    where: { id: params.orderId },
+    data: {
+      payment_status: 'paid',
+      payment_method:
+        order.payment_method === 'partial_payment' ? order.payment_method : payMethod,
+      checked: false,
+      updated_at: new Date(),
+    },
+  });
+
+  await attachCheckoutPaymentToOrder(params.paymentRequestId, params.orderId);
+  await updateUnpaidOrderPayment(params.orderId, payMethod);
+
+  const restaurant = await prisma.restaurants.findUnique({
+    where: { id: BigInt(Number(order.restaurant_id)) },
+    select: { vendor_id: true },
+  });
+  if (restaurant?.vendor_id) {
+    void sendNewOrderNotification(
+      {
+        order_id: params.orderId.toString(),
+        restaurant_id: Number(order.restaurant_id),
+        vendor_id: Number(restaurant.vendor_id),
+        order_type: order.order_type ?? 'delivery',
+        payment_method: payMethod,
+        order_amount: Number(order.order_amount) || 0,
+      },
+      { skipVendorSocket: false }
+    );
+  }
 }

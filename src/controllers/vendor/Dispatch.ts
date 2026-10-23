@@ -9,6 +9,7 @@ import { getBusinessSetting } from '../../utils/deliveryman/orderHelpers';
 import { sendOrderNotification } from '../../utils/notifications/sendOrderNotification';
 import { notifyManualDispatchDriverPool } from '../../utils/notifications/manualDispatchPush';
 import { emitManualDispatchOrderRequest } from '../../sockets/orderRealtime';
+import { manualDispatchGizraCharge } from '../../utils/order/manualDispatchMoney';
 
 async function allowedManualDispatchRestaurants(): Promise<number[]> {
   const raw = (await getBusinessSetting('manual_dispatch_restaurants')) ?? '';
@@ -40,29 +41,40 @@ async function walkInCustomer(restaurantId: number) {
   });
 }
 
-function dispatchSummary(order: {
-  id: bigint;
-  order_amount: unknown;
-  original_delivery_charge: unknown;
-  payment_status: string | null;
-}, commissionRate: number) {
+function dispatchSummary(
+  order: {
+    id: bigint;
+    order_amount: unknown;
+    original_delivery_charge: unknown;
+    delivery_charge: unknown;
+    total_tax_amount: unknown;
+    additional_charge: unknown;
+    extra_packaging_amount: unknown;
+    dm_tips: unknown;
+    coupon_discount_amount: unknown;
+    restaurant_discount_amount: unknown;
+    ref_bonus_amount: unknown;
+    payment_status: string | null;
+  },
+  commissionRate: number
+) {
+  const { commission, delivery_fee, gizra_charge } = manualDispatchGizraCharge(
+    order as Parameters<typeof manualDispatchGizraCharge>[0],
+    commissionRate
+  );
   const orderAmount = Number(order.order_amount) || 0;
-  const fee = Number(order.original_delivery_charge) || 0;
-  const commission = Math.round((orderAmount * commissionRate) / 100 * 100) / 100;
-  const gizraCharge = Math.round((commission + fee) * 100) / 100;
 
   return {
     order_id: order.id.toString(),
     commission_rate: commissionRate,
     commission,
-    delivery_fee: fee,
-    gizra_charge: gizraCharge,
-    restaurant_net:
-      order.payment_status === 'paid'
-        ? Math.round(-1 * gizraCharge * 100) / 100
-        : Math.round((orderAmount - commission - fee) * 100) / 100,
+    delivery_fee,
+    gizra_charge,
+    restaurant_net: Math.round(-1 * gizra_charge * 100) / 100,
     payment_status: order.payment_status,
     message: 'Driver requested successfully',
+    note:
+      'Restaurant collected payment at store. Gizra commission (on food subtotal) plus full delivery fee are owed to the platform.',
   };
 }
 
@@ -93,7 +105,7 @@ export const requestDriver = async (req: Request, res: Response): Promise<any> =
     address: string;
     order_amount: number;
     delivery_fee: number;
-    payment_method: 'prepaid' | 'cash_on_delivery';
+    payment_method?: 'prepaid';
     idempotency_key: string;
     zone_id?: number;
     latitude?: number;
@@ -147,8 +159,6 @@ export const requestDriver = async (req: Request, res: Response): Promise<any> =
     const deliveryFee = body.delivery_fee;
     const taxAmount = Math.round(itemPrice * (taxPct / 100) * 100) / 100;
     const orderTotal = Math.round((itemPrice + deliveryFee + taxAmount) * 100) / 100;
-    const prepaid = body.payment_method === 'prepaid';
-
     const now = new Date();
     const zoneId = restaurant.zone_id != null ? Number(restaurant.zone_id) : null;
 
@@ -173,7 +183,7 @@ export const requestDriver = async (req: Request, res: Response): Promise<any> =
         additional_charge: 0,
         ref_bonus_amount: 0,
         payment_method: 'cash_on_delivery',
-        payment_status: prepaid ? 'paid' : 'unpaid',
+        payment_status: 'paid',
         zone_id: zoneId != null ? zoneId : undefined,
         delivery_address: JSON.stringify({
           contact_person_name: body.customer_name,

@@ -69,3 +69,21 @@ export async function isVendorPushEnabled(restaurantId: number, key: string): Pr
   ]);
   return platform && restaurant;
 }
+
+/** PHP `getNotificationStatusData(...)->sms_status == 'active'`. */
+export async function isSmsNotificationEnabled(
+  userType: NotificationUserType,
+  key: string
+): Promise<boolean> {
+  const row = await prisma.notification_settings.findFirst({
+    where: { type: userType, key },
+    select: { sms_status: true },
+  });
+  if (!row) {
+    if (userType === 'customer' && key === 'customer_order_notification') {
+      return true;
+    }
+    return false;
+  }
+  return row.sms_status === 'active';
+}

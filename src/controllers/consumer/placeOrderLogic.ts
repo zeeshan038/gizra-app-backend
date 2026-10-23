@@ -18,6 +18,7 @@ import {
   assertPaidCheckoutPayment,
   attachCheckoutPaymentToOrder,
   CheckoutPaymentError,
+  findPaidUnusedCheckoutPayment,
 } from '../../utils/payment/checkoutPayment';
 
 
@@ -519,6 +520,22 @@ export async function executePlaceOrder(params: {
     }
     if (isGuest) {
       throw new PlaceOrderError('Login required for prepaid checkout', 401, 'payment_request_id');
+    }
+  }
+
+  if (
+    !dryRun &&
+    payload.payment_method === 'digital_payment' &&
+    !payload.payment_request_id &&
+    !isGuest
+  ) {
+    const paidCheckout = await findPaidUnusedCheckoutPayment(userId);
+    if (paidCheckout) {
+      throw new PlaceOrderError(
+        `Card payment is already completed. Call place order again with payment_request_id "${paidCheckout.id}" (same checkout as payment), or POST /consumer/order/attach-checkout-payment to link an existing unpaid order.`,
+        403,
+        'payment_request_id'
+      );
     }
   }
   const paymentSettings = await getPaymentSettings();

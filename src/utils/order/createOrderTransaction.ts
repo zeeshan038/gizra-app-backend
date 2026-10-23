@@ -284,7 +284,10 @@ export async function createOrderTransactionIfNeeded(
     const rate = n(settingFrom(settingsMap, 'manual_dispatch_commission')) || 10;
     comission_amount = Math.round(order_amount * (rate / 100) * 100) / 100;
     commission_percentage = rate;
-    received_by = order.payment_status === 'paid' ? 'restaurant' : 'deliveryman';
+    comission_on_delivery = 0;
+    comission_on_actual_delivery_fee = 0;
+    // Restaurant collected full payment at the store (prepaid manual dispatch).
+    received_by = 'restaurant';
   } else {
     if (restaurant.restaurant_model === 'subscription' && restSub) {
       comission_amount = 0;

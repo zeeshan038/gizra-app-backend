@@ -14,6 +14,7 @@ import {
   isVendorPushEnabled,
 } from './notificationSettings';
 import { buildOrderStatusDescription } from './orderStatusMessage';
+import { sendOrderDeliveredSmsIfEnabled } from './sendOrderStatusSms';
 import { persistUserNotification } from './persistUserNotification';
 import { isRecipientPushOn } from './pushNotificationPreference';
 
@@ -409,6 +410,12 @@ export async function sendOrderNotification(orderInput: orders | bigint): Promis
 
   if (shouldNotifyCustomerOrderStatus(order)) {
     await notifyCustomerOrderStatus(order, ctx, description);
+  }
+
+  try {
+    await sendOrderDeliveredSmsIfEnabled(order, notifyStatus);
+  } catch (e) {
+    console.error('[notify] order delivered SMS failed', e);
   }
 
   const vendorId = ctx.restaurant?.vendor_id != null ? Number(ctx.restaurant.vendor_id) : null;

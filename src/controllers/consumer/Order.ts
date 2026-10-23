@@ -2,11 +2,16 @@ import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import {
+  attachCheckoutPaymentSchema,
   cancelOrderSchema,
   placeOrderSchema,
   PlaceOrderInput,
   trackOrderQuerySchema,
 } from '../../schemas/consumer/Order';
+import {
+  attachPaidCheckoutToExistingOrder,
+  CheckoutPaymentError,
+} from '../../utils/payment/checkoutPayment';
 import { consumerOrderListQuerySchema } from '../../schemas/consumer/orderList';
 import {
   applyOrderListSearchFilter,
@@ -288,6 +293,52 @@ export const getOrderHistory = (req: Request, res: Response): Promise<any> =>
  */
 export const getSubscriptionOrders = (req: Request, res: Response): Promise<any> =>
   listConsumerOrders(req, res, 'subscription');
+
+/**
+ * Link a completed payment-first checkout to an existing unpaid order (recovery).
+ * @Route POST /api/consumer/order/attach-checkout-payment
+ */
+export const attachCheckoutPayment = async (req: Request, res: Response): Promise<any> => {
+  const validated = attachCheckoutPaymentSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(', '),
+    });
+  }
+
+  const userId = Number(req.user?.id);
+  if (!userId || req.user?.isGuest) {
+    return res.status(401).json({ status: false, msg: 'Login required' });
+  }
+
+  const { order_id, payment_request_id } = validated.value as {
+    order_id: string | number;
+    payment_request_id: string;
+  };
+  const orderId = parseOrderIdParam(order_id);
+  if (!orderId) {
+    return res.status(400).json({ status: false, msg: 'Invalid order_id' });
+  }
+
+  try {
+    await attachPaidCheckoutToExistingOrder({
+      userId,
+      orderId,
+      paymentRequestId: payment_request_id,
+    });
+    const order = await prisma.orders.findUnique({ where: { id: orderId } });
+    return res.status(200).json({
+      status: true,
+      msg: 'Payment linked to order',
+      order_id: orderId.toString(),
+      payment_status: order?.payment_status ?? 'paid',
+    });
+  } catch (e) {
+    const msg = e instanceof CheckoutPaymentError ? e.message : 'Could not link payment';
+    return res.status(403).json({ status: false, msg });
+  }
+};
 
 /**
  * @Description Track a single order (restaurant, driver, status timeline fields)

@@ -233,6 +233,27 @@ Use the **identical** checkout object from step 1, with these changes:
 | Payment not completed | User returned before HyperPay finished; retry payment |
 | Payment already used | Same `payment_request_id` placed twice — go to orders list |
 | Order total does not match paid amount | Checkout payload changed between step 1 and 4 — rebuild checkout and pay again |
+| Card payment is already completed… | You paid HyperPay but called place **without** `payment_request_id` — see **Recovery** below |
+
+### Recovery — paid HyperPay but order still `unpaid`
+
+If the app created order **405** without `payment_request_id` after a successful callback:
+
+```http
+POST /api/consumer/order/attach-checkout-payment
+Authorization: Bearer {{token}}
+```
+
+```json
+{
+  "order_id": 405,
+  "payment_request_id": "016178d7-b137-4b87-8cba-7ac68ee0648d"
+}
+```
+
+Or call **place order again** with the **same checkout body** plus `payment_request_id` (creates a new paid order; cancel the orphan unpaid order in admin if needed).
+
+**Prevention (app):** After `flag=success`, always place with `payment_request_id`. Check `data.payment_status === "paid"` in the place-order response before showing success.
 
 ### B1 — Frontend state checklist
 
