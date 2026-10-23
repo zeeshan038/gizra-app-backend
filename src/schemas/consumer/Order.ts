@@ -133,6 +133,11 @@ export const attachCheckoutPaymentSchema = Joi.object({
   payment_request_id: Joi.string().trim().uuid().required(),
 });
 
+/** After HyperPay success — place order using checkout body stored on the payment request. */
+export const completeCheckoutPaymentSchema = Joi.object({
+  payment_request_id: Joi.string().trim().uuid().required(),
+});
+
 export const trackOrderQuerySchema = Joi.object({
   order_id: Joi.alternatives(
     Joi.number().integer().positive(),

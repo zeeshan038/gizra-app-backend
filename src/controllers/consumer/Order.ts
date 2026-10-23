@@ -4,6 +4,7 @@ import prisma from '../../config/database';
 import {
   attachCheckoutPaymentSchema,
   cancelOrderSchema,
+  completeCheckoutPaymentSchema,
   placeOrderSchema,
   PlaceOrderInput,
   trackOrderQuerySchema,
@@ -11,7 +12,9 @@ import {
 import {
   attachPaidCheckoutToExistingOrder,
   CheckoutPaymentError,
+  getStoredCheckoutPayload,
 } from '../../utils/payment/checkoutPayment';
+import { findPaymentRequestById } from '../../utils/payment/paymentRequestRepository';
 import { consumerOrderListQuerySchema } from '../../schemas/consumer/orderList';
 import {
   applyOrderListSearchFilter,
@@ -51,6 +54,69 @@ function resolveOrderUser(req: Request, payload: PlaceOrderInput): {
     return { userId: Number(payload.guest_id), isGuest: true };
   }
   return null;
+}
+
+type PlacedOrderBundle = Awaited<ReturnType<typeof executePlaceOrder>>;
+
+async function sendPlaceOrderCreatedResponse(
+  res: Response,
+  placed: PlacedOrderBundle,
+  orderPayload: PlaceOrderInput
+): Promise<Response> {
+  if (!placed.order) {
+    return res.status(500).json({ status: false, msg: 'Order could not be created' });
+  }
+
+  const orderResult = placed.order;
+  const mappedOrder = {
+    id: orderResult.id.toString(),
+    user_id: orderResult.user_id?.toString() || null,
+    restaurant_id: orderResult.restaurant_id?.toString() || null,
+    order_amount: Number(orderResult.order_amount) || 0,
+    delivery_charge: Number(orderResult.delivery_charge) || 0,
+    total_tax_amount: Number(orderResult.total_tax_amount) || 0,
+    additional_charge: Number(orderResult.additional_charge) || 0,
+    dm_tips: Number(orderResult.dm_tips) || 0,
+    payment_status: orderResult.payment_status,
+    order_status: orderResult.order_status,
+    payment_method: orderResult.payment_method,
+    order_type: orderResult.order_type,
+    scheduled: orderResult.scheduled,
+    schedule_at: orderResult.schedule_at,
+    created_at: orderResult.created_at,
+  };
+
+  const restaurant = await prisma.restaurants.findUnique({
+    where: { id: BigInt(Number(orderResult.restaurant_id)) },
+    select: { vendor_id: true },
+  });
+  if (restaurant?.vendor_id) {
+    const notifyPayload = {
+      order_id: mappedOrder.id,
+      restaurant_id: Number(orderResult.restaurant_id),
+      vendor_id: Number(restaurant.vendor_id),
+      order_type: orderResult.order_type,
+      payment_method: orderResult.payment_method,
+      order_amount: mappedOrder.order_amount,
+    };
+    if (
+      orderResult.payment_method === 'digital_payment' &&
+      !orderPayload.payment_request_id
+    ) {
+      emitNewOrderRealtime(notifyPayload);
+    } else {
+      void sendNewOrderNotification(notifyPayload);
+    }
+  }
+
+  return res.status(201).json({
+    status: true,
+    msg: 'Order placed successfully',
+    message: 'Order placed successfully',
+    order_id: mappedOrder.id,
+    total_ammount: placed.subtotal + placed.taxAdded + placed.delivery_charge,
+    data: mappedOrder,
+  });
 }
 
 /**
@@ -104,61 +170,7 @@ export const placeOrder = async (req: Request, res: Response): Promise<any> => {
       user: userProfile,
     });
 
-    if (!placed.order) {
-      return res.status(500).json({ status: false, msg: 'Order could not be created' });
-    }
-
-    const orderResult = placed.order;
-    const mappedOrder = {
-      id: orderResult.id.toString(),
-      user_id: orderResult.user_id?.toString() || null,
-      restaurant_id: orderResult.restaurant_id?.toString() || null,
-      order_amount: Number(orderResult.order_amount) || 0,
-      delivery_charge: Number(orderResult.delivery_charge) || 0,
-      total_tax_amount: Number(orderResult.total_tax_amount) || 0,
-      additional_charge: Number(orderResult.additional_charge) || 0,
-      dm_tips: Number(orderResult.dm_tips) || 0,
-      payment_status: orderResult.payment_status,
-      order_status: orderResult.order_status,
-      payment_method: orderResult.payment_method,
-      order_type: orderResult.order_type,
-      scheduled: orderResult.scheduled,
-      schedule_at: orderResult.schedule_at,
-      created_at: orderResult.created_at,
-    };
-
-    const restaurant = await prisma.restaurants.findUnique({
-      where: { id: BigInt(Number(orderResult.restaurant_id)) },
-      select: { vendor_id: true },
-    });
-    if (restaurant?.vendor_id) {
-      const notifyPayload = {
-        order_id: mappedOrder.id,
-        restaurant_id: Number(orderResult.restaurant_id),
-        vendor_id: Number(restaurant.vendor_id),
-        order_type: orderResult.order_type,
-        payment_method: orderResult.payment_method,
-        order_amount: mappedOrder.order_amount,
-      };
-      if (
-        orderResult.payment_method === 'digital_payment' &&
-        !orderPayload.payment_request_id
-      ) {
-        // Legacy: order created unpaid first — socket only until HyperPay hook runs.
-        emitNewOrderRealtime(notifyPayload);
-      } else {
-        void sendNewOrderNotification(notifyPayload);
-      }
-    }
-
-    return res.status(201).json({
-      status: true,
-      msg: 'Order placed successfully',
-      message: 'Order placed successfully',
-      order_id: mappedOrder.id,
-      total_ammount: placed.subtotal + placed.taxAdded + placed.delivery_charge,
-      data: mappedOrder,
-    });
+    return sendPlaceOrderCreatedResponse(res, placed, orderPayload);
   } catch (e: any) {
     if (e instanceof PlaceOrderError) {
       return res.status(e.statusCode).json({
@@ -293,6 +305,110 @@ export const getOrderHistory = (req: Request, res: Response): Promise<any> =>
  */
 export const getSubscriptionOrders = (req: Request, res: Response): Promise<any> =>
   listConsumerOrders(req, res, 'subscription');
+
+/**
+ * Create a paid order after HyperPay success using checkout stored on the payment request.
+ * @Route POST /api/consumer/order/complete-checkout-payment
+ */
+export const completeCheckoutPayment = async (req: Request, res: Response): Promise<any> => {
+  const validated = completeCheckoutPaymentSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(', '),
+    });
+  }
+
+  const userId = Number(req.user?.id);
+  if (!userId || req.user?.isGuest) {
+    return res.status(401).json({ status: false, msg: 'Login required' });
+  }
+
+  const { payment_request_id: paymentRequestId } = validated.value as {
+    payment_request_id: string;
+  };
+
+  const payment = await findPaymentRequestById(paymentRequestId);
+  if (!payment) {
+    return res.status(404).json({ status: false, msg: 'Payment not found' });
+  }
+  if (payment.payer_id !== String(userId)) {
+    return res.status(403).json({ status: false, msg: 'Payment does not belong to this user' });
+  }
+
+  if (payment.attribute === 'order' && payment.attribute_id && /^\d+$/.test(payment.attribute_id)) {
+    const existingOrderId = BigInt(payment.attribute_id);
+    const existing = await prisma.orders.findFirst({
+      where: { id: existingOrderId, user_id: userId },
+    });
+    if (existing) {
+      return res.status(200).json({
+        status: true,
+        msg: 'Order already created for this payment',
+        order_id: existing.id.toString(),
+        data: {
+          id: existing.id.toString(),
+          payment_status: existing.payment_status,
+          order_status: existing.order_status,
+        },
+      });
+    }
+  }
+
+  if (!payment.is_paid) {
+    return res.status(402).json({
+      status: false,
+      msg: 'Payment not completed. Finish HyperPay checkout first.',
+    });
+  }
+  if (payment.attribute !== 'order_checkout') {
+    return res.status(403).json({
+      status: false,
+      msg: 'Payment is not a checkout payment or was already used',
+    });
+  }
+
+  const stored = getStoredCheckoutPayload(payment);
+  if (!stored) {
+    return res.status(403).json({
+      status: false,
+      msg: 'Checkout snapshot missing on this payment. Call POST /consumer/order/place with the same checkout body and payment_request_id.',
+    });
+  }
+
+  const orderPayload: PlaceOrderInput = {
+    ...stored,
+    payment_method: 'digital_payment',
+    payment_request_id: paymentRequestId,
+  };
+
+  const userProfile = await prisma.users.findUnique({
+    where: { id: BigInt(userId) },
+    select: {
+      f_name: true,
+      l_name: true,
+      phone: true,
+      email: true,
+      wallet_balance: true,
+    },
+  });
+
+  try {
+    const placed = await executePlaceOrder({
+      payload: orderPayload,
+      userId,
+      isGuest: false,
+      user: userProfile ?? undefined,
+    });
+    return sendPlaceOrderCreatedResponse(res, placed, orderPayload);
+  } catch (e: unknown) {
+    if (e instanceof PlaceOrderError) {
+      return res.status(e.statusCode).json({ status: false, msg: e.message });
+    }
+    const msg = e instanceof Error ? e.message : 'Could not complete checkout';
+    return res.status(500).json({ status: false, msg });
+  }
+};
 
 /**
  * Link a completed payment-first checkout to an existing unpaid order (recovery).

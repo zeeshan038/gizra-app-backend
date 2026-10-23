@@ -1,7 +1,8 @@
 import Joi from 'joi';
 
 export const vendorLoginSchema = Joi.object({
-  email: Joi.string().email().required(),
+  // Allow demo seeds like vendor@gizra.test (Joi default TLD list excludes .test).
+  email: Joi.string().email({ tlds: { allow: false } }).required(),
   password: Joi.string().min(6).required(),
 });
 

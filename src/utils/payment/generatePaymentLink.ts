@@ -81,6 +81,8 @@ export async function generateCheckoutPaymentLink(params: {
   callback: string;
   paymentPlatform: 'app' | 'web';
   payer: { name: string; email: string; phone: string };
+  /** Saved on payment_requests.additional_data for POST /complete-checkout-payment. */
+  checkoutPayload?: Record<string, unknown>;
 }) {
   const route = GATEWAY_ROUTE[params.paymentMethod];
   if (!route) {
@@ -108,6 +110,7 @@ export async function generateCheckoutPaymentLink(params: {
       business_name: businessName,
       business_logo: logoSetting,
       checkout_flow: 'payment_first',
+      ...(params.checkoutPayload ? { checkout_payload: params.checkoutPayload } : {}),
     },
     payer_information: {
       name: params.payer.name,

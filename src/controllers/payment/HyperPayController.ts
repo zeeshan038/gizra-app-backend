@@ -20,7 +20,11 @@ const STORED_METHOD = 'hypay';
 
 function buildFinalRedirect(payment: Awaited<ReturnType<typeof findPaymentRequestById>>, flag: 'success' | 'fail') {
   if (!payment) return null;
-  const tokenString = `payment_method=${payment.payment_method ?? STORED_METHOD}&&attribute_id=${payment.attribute_id}&&transaction_reference=${payment.transaction_id ?? ''}`;
+
+  const isPaymentFirst = payment.attribute === 'order_checkout';
+  const tokenString = isPaymentFirst
+    ? `payment_method=${payment.payment_method ?? STORED_METHOD}&&payment_request_id=${payment.id}&&checkout_flow=payment_first&&transaction_reference=${payment.transaction_id ?? ''}`
+    : `payment_method=${payment.payment_method ?? STORED_METHOD}&&order_id=${payment.attribute_id ?? ''}&&checkout_flow=order_first&&transaction_reference=${payment.transaction_id ?? ''}`;
   const token = Buffer.from(tokenString, 'utf8').toString('base64');
 
   if (
@@ -28,7 +32,13 @@ function buildFinalRedirect(payment: Awaited<ReturnType<typeof findPaymentReques
     payment.external_redirect_link
   ) {
     const sep = payment.external_redirect_link.includes('?') ? '&' : '?';
-    return `${payment.external_redirect_link}${sep}flag=${flag}&&token=${encodeURIComponent(token)}`;
+    const extra =
+      flag === 'success' && isPaymentFirst
+        ? `&&payment_request_id=${encodeURIComponent(payment.id)}&&requires_place_order=1&&checkout_flow=payment_first`
+        : flag === 'success' && payment.attribute === 'order' && payment.attribute_id
+          ? `&&order_id=${encodeURIComponent(payment.attribute_id)}&&checkout_flow=order_first`
+          : '';
+    return `${payment.external_redirect_link}${sep}flag=${flag}&&token=${encodeURIComponent(token)}${extra}`;
   }
   return null;
 }

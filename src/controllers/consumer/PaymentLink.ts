@@ -98,6 +98,7 @@ export const generatePaymentLink = async (req: Request, res: Response): Promise<
       callback,
       paymentPlatform: payment_platform,
       payer,
+      checkoutPayload: checkoutValidated.value as Record<string, unknown>,
     });
 
     hyperPayLog('generate_payment_link', {
@@ -115,6 +116,8 @@ export const generatePaymentLink = async (req: Request, res: Response): Promise<
       redirect_link: result.redirect_link,
       payment_request_id: result.payment_id,
       amount: quoted.orderAmount,
+      checkout_flow: 'payment_first',
+      next_step: 'complete_checkout_payment_after_hyp_success',
     });
   } catch (e: unknown) {
     if (e instanceof PlaceOrderError) {

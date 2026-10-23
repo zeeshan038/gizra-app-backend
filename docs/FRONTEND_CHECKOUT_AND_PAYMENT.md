@@ -172,18 +172,31 @@ Authorization: Bearer {{token}}
 After payment, the user is redirected to your `callback`:
 
 ```text
-gizra://payment-result?flag=success&&token=<base64>
+gizra://payment-result?flag=success&&token=<base64>&&payment_request_id=<uuid>&&requires_place_order=1&&checkout_flow=payment_first
 gizra://payment-result?flag=fail&&token=<base64>
 ```
 
 | Query | Action |
 |-------|--------|
-| `flag=success` | Call **place order** (step 4). Show “Confirming order…” while waiting. |
+| `flag=success` + `requires_place_order=1` | HyperPay OK only — call **step 4** before showing order success. |
+| `flag=success` + `checkout_flow=order_first` + `order_id` | Legacy B2 — poll track until `payment_status` is `paid`. |
 | `flag=fail` | Show error; user can retry step 1 (new payment link). |
 
-**Note:** For B1, decoded `token` may still reference a payment id, not an order id. **Do not** use `token` alone to place the order — use your saved `payment_request_id`.
+**Note:** `flag=success` is **not** `payment_status: paid` on an order. For B1, use `payment_request_id` from the callback query or your saved value from step 1.
 
-### Step 4 — Place order after successful payment
+### Step 4 — Finish order after successful payment
+
+**Option A (recommended for apps)** — server replays checkout saved at payment-link time:
+
+```http
+POST /api/consumer/order/complete-checkout-payment
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "payment_request_id": "550e8400-e29b-41d4-a716-446655440000" }
+```
+
+**Option B** — full checkout body (same as step 1):
 
 ```http
 POST /api/consumer/order/place

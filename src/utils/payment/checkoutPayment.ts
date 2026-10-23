@@ -1,10 +1,33 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import { sendNewOrderNotification } from '../notifications/sendNewOrderNotification';
-import { findPaymentRequestById } from './paymentRequestRepository';
+import { findPaymentRequestById, type PaymentRequestRow } from './paymentRequestRepository';
+import type { PlaceOrderInput } from '../../schemas/consumer/Order';
 
 const AMOUNT_TOLERANCE = 0.02;
 const STORED_PAYMENT_METHOD = 'hypay';
+
+export function parsePaymentAdditionalData(
+  payment: PaymentRequestRow
+): Record<string, unknown> {
+  if (!payment.additional_data) return {};
+  try {
+    const parsed = JSON.parse(payment.additional_data) as unknown;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Checkout body saved at generate-payment-link (payment-first flow). */
+export function getStoredCheckoutPayload(payment: PaymentRequestRow): PlaceOrderInput | null {
+  const extra = parsePaymentAdditionalData(payment);
+  const raw = extra.checkout_payload;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  return raw as PlaceOrderInput;
+}
 
 export class CheckoutPaymentError extends Error {
   constructor(message: string) {
