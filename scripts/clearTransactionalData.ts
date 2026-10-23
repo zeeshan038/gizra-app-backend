@@ -10,8 +10,8 @@
  *
  * Usage (Hetzner server — do NOT run mac-db-tunnel.sh on the VPS):
  *   cd ~/gizra-app-backend && git pull
- *   chmod +x scripts/clear-transactions-server.sh
  *   ./scripts/clear-transactions-server.sh --apply
+ *   (Do not use `npm run db:clear-transactions` on the host — .env host may not reach DB.)
  *
  * Requires DATABASE_URL in .env (Mac) or backend container env (server).
  */
