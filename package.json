@@ -18,7 +18,7 @@
     "seed:demo-checkout": "ts-node scripts/seedDemoCheckout.ts",
     "seed:demo": "npm run seed:business-settings && npm run seed:demo-checkout",
     "credit:restaurant-wallet": "ts-node scripts/creditRestaurantWallet.ts",
-    "db:clear-transactions": "npx ts-node scripts/clearTransactionalData.ts",
+    "db:clear-transactions": "node ./node_modules/ts-node/dist/bin.js scripts/clearTransactionalData.ts",
     "db:clear-transactions:server": "bash scripts/clear-transactions-server.sh",
     "deploy:server": "bash scripts/deploy-server.sh",
     "fix:prod-db": "bash scripts/fix-prod-now.sh",
@@ -64,6 +64,7 @@
     "@types/swagger-ui-express": "^4.1.8",
     "socket.io-client": "^4.8.1",
     "swagger-autogen": "^2.23.7",
+    "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.3"
   }
