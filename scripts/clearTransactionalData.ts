@@ -4,11 +4,16 @@
  * Keeps: admins, vendors, restaurants, customers (users), zones, menus (categories, food,
  * add_ons, variations), delivery men, business settings, coupons config, etc.
  *
- * Usage:
- *   npm run db:clear-transactions          # dry run (counts only)
+ * Usage (Mac — tunnel to prod DB in Terminal 1: ./scripts/mac-db-tunnel.sh):
+ *   npm run db:clear-transactions          # dry run
  *   npm run db:clear-transactions -- --apply
  *
- * Requires DATABASE_URL in .env (same as the API).
+ * Usage (Hetzner server — do NOT run mac-db-tunnel.sh on the VPS):
+ *   cd ~/gizra-app-backend && git pull
+ *   chmod +x scripts/clear-transactions-server.sh
+ *   ./scripts/clear-transactions-server.sh --apply
+ *
+ * Requires DATABASE_URL in .env (Mac) or backend container env (server).
  */
 import dotenv from 'dotenv';
 import path from 'path';
