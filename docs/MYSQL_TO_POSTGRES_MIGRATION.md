@@ -38,12 +38,12 @@ Copy to Hetzner (`scp gizra_mysql_prod.sql root@167.233.245.44:/root/`), then on
 cd ~/gizra-app-backend
 chmod +x scripts/mysql-docker-import.sh
 ./scripts/mysql-docker-import.sh /root/gizra_mysql_prod.sql
-export MYSQL_MIGRATION_URL='mysql://root:migrate_local_root@127.0.0.1:3306/gizra_db'
+export MYSQL_MIGRATION_URL='mysql://root:migrate_local_root@172.17.0.1:3306/gizra_db'
 ./scripts/migrate-on-server.sh
 ./scripts/migrate-on-server.sh --apply --truncate --confirm
 ```
 
-(Docker MariaDB listens on **3306** on the host; see script output.)
+(Docker MariaDB listens on host **3306**; migration container reaches it via **172.17.0.1**, not `127.0.0.1`.)
 
 1. **Push** migration scripts (this repo) and on the server:
 
@@ -86,9 +86,10 @@ export MYSQL_MIGRATION_URL='mysql://root:migrate_local_root@127.0.0.1:3306/gizra
    Then sequences + Cloudflare folders:
 
    ```bash
-   PW="$(./scripts/read-db-password-from-env.sh .env)"
-   export DATABASE_URL="postgresql://postgres:${PW}@127.0.0.1:5434/gizra_db?schema=public"
-   bash scripts/docker-compose.sh run --rm -T --network host -e DATABASE_URL backend \
+   node scripts/prepare-compose-env.js
+   source .env.compose
+   export DATABASE_URL="$GIZRA_DATABASE_URL_INTERNAL"
+   bash scripts/docker-compose.sh run --rm -T -e DATABASE_URL backend \
      node ./node_modules/ts-node/dist/bin.js scripts/resetPgSequences.ts
    docker exec gizra-backend npx ts-node scripts/backfillCloudflareIds.ts
    ```
