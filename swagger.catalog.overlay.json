@@ -1,0 +1,398 @@
+{
+  "components": {
+    "schemas": {
+      "FoodVariationOption": {
+        "type": "object",
+        "required": ["name", "price"],
+        "properties": {
+          "name": { "type": "string", "example": "Regular" },
+          "price": { "type": "number", "example": 249 }
+        }
+      },
+      "FoodVariationGroup": {
+        "type": "object",
+        "required": ["name", "type", "required", "options"],
+        "properties": {
+          "name": { "type": "string", "example": "Size" },
+          "type": {
+            "type": "string",
+            "enum": ["single", "multi"],
+            "example": "single"
+          },
+          "required": { "type": "boolean", "example": true },
+          "options": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/FoodVariationOption" }
+          }
+        }
+      },
+      "FoodAddonInput": {
+        "type": "object",
+        "required": ["name", "price"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Existing row in add_ons table (optional on update)",
+            "example": 42
+          },
+          "name": { "type": "string", "example": "Extra cheese" },
+          "price": { "type": "number", "minimum": 0, "example": 15 }
+        }
+      },
+      "FoodAddonExpanded": {
+        "type": "object",
+        "required": ["id", "name", "price"],
+        "properties": {
+          "id": { "type": "integer", "example": 42 },
+          "name": { "type": "string", "example": "Extra cheese" },
+          "price": { "type": "number", "example": 15 },
+          "status": { "type": "boolean", "example": true }
+        }
+      },
+      "VendorFoodWriteBody": {
+        "type": "object",
+        "required": ["name", "category_id", "price"],
+        "properties": {
+          "name": { "type": "string", "example": "Margherita" },
+          "description": { "type": "string", "example": "Tomato and mozzarella" },
+          "image": { "type": "string", "example": "https://cdn.example.com/margherita.png" },
+          "category_id": { "type": "integer", "example": 5 },
+          "price": {
+            "type": "number",
+            "description": "Base price; when variations exist, usually the lowest option price",
+            "example": 149
+          },
+          "restaurant_id": {
+            "type": "integer",
+            "description": "Optional — server sets from logged-in vendor if omitted",
+            "example": 12
+          },
+          "variations": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/FoodVariationGroup" }
+          },
+          "add_ons": {
+            "type": "array",
+            "description": "Optional extras. Send { name, price, id? }; persisted as add_ons table IDs linked to the food.",
+            "items": {
+              "oneOf": [
+                { "type": "integer", "description": "Legacy: add_ons id only" },
+                { "$ref": "#/components/schemas/FoodAddonInput" }
+              ]
+            },
+            "example": [{ "name": "Extra cheese", "price": 15 }]
+          },
+          "status": { "type": "boolean", "example": true },
+          "is_draft": { "type": "integer", "enum": [0, 1], "example": 0 }
+        }
+      },
+      "VendorFoodItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "101" },
+          "name": { "type": "string", "example": "Margherita" },
+          "description": { "type": "string" },
+          "image": { "type": "string" },
+          "category_id": { "type": "integer" },
+          "price": { "type": "number", "example": 149 },
+          "restaurant_id": { "type": "integer" },
+          "status": { "type": "boolean" },
+          "is_draft": { "type": "integer" },
+          "variations": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/FoodVariationGroup" }
+          },
+          "add_ons": {
+            "type": "array",
+            "description": "Expanded from linked add_ons ids",
+            "items": { "$ref": "#/components/schemas/FoodAddonExpanded" }
+          }
+        }
+      },
+      "AiMenuParsedFoodItem": {
+        "type": "object",
+        "required": ["name", "description", "price", "variations", "add_ons"],
+        "properties": {
+          "name": { "type": "string", "example": "Margherita" },
+          "description": { "type": "string", "example": "Classic tomato and mozzarella" },
+          "price": { "type": "number", "example": 149 },
+          "variations": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/FoodVariationGroup" }
+          },
+          "add_ons": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/FoodAddonInput" }
+          }
+        }
+      },
+      "AiMenuParseData": {
+        "type": "object",
+        "required": ["categories"],
+        "properties": {
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "items"],
+              "properties": {
+                "name": { "type": "string", "example": "Pizza" },
+                "items": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/AiMenuParsedFoodItem" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "ConsumerMenuFoodItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "101" },
+          "name": { "type": "string", "example": "Margherita" },
+          "description": { "type": "string" },
+          "image": { "type": "string" },
+          "image_full_url": { "type": "string", "nullable": true },
+          "category_id": { "type": "string", "nullable": true },
+          "restaurant_id": { "type": "string", "nullable": true },
+          "restaurant_name": { "type": "string", "nullable": true },
+          "price": { "type": "number", "example": 149 },
+          "discount": { "type": "number", "example": 0 },
+          "discount_type": { "type": "string", "example": "percent" },
+          "veg": { "type": "boolean" },
+          "status": { "type": "boolean" },
+          "variations": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/FoodVariationGroup" }
+          },
+          "add_ons": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/FoodAddonExpanded" }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/vendor/catalog/food": {
+      "post": {
+        "summary": "Create food item",
+        "description": "Creates a menu item with JSON **variations** (size/choice groups) and **add_ons** (optional extras). Add-ons are synced to the `add_ons` table and linked by id on the food record.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/VendorFoodWriteBody" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "boolean", "example": true },
+                    "msg": { "type": "string", "example": "Food item created successfully" },
+                    "data": { "$ref": "#/components/schemas/VendorFoodItem" }
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Food item created successfully",
+                  "data": {
+                    "id": "101",
+                    "name": "Margherita",
+                    "price": 149,
+                    "variations": [
+                      {
+                        "name": "Size",
+                        "type": "single",
+                        "required": true,
+                        "options": [
+                          { "name": "Personal", "price": 149 },
+                          { "name": "Regular", "price": 249 },
+                          { "name": "Large", "price": 399 }
+                        ]
+                      }
+                    ],
+                    "add_ons": [{ "id": 42, "name": "Extra cheese", "price": 15, "status": true }]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List vendor food items",
+        "description": "Returns foods for the authenticated vendor's restaurant. **add_ons** are expanded objects (id, name, price), not raw id arrays.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/VendorFoodItem" }
+                    },
+                    "pagination": { "type": "object" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vendor/catalog/food/{id}": {
+      "patch": {
+        "summary": "Update food item",
+        "description": "Partial update. When **add_ons** is sent, extras are synced to the add_ons catalog and food links are replaced with the resulting ids.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/VendorFoodWriteBody" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "boolean" },
+                    "msg": { "type": "string" },
+                    "data": { "$ref": "#/components/schemas/VendorFoodItem" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vendor/catalog/ai/parse-pdf": {
+      "post": {
+        "summary": "AI parse menu image or PDF",
+        "description": "Upload a menu file (`multipart/form-data` field **file**). Gemini extracts categories, items, **variations** (e.g. Personal/Regular/Large price columns as one Size group per item), and **add_ons** (optional paid extras). Requires `GEMINI_API_KEY` on the server.",
+        "responses": {
+          "200": {
+            "description": "Parsed menu structure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/AiMenuParseData" }
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "categories": [
+                      {
+                        "name": "Pizza",
+                        "items": [
+                          {
+                            "name": "Margherita",
+                            "description": "Classic tomato and mozzarella",
+                            "price": 149,
+                            "variations": [
+                              {
+                                "name": "Size",
+                                "type": "single",
+                                "required": true,
+                                "options": [
+                                  { "name": "Personal", "price": 149 },
+                                  { "name": "Regular", "price": 249 },
+                                  { "name": "Large", "price": 399 }
+                                ]
+                              }
+                            ],
+                            "add_ons": [{ "name": "Extra cheese", "price": 15 }]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/consumer/restaurants/{id}/foods": {
+      "get": {
+        "summary": "Restaurant menu foods",
+        "description": "Paginated foods for a restaurant. Each item includes **variations** and expanded **add_ons** (`id`, `name`, `price`) for cart `add_on_ids`.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "foods": {
+                          "type": "array",
+                          "items": { "$ref": "#/components/schemas/ConsumerMenuFoodItem" }
+                        },
+                        "total_size": { "type": "integer" },
+                        "limit": { "type": "integer" },
+                        "offset": { "type": "integer" }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "total_size": 1,
+                    "limit": 20,
+                    "offset": 1,
+                    "foods": [
+                      {
+                        "id": "101",
+                        "name": "Margherita",
+                        "price": 149,
+                        "variations": [
+                          {
+                            "name": "Size",
+                            "type": "single",
+                            "required": true,
+                            "options": [
+                              { "name": "Personal", "price": 149 },
+                              { "name": "Regular", "price": 249 }
+                            ]
+                          }
+                        ],
+                        "add_ons": [{ "id": 42, "name": "Extra cheese", "price": 15, "status": true }]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

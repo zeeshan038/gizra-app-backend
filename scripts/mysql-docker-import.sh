@@ -26,15 +26,22 @@ docker run -d --name "$CONTAINER" \
   mariadb:10.11
 
 echo "Waiting for MariaDB…"
-for _ in $(seq 1 60); do
-  if docker exec "$CONTAINER" mariadb-admin ping -uroot -p"$ROOT_PW" --silent 2>/dev/null; then
-    break
+for _ in $(seq 1 90); do
+  if docker exec -e MYSQL_PWD="$ROOT_PW" "$CONTAINER" mariadb-admin ping -uroot --silent 2>/dev/null; then
+    if docker exec -e MYSQL_PWD="$ROOT_PW" "$CONTAINER" mariadb -uroot -e "SELECT 1" >/dev/null 2>&1; then
+      break
+    fi
   fi
   sleep 1
 done
+sleep 2
 
 echo "Importing dump (may take a few minutes)…"
-cat "$DUMP" | docker exec -i "$CONTAINER" mariadb -uroot -p"$ROOT_PW" gizra_db
+# Do NOT pipe the SQL through the shell — binary POLYGON bytes in `zones` get UTF-8 mojibake (EFBFBD).
+docker cp "$DUMP" "$CONTAINER:/tmp/gizra_import.sql"
+docker exec -e MYSQL_PWD="$ROOT_PW" "$CONTAINER" \
+  sh -ec 'mariadb --binary-mode=1 -uroot gizra_db < /tmp/gizra_import.sql'
+docker exec "$CONTAINER" rm -f /tmp/gizra_import.sql
 
 echo ""
 echo "MySQL ready on 127.0.0.1:${PORT}/gizra_db"

@@ -6,6 +6,7 @@ const CHAT_OVERLAY_FILE = path.join(__dirname, 'swagger.chat.overlay.json');
 const REVIEWS_OVERLAY_FILE = path.join(__dirname, 'swagger.reviews.overlay.json');
 const PAYMENT_OVERLAY_FILE = path.join(__dirname, 'swagger.payment.overlay.json');
 const COUPON_OVERLAY_FILE = path.join(__dirname, 'swagger.coupon.overlay.json');
+const CATALOG_OVERLAY_FILE = path.join(__dirname, 'swagger.catalog.overlay.json');
 
 function normalizePathKey(routePath) {
   if (!routePath) return routePath;
@@ -71,6 +72,15 @@ function loadOverlay() {
     mergeComponents(main, coupon.components);
     if (Array.isArray(coupon.tags) && coupon.tags.length) {
       main.tags = [...(main.tags || []), ...coupon.tags];
+    }
+  }
+
+  const catalog = loadOverlayFile(CATALOG_OVERLAY_FILE, 'swagger.catalog.overlay.json');
+  if (catalog) {
+    main.paths = { ...(main.paths || {}), ...(catalog.paths || {}) };
+    mergeComponents(main, catalog.components);
+    if (Array.isArray(catalog.tags) && catalog.tags.length) {
+      main.tags = [...(main.tags || []), ...catalog.tags];
     }
   }
 

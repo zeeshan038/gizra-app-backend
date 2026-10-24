@@ -238,9 +238,13 @@ export const getFoodDetails = async (req: Request, res: Response): Promise<any> 
       });
       restaurantName = restaurant?.name ?? null;
     }
+    const { buildAddonLookupFromFoodRows } = await import(
+      '../../utils/vendor/catalog/foodAddonHelpers'
+    );
+    const addonLookup = await buildAddonLookupFromFoodRows([food]);
     return res.status(200).json({
       status: true,
-      data: formatRestaurantMenuFood(food, { restaurant_name: restaurantName }),
+      data: formatRestaurantMenuFood(food, { restaurant_name: restaurantName }, addonLookup),
     });
   } catch (e: unknown) {
     return sendApiError(res, 500, errorMessageFromUnknown(e));

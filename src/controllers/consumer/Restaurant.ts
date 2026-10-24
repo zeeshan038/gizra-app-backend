@@ -516,8 +516,12 @@ export const getRestaurantFoods = async (req: Request, res: Response): Promise<a
             }),
         ]);
 
+        const { buildAddonLookupFromFoodRows } = await import(
+            '../../utils/vendor/catalog/foodAddonHelpers'
+        );
+        const addonLookup = await buildAddonLookupFromFoodRows(foods);
         const formattedFoods = foods.map((f) =>
-            formatRestaurantMenuFood(f, { restaurant_name: restaurant.name })
+            formatRestaurantMenuFood(f, { restaurant_name: restaurant.name }, addonLookup)
         );
 
         return res.status(200).json({

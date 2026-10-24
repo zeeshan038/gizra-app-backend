@@ -1,6 +1,10 @@
 import prisma from '../../config/database';
 import { publicMediaUrl } from '../mediaStorage';
 import { formatHomeCategory } from './categoryDiscoverHelpers';
+import {
+  expandAddOnsFromStored,
+  type FoodAddonExpanded,
+} from '../vendor/catalog/foodAddonHelpers';
 
 type FoodRow = {
   id: bigint;
@@ -179,21 +183,30 @@ export async function buildRestaurantFoodWhere(params: {
 
 export function formatRestaurantMenuFood(
   f: FoodRow,
-  extras?: { restaurant_name?: string | null }
+  extras?: { restaurant_name?: string | null },
+  addonLookup?: Map<number, FoodAddonExpanded>
 ) {
   let parsedVariations: unknown[] = [];
-  let parsedAddOns: unknown[] = [];
 
   try {
     if (f.variations) parsedVariations = JSON.parse(f.variations);
   } catch {
     /* ignore */
   }
-  try {
-    if (f.add_ons) parsedAddOns = JSON.parse(f.add_ons);
-  } catch {
-    /* ignore */
-  }
+
+  const parsedAddOns = addonLookup
+    ? expandAddOnsFromStored(f.add_ons, addonLookup)
+    : (() => {
+        try {
+          if (f.add_ons) {
+            const raw = JSON.parse(f.add_ons);
+            return Array.isArray(raw) ? raw : [];
+          }
+        } catch {
+          /* ignore */
+        }
+        return [];
+      })();
 
   return {
     id: f.id.toString(),

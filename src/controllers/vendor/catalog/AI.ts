@@ -126,7 +126,39 @@ export const parsePdf = async (req: Request, res: Response): Promise<any> => {
     const mimeType = req.file.mimetype;
     const fileBase64 = req.file.buffer.toString('base64');
 
-    const prompt = "You are a menu parsing expert. Extract all menu items, descriptions, prices, and categories from the provided menu image/PDF. IGNORE ANY VARIATIONS OR OPTIONS (like size, add-ons, etc.) and only extract the base item details.\n\nCRITICAL INSTRUCTION FOR MULTI-LANGUAGE MENUS:\nThe provided menu may contain separate sections for Hebrew and English (i.e. the entire menu printed first in Hebrew, then repeated in English).\nYOU MUST EXTRACT BOTH FULLY. Do NOT deduplicate items just because they are translations of each other. If there is a 'Focaccia' in English and a 'פוקאצ׳ה עשבי תיבול' in Hebrew, you MUST output BOTH as separate items in the JSON array.\nIf an item name is combined with a slash (e.g., 'Black Tea / תה שחור'), you must split it and create TWO separate entries.\nBottom line: DO NOT DROP OR SKIP ANY HEBREW TEXT. Both the Hebrew items and English items must be present as distinct items in your output.\n\nOutput a JSON object with a single key 'categories' containing an array of categories.\nEach category has:\n- 'name': category name (STRICTLY single language per category)\n- 'items': array of items. Each item must have:\n  - 'name': item name (STRICTLY single language per item)\n  - 'description': item description\n  - 'price': item base price (numeric)\nOutput ONLY valid raw JSON conforming to this schema, without markdown formatting or code blocks.";
+    const prompt = `You are a menu parsing expert. Extract categories, food items, size/option variations, and optional add-ons from the provided menu image or PDF.
+
+VARIATIONS (required choices that change the item price, e.g. size columns):
+- When the menu shows multiple price columns for the same item (e.g. Personal / Regular / Large, Single / Double, Regular / Large), do NOT create separate items per column.
+- Create ONE item per dish and attach a "variations" array with one group (usually named "Size" or a sensible label).
+- Each variation group object must have:
+  - "name": string (e.g. "Size")
+  - "type": "single" (always single for column-based sizes)
+  - "required": true
+  - "options": array of { "name": column label, "price": numeric price for that column }
+- Set item "price" to the lowest variation option price.
+
+ADD-ONS (optional paid extras, not size columns):
+- Extract optional extras such as "Extra cheese", "Extra dip", "Add toppings", side upgrades listed as add-ons, or a dedicated add-ons section.
+- Do NOT put size columns in add_ons.
+- Each add-on: { "name": string, "price": numeric } in the item's "add_ons" array.
+- If no add-ons are shown for an item, use "add_ons": [].
+
+CRITICAL — MULTI-LANGUAGE MENUS:
+The menu may contain separate Hebrew and English sections. Extract BOTH fully. Do NOT deduplicate translations.
+If a name is combined with a slash (e.g. 'Black Tea / תה שחור'), split into TWO separate items.
+Do NOT drop Hebrew text.
+
+Output a JSON object with a single key "categories" (array). Each category:
+- "name": category name (single language)
+- "items": array of:
+  - "name": item name (single language)
+  - "description": string (ingredients or tagline from menu; empty string if none)
+  - "price": numeric base price (lowest variation price when variations exist)
+  - "variations": array as defined above (empty array if single price only)
+  - "add_ons": array of { "name", "price" } (empty array if none)
+
+Output ONLY valid raw JSON, no markdown or code fences.`;
 
     try {
         const models = ['gemini-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro', 'gemini-1.0-pro-vision-latest', 'gemini-pro-vision'];

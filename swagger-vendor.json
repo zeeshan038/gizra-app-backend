@@ -7469,6 +7469,359 @@
             "nullable": true
           }
         }
+      },
+      "FoodVariationOption": {
+        "type": "object",
+        "required": [
+          "name",
+          "price"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Regular"
+          },
+          "price": {
+            "type": "number",
+            "example": 249
+          }
+        }
+      },
+      "FoodVariationGroup": {
+        "type": "object",
+        "required": [
+          "name",
+          "type",
+          "required",
+          "options"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Size"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "single",
+              "multi"
+            ],
+            "example": "single"
+          },
+          "required": {
+            "type": "boolean",
+            "example": true
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodVariationOption"
+            }
+          }
+        }
+      },
+      "FoodAddonInput": {
+        "type": "object",
+        "required": [
+          "name",
+          "price"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Existing row in add_ons table (optional on update)",
+            "example": 42
+          },
+          "name": {
+            "type": "string",
+            "example": "Extra cheese"
+          },
+          "price": {
+            "type": "number",
+            "minimum": 0,
+            "example": 15
+          }
+        }
+      },
+      "FoodAddonExpanded": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "price"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 42
+          },
+          "name": {
+            "type": "string",
+            "example": "Extra cheese"
+          },
+          "price": {
+            "type": "number",
+            "example": 15
+          },
+          "status": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "VendorFoodWriteBody": {
+        "type": "object",
+        "required": [
+          "name",
+          "category_id",
+          "price"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Margherita"
+          },
+          "description": {
+            "type": "string",
+            "example": "Tomato and mozzarella"
+          },
+          "image": {
+            "type": "string",
+            "example": "https://cdn.example.com/margherita.png"
+          },
+          "category_id": {
+            "type": "integer",
+            "example": 5
+          },
+          "price": {
+            "type": "number",
+            "description": "Base price; when variations exist, usually the lowest option price",
+            "example": 149
+          },
+          "restaurant_id": {
+            "type": "integer",
+            "description": "Optional — server sets from logged-in vendor if omitted",
+            "example": 12
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodVariationGroup"
+            }
+          },
+          "add_ons": {
+            "type": "array",
+            "description": "Optional extras. Send { name, price, id? }; persisted as add_ons table IDs linked to the food.",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "description": "Legacy: add_ons id only"
+                },
+                {
+                  "$ref": "#/components/schemas/FoodAddonInput"
+                }
+              ]
+            },
+            "example": [
+              {
+                "name": "Extra cheese",
+                "price": 15
+              }
+            ]
+          },
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "is_draft": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "example": 0
+          }
+        }
+      },
+      "VendorFoodItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "101"
+          },
+          "name": {
+            "type": "string",
+            "example": "Margherita"
+          },
+          "description": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string"
+          },
+          "category_id": {
+            "type": "integer"
+          },
+          "price": {
+            "type": "number",
+            "example": 149
+          },
+          "restaurant_id": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "boolean"
+          },
+          "is_draft": {
+            "type": "integer"
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodVariationGroup"
+            }
+          },
+          "add_ons": {
+            "type": "array",
+            "description": "Expanded from linked add_ons ids",
+            "items": {
+              "$ref": "#/components/schemas/FoodAddonExpanded"
+            }
+          }
+        }
+      },
+      "AiMenuParsedFoodItem": {
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "price",
+          "variations",
+          "add_ons"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Margherita"
+          },
+          "description": {
+            "type": "string",
+            "example": "Classic tomato and mozzarella"
+          },
+          "price": {
+            "type": "number",
+            "example": 149
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodVariationGroup"
+            }
+          },
+          "add_ons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodAddonInput"
+            }
+          }
+        }
+      },
+      "AiMenuParseData": {
+        "type": "object",
+        "required": [
+          "categories"
+        ],
+        "properties": {
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "items"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "example": "Pizza"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AiMenuParsedFoodItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "ConsumerMenuFoodItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "101"
+          },
+          "name": {
+            "type": "string",
+            "example": "Margherita"
+          },
+          "description": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string"
+          },
+          "image_full_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "category_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "price": {
+            "type": "number",
+            "example": 149
+          },
+          "discount": {
+            "type": "number",
+            "example": 0
+          },
+          "discount_type": {
+            "type": "string",
+            "example": "percent"
+          },
+          "veg": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "boolean"
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodVariationGroup"
+            }
+          },
+          "add_ons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodAddonExpanded"
+            }
+          }
+        }
       }
     },
     "parameters": {
@@ -10151,7 +10504,7 @@
     },
     "/vendor/catalog/food": {
       "post": {
-        "description": "",
+        "description": "Creates a menu item with JSON **variations** (size/choice groups) and **add_ons** (optional extras). Add-ons are synced to the `add_ons` table and linked by id on the food record.",
         "parameters": [
           {
             "name": "authorization",
@@ -10166,13 +10519,6 @@
             "description": "Created",
             "content": {
               "application/json": {
-                "example": {
-                  "status": true,
-                  "msg": "Food item created successfully",
-                  "data": {
-                    "id": "1"
-                  }
-                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -10185,31 +10531,53 @@
                       "example": "Food item created successfully"
                     },
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "example": "1"
-                        }
-                      },
-                      "example": {
-                        "id": "1"
+                      "$ref": "#/components/schemas/VendorFoodItem"
+                    }
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Food item created successfully",
+                  "data": {
+                    "id": "101",
+                    "name": "Margherita",
+                    "price": 149,
+                    "variations": [
+                      {
+                        "name": "Size",
+                        "type": "single",
+                        "required": true,
+                        "options": [
+                          {
+                            "name": "Personal",
+                            "price": 149
+                          },
+                          {
+                            "name": "Regular",
+                            "price": 249
+                          },
+                          {
+                            "name": "Large",
+                            "price": 399
+                          }
+                        ]
                       }
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "msg": "Food item created successfully",
-                    "data": {
-                      "id": "1"
-                    }
+                    ],
+                    "add_ons": [
+                      {
+                        "id": 42,
+                        "name": "Extra cheese",
+                        "price": 15,
+                        "status": true
+                      }
+                    ]
                   }
                 }
               }
             }
           },
           "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
@@ -10223,7 +10591,7 @@
             }
           },
           "401": {
-            "description": "Unauthorized - Invalid or missing authentication token",
+            "description": "Unauthorized",
             "content": {
               "application/json": {
                 "schema": {
@@ -10251,7 +10619,7 @@
             }
           },
           "404": {
-            "description": "Not Found - The requested resource could not be found",
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -10265,7 +10633,7 @@
             }
           },
           "500": {
-            "description": "Internal Server Error - Something went wrong on the server",
+            "description": "Internal Server Error",
             "content": {
               "application/json": {
                 "schema": {
@@ -10280,52 +10648,22 @@
           }
         },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "example": "any"
-                  },
-                  "description": {
-                    "example": "any"
-                  },
-                  "image": {
-                    "example": "any"
-                  },
-                  "category_id": {
-                    "example": "any"
-                  },
-                  "price": {
-                    "example": "any"
-                  },
-                  "restaurant_id": {
-                    "example": "any"
-                  },
-                  "variations": {
-                    "example": "any"
-                  },
-                  "add_ons": {
-                    "example": "any"
-                  },
-                  "status": {
-                    "example": "any"
-                  },
-                  "is_draft": {
-                    "example": "any"
-                  }
-                }
+                "$ref": "#/components/schemas/VendorFoodWriteBody"
               }
             }
           }
         },
         "tags": [
           "Vendor Catalog"
-        ]
+        ],
+        "summary": "Create food item"
       },
       "get": {
-        "description": "",
+        "description": "Returns foods for the authenticated vendor's restaurant. **add_ons** are expanded objects (id, name, price), not raw id arrays.",
         "parameters": [
           {
             "name": "authorization",
@@ -10349,13 +10687,6 @@
             }
           },
           {
-            "name": "restaurant_id",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "search",
             "in": "query",
             "schema": {
@@ -10368,201 +10699,34 @@
             "description": "OK",
             "content": {
               "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/VendorFoodItem"
+                      }
+                    },
+                    "pagination": {
+                      "type": "object"
+                    }
+                  }
+                },
                 "example": {
                   "status": true,
                   "data": "…",
                   "unknown": "…",
+                  "addonLookup": "…",
                   "pagination": {
                     "total": 42,
                     "page": 1,
                     "limit": 20,
                     "totalPages": 3
-                  }
-                },
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "data": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "unknown": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "pagination": {
-                      "type": "object",
-                      "properties": {
-                        "total": {
-                          "type": "number",
-                          "example": 42
-                        },
-                        "page": {
-                          "type": "number",
-                          "example": 1
-                        },
-                        "limit": {
-                          "type": "number",
-                          "example": 20
-                        },
-                        "totalPages": {
-                          "type": "number",
-                          "example": 3
-                        }
-                      },
-                      "example": {
-                        "total": 42,
-                        "page": 1,
-                        "limit": 20,
-                        "totalPages": 3
-                      }
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "data": "…",
-                    "unknown": "…",
-                    "pagination": {
-                      "total": 42,
-                      "page": 1,
-                      "limit": 20,
-                      "totalPages": 3
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Bad Request"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - Invalid or missing authentication token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Unauthorized"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Forbidden"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found - The requested resource could not be found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Not Found"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error - Something went wrong on the server",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Vendor Catalog"
-        ]
-      }
-    },
-    "/vendor/catalog/food/{id}": {
-      "patch": {
-        "description": "Update Food item",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "example": {
-                  "status": true,
-                  "msg": "Food item updated successfully",
-                  "data": "…"
-                },
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "Food item updated successfully"
-                    },
-                    "data": {
-                      "type": "string",
-                      "example": "…"
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "msg": "Food item updated successfully",
-                    "data": "…"
                   }
                 }
               }
@@ -10611,7 +10775,133 @@
             }
           },
           "404": {
-            "description": "Not Found - The requested resource could not be found",
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ],
+        "summary": "List vendor food items"
+      }
+    },
+    "/vendor/catalog/food/{id}": {
+      "patch": {
+        "description": "Partial update. When **add_ons** is sent, extras are synced to the add_ons catalog and food links are replaced with the resulting ids.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/VendorFoodItem"
+                    }
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Food item updated successfully",
+                  "data": "…",
+                  "unknown": "…",
+                  "addonLookup": "…"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -10643,64 +10933,30 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "name": {
-                    "type": "string"
-                  },
-                  "description": {
-                    "type": "string"
-                  },
-                  "price": {
-                    "type": "number"
-                  },
-                  "category_id": {
-                    "type": "integer"
-                  },
-                  "image": {
-                    "type": "string"
-                  },
-                  "variations": {
-                    "type": "array",
-                    "items": {
-                      "type": "object"
-                    }
-                  },
-                  "add_ons": {
-                    "type": "array",
-                    "items": {
-                      "type": "integer"
-                    }
-                  },
-                  "status": {
-                    "type": "boolean"
-                  },
-                  "is_draft": {
-                    "type": "integer"
-                  }
-                }
+                "$ref": "#/components/schemas/VendorFoodWriteBody"
               }
             }
           }
         },
         "tags": [
           "Vendor Catalog"
-        ]
+        ],
+        "summary": "Update food item"
       },
       "delete": {
-        "description": "Delete Food",
+        "description": "",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
+            "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string"
             }
           },
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
+            "name": "authorization",
+            "in": "header",
             "schema": {
               "type": "string"
             }
@@ -11069,7 +11325,7 @@
     },
     "/vendor/catalog/ai/parse-pdf": {
       "post": {
-        "description": "",
+        "description": "Upload a menu file (`multipart/form-data` field **file**). Gemini extracts categories, items, **variations** (e.g. Personal/Regular/Large price columns as one Size group per item), and **add_ons** (optional paid extras). Requires `GEMINI_API_KEY` on the server.",
         "parameters": [
           {
             "name": "authorization",
@@ -11081,13 +11337,9 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Parsed menu structure",
             "content": {
               "application/json": {
-                "example": {
-                  "status": true,
-                  "data": "…"
-                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -11096,20 +11348,59 @@
                       "example": true
                     },
                     "data": {
-                      "type": "string",
-                      "example": "…"
+                      "$ref": "#/components/schemas/AiMenuParseData"
                     }
-                  },
-                  "example": {
-                    "status": true,
-                    "data": "…"
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "categories": [
+                      {
+                        "name": "Pizza",
+                        "items": [
+                          {
+                            "name": "Margherita",
+                            "description": "Classic tomato and mozzarella",
+                            "price": 149,
+                            "variations": [
+                              {
+                                "name": "Size",
+                                "type": "single",
+                                "required": true,
+                                "options": [
+                                  {
+                                    "name": "Personal",
+                                    "price": 149
+                                  },
+                                  {
+                                    "name": "Regular",
+                                    "price": 249
+                                  },
+                                  {
+                                    "name": "Large",
+                                    "price": 399
+                                  }
+                                ]
+                              }
+                            ],
+                            "add_ons": [
+                              {
+                                "name": "Extra cheese",
+                                "price": 15
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
                   }
                 }
               }
             }
           },
           "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
@@ -11123,7 +11414,7 @@
             }
           },
           "401": {
-            "description": "Unauthorized - Invalid or missing authentication token",
+            "description": "Unauthorized",
             "content": {
               "application/json": {
                 "schema": {
@@ -11165,7 +11456,7 @@
             }
           },
           "500": {
-            "description": "Internal Server Error - Something went wrong on the server",
+            "description": "Internal Server Error",
             "content": {
               "application/json": {
                 "schema": {
@@ -11182,22 +11473,7 @@
         "tags": [
           "Vendor Catalog"
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "file": {
-                    "type": "string",
-                    "format": "binary"
-                  }
-                }
-              }
-            }
-          }
-        }
+        "summary": "AI parse menu image or PDF"
       }
     },
     "/vendor/catalog/ai/description": {

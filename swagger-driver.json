@@ -7475,6 +7475,359 @@
             "nullable": true
           }
         }
+      },
+      "FoodVariationOption": {
+        "type": "object",
+        "required": [
+          "name",
+          "price"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Regular"
+          },
+          "price": {
+            "type": "number",
+            "example": 249
+          }
+        }
+      },
+      "FoodVariationGroup": {
+        "type": "object",
+        "required": [
+          "name",
+          "type",
+          "required",
+          "options"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Size"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "single",
+              "multi"
+            ],
+            "example": "single"
+          },
+          "required": {
+            "type": "boolean",
+            "example": true
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodVariationOption"
+            }
+          }
+        }
+      },
+      "FoodAddonInput": {
+        "type": "object",
+        "required": [
+          "name",
+          "price"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Existing row in add_ons table (optional on update)",
+            "example": 42
+          },
+          "name": {
+            "type": "string",
+            "example": "Extra cheese"
+          },
+          "price": {
+            "type": "number",
+            "minimum": 0,
+            "example": 15
+          }
+        }
+      },
+      "FoodAddonExpanded": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "price"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 42
+          },
+          "name": {
+            "type": "string",
+            "example": "Extra cheese"
+          },
+          "price": {
+            "type": "number",
+            "example": 15
+          },
+          "status": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "VendorFoodWriteBody": {
+        "type": "object",
+        "required": [
+          "name",
+          "category_id",
+          "price"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Margherita"
+          },
+          "description": {
+            "type": "string",
+            "example": "Tomato and mozzarella"
+          },
+          "image": {
+            "type": "string",
+            "example": "https://cdn.example.com/margherita.png"
+          },
+          "category_id": {
+            "type": "integer",
+            "example": 5
+          },
+          "price": {
+            "type": "number",
+            "description": "Base price; when variations exist, usually the lowest option price",
+            "example": 149
+          },
+          "restaurant_id": {
+            "type": "integer",
+            "description": "Optional — server sets from logged-in vendor if omitted",
+            "example": 12
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodVariationGroup"
+            }
+          },
+          "add_ons": {
+            "type": "array",
+            "description": "Optional extras. Send { name, price, id? }; persisted as add_ons table IDs linked to the food.",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "description": "Legacy: add_ons id only"
+                },
+                {
+                  "$ref": "#/components/schemas/FoodAddonInput"
+                }
+              ]
+            },
+            "example": [
+              {
+                "name": "Extra cheese",
+                "price": 15
+              }
+            ]
+          },
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "is_draft": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "example": 0
+          }
+        }
+      },
+      "VendorFoodItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "101"
+          },
+          "name": {
+            "type": "string",
+            "example": "Margherita"
+          },
+          "description": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string"
+          },
+          "category_id": {
+            "type": "integer"
+          },
+          "price": {
+            "type": "number",
+            "example": 149
+          },
+          "restaurant_id": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "boolean"
+          },
+          "is_draft": {
+            "type": "integer"
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodVariationGroup"
+            }
+          },
+          "add_ons": {
+            "type": "array",
+            "description": "Expanded from linked add_ons ids",
+            "items": {
+              "$ref": "#/components/schemas/FoodAddonExpanded"
+            }
+          }
+        }
+      },
+      "AiMenuParsedFoodItem": {
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "price",
+          "variations",
+          "add_ons"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Margherita"
+          },
+          "description": {
+            "type": "string",
+            "example": "Classic tomato and mozzarella"
+          },
+          "price": {
+            "type": "number",
+            "example": 149
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodVariationGroup"
+            }
+          },
+          "add_ons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodAddonInput"
+            }
+          }
+        }
+      },
+      "AiMenuParseData": {
+        "type": "object",
+        "required": [
+          "categories"
+        ],
+        "properties": {
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "items"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "example": "Pizza"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AiMenuParsedFoodItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "ConsumerMenuFoodItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "101"
+          },
+          "name": {
+            "type": "string",
+            "example": "Margherita"
+          },
+          "description": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string"
+          },
+          "image_full_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "category_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "price": {
+            "type": "number",
+            "example": 149
+          },
+          "discount": {
+            "type": "number",
+            "example": 0
+          },
+          "discount_type": {
+            "type": "string",
+            "example": "percent"
+          },
+          "veg": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "boolean"
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodVariationGroup"
+            }
+          },
+          "add_ons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodAddonExpanded"
+            }
+          }
+        }
       }
     },
     "parameters": {

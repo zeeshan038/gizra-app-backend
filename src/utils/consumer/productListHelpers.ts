@@ -5,6 +5,7 @@ import {
   formatRestaurantMenuFood,
   parseMenuFoodType,
 } from './restaurantMenuHelpers';
+import { buildAddonLookupFromFoodRows } from '../vendor/catalog/foodAddonHelpers';
 
 export const FOOD_LIST_SELECT = {
   id: true,
@@ -113,15 +114,20 @@ export async function paginateFoods(params: {
       })
     : [];
   const nameById = new Map(restaurants.map((r) => [Number(r.id), r.name]));
+  const addonLookup = await buildAddonLookupFromFoodRows(rows);
 
   return {
     total_size,
     limit: params.limit,
     offset: params.page,
     products: rows.map((row) =>
-      formatRestaurantMenuFood(row, {
-        restaurant_name: nameById.get(Number(row.restaurant_id)) ?? null,
-      })
+      formatRestaurantMenuFood(
+        row,
+        {
+          restaurant_name: nameById.get(Number(row.restaurant_id)) ?? null,
+        },
+        addonLookup
+      )
     ),
   };
 }

@@ -7498,6 +7498,359 @@
             "nullable": true
           }
         }
+      },
+      "FoodVariationOption": {
+        "type": "object",
+        "required": [
+          "name",
+          "price"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Regular"
+          },
+          "price": {
+            "type": "number",
+            "example": 249
+          }
+        }
+      },
+      "FoodVariationGroup": {
+        "type": "object",
+        "required": [
+          "name",
+          "type",
+          "required",
+          "options"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Size"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "single",
+              "multi"
+            ],
+            "example": "single"
+          },
+          "required": {
+            "type": "boolean",
+            "example": true
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodVariationOption"
+            }
+          }
+        }
+      },
+      "FoodAddonInput": {
+        "type": "object",
+        "required": [
+          "name",
+          "price"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Existing row in add_ons table (optional on update)",
+            "example": 42
+          },
+          "name": {
+            "type": "string",
+            "example": "Extra cheese"
+          },
+          "price": {
+            "type": "number",
+            "minimum": 0,
+            "example": 15
+          }
+        }
+      },
+      "FoodAddonExpanded": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "price"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 42
+          },
+          "name": {
+            "type": "string",
+            "example": "Extra cheese"
+          },
+          "price": {
+            "type": "number",
+            "example": 15
+          },
+          "status": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "VendorFoodWriteBody": {
+        "type": "object",
+        "required": [
+          "name",
+          "category_id",
+          "price"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Margherita"
+          },
+          "description": {
+            "type": "string",
+            "example": "Tomato and mozzarella"
+          },
+          "image": {
+            "type": "string",
+            "example": "https://cdn.example.com/margherita.png"
+          },
+          "category_id": {
+            "type": "integer",
+            "example": 5
+          },
+          "price": {
+            "type": "number",
+            "description": "Base price; when variations exist, usually the lowest option price",
+            "example": 149
+          },
+          "restaurant_id": {
+            "type": "integer",
+            "description": "Optional — server sets from logged-in vendor if omitted",
+            "example": 12
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodVariationGroup"
+            }
+          },
+          "add_ons": {
+            "type": "array",
+            "description": "Optional extras. Send { name, price, id? }; persisted as add_ons table IDs linked to the food.",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "description": "Legacy: add_ons id only"
+                },
+                {
+                  "$ref": "#/components/schemas/FoodAddonInput"
+                }
+              ]
+            },
+            "example": [
+              {
+                "name": "Extra cheese",
+                "price": 15
+              }
+            ]
+          },
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "is_draft": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "example": 0
+          }
+        }
+      },
+      "VendorFoodItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "101"
+          },
+          "name": {
+            "type": "string",
+            "example": "Margherita"
+          },
+          "description": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string"
+          },
+          "category_id": {
+            "type": "integer"
+          },
+          "price": {
+            "type": "number",
+            "example": 149
+          },
+          "restaurant_id": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "boolean"
+          },
+          "is_draft": {
+            "type": "integer"
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodVariationGroup"
+            }
+          },
+          "add_ons": {
+            "type": "array",
+            "description": "Expanded from linked add_ons ids",
+            "items": {
+              "$ref": "#/components/schemas/FoodAddonExpanded"
+            }
+          }
+        }
+      },
+      "AiMenuParsedFoodItem": {
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "price",
+          "variations",
+          "add_ons"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Margherita"
+          },
+          "description": {
+            "type": "string",
+            "example": "Classic tomato and mozzarella"
+          },
+          "price": {
+            "type": "number",
+            "example": 149
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodVariationGroup"
+            }
+          },
+          "add_ons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodAddonInput"
+            }
+          }
+        }
+      },
+      "AiMenuParseData": {
+        "type": "object",
+        "required": [
+          "categories"
+        ],
+        "properties": {
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "items"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "example": "Pizza"
+                },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AiMenuParsedFoodItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "ConsumerMenuFoodItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "101"
+          },
+          "name": {
+            "type": "string",
+            "example": "Margherita"
+          },
+          "description": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string"
+          },
+          "image_full_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "category_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "price": {
+            "type": "number",
+            "example": 149
+          },
+          "discount": {
+            "type": "number",
+            "example": 0
+          },
+          "discount_type": {
+            "type": "string",
+            "example": "percent"
+          },
+          "veg": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "boolean"
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodVariationGroup"
+            }
+          },
+          "add_ons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodAddonExpanded"
+            }
+          }
+        }
       }
     },
     "parameters": {
@@ -11452,7 +11805,7 @@
     },
     "/consumer/restaurants/{id}/foods": {
       "get": {
-        "description": "",
+        "description": "Paginated foods for a restaurant. Each item includes **variations** and expanded **add_ons** (`id`, `name`, `price`) for cart `add_on_ids`.",
         "parameters": [
           {
             "name": "id",
@@ -11475,6 +11828,34 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "category_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -11482,30 +11863,6 @@
             "description": "OK",
             "content": {
               "application/json": {
-                "example": {
-                  "status": true,
-                  "data": {
-                    "total_size": 15,
-                    "limit": 20,
-                    "offset": 1,
-                    "foods": [
-                      {
-                        "id": "101",
-                        "name": "Margherita Pizza",
-                        "description": "Classic tomato and mozzarella",
-                        "image": "https://cdn.example.com/food.png",
-                        "category_id": "5",
-                        "restaurant_id": "12",
-                        "price": 12.99,
-                        "discount": 0,
-                        "veg": true,
-                        "status": true,
-                        "variations": [],
-                        "add_ons": []
-                      }
-                    ]
-                  }
-                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -11516,160 +11873,70 @@
                     "data": {
                       "type": "object",
                       "properties": {
-                        "total_size": {
-                          "type": "number",
-                          "example": 15
-                        },
-                        "limit": {
-                          "type": "number",
-                          "example": 20
-                        },
-                        "offset": {
-                          "type": "number",
-                          "example": 1
-                        },
                         "foods": {
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string",
-                                "example": "101"
-                              },
-                              "name": {
-                                "type": "string",
-                                "example": "Margherita Pizza"
-                              },
-                              "description": {
-                                "type": "string",
-                                "example": "Classic tomato and mozzarella"
-                              },
-                              "image": {
-                                "type": "string",
-                                "example": "https://cdn.example.com/food.png"
-                              },
-                              "category_id": {
-                                "type": "string",
-                                "example": "5"
-                              },
-                              "restaurant_id": {
-                                "type": "string",
-                                "example": "12"
-                              },
-                              "price": {
-                                "type": "number",
-                                "example": 12.99
-                              },
-                              "discount": {
-                                "type": "number",
-                                "example": 0
-                              },
-                              "veg": {
-                                "type": "boolean",
-                                "example": true
-                              },
-                              "status": {
-                                "type": "boolean",
-                                "example": true
-                              },
-                              "variations": {
-                                "type": "array",
-                                "items": {},
-                                "example": []
-                              },
-                              "add_ons": {
-                                "type": "array",
-                                "items": {},
-                                "example": []
-                              }
-                            },
-                            "example": {
-                              "id": "101",
-                              "name": "Margherita Pizza",
-                              "description": "Classic tomato and mozzarella",
-                              "image": "https://cdn.example.com/food.png",
-                              "category_id": "5",
-                              "restaurant_id": "12",
-                              "price": 12.99,
-                              "discount": 0,
-                              "veg": true,
-                              "status": true,
-                              "variations": [],
-                              "add_ons": []
-                            }
-                          },
-                          "example": [
-                            {
-                              "id": "101",
-                              "name": "Margherita Pizza",
-                              "description": "Classic tomato and mozzarella",
-                              "image": "https://cdn.example.com/food.png",
-                              "category_id": "5",
-                              "restaurant_id": "12",
-                              "price": 12.99,
-                              "discount": 0,
-                              "veg": true,
-                              "status": true,
-                              "variations": [],
-                              "add_ons": []
-                            }
-                          ]
+                            "$ref": "#/components/schemas/ConsumerMenuFoodItem"
+                          }
+                        },
+                        "total_size": {
+                          "type": "integer"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "offset": {
+                          "type": "integer"
                         }
-                      },
-                      "example": {
-                        "total_size": 15,
-                        "limit": 20,
-                        "offset": 1,
-                        "foods": [
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "total_size": 1,
+                    "limit": 20,
+                    "offset": 1,
+                    "foods": [
+                      {
+                        "id": "101",
+                        "name": "Margherita",
+                        "price": 149,
+                        "variations": [
                           {
-                            "id": "101",
-                            "name": "Margherita Pizza",
-                            "description": "Classic tomato and mozzarella",
-                            "image": "https://cdn.example.com/food.png",
-                            "category_id": "5",
-                            "restaurant_id": "12",
-                            "price": 12.99,
-                            "discount": 0,
-                            "veg": true,
-                            "status": true,
-                            "variations": [],
-                            "add_ons": []
+                            "name": "Size",
+                            "type": "single",
+                            "required": true,
+                            "options": [
+                              {
+                                "name": "Personal",
+                                "price": 149
+                              },
+                              {
+                                "name": "Regular",
+                                "price": 249
+                              }
+                            ]
+                          }
+                        ],
+                        "add_ons": [
+                          {
+                            "id": 42,
+                            "name": "Extra cheese",
+                            "price": 15,
+                            "status": true
                           }
                         ]
                       }
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "data": {
-                      "total_size": 15,
-                      "limit": 20,
-                      "offset": 1,
-                      "foods": [
-                        {
-                          "id": "101",
-                          "name": "Margherita Pizza",
-                          "description": "Classic tomato and mozzarella",
-                          "image": "https://cdn.example.com/food.png",
-                          "category_id": "5",
-                          "restaurant_id": "12",
-                          "price": 12.99,
-                          "discount": 0,
-                          "veg": true,
-                          "status": true,
-                          "variations": [],
-                          "add_ons": []
-                        }
-                      ]
-                    }
+                    ]
                   }
                 }
               }
             }
           },
           "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
@@ -11711,7 +11978,7 @@
             }
           },
           "404": {
-            "description": "Not Found - The requested resource could not be found",
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -11725,7 +11992,7 @@
             }
           },
           "500": {
-            "description": "Internal Server Error - Something went wrong on the server",
+            "description": "Internal Server Error",
             "content": {
               "application/json": {
                 "schema": {
@@ -11741,7 +12008,8 @@
         },
         "tags": [
           "Consumer Discover"
-        ]
+        ],
+        "summary": "Restaurant menu foods"
       }
     },
     "/consumer/restaurants/specfic/{id}": {

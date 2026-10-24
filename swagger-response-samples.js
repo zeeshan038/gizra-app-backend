@@ -19,12 +19,23 @@ const SAMPLE_CONSUMER_FOOD = {
   image: 'https://cdn.example.com/food.png',
   category_id: '5',
   restaurant_id: '12',
-  price: 12.99,
+  price: 149,
   discount: 0,
   veg: true,
   status: true,
-  variations: [],
-  add_ons: []
+  variations: [
+    {
+      name: 'Size',
+      type: 'single',
+      required: true,
+      options: [
+        { name: 'Personal', price: 149 },
+        { name: 'Regular', price: 249 },
+        { name: 'Large', price: 399 }
+      ]
+    }
+  ],
+  add_ons: [{ id: 42, name: 'Extra cheese', price: 15, status: true }]
 };
 
 const SAMPLE_PLACED_ORDER = {

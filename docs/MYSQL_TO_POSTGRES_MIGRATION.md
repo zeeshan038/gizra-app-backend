@@ -2,7 +2,83 @@
 
 Legacy PHP uses **MySQL** `gizra_db`. The Node backend uses **PostgreSQL** `gizra_db` (same name, different server/engine).
 
-## Recommended: run on the VPS (no Mac SSH tunnel)
+## Emergency: restore Postgres after a bad migrate
+
+If `--apply --truncate` ran with **MySQL tables: 0** (wrong port, e.g. **3306** instead of **3307**), prod Postgres may be **empty**. Restore from backup **before** anything else.
+
+**On server** (you created this earlier):
+
+```bash
+ls -la /root/gizra_pg_backup_*.dump
+```
+
+**On Mac** (tunnel open):
+
+```bash
+scp root@167.233.245.44:/root/gizra_pg_backup_YYYY-MM-DD.dump .
+chmod +x scripts/restore-pg-dump-mac.sh
+./scripts/restore-pg-dump-mac.sh ./gizra_pg_backup_YYYY-MM-DD.dump
+```
+
+Then fix MySQL (port **3307** for Docker) and dry-run until `MySQL tables: 131` and `users` count &gt; 0.
+
+## Recommended: run from your Mac
+
+1. **Terminal A** — Postgres prod tunnel:
+
+   ```bash
+   cd gizra-backend && ./scripts/mac-db-tunnel.sh
+   ```
+
+2. **MySQL source** — import PHP dump locally (no server SSH to MySQL):
+
+   ```bash
+   chmod +x scripts/mysql-docker-import.sh scripts/migrate-on-mac.sh
+   ./scripts/mysql-docker-import.sh /path/to/gizra_mysql_prod.sql
+   ```
+
+   Default after import: `mysql://root:migrate_local_root@127.0.0.1:3306/gizra_db`
+
+   **Zone polygons:** the dump embeds binary `POLYGON` bytes. Import must be **binary-safe** (`mysql-docker-import.sh` uses `docker cp` + `mariadb --binary-mode=1`). Do not `cat dump.sql | mariadb`.
+
+   If `zones` fails with absurd coordinates (e.g. `e-262`, `e230`) or hex contains `EFBFBD`, the **SQL file was saved as UTF-8** and geometry is permanently damaged in that file. Use a dump that still has raw bytes (e.g. `deliverymain/db_2026-08-15.sql`) or a fresh `mysqldump` from PHP prod with `--hex-blob`.
+
+   Repair local MySQL zones, then load Postgres only:
+
+   ```bash
+   ./scripts/overlay-mysql-zones-from-dump.sh /path/to/db_2026-08-15.sql
+   npm run db:migrate-from-mysql -- --apply --only-table zones
+   ```
+
+3. **`.env` (Mac)** — same password as server, tunnel host:
+
+   ```env
+   DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@127.0.0.1:5434/gizra_db?schema=public
+   MYSQL_MIGRATION_URL=mysql://root:migrate_local_root@127.0.0.1:3306/gizra_db
+   ```
+
+4. **Terminal B**:
+
+   ```bash
+   cd gizra-backend
+   npm install
+   ./scripts/migrate-on-mac.sh                    # dry run
+   ./scripts/migrate-on-mac.sh --apply --truncate --confirm
+   npm run db:migrate-reset-sequences
+   npx ts-node scripts/backfillCloudflareIds.ts
+   ```
+
+   Or: `npm run db:migrate-from-mysql:mac -- --apply --truncate --confirm`
+
+**Backup prod Postgres first** (with tunnel open):
+
+```bash
+pg_dump -Fc -h 127.0.0.1 -p 5434 -U postgres gizra_db -f ~/gizra_pg_backup_$(date +%F).dump
+```
+
+---
+
+## Alternative: run on the VPS
 
 If you can open **Hetzner console** or `ssh root@gizra-v2`, run migration **on the server** next to Docker Postgres (`127.0.0.1:5434`).
 
@@ -86,9 +162,7 @@ export MYSQL_MIGRATION_URL='mysql://root:migrate_local_root@172.17.0.1:3306/gizr
    Then sequences + Cloudflare folders:
 
    ```bash
-   node scripts/prepare-compose-env.js
-   source .env.compose
-   export DATABASE_URL="$GIZRA_DATABASE_URL_INTERNAL"
+   export DATABASE_URL="$(./scripts/read-compose-internal-db-url.sh)"
    bash scripts/docker-compose.sh run --rm -T -e DATABASE_URL backend \
      node ./node_modules/ts-node/dist/bin.js scripts/resetPgSequences.ts
    docker exec gizra-backend npx ts-node scripts/backfillCloudflareIds.ts
