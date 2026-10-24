@@ -13,6 +13,8 @@ echo ""
 echo "If SSH uses a key, there may be NO password prompt."
 echo "A blank screen after connect is NORMAL — the tunnel stays open until Ctrl+C."
 echo "In another terminal, check: pg_isready -h 127.0.0.1 -p ${LOCAL_PORT}"
+echo "If you see 'Address already in use', a tunnel (or Docker) is already on ${LOCAL_PORT} —"
+echo "if pg_isready succeeds, you can skip starting this script again."
 echo ""
 
 exec ssh -N \
@@ -22,3 +24,5 @@ exec ssh -N \
   -o ServerAliveCountMax=3 \
   -L "${LOCAL_PORT}:${REMOTE_BIND}" \
   "$HOST"
+
+

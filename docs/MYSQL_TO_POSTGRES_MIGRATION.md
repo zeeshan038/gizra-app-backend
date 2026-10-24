@@ -22,7 +22,9 @@ chmod +x scripts/restore-pg-dump-mac.sh
 
 Then fix MySQL (port **3307** for Docker) and dry-run until `MySQL tables: 131` and `users` count &gt; 0.
 
-## Recommended: run from your Mac
+## Recommended: run from your Mac (do not touch PHP prod app)
+
+Only **read** PHP MySQL (tunnel + `mysqldump` / migration SELECT). No deploy, no `.env` edits, no files on CyberPanel. Writes go to **Hetzner Postgres** via `DATABASE_URL` tunnel.
 
 1. **Terminal A** — Postgres prod tunnel:
 
@@ -30,14 +32,43 @@ Then fix MySQL (port **3307** for Docker) and dry-run until `MySQL tables: 131` 
    cd gizra-backend && ./scripts/mac-db-tunnel.sh
    ```
 
-2. **MySQL source** — import PHP dump locally (no server SSH to MySQL):
+2. **Terminal B** — PHP MySQL prod tunnel (CyberPanel):
 
    ```bash
-   chmod +x scripts/mysql-docker-import.sh scripts/migrate-on-mac.sh
-   ./scripts/mysql-docker-import.sh /path/to/gizra_mysql_prod.sql
+   ./scripts/mac-mysql-panel-tunnel.sh
    ```
 
-   Default after import: `mysql://root:migrate_local_root@127.0.0.1:3306/gizra_db`
+   In `.env` set (URL-encode `*` as `%2A` in the password):
+
+   ```env
+   MYSQL_MIGRATION_URL=mysql://DB_USER:DB_PASS@127.0.0.1:3308/DB_NAME
+   ```
+
+   Check order count (~400 expected):
+
+   ```bash
+   chmod +x scripts/mac-mysql-panel-count.sh scripts/mac-mysql-panel-dump.sh
+   ./scripts/mac-mysql-panel-count.sh orders
+   ```
+
+3. **MySQL source** — pick one:
+
+   **A) Snapshot (safest)** — dump on Mac, import to Docker, close panel tunnel if you want:
+
+   ```bash
+   ./scripts/mac-mysql-panel-dump.sh ~/Downloads/gizra_mysql_prod.sql
+   ./scripts/mysql-docker-import.sh ~/Downloads/gizra_mysql_prod.sql
+   ```
+
+   Then point migration at local Docker:
+
+   ```env
+   MYSQL_MIGRATION_URL=mysql://root:migrate_local_root@127.0.0.1:3306/gizra_db
+   ```
+
+   **B) Live read** — keep tunnel open; migrate reads prod MySQL directly (still read-only on PHP side).
+
+   Default after Docker import: `mysql://root:migrate_local_root@127.0.0.1:3306/gizra_db`
 
    **Zone polygons:** the dump embeds binary `POLYGON` bytes. Import must be **binary-safe** (`mysql-docker-import.sh` uses `docker cp` + `mariadb --binary-mode=1`). Do not `cat dump.sql | mariadb`.
 
@@ -50,14 +81,14 @@ Then fix MySQL (port **3307** for Docker) and dry-run until `MySQL tables: 131` 
    npm run db:migrate-from-mysql -- --apply --only-table zones
    ```
 
-3. **`.env` (Mac)** — same password as server, tunnel host:
+4. **`.env` (Mac)** — Postgres via tunnel; MySQL URL from step 3A or 3B:
 
    ```env
    DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@127.0.0.1:5434/gizra_db?schema=public
    MYSQL_MIGRATION_URL=mysql://root:migrate_local_root@127.0.0.1:3306/gizra_db
    ```
 
-4. **Terminal B**:
+5. **Terminal C** (Postgres tunnel must stay open):
 
    ```bash
    cd gizra-backend

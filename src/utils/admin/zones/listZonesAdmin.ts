@@ -8,6 +8,7 @@ export type AdminZoneListItem = {
   status: boolean;
   per_km_shipping_charge: number | null;
   minimum_shipping_charge: number | null;
+  base_distance_km: number | null;
   maximum_shipping_charge: number | null;
   max_cod_order_amount: number | null;
   increased_delivery_fee: number;
@@ -66,6 +67,7 @@ export async function listAdminZonesWithCounts(search?: string): Promise<AdminZo
     status: row.status,
     per_km_shipping_charge: row.per_km_shipping_charge,
     minimum_shipping_charge: row.minimum_shipping_charge,
+    base_distance_km: row.base_distance_km,
     maximum_shipping_charge: row.maximum_shipping_charge,
     max_cod_order_amount: row.max_cod_order_amount,
     increased_delivery_fee: row.increased_delivery_fee,

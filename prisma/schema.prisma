@@ -1366,6 +1366,7 @@ model restaurants {
   self_delivery_system      Boolean   @default(false)
   pos_system                Boolean   @default(false)
   minimum_shipping_charge   Decimal   @default(0.00) @db.Decimal(24, 2)
+  base_distance_km          Float?    @default(2)
   delivery_time             String?   @default("30-40") @db.VarChar(191)
   veg                       Boolean   @default(true)
   non_veg                   Boolean   @default(true)
@@ -1845,6 +1846,7 @@ model zones {
   customer_wise_topic              String?                @db.VarChar(191)
   deliveryman_wise_topic           String?                @db.VarChar(191)
   minimum_shipping_charge          Float?
+  base_distance_km                 Float?                 @default(2)
   per_km_shipping_charge           Float?
   maximum_shipping_charge          Float?
   max_cod_order_amount             Float?

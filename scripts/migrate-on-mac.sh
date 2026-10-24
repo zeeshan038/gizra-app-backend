@@ -4,11 +4,16 @@
 # Terminal 1 — Postgres prod via SSH:
 #   ./scripts/mac-db-tunnel.sh
 #
-# MySQL source (pick one):
-#   A) Local Docker from PHP dump:
-#      ./scripts/mysql-docker-import.sh /path/to/gizra_mysql_prod.sql
-#      export MYSQL_MIGRATION_URL='mysql://root:migrate_local_root@127.0.0.1:3306/gizra_db'
-#   B) Set MYSQL_MIGRATION_URL in .env to any reachable MySQL
+# MySQL source (pick one — all from Mac; PHP panel stays read-only):
+#   A) Snapshot (recommended): panel tunnel → dump → local Docker
+#      ./scripts/mac-mysql-panel-tunnel.sh
+#      ./scripts/mac-mysql-panel-dump.sh ~/Downloads/gizra_mysql_prod.sql
+#      ./scripts/mysql-docker-import.sh ~/Downloads/gizra_mysql_prod.sql
+#      MYSQL_MIGRATION_URL=mysql://root:migrate_local_root@127.0.0.1:3306/gizra_db
+#   B) Live read through tunnel (no dump file):
+#      ./scripts/mac-mysql-panel-tunnel.sh
+#      MYSQL_MIGRATION_URL=mysql://USER:PASS@127.0.0.1:3308/DB_NAME  (encode * as %2A)
+#   C) Old local backup dump only if you cannot reach panel MySQL
 #
 # Terminal 2:
 #   cd gizra-backend

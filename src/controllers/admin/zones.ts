@@ -24,6 +24,7 @@ function mapZoneAdmin(row: Awaited<ReturnType<typeof getZoneWithGeoById>>) {
     status: row.status,
     per_km_shipping_charge: row.per_km_shipping_charge,
     minimum_shipping_charge: row.minimum_shipping_charge,
+    base_distance_km: row.base_distance_km,
     maximum_shipping_charge: row.maximum_shipping_charge,
     max_cod_order_amount: row.max_cod_order_amount,
     increased_delivery_fee: row.increased_delivery_fee,
@@ -96,6 +97,7 @@ export const createAdminZone = async (req: Request, res: Response): Promise<any>
     coordinates: LngLatPair[];
     per_km_shipping_charge?: number;
     minimum_shipping_charge?: number;
+    base_distance_km?: number;
     maximum_shipping_charge?: number | null;
     max_cod_order_amount?: number | null;
     increased_delivery_fee?: number;
@@ -110,7 +112,8 @@ export const createAdminZone = async (req: Request, res: Response): Promise<any>
       status: body.status ?? true,
       coordinates: body.coordinates,
       per_km_shipping_charge: body.per_km_shipping_charge ?? 0,
-      minimum_shipping_charge: body.minimum_shipping_charge ?? 0,
+      minimum_shipping_charge: body.minimum_shipping_charge ?? 5,
+      base_distance_km: body.base_distance_km ?? 2,
       maximum_shipping_charge: body.maximum_shipping_charge ?? null,
       max_cod_order_amount: body.max_cod_order_amount ?? null,
       increased_delivery_fee: body.increased_delivery_fee ?? 0,
@@ -154,6 +157,7 @@ export const updateAdminZone = async (req: Request, res: Response): Promise<any>
     coordinates?: LngLatPair[];
     per_km_shipping_charge?: number;
     minimum_shipping_charge?: number;
+    base_distance_km?: number;
     maximum_shipping_charge?: number | null;
     max_cod_order_amount?: number | null;
     increased_delivery_fee?: number;
@@ -182,6 +186,9 @@ export const updateAdminZone = async (req: Request, res: Response): Promise<any>
           : {}),
         ...(body.minimum_shipping_charge !== undefined
           ? { minimum_shipping_charge: body.minimum_shipping_charge }
+          : {}),
+        ...(body.base_distance_km !== undefined
+          ? { base_distance_km: body.base_distance_km }
           : {}),
         ...(body.maximum_shipping_charge !== undefined
           ? { maximum_shipping_charge: body.maximum_shipping_charge }

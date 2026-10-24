@@ -87,6 +87,10 @@ export function mapOrderDetailLineItem(
   };
 }
 
+function roundMoney(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
 export function buildOrderPricing(order: orders, items: ReturnType<typeof mapOrderDetailLineItem>[]) {
   const productPrice = items.reduce((sum, i) => sum + i.line_subtotal, 0);
   const totalAddonPrice = items.reduce((sum, item) => {
@@ -94,19 +98,38 @@ export function buildOrderPricing(order: orders, items: ReturnType<typeof mapOrd
     return sum + (fromLines || item.total_add_on_price || 0);
   }, 0);
 
+  const subtotal = roundMoney(productPrice + totalAddonPrice);
+  const restaurant_discount_amount = Number(order.restaurant_discount_amount) || 0;
+  const coupon_discount_amount = Number(order.coupon_discount_amount) || 0;
+  const ref_bonus_amount = Number(order.ref_bonus_amount) || 0;
+  const total_tax_amount = Number(order.total_tax_amount) || 0;
+  const delivery_charge = Number(order.delivery_charge) || 0;
+
+  /** Food + addons after order-level discounts (before tax). */
+  const food_amount_after_discounts = roundMoney(
+    subtotal - restaurant_discount_amount - coupon_discount_amount - ref_bonus_amount
+  );
+
+  /** Restaurant settlement: food + delivery fee, minus VAT/tax withheld. */
+  const gizra_pays_you = roundMoney(
+    Math.max(0, food_amount_after_discounts + delivery_charge - total_tax_amount)
+  );
+
   return {
     items_price: productPrice,
     addon_cost: totalAddonPrice,
-    subtotal: productPrice + totalAddonPrice,
-    restaurant_discount_amount: Number(order.restaurant_discount_amount) || 0,
-    coupon_discount_amount: Number(order.coupon_discount_amount) || 0,
-    ref_bonus_amount: Number(order.ref_bonus_amount) || 0,
-    total_tax_amount: Number(order.total_tax_amount) || 0,
+    subtotal,
+    food_amount_after_discounts,
+    restaurant_discount_amount,
+    coupon_discount_amount,
+    ref_bonus_amount,
+    total_tax_amount,
     dm_tips: Number(order.dm_tips) || 0,
-    delivery_charge: Number(order.delivery_charge) || 0,
+    delivery_charge,
     additional_charge: Number(order.additional_charge) || 0,
     extra_packaging_amount: Number(order.extra_packaging_amount) || 0,
     order_amount: Number(order.order_amount) || 0,
+    gizra_pays_you,
     tax_status: order.tax_status,
   };
 }

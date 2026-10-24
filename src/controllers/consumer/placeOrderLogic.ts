@@ -11,7 +11,8 @@ import {
   getBusinessSettingNumber,
   parseJsonSetting,
 } from '../../utils/consumer/businessSettings';
-import { getZoneById } from '../../utils/consumer/zone';
+import { resolveTieredDeliveryPricing } from '../../utils/delivery/resolveDeliveryPricing';
+import { computeTieredDeliveryFee } from '../../utils/delivery/tieredDeliveryFee';
 import { calculateCouponDiscount, validateCouponForUser } from '../../utils/consumer/couponHelpers';
 import { createWalletTransaction } from '../../utils/consumer/walletTransactions';
 import {
@@ -155,6 +156,7 @@ async function calculateDeliveryFee(params: {
     free_delivery: boolean;
     self_delivery_system: boolean;
     minimum_shipping_charge: unknown;
+    base_distance_km?: unknown;
     per_km_shipping_charge: number | null;
     maximum_shipping_charge: number | null;
   };
@@ -170,43 +172,21 @@ async function calculateDeliveryFee(params: {
     return { delivery_charge: 0, original_delivery_charge: 0, max_cod_order_amount: 0 };
   }
 
-  let perKm = Number(params.restaurant.per_km_shipping_charge) || 0;
-  let minimum = Number(params.restaurant.minimum_shipping_charge) || 0;
-  let maximum = Number(params.restaurant.maximum_shipping_charge) || 0;
-  let maxCod = 0;
-  let increasedPct = 0;
+  const { pricing, max_cod_order_amount: maxCod } = await resolveTieredDeliveryPricing(
+    {
+      zone_id: params.restaurant.zone_id,
+      self_delivery_system: params.restaurant.self_delivery_system,
+      minimum_shipping_charge: params.restaurant.minimum_shipping_charge,
+      base_distance_km: params.restaurant.base_distance_km,
+      per_km_shipping_charge: params.restaurant.per_km_shipping_charge,
+      maximum_shipping_charge: params.restaurant.maximum_shipping_charge,
+    },
+    { latitude: params.latitude, longitude: params.longitude }
+  );
 
-  if (params.latitude && params.longitude && params.restaurant.zone_id) {
-    const zone = await getZoneById(Number(params.restaurant.zone_id));
-    if (zone) {
-      if (zone.per_km_shipping_charge != null && zone.minimum_shipping_charge != null) {
-        perKm = zone.per_km_shipping_charge;
-        minimum = zone.minimum_shipping_charge;
-        maximum = zone.maximum_shipping_charge ?? maximum;
-        maxCod = zone.max_cod_order_amount ?? 0;
-      }
-      if (zone.increased_delivery_fee_status && zone.increased_delivery_fee) {
-        increasedPct = zone.increased_delivery_fee;
-      }
-    }
-  }
-
-  if (params.restaurant.self_delivery_system) {
-    perKm = Number(params.restaurant.per_km_shipping_charge) || perKm;
-    minimum = Number(params.restaurant.minimum_shipping_charge) || minimum;
-    maximum = Number(params.restaurant.maximum_shipping_charge) || maximum;
-  }
-
-  let original = params.distance * perKm > minimum ? params.distance * perKm : minimum;
-  let delivery = params.distance * perKm > minimum ? params.distance * perKm : minimum;
-
-  if (maximum > minimum && original > maximum) original = maximum;
-  if (maximum > minimum && delivery > maximum) delivery = maximum;
-
-  if (increasedPct > 0) {
-    original += (original * increasedPct) / 100;
-    delivery += (delivery * increasedPct) / 100;
-  }
+  const breakdown = computeTieredDeliveryFee(params.distance, pricing);
+  let original = breakdown.delivery_fee;
+  let delivery = breakdown.delivery_fee;
 
   if (params.restaurant.free_delivery) {
     return {

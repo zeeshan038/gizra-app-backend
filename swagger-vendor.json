@@ -3680,6 +3680,67 @@
           "app_url_android_deliveryman": "https://play.google.com/store/apps/details?id=app.gizra.driver"
         }
       },
+      "ConsumerDeliveryFeePricingBreakdown": {
+        "type": "object",
+        "properties": {
+          "base_fee": {
+            "type": "number",
+            "example": 5
+          },
+          "base_distance_km": {
+            "type": "number",
+            "example": 2
+          },
+          "extra_per_km": {
+            "type": "number",
+            "example": 2
+          },
+          "extra_km": {
+            "type": "number",
+            "example": 2.2
+          },
+          "subtotal_before_surge": {
+            "type": "number",
+            "example": 9.4
+          },
+          "surge_percent": {
+            "type": "number",
+            "example": 0
+          }
+        }
+      },
+      "ConsumerDeliveryFeeQuoteResponse": {
+        "type": "object",
+        "properties": {
+          "restaurant_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "distance_km": {
+            "type": "number",
+            "example": 4.2
+          },
+          "distance_source": {
+            "type": "string",
+            "enum": [
+              "google",
+              "haversine",
+              "client"
+            ]
+          },
+          "delivery_fee": {
+            "type": "number",
+            "description": "Amount charged to customer (0 when restaurant free_delivery)"
+          },
+          "original_delivery_fee": {
+            "type": "number",
+            "description": "Fee before free-delivery promo"
+          },
+          "pricing": {
+            "$ref": "#/components/schemas/ConsumerDeliveryFeePricingBreakdown"
+          }
+        }
+      },
       "ConsumerGetZoneIdResponse": {
         "type": "object",
         "properties": {
@@ -3716,11 +3777,18 @@
           },
           "minimum_shipping_charge": {
             "type": "number",
-            "nullable": true
+            "nullable": true,
+            "description": "Base delivery fee (tiered model)"
+          },
+          "base_distance_km": {
+            "type": "number",
+            "nullable": true,
+            "description": "Km included in base fee"
           },
           "per_km_shipping_charge": {
             "type": "number",
-            "nullable": true
+            "nullable": true,
+            "description": "Extra charge per km after base_distance_km"
           },
           "maximum_shipping_charge": {
             "type": "number",

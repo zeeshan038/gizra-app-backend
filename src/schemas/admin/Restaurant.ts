@@ -75,6 +75,31 @@ export const adminRestaurantJoinQuerySchema = Joi.object({
   limit: Joi.number().integer().min(1).max(100).optional().default(15),
 });
 
+export const adminUpdateRestaurantSchema = Joi.object({
+  f_name: Joi.string().trim().max(100).required(),
+  l_name: Joi.string().trim().max(100).optional().allow('', null),
+  phone: Joi.string().trim().max(20).required(),
+  email: Joi.string().trim().email().max(100).required(),
+  password: Joi.string().min(8).optional().allow('', null),
+  names: localeNamesSchema.required(),
+  addresses: localeAddressesSchema.required(),
+  latitude: Joi.number().min(-90).max(90).required(),
+  longitude: Joi.number().min(-180).max(180).required(),
+  zone_id: Joi.number().integer().required(),
+  tax: Joi.number().min(0).required(),
+  minimum_delivery_time: Joi.number().integer().required(),
+  maximum_delivery_time: Joi.number().integer().greater(Joi.ref('minimum_delivery_time')).required(),
+  delivery_time_type: Joi.string().valid('min', 'hours').required(),
+  cuisine_ids: Joi.array().items(Joi.number().integer()).optional(),
+  tags: Joi.array().items(Joi.string().trim().max(255)).optional(),
+  logo: Joi.string().trim().max(191).optional().allow('', null),
+  cover_photo: Joi.string().trim().max(191).optional().allow('', null),
+});
+
+export const adminRestaurantStatusSchema = Joi.object({
+  status: Joi.boolean().required(),
+});
+
 export const adminRestaurantBulkExportSchema = Joi.object({
   type: Joi.string().valid('all', 'date_wise', 'id_wise').required(),
   start_id: Joi.when('type', { is: 'id_wise', then: Joi.number().integer().min(0).required(), otherwise: Joi.optional() }),

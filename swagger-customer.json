@@ -3709,6 +3709,67 @@
           "app_url_android_deliveryman": "https://play.google.com/store/apps/details?id=app.gizra.driver"
         }
       },
+      "ConsumerDeliveryFeePricingBreakdown": {
+        "type": "object",
+        "properties": {
+          "base_fee": {
+            "type": "number",
+            "example": 5
+          },
+          "base_distance_km": {
+            "type": "number",
+            "example": 2
+          },
+          "extra_per_km": {
+            "type": "number",
+            "example": 2
+          },
+          "extra_km": {
+            "type": "number",
+            "example": 2.2
+          },
+          "subtotal_before_surge": {
+            "type": "number",
+            "example": 9.4
+          },
+          "surge_percent": {
+            "type": "number",
+            "example": 0
+          }
+        }
+      },
+      "ConsumerDeliveryFeeQuoteResponse": {
+        "type": "object",
+        "properties": {
+          "restaurant_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "distance_km": {
+            "type": "number",
+            "example": 4.2
+          },
+          "distance_source": {
+            "type": "string",
+            "enum": [
+              "google",
+              "haversine",
+              "client"
+            ]
+          },
+          "delivery_fee": {
+            "type": "number",
+            "description": "Amount charged to customer (0 when restaurant free_delivery)"
+          },
+          "original_delivery_fee": {
+            "type": "number",
+            "description": "Fee before free-delivery promo"
+          },
+          "pricing": {
+            "$ref": "#/components/schemas/ConsumerDeliveryFeePricingBreakdown"
+          }
+        }
+      },
       "ConsumerGetZoneIdResponse": {
         "type": "object",
         "properties": {
@@ -3745,11 +3806,18 @@
           },
           "minimum_shipping_charge": {
             "type": "number",
-            "nullable": true
+            "nullable": true,
+            "description": "Base delivery fee (tiered model)"
+          },
+          "base_distance_km": {
+            "type": "number",
+            "nullable": true,
+            "description": "Km included in base fee"
           },
           "per_km_shipping_charge": {
             "type": "number",
-            "nullable": true
+            "nullable": true,
+            "description": "Extra charge per km after base_distance_km"
           },
           "maximum_shipping_charge": {
             "type": "number",
@@ -9005,6 +9073,141 @@
         },
         "tags": [
           "Consumer Config"
+        ]
+      }
+    },
+    "/consumer/config/delivery-fee": {
+      "get": {
+        "description": "Quote tiered delivery fee for checkout: **base fee** covers the first **base distance (km)**; each additional km uses **extra per km**. Server loads restaurant origin from DB, computes route distance (Google Distance Matrix walking, haversine fallback), applies zone pricing (restaurant overrides when self-delivery). Public; no Bearer.",
+        "responses": {
+          "200": {
+            "description": "Delivery fee quote",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerDeliveryFeeQuoteResponse"
+                },
+                "example": {
+                  "restaurant_id": 1,
+                  "distance_km": 4.2,
+                  "distance_source": "google",
+                  "delivery_fee": 9.4,
+                  "original_delivery_fee": 9.4,
+                  "pricing": {
+                    "base_fee": 5,
+                    "base_distance_km": 2,
+                    "extra_per_km": 2,
+                    "extra_km": 2.2,
+                    "subtotal_before_surge": 9.4,
+                    "surge_percent": 0
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, restaurant not delivering, or missing restaurant location",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Restaurant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Config"
+        ],
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "example": 1
+            }
+          },
+          {
+            "name": "destination_lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 31.768
+            },
+            "description": "Customer delivery latitude"
+          },
+          {
+            "name": "destination_lng",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 35.214
+            },
+            "description": "Customer delivery longitude"
+          },
+          {
+            "name": "distance_km",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "example": 4.2
+            },
+            "description": "Optional — skip Google/haversine when client already computed route distance (e.g. from GET /consumer/config/distance)"
+          }
         ]
       }
     },

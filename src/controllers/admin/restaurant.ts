@@ -5,7 +5,15 @@ import {
   adminRestaurantBulkExportSchema,
   adminRestaurantJoinQuerySchema,
   adminRestaurantListQuerySchema,
+  adminRestaurantStatusSchema,
+  adminUpdateRestaurantSchema,
 } from '../../schemas/admin/Restaurant';
+import { getAdminRestaurantDetail } from '../../utils/admin/restaurants/getAdminRestaurantDetail';
+import { getRestaurantsAdminStats } from '../../utils/admin/restaurants/restaurantsAdminStats';
+import {
+  setAdminRestaurantStatus,
+  updateAdminRestaurant,
+} from '../../utils/admin/restaurants/updateAdminRestaurant';
 import { createAdminRestaurant } from '../../utils/admin/restaurants/createAdminRestaurant';
 import {
   bulkImportRestaurantsFromRows,
@@ -92,6 +100,98 @@ export const listAdminRestaurantJoinRequests = async (req: Request, res: Respons
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'List failed';
     return res.status(500).json({ status: false, msg });
+  }
+};
+
+/**
+ * @Route GET /api/admin/restaurants/stats
+ */
+export const getAdminRestaurantStats = async (req: Request, res: Response): Promise<any> => {
+  const validated = adminRestaurantListQuerySchema.validate(parseListQuery(req), {
+    stripUnknown: true,
+  });
+  if (validated.error) {
+    return res.status(400).json({ status: false, msg: validated.error.details[0]?.message });
+  }
+  try {
+    const stats = await getRestaurantsAdminStats({
+      ...validated.value,
+      vendorApprovedOnly: true,
+    });
+    return res.status(200).json({ status: true, msg: 'Success', data: stats });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Stats failed';
+    return res.status(500).json({ status: false, msg });
+  }
+};
+
+/**
+ * @Route GET /api/admin/restaurants/:id
+ */
+export const getAdminRestaurant = async (req: Request, res: Response): Promise<any> => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id) || id <= 0) {
+    return res.status(400).json({ status: false, msg: 'Invalid restaurant id' });
+  }
+  try {
+    const data = await getAdminRestaurantDetail(id);
+    if (!data) {
+      return res.status(404).json({ status: false, msg: 'Restaurant not found' });
+    }
+    return res.status(200).json({ status: true, msg: 'Success', data });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Failed';
+    return res.status(500).json({ status: false, msg });
+  }
+};
+
+/**
+ * @Route PATCH /api/admin/restaurants/:id
+ */
+export const patchAdminRestaurant = async (req: Request, res: Response): Promise<any> => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id) || id <= 0) {
+    return res.status(400).json({ status: false, msg: 'Invalid restaurant id' });
+  }
+  const validated = adminUpdateRestaurantSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({ status: false, msg: validated.error.details[0]?.message });
+  }
+  try {
+    const data = await updateAdminRestaurant(id, validated.value);
+    return res.status(200).json({
+      status: true,
+      msg: 'Restaurant updated successfully',
+      data,
+    });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Update failed';
+    return res.status(400).json({ status: false, msg });
+  }
+};
+
+/**
+ * @Route PATCH /api/admin/restaurants/:id/status
+ */
+export const patchAdminRestaurantStatus = async (req: Request, res: Response): Promise<any> => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id) || id <= 0) {
+    return res.status(400).json({ status: false, msg: 'Invalid restaurant id' });
+  }
+  const validated = adminRestaurantStatusSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({ status: false, msg: validated.error.details[0]?.message });
+  }
+  try {
+    const data = await setAdminRestaurantStatus(id, validated.value.status);
+    return res.status(200).json({
+      status: true,
+      msg: 'Restaurant status updated',
+      data,
+    });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Status update failed';
+    return res.status(400).json({ status: false, msg });
   }
 };
 
