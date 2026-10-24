@@ -48,10 +48,31 @@ if [[ -z "${MYSQL_MIGRATION_URL:-}" ]]; then
 fi
 export MYSQL_MIGRATION_URL="${MYSQL_MIGRATION_URL:-mysql://root:migrate_local_root@127.0.0.1:3307/gizra_db}"
 
-if ! command -v pg_isready >/dev/null 2>&1 || ! pg_isready -h 127.0.0.1 -p 5434 -q 2>/dev/null; then
-  echo "Postgres not ready on 127.0.0.1:5434"
+PG_LOCAL_PORT="${GIZRA_DB_LOCAL_PORT:-5434}"
+if ! command -v pg_isready >/dev/null 2>&1 || ! pg_isready -h 127.0.0.1 -p "$PG_LOCAL_PORT" -q 2>/dev/null; then
+  echo "Postgres not ready on 127.0.0.1:${PG_LOCAL_PORT}"
   echo "Start tunnel in another terminal: ./scripts/mac-db-tunnel.sh"
+  echo "(If local Docker uses 5434, use GIZRA_DB_LOCAL_PORT=5435 for the tunnel and DATABASE_URL.)"
   exit 1
+fi
+
+# Local `docker compose` often publishes gizra-postgres on 5434 — same port as the SSH tunnel.
+# pg_isready alone cannot tell them apart; migrating with --apply would update the wrong database.
+if [[ " $* " == *" --apply "* ]]; then
+  if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx 'gizra-postgres'; then
+    mapped="$(docker port gizra-postgres 5432 2>/dev/null | head -1 || true)"
+    if [[ "$mapped" == *":${PG_LOCAL_PORT}"* ]]; then
+      echo ""
+      echo "FAIL: Local Docker container gizra-postgres is listening on 127.0.0.1:${PG_LOCAL_PORT}."
+      echo "Your DATABASE_URL likely points at Mac Postgres, NOT Hetzner prod."
+      echo ""
+      echo "  docker compose -f docker-compose.yml down   # or stop only gizra-postgres"
+      echo "  ./scripts/mac-db-tunnel.sh                  # then migrate again"
+      echo "Or use tunnel port 5435: GIZRA_DB_LOCAL_PORT=5435 + DATABASE_URL @127.0.0.1:5435"
+      echo "For prod load on the VPS use: ./scripts/migrate-on-server.sh"
+      exit 1
+    fi
+  fi
 fi
 
 if [[ ! -f "$ROOT_DIR/node_modules/mysql2/package.json" ]]; then
@@ -71,7 +92,7 @@ if ! nc -z 127.0.0.1 "$mysql_port" 2>/dev/null; then
   exit 1
 fi
 
-echo "DATABASE_URL from .env → prod Postgres (tunnel)"
+echo "DATABASE_URL from .env → Postgres @127.0.0.1:${PG_LOCAL_PORT} (confirm this is the SSH tunnel, not local Docker)"
 echo "MYSQL_MIGRATION_URL → ${MYSQL_MIGRATION_URL}"
 if [[ " $* " == *" --apply "* && " $* " == *" --truncate "* ]]; then
   echo ""
