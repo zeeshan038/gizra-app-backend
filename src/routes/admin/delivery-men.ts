@@ -2,7 +2,9 @@ import express from 'express';
 import {
   addAdminDeliveryManBonus,
   approveAllAdminIncentives,
+  createAdminDeliveryManHandler,
   denyAdminIncentive,
+  listAdminDeliveryVehicles,
   listAdminDeliveryManBonus,
   listAdminDeliveryManJoinRequests,
   listAdminDeliveryManReviews,
@@ -19,6 +21,8 @@ import { verifyAdmin } from '../../middlewares/verifyAdmin';
 const router = express.Router();
 router.use(verifyAdmin);
 
+router.get('/vehicles', listAdminDeliveryVehicles);
+router.post('/', createAdminDeliveryManHandler);
 router.get('/list', listAdminDeliveryMen);
 router.get('/join-requests', listAdminDeliveryManJoinRequests);
 router.get('/select', selectAdminDeliveryMen);

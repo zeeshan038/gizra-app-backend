@@ -51,3 +51,29 @@ export const adminListQuerySchema = Joi.object({
 export const adminReviewStatusSchema = Joi.object({
   status: Joi.boolean().required(),
 });
+
+const identityTypeValues = ['passport', 'driving_license', 'nid', 'restaurant_id'] as const;
+
+export const adminCreateDeliveryManSchema = Joi.object({
+  f_name: Joi.string().trim().max(100).required(),
+  l_name: Joi.string().trim().max(100).optional().allow('', null),
+  email: Joi.string().trim().email().max(100).required(),
+  phone: Joi.string().trim().max(20).required(),
+  password: Joi.string()
+    .min(8)
+    .max(100)
+    .pattern(/^\S+$/)
+    .required()
+    .messages({
+      'string.pattern.base': 'Password cannot contain spaces',
+    }),
+  zone_id: Joi.number().integer().required(),
+  vehicle_id: Joi.number().integer().required(),
+  earning: Joi.boolean().required(),
+  identity_type: Joi.string()
+    .valid(...identityTypeValues)
+    .required(),
+  identity_number: Joi.string().trim().max(30).required(),
+  image: Joi.string().trim().max(191).optional().allow('', null),
+  identity_image: Joi.array().items(Joi.string().trim().max(191)).max(5).optional(),
+});

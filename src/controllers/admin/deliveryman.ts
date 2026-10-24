@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../../config/database';
 import {
+  adminCreateDeliveryManSchema,
   adminDeliveryManApplicationSchema,
   adminDeliveryManBonusSchema,
   adminDeliveryManJoinQuerySchema,
@@ -12,6 +13,7 @@ import {
   adminReviewStatusSchema,
 } from '../../schemas/admin/DeliveryMan';
 import { dmWalletTransaction } from '../../utils/admin/deliverymen/dmWalletTransaction';
+import { createAdminDeliveryMan } from '../../utils/admin/deliverymen/createAdminDeliveryMan';
 import { listDeliveryMenAdmin } from '../../utils/admin/deliverymen/listDeliveryMenAdmin';
 import { sendDeliveryManRegistrationDecisionPush } from '../../utils/notifications/sendRegistrationDecisionPush';
 
@@ -56,6 +58,51 @@ async function deliveryManIdsMatchingSearch(search?: string): Promise<number[] |
   });
   return rows.map((r) => Number(r.id));
 }
+
+/**
+ * @Route GET /api/admin/delivery-men/vehicles
+ */
+export const listAdminDeliveryVehicles = async (_req: Request, res: Response): Promise<any> => {
+  try {
+    const rows = await prisma.vehicles.findMany({
+      where: { status: true },
+      select: { id: true, type: true },
+      orderBy: { id: 'asc' },
+    });
+    const data = rows.map((v) => ({ id: Number(v.id), type: v.type }));
+    return res.status(200).json({ status: true, msg: 'Success', data });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'List failed';
+    return res.status(500).json({ status: false, msg });
+  }
+};
+
+/**
+ * @Route POST /api/admin/delivery-men
+ */
+export const createAdminDeliveryManHandler = async (req: Request, res: Response): Promise<any> => {
+  const validated = adminCreateDeliveryManSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({ status: false, msg: validated.error.details[0]?.message });
+  }
+  try {
+    const data = await createAdminDeliveryMan(validated.value);
+    return res.status(201).json({
+      status: true,
+      msg: 'Delivery man added successfully',
+      data,
+    });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Create failed';
+    const status =
+      msg === 'Phone or email already exists' ||
+      msg === 'Invalid or inactive zone' ||
+      msg === 'Invalid or inactive vehicle'
+        ? 400
+        : 500;
+    return res.status(status).json({ status: false, msg });
+  }
+};
 
 /**
  * @Route GET /api/admin/delivery-men/list
