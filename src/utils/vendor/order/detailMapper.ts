@@ -114,6 +114,7 @@ export function buildOrderPricing(order: orders, items: ReturnType<typeof mapOrd
   const tax_on_order_value = taxOnOrderValue(order_value);
   const gizra_pays_you = gizraPaysRestaurant(order_value);
   const restaurant_list_total = roundMoney(order_value + delivery_charge);
+  const customer_paid_food_delivery = restaurant_list_total;
 
   return {
     items_price: productPrice,
@@ -129,6 +130,7 @@ export function buildOrderPricing(order: orders, items: ReturnType<typeof mapOrd
     tax_on_order_value,
     tax_percent_on_order: 10,
     restaurant_list_total,
+    customer_paid_food_delivery,
     dm_tips: Number(order.dm_tips) || 0,
     delivery_charge,
     additional_charge: Number(order.additional_charge) || 0,

@@ -104,11 +104,7 @@ async function main() {
       await client.query('SELECT 1');
     });
     console.log('Postgres OK (SELECT 1).');
-    try {
-      await applySchemaPatches();
-    } catch (patchErr) {
-      console.warn('[ensure-db-access] Schema patch skipped:', patchErr.message || patchErr);
-    }
+    await applySchemaPatches();
     return;
   } catch (first) {
     if (isAuthFailure(first)) {
@@ -126,11 +122,7 @@ async function main() {
   try {
     await repairGrants();
     console.log('Postgres OK after grant repair.');
-    try {
-      await applySchemaPatches();
-    } catch (patchErr) {
-      console.warn('[ensure-db-access] Schema patch skipped:', patchErr.message || patchErr);
-    }
+    await applySchemaPatches();
   } catch (err) {
     console.error('FATAL: Grant repair failed:', err.message || err);
     console.error('On server run: ./scripts/ensure-postgres-password.sh && ./scripts/fix-postgres-grants.sh');

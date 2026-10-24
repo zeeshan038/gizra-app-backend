@@ -28,6 +28,7 @@
     "test:commission-flow": "node ./node_modules/ts-node/dist/bin.js scripts/runCommissionFlowTest.ts",
     "test:request-gizra-driver": "node ./node_modules/ts-node/dist/bin.js scripts/testRequestGizraDriverCashInHand.ts",
     "test:deliver-latest-order": "node ./node_modules/ts-node/dist/bin.js scripts/deliverLatestOrderForTesting.ts",
+    "db:patch-tiered-delivery": "node scripts/run-tiered-delivery-patch.js",
     "deploy:server": "bash scripts/deploy-server.sh",
     "fix:prod-db": "bash scripts/fix-prod-now.sh",
     "repair:prod-stack": "npm run deploy:server",
