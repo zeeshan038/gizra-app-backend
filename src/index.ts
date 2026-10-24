@@ -1,7 +1,7 @@
 import './loadEnv';
 import { swaggerUiCustomerOptions } from './utils/swaggerUiCustomerOptions';
 import http from 'http';
-import express, { Request, Response } from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import { initSocketServer } from './sockets';
 import cors from 'cors';
 import apiRouter from './routes/index';
@@ -40,6 +40,16 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api', apiRouter);
 /** PHP parity: /payment/hyperpay/* (not under /api) — register notify URL with HYP as-is */
 app.use('/payment/hyperpay', hyperPayRoutes);
+
+/** Always JSON for API failures (avoid HTML "<!DOCTYPE" parse errors in clients). */
+app.use('/api', (err: unknown, _req: Request, res: Response, next: NextFunction) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+  console.error('[api]', err);
+  const msg = err instanceof Error ? err.message : 'Internal Server Error';
+  return res.status(500).json({ status: false, msg });
+});
 
 // Swagger Setup (role specs at repo root — same pattern as Jikanzo)
 const openApiDir = path.join(__dirname, '..');

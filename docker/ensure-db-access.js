@@ -28,6 +28,15 @@ function quoteIdent(name) {
 const DB = dbNameFromUrl(url);
 const DB_IDENT = quoteIdent(DB);
 
+const TIERED_DELIVERY_PATCH = `
+ALTER TABLE zones
+  ADD COLUMN IF NOT EXISTS base_distance_km double precision DEFAULT 2;
+ALTER TABLE restaurants
+  ADD COLUMN IF NOT EXISTS base_distance_km double precision DEFAULT 2;
+UPDATE zones SET base_distance_km = 2 WHERE base_distance_km IS NULL;
+UPDATE restaurants SET base_distance_km = 2 WHERE base_distance_km IS NULL;
+`;
+
 const PUBLIC_GRANTS = `
 ALTER SCHEMA public OWNER TO postgres;
 GRANT USAGE, CREATE ON SCHEMA public TO postgres;
@@ -72,6 +81,13 @@ async function repairGrants() {
   });
 }
 
+async function applySchemaPatches() {
+  await withClient(url, async (client) => {
+    await client.query(TIERED_DELIVERY_PATCH);
+  });
+  console.log('Schema patches OK (base_distance_km).');
+}
+
 function isDeniedPublic(err) {
   const msg = err instanceof Error ? err.message : String(err);
   return /denied access on the database|P1010|permission denied for schema public/i.test(msg);
@@ -88,6 +104,11 @@ async function main() {
       await client.query('SELECT 1');
     });
     console.log('Postgres OK (SELECT 1).');
+    try {
+      await applySchemaPatches();
+    } catch (patchErr) {
+      console.warn('[ensure-db-access] Schema patch skipped:', patchErr.message || patchErr);
+    }
     return;
   } catch (first) {
     if (isAuthFailure(first)) {
@@ -105,6 +126,11 @@ async function main() {
   try {
     await repairGrants();
     console.log('Postgres OK after grant repair.');
+    try {
+      await applySchemaPatches();
+    } catch (patchErr) {
+      console.warn('[ensure-db-access] Schema patch skipped:', patchErr.message || patchErr);
+    }
   } catch (err) {
     console.error('FATAL: Grant repair failed:', err.message || err);
     console.error('On server run: ./scripts/ensure-postgres-password.sh && ./scripts/fix-postgres-grants.sh');
