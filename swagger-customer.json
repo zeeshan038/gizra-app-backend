@@ -44,6 +44,10 @@
       "description": "Zone resolve and map. **Frontend flow:** GET /consumer/config/zone-id → parse zone_id → query zone_id on GET /consumer/restaurants/nearby (with lat/lng), /popular, /all, GET /consumer/home-slider, GET /consumer/categories (What's on your mind), favourites."
     },
     {
+      "name": "Consumer Config",
+      "description": "Google Places, distance, and checkout helpers (public, no Bearer). Includes **GET /consumer/config/delivery-fee** (tiered delivery quote), GET /consumer/config/distance, place-autocomplete, place-details, geocode, payment-methods, vehicles."
+    },
+    {
       "name": "Consumer Notifications",
       "description": "GET /consumer/notifications, PUT /notifications/toggle, DELETE /notifications/{id}. Use zoneId header or zone_id query."
     },
@@ -62,6 +66,27 @@
     {
       "name": "Consumer Coupons",
       "description": "Coupon list, apply validation, and public restaurant-wise coupons. **Zone:** pass query `zone_id` from `GET /consumer/config/zone-id` (required for list & restaurant-wise). Errors: `{ \"status\": false, \"msg\": \"...\" }`."
+    },
+    {
+      "name": "App Config (All Apps)"
+    },
+    {
+      "name": "Legal Pages (All Apps)"
+    },
+    {
+      "name": "Consumer Zone"
+    },
+    {
+      "name": "Consumer Foods"
+    },
+    {
+      "name": "Consumer Apply"
+    },
+    {
+      "name": "Upload"
+    },
+    {
+      "name": "Storage"
     }
   ],
   "components": {
@@ -9167,6 +9192,8 @@
         "tags": [
           "Consumer Config"
         ],
+        "summary": "Quote delivery fee (tiered)",
+        "operationId": "getConsumerConfigDeliveryFee",
         "parameters": [
           {
             "name": "restaurant_id",

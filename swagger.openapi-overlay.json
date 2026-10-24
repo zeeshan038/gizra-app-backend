@@ -8118,6 +8118,8 @@
     },
     "/consumer/config/delivery-fee": {
       "get": {
+        "summary": "Quote delivery fee (tiered)",
+        "operationId": "getConsumerConfigDeliveryFee",
         "description": "Quote tiered delivery fee for checkout: **base fee** covers the first **base distance (km)**; each additional km uses **extra per km**. Server loads restaurant origin from DB, computes route distance (Google Distance Matrix walking, haversine fallback), applies zone pricing (restaurant overrides when self-delivery). Public; no Bearer.",
         "parameters": [
           {
@@ -17745,6 +17747,10 @@
     {
       "name": "Consumer Zones",
       "description": "Zone resolve and map. **Frontend flow:** GET /consumer/config/zone-id → parse zone_id → query zone_id on GET /consumer/restaurants/nearby (with lat/lng), /popular, /all, GET /consumer/home-slider, GET /consumer/categories (What's on your mind), favourites."
+    },
+    {
+      "name": "Consumer Config",
+      "description": "Google Places, distance, and checkout helpers (public, no Bearer). Includes **GET /consumer/config/delivery-fee** (tiered delivery quote), GET /consumer/config/distance, place-autocomplete, place-details, geocode, payment-methods, vehicles."
     },
     {
       "name": "Delivery Man Home",

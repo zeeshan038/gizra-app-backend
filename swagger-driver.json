@@ -39,6 +39,18 @@
     {
       "name": "Delivery Man Chat",
       "description": "Driver messaging (PHP /api/v1/delivery-man/message/*). Chat with customer and vendor. Socket: `delivery_man:{id}` room + `watch_conversation`."
+    },
+    {
+      "name": "App Config (All Apps)"
+    },
+    {
+      "name": "Legal Pages (All Apps)"
+    },
+    {
+      "name": "Upload"
+    },
+    {
+      "name": "Storage"
     }
   ],
   "components": {

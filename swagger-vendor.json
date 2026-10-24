@@ -33,6 +33,18 @@
     {
       "name": "Vendor Chat",
       "description": "Restaurant/POS messaging (PHP /api/v1/vendor/message/*). Reply to customers and drivers. List response uses JSON key `conversation`."
+    },
+    {
+      "name": "App Config (All Apps)"
+    },
+    {
+      "name": "Legal Pages (All Apps)"
+    },
+    {
+      "name": "Upload"
+    },
+    {
+      "name": "Storage"
     }
   ],
   "components": {

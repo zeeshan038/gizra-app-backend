@@ -188,15 +188,23 @@ function pathMatches(routePath, prefixes) {
 }
 
 function usedTags(allTags, paths) {
-  const names = new Set();
+  const usedNames = new Set();
   for (const methods of Object.values(paths)) {
     for (const endpoint of Object.values(methods)) {
       if (endpoint && Array.isArray(endpoint.tags)) {
-        endpoint.tags.forEach((tag) => names.add(tag));
+        endpoint.tags.forEach((tag) => usedNames.add(tag));
       }
     }
   }
-  return (allTags || []).filter((tag) => names.has(tag.name));
+  const known = new Map((allTags || []).map((tag) => [tag.name, tag]));
+  const result = [];
+  for (const tag of allTags || []) {
+    if (usedNames.has(tag.name)) result.push(tag);
+  }
+  for (const name of usedNames) {
+    if (!known.has(name)) result.push({ name });
+  }
+  return result;
 }
 
 function writeRoleSpecs(swaggerDoc) {

@@ -10490,6 +10490,8 @@
         "tags": [
           "Consumer Config"
         ],
+        "summary": "Quote delivery fee (tiered)",
+        "operationId": "getConsumerConfigDeliveryFee",
         "parameters": [
           {
             "name": "restaurant_id",
@@ -52979,6 +52981,10 @@
     {
       "name": "Consumer Zones",
       "description": "Zone resolve and map. **Frontend flow:** GET /consumer/config/zone-id → parse zone_id → query zone_id on GET /consumer/restaurants/nearby (with lat/lng), /popular, /all, GET /consumer/home-slider, GET /consumer/categories (What's on your mind), favourites."
+    },
+    {
+      "name": "Consumer Config",
+      "description": "Google Places, distance, and checkout helpers (public, no Bearer). Includes **GET /consumer/config/delivery-fee** (tiered delivery quote), GET /consumer/config/distance, place-autocomplete, place-details, geocode, payment-methods, vehicles."
     },
     {
       "name": "Delivery Man Home",

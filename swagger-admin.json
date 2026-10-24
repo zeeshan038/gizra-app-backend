@@ -21,6 +21,21 @@
     {
       "name": "Admin Zones",
       "description": "Delivery zones (PostGIS polygons). Admin JWT. Assign restaurants via PUT /admin/zones/restaurant/{restaurantId}."
+    },
+    {
+      "name": "App Config (All Apps)"
+    },
+    {
+      "name": "Legal Pages (All Apps)"
+    },
+    {
+      "name": "Admin"
+    },
+    {
+      "name": "Upload"
+    },
+    {
+      "name": "Storage"
     }
   ],
   "components": {
