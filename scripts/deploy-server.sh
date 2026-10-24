@@ -10,6 +10,11 @@ if [[ ! -f .env ]] || ! grep -qE '^DATABASE_URL=' .env; then
   exit 1
 fi
 
+if grep -qE '^DATABASE_URL=.*(127\.0\.0\.1|localhost)' .env || grep -qE '^REDIS_URL=.*(127\.0\.0\.1|localhost)' .env; then
+  echo "Mac-style .env detected (localhost) — rewriting for server (postgres:5432, redis:6379)…"
+  node scripts/normalize-server-env.js
+fi
+
 if grep -qE '^DATABASE_URL=.*(127\.0\.0\.1|localhost)' .env; then
   echo "Fix .env: on the server use postgres:5432 or 167.x:5434 — not localhost."
   exit 1
