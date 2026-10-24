@@ -506,11 +506,19 @@ export const login = async (req: Request, res: Response): Promise<any> => {
                 return res.status(403).json({ status: false, msg: 'Email does not match Google account.' });
             }
 
+            const pk = profile.id ?? profile.kid ?? profile.sub;
+            const unique_id =
+              payload.unique_id?.trim() || (pk != null ? String(pk) : '');
+
+            if (!unique_id) {
+                return res.status(403).json({ status: false, msg: 'Invalid Google credentials.' });
+            }
+
             try {
                 const data = await processConsumerSocialLogin(profile, {
                     token: payload.token,
                     email: payload.email,
-                    unique_id: payload.unique_id,
+                    unique_id,
                     medium: 'google',
                     verified: payload.verified,
                     guest_id: payload.guest_id,

@@ -3,7 +3,9 @@ import prisma from '../../config/database';
 import {
   adminOrdersListQuerySchema,
   adminSubscriptionsListQuerySchema,
+  assignAdminOrderDeliveryManSchema,
 } from '../../schemas/admin/Orders';
+import { assignAdminOrderDeliveryMan } from '../../utils/admin/orders/assignDeliveryMan';
 import { getAdminOrderCounts } from '../../utils/admin/orders/counts';
 import { getAdminOrderDetail } from '../../utils/admin/orders/orderDetail';
 import { listAdminOrders } from '../../utils/admin/orders/listOrders';
@@ -115,6 +117,41 @@ export const getAdminOrderDetailHandler = async (req: Request, res: Response): P
       return res.status(404).json({ status: false, msg: 'Order not found' });
     }
     return res.status(200).json({ status: true, msg: 'Success', data });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message });
+  }
+};
+
+/**
+ * @Description Assign or reassign delivery man (legacy admin add-delivery-man)
+ * @Route PUT /api/admin/orders/:orderId/delivery-man
+ */
+export const assignAdminOrderDeliveryManHandler = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const orderId = Number(req.params.orderId);
+  if (!Number.isFinite(orderId) || orderId <= 0) {
+    return res.status(400).json({ status: false, msg: 'Invalid order id' });
+  }
+
+  const validated = assignAdminOrderDeliveryManSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(', '),
+    });
+  }
+
+  try {
+    const result = await assignAdminOrderDeliveryMan(
+      orderId,
+      validated.value.delivery_man_id
+    );
+    if (!result.ok) {
+      return res.status(result.status).json({ status: false, msg: result.msg });
+    }
+    return res.status(200).json({ status: true, msg: 'Delivery man assigned successfully' });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });
   }

@@ -33,7 +33,9 @@ export async function listAdminOrders(params: AdminListOrdersParams) {
 
   // PHP marks unchecked orders as seen when opening order lists
   await prisma.orders.updateMany({
-    where: { checked: false, ...notPosOnly() },
+    where: manualOnly
+      ? { checked: false, is_manual_dispatch: true }
+      : { checked: false, ...notPosOnly() },
     data: { checked: true },
   });
 

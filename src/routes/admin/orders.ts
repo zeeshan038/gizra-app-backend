@@ -4,6 +4,7 @@ import {
   getAdminOrderCountsHandler,
   deleteAdminOrderHandler,
   getAdminOrderDetailHandler,
+  assignAdminOrderDeliveryManHandler,
   getAdminOrderInvoiceHandler,
   getAdminSubscriptionDetailHandler,
   listAdminOrdersHandler,
@@ -20,6 +21,7 @@ router.get('/new-order-alert', getAdminNewOrderAlertHandler);
 router.get('/subscriptions/list', listAdminSubscriptionsHandler);
 router.get('/subscriptions/:subscriptionId', getAdminSubscriptionDetailHandler);
 router.delete('/:orderId', deleteAdminOrderHandler);
+router.put('/:orderId/delivery-man', assignAdminOrderDeliveryManHandler);
 router.get('/:orderId/invoice', getAdminOrderInvoiceHandler);
 router.get('/:orderId', getAdminOrderDetailHandler);
 router.get('/', listAdminOrdersHandler);

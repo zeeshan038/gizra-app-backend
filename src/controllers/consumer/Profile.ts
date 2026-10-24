@@ -14,6 +14,7 @@ import {
   parseInterestCategoryIds,
   persistUserZoneId,
 } from '../../utils/consumer/profileHelpers';
+import { fitDbString, normalizeStoredMedia } from '../../utils/mediaStorage';
 
 function requireUserId(req: Request, res: Response): number | null {
   const userId = Number(req.user?.id);
@@ -118,8 +119,8 @@ export const updateProfile = async (req: Request, res: Response): Promise<any> =
     if (!fName?.trim()) {
       return res.status(400).json({ status: false, msg: 'Name is required' });
     }
-    data.f_name = fName.trim();
-    data.l_name = lName.trim();
+    data.f_name = fitDbString(fName.trim(), 100);
+    data.l_name = fitDbString(lName.trim(), 100) ?? '';
   }
 
   if (body.current_language_key !== undefined) {
@@ -155,7 +156,10 @@ export const updateProfile = async (req: Request, res: Response): Promise<any> =
 
     if (body.email !== undefined) data.email = body.email || null;
     if (body.phone !== undefined) data.phone = body.phone || null;
-    if (body.image !== undefined) data.image = body.image || null;
+    if (body.image !== undefined) {
+      const raw = body.image?.trim();
+      data.image = raw ? normalizeStoredMedia(raw, '', 100) || null : null;
+    }
 
     if (body.email && body.email !== user.email) {
       data.is_email_verified = false;
@@ -212,11 +216,21 @@ export const updateFirebaseToken = async (req: Request, res: Response): Promise<
   }
 
   const { cm_firebase_token } = validated.value as { cm_firebase_token: string };
+  const token = cm_firebase_token.trim();
+  if (!token) {
+    return res.status(400).json({ status: false, msg: 'cm_firebase_token is required' });
+  }
+  if (token.length > 191) {
+    return res.status(400).json({
+      status: false,
+      msg: 'FCM token is too long for storage (max 191 characters).',
+    });
+  }
 
   try {
     await prisma.users.update({
       where: { id: BigInt(userId) },
-      data: { cm_firebase_token, updated_at: new Date() },
+      data: { cm_firebase_token: token, updated_at: new Date() },
     });
     return res.status(200).json({
       status: true,

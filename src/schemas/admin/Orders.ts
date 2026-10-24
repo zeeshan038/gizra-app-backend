@@ -18,3 +18,7 @@ export const adminSubscriptionsListQuerySchema = Joi.object({
   limit: Joi.number().integer().min(1).max(100).default(50),
   offset: Joi.number().integer().min(0).default(0),
 });
+
+export const assignAdminOrderDeliveryManSchema = Joi.object({
+  delivery_man_id: Joi.number().integer().positive().required(),
+});

@@ -1,5 +1,5 @@
 import prisma from '../../config/database';
-import { publicMediaUrl } from '../mediaStorage';
+import { publicFoodMediaUrl } from '../mediaStorage';
 import { formatHomeCategory } from './categoryDiscoverHelpers';
 import {
   expandAddOnsFromStored,
@@ -213,7 +213,7 @@ export function formatRestaurantMenuFood(
     name: f.name,
     description: f.description,
     image: f.image,
-    image_full_url: publicMediaUrl(f.image),
+    image_full_url: publicFoodMediaUrl(f.image),
     category_id: f.category_id != null ? String(f.category_id) : null,
     restaurant_id: f.restaurant_id != null ? String(f.restaurant_id) : null,
     restaurant_name: extras?.restaurant_name ?? null,

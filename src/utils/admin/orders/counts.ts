@@ -1,6 +1,6 @@
 import prisma from '../../../config/database';
 import {
-  adminOrdersBase,
+  adminManualOrdersBase,
   notDigitalOrderWhere,
   ONGOING_STATUSES,
   orderScheduledInWhere,
@@ -48,7 +48,7 @@ export async function getAdminOrderCounts() {
     prisma.orders.count({ where: { ...base, order_status: 'refund_requested' } }),
     prisma.orders.count({ where: { ...base, order_type: 'dine_in' } }),
     prisma.orders.count({ where: { ...base, payment_method: 'offline_payment' } }),
-    prisma.orders.count({ where: { ...adminOrdersBase(true) } }),
+    prisma.orders.count({ where: adminManualOrdersBase() }),
     prisma.orders.count({ where: { ...baseSch, ...searchingForDmWhere() } }),
     prisma.orders.count({ where: { ...baseSch, order_status: { in: [...ONGOING_STATUSES] } } }),
     prisma.subscriptions.count(),

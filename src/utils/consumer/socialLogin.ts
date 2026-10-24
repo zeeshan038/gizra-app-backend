@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../../config/database';
+import { fitDbString, normalizeStoredMedia } from '../mediaStorage';
 
 export type GoogleTokenProfile = {
   email: string;
@@ -143,6 +144,14 @@ function namesFromGoogleProfile(profile: GoogleTokenProfile): {
   return { f_name: parts[0], l_name: parts.slice(1).join(' ') };
 }
 
+function socialTempToken(uniqueId: string, socialPk?: string | null): string {
+  const raw = uniqueId.trim();
+  const pk = socialPk?.trim();
+  if (raw.length <= 255) return raw;
+  if (pk && pk.length <= 255) return pk;
+  return raw.slice(0, 255);
+}
+
 function googleProfileUserFields(
   profile: GoogleTokenProfile,
   existing?: { f_name: string | null; l_name: string | null; image: string | null }
@@ -151,13 +160,18 @@ function googleProfileUserFields(
   const fields: { f_name?: string; l_name?: string; image?: string } = {};
 
   if (!existing?.f_name && fromGoogle.f_name) {
-    fields.f_name = fromGoogle.f_name;
+    fields.f_name = fitDbString(fromGoogle.f_name, 100) ?? undefined;
   }
   if (!existing?.l_name && fromGoogle.l_name) {
-    fields.l_name = fromGoogle.l_name;
+    fields.l_name = fitDbString(fromGoogle.l_name, 100) ?? undefined;
   }
   if (!existing?.image && profile.picture?.trim()) {
-    fields.image = profile.picture.trim();
+    const pic = profile.picture.trim();
+    // Google avatar URLs exceed users.image VARCHAR(100) and are not R2 paths — skip.
+    if (!pic.startsWith('http://') && !pic.startsWith('https://')) {
+      const stored = normalizeStoredMedia(pic, '', 100);
+      if (stored) fields.image = stored;
+    }
   }
 
   return fields;
@@ -221,12 +235,13 @@ export async function processConsumerSocialLogin(
       }
 
       const profileFields = googleProfileUserFields(profile);
+      const tempToken = socialTempToken(request.unique_id, pk != null ? String(pk) : null);
       user = await prisma.users.create({
         data: {
           email: profile.email,
           login_medium: request.medium,
-          temp_token: request.unique_id,
-          social_id: String(pk),
+          temp_token: tempToken,
+          social_id: fitDbString(String(pk), 191) ?? String(pk).slice(0, 191),
           password: await bcrypt.hash(request.unique_id, 10),
           status: true,
           is_email_verified: googleProvedEmail,
@@ -248,6 +263,11 @@ export async function processConsumerSocialLogin(
 
   await ensureReferCode(user.id, user.f_name);
 
+  const tempToken =
+    request.medium !== 'apple' && pk
+      ? socialTempToken(request.unique_id, String(pk))
+      : socialTempToken(request.unique_id, null);
+
   user = await prisma.users.update({
     where: { id: user.id },
     data: {
@@ -255,7 +275,10 @@ export async function processConsumerSocialLogin(
       is_email_verified: true,
       ...googleProfileUserFields(profile, user),
       ...(request.medium !== 'apple' && pk
-        ? { social_id: String(pk), temp_token: request.unique_id }
+        ? {
+            social_id: fitDbString(String(pk), 191) ?? String(pk).slice(0, 191),
+            temp_token: tempToken,
+          }
         : {}),
       updated_at: new Date(),
     },

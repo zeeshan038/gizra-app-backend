@@ -1,6 +1,14 @@
 /**
  * Normalize client/upload values for legacy VarChar image columns (PHP-style paths or short filenames).
  */
+/** Trim and fit a value into a legacy VarChar column (avoids Prisma P2000). */
+export function fitDbString(value: string | null | undefined, maxLen: number): string | null {
+  if (value == null) return null;
+  const s = value.trim();
+  if (!s) return null;
+  return s.length <= maxLen ? s : s.slice(0, maxLen);
+}
+
 export function normalizeStoredMedia(
   incoming: string | null | undefined,
   fallback: string,
@@ -33,6 +41,14 @@ export function publicMediaUrl(stored: string | null | undefined): string | null
   if (!base) return stored;
   const path = stored.replace(/^\//, '');
   return `${base}/${path}`;
+}
+
+/** Laravel food images live under storage/app/public/product/ */
+export function publicFoodMediaUrl(stored: string | null | undefined): string | null {
+  const raw = stored?.trim();
+  if (!raw) return null;
+  const path = raw.includes('/') ? raw : `product/${raw}`;
+  return publicMediaUrl(path);
 }
 
 const RESTAURANT_LOGO_PLACEHOLDERS = new Set(['default_logo.png', 'default.png']);

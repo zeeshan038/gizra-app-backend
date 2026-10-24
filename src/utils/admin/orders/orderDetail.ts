@@ -9,6 +9,7 @@ import {
 import { formatCustomerName } from '../../vendor/order/mapper';
 import { publicMediaUrl } from '../../mediaStorage';
 import { publicRestaurantMediaUrl } from '../../mediaStorage';
+import { listNotifiedDeliveryMenForZone } from './assignDeliveryMan';
 
 function foodImageUrl(image: string | null | undefined) {
   const raw = image?.trim();
@@ -41,6 +42,25 @@ export async function getAdminOrderDetail(orderId: number) {
           select: { f_name: true, l_name: true, phone: true },
         })
       : null,
+  ]);
+
+  const zoneId =
+    restaurant?.zone_id != null
+      ? Number(restaurant.zone_id)
+      : order.zone_id != null
+        ? Number(order.zone_id)
+        : null;
+
+  const [zone, notified_delivery_men] = await Promise.all([
+    zoneId != null
+      ? prisma.zones.findUnique({
+          where: { id: BigInt(zoneId) },
+          select: { name: true },
+        })
+      : Promise.resolve(null),
+    order.is_manual_dispatch && !order.delivery_man_id
+      ? listNotifiedDeliveryMenForZone(zoneId)
+      : Promise.resolve([]),
   ]);
 
   const foodIds = details
@@ -79,11 +99,19 @@ export async function getAdminOrderDetail(orderId: number) {
   const deliveryRaw = await resolveOrderDeliveryAddress(order);
   const delivery_address_parsed = parseDeliveryAddress(deliveryRaw);
 
+  const guestName = delivery_address_parsed?.contact_person_name?.trim();
+  const guestPhone = delivery_address_parsed?.contact_person_number?.trim();
+  const customer_name =
+    guestName && (!customer || formatCustomerName(customer) === 'Guest')
+      ? guestName
+      : formatCustomerName(customer);
+  const customer_phone = customer?.phone ?? guestPhone ?? null;
+
   return {
     id: order.id.toString(),
     created_at: order.created_at?.toISOString() ?? null,
-    customer_name: formatCustomerName(customer),
-    customer_phone: customer?.phone ?? null,
+    customer_name,
+    customer_phone,
     customer_email: customer?.email ?? null,
     restaurant_id: order.restaurant_id.toString(),
     restaurant_name: restaurant?.name ?? '—',
@@ -99,8 +127,10 @@ export async function getAdminOrderDetail(orderId: number) {
     delivery_man_name: deliveryMan
       ? [deliveryMan.f_name, deliveryMan.l_name].filter(Boolean).join(' ')
       : null,
-    zone_id: order.zone_id?.toString() ?? null,
+    zone_id: zoneId?.toString() ?? null,
+    zone_name: zone?.name ?? null,
     order_note: order.order_note,
+    notified_delivery_men,
     delivery_address_parsed,
     pricing: {
       items: pricingRaw.items_price,
