@@ -11,11 +11,13 @@ if ! docker inspect "$BACKEND" >/dev/null 2>&1; then
   exit 1
 fi
 
-EXPORT_SNIPPET="$(tr '\n' ' ' < "$ROOT_DIR/scripts/docker-export-database-url.sh")"
+# One-liner only — do not inline docker-export-database-url.sh on the same sh -c line as other
+# commands (a leading `#` would comment out the rest of the line and break hostname checks).
+DB_URL_CHECK='if [ -z "${DATABASE_URL:-}" ]; then echo "FAIL: DATABASE_URL is not set in the backend container."; exit 1; fi'
 
 echo "=== Backend DB URL ==="
 docker exec "$BACKEND" sh -c "
-  $EXPORT_SNIPPET
+  $DB_URL_CHECK
   echo \"\$DATABASE_URL\" | sed -E 's#(postgresql://[^:]+:)[^@]+#\\1***#'
   echo \"\$DATABASE_URL\" | sed -nE 's#.*@([^:/]+).*#DB host in URL: \\1#p'
   case \"\$DATABASE_URL\" in
@@ -24,11 +26,7 @@ docker exec "$BACKEND" sh -c "
   esac
 " || exit 1
 
-HOST=$(docker exec "$BACKEND" sh -c "$EXPORT_SNIPPET; node -e \"
-const r=process.env.DATABASE_URL||'';
-const u=new URL(r.replace(/^postgresql:/i,'http:'));
-process.stdout.write(u.hostname);
-\"" 2>/dev/null | tr -d '\r\n')
+HOST="$(docker exec "$BACKEND" sh -c 'printf %s "$DATABASE_URL"' | sed -nE 's#.*@([^:/]+).*#\1#p' | tr -d '\r\n')"
 if [[ "$HOST" == "127.0.0.1" || "$HOST" == "localhost" ]]; then
   echo "FAIL: API container must not use localhost for Postgres"
   exit 1
@@ -61,7 +59,7 @@ echo "OK: GET /api/health/db"
 
 echo "=== Prisma table read (catches gizra_db.public denied) ==="
 if ! docker exec "$BACKEND" sh -c "
-  $EXPORT_SNIPPET
+  $DB_URL_CHECK
   node -e \"
 const { PrismaClient } = require('@prisma/client');
 const p = new PrismaClient();
@@ -76,7 +74,7 @@ echo "OK: Prisma restaurants.findFirst"
 
 echo "=== Prisma users read (login) ==="
 if ! docker exec "$BACKEND" sh -c "
-  $EXPORT_SNIPPET
+  $DB_URL_CHECK
   node -e \"
 const { PrismaClient } = require('@prisma/client');
 const p = new PrismaClient();
@@ -96,7 +94,7 @@ else
   prisma_ok=0
   for _ in 1 2 3; do
     if docker exec "$BACKEND" sh -c "
-      $EXPORT_SNIPPET
+      $DB_URL_CHECK
       node -e \"
 const { PrismaClient } = require('@prisma/client');
 new PrismaClient().\\\$queryRaw\\\`SELECT 1\\\`.then(() => process.exit(0)).catch(() => process.exit(1));

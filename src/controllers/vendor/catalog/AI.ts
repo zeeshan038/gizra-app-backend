@@ -126,39 +126,85 @@ export const parsePdf = async (req: Request, res: Response): Promise<any> => {
     const mimeType = req.file.mimetype;
     const fileBase64 = req.file.buffer.toString('base64');
 
-    const prompt = `You are a menu parsing expert. Extract categories, food items, size/option variations, and optional add-ons from the provided menu image or PDF.
+    const prompt = `You are an expert restaurant menu OCR and structuring engine. Your job is to produce POS-ready JSON from poster-style menus (multi-column tops + footer blocks for sizes/toppings).
 
-VARIATIONS (required choices that change the item price, e.g. size columns):
-- When the menu shows multiple price columns for the same item (e.g. Personal / Regular / Large, Single / Double, Regular / Large), do NOT create separate items per column.
-- Create ONE item per dish and attach a "variations" array with one group (usually named "Size" or a sensible label).
-- Each variation group object must have:
-  - "name": string (e.g. "Size")
-  - "type": "single" (always single for column-based sizes)
-  - "required": true
-  - "options": array of { "name": column label, "price": numeric price for that column }
-- Set item "price" to the lowest variation option price.
+=== NON-NEGOTIABLE RULES ===
+1. NEVER skip variations when the menu defines sizes anywhere on the page (same row OR a separate footer section).
+2. NEVER create duplicate items for sizes (e.g. "Margherita Large" as its own item). ONE dish = ONE item + variations.
+3. Option "price" is the FULL item price for that choice (absolute), NOT a delta mark-up.
+4. item "price" MUST equal the cheapest option in the first required variation group (usually smallest size).
+5. Output ONLY valid JSON: { "categories": [ ... ] }. No markdown, no comments.
 
-ADD-ONS (optional paid extras, not size columns):
-- Extract optional extras such as "Extra cheese", "Extra dip", "Add toppings", side upgrades listed as add-ons, or a dedicated add-ons section.
-- Do NOT put size columns in add_ons.
-- Each add-on: { "name": string, "price": numeric } in the item's "add_ons" array.
-- If no add-ons are shown for an item, use "add_ons": [].
+=== LAYOUT: ITEMS ON TOP, SIZES ON BOTTOM (VERY COMMON) ===
+Many menus list dish names + one price in category columns at the TOP, then a separate footer band such as:
+  "Choose Your Size" / "Size" / Personal · Regular · Large with prices on another row.
+You MUST link that footer size block to every applicable item in the category above (e.g. all PIZZA items get the same Size group).
 
-CRITICAL — MULTI-LANGUAGE MENUS:
-The menu may contain separate Hebrew and English sections. Extract BOTH fully. Do NOT deduplicate translations.
-If a name is combined with a slash (e.g. 'Black Tea / תה שחור'), split into TWO separate items.
-Do NOT drop Hebrew text.
+Algorithm:
+A) Read the footer (or side) size block: labels (include inch/cm if shown, e.g. Personal 7 inch) and numeric prices.
+B) Read each dish in the category and its listed price (often the smallest/default size).
+C) If footer prices are GLOBAL (one set for the whole category):
+   - Let S0 = smallest footer size price, Sk = price for each footer size k.
+   - For each dish with listed price P (from the top list):
+     - Smallest size option price = P (use the dish's own top price, not necessarily S0).
+     - Each larger size k: option price = P + (Sk - S0). Round to 2 decimals if needed.
+   - Example: footer Personal 149, Regular 249, Large 399; Margherita 149 → 149, 249, 399; Farmhouse 179 → 179, 279, 429.
+D) If each dish row already shows multiple size columns, use those column prices directly (no delta math).
+E) Attach one variation group per item:
+   { "name": "Size", "type": "single", "required": true, "options": [ { "name": "<label>", "price": <number> }, ... ] }
 
-Output a JSON object with a single key "categories" (array). Each category:
-- "name": category name (single language)
-- "items": array of:
-  - "name": item name (single language)
-  - "description": string (ingredients or tagline from menu; empty string if none)
-  - "price": numeric base price (lowest variation price when variations exist)
-  - "variations": array as defined above (empty array if single price only)
-  - "add_ons": array of { "name", "price" } (empty array if none)
+If a category has NO size footer and only one price per dish → "variations": [].
 
-Output ONLY valid raw JSON, no markdown or code fences.`;
+=== OTHER VARIATION PATTERNS ===
+- Sauce/type rows (White Sauce / Red Sauce / Mixed) for pasta: one group "Sauce" or "Type", required true if customer must pick.
+- Burger single price only: variations [] unless sizes appear elsewhere.
+
+=== ADD-ONS (optional extras) ===
+Sections like "Customize It", "Extra Toppings", "Add-ons" with +₹ prices:
+- Put in "add_ons": [ { "name", "price" } ] on each item in categories that section applies to (typically all pizzas if under pizza footer).
+- Do NOT put sizes in add_ons.
+- Shared topping list → copy the same add_ons array to each relevant item (do not omit).
+
+=== CATEGORIES ===
+- Use visible headers: PIZZA, BURGERS, PASTA, WRAPS, SIDES, etc.
+- Fries / sides listed in "Add Something Extra" can be their own category if priced as standalone items.
+
+=== MULTI-LANGUAGE ===
+Hebrew + English sections: extract BOTH; do not merge translations.
+Slash names "X / Y" → two items unless clearly one bilingual label for the same dish (then pick primary language shown larger).
+
+=== JSON SHAPE (strict) ===
+{
+  "categories": [
+    {
+      "name": "PIZZA",
+      "items": [
+        {
+          "name": "Margherita",
+          "description": "Classic cheese & herbs",
+          "price": 149,
+          "variations": [
+            {
+              "name": "Size",
+              "type": "single",
+              "required": true,
+              "options": [
+                { "name": "Personal 7 inch", "price": 149 },
+                { "name": "Regular 10 inch", "price": 249 },
+                { "name": "Large 12 inch", "price": 399 }
+              ]
+            }
+          ],
+          "add_ons": [
+            { "name": "Extra Cheese", "price": 70 }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+Before you finish: for every PIZZA (and similar) item, confirm "variations" is non-empty when a size footer exists. Re-scan the bottom of the image if any item is missing Size options.`;
 
     try {
         const models = ['gemini-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro', 'gemini-1.0-pro-vision-latest', 'gemini-pro-vision'];
