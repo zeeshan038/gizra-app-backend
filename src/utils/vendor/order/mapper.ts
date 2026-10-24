@@ -1,4 +1,9 @@
 import { orders, order_details, food } from '@prisma/client';
+import {
+  deriveOrderValueFromOrder,
+  deriveRestaurantListTotal,
+  gizraPaysRestaurant,
+} from './orderSettlement';
 
 export type OrderCustomerBrief = {
   f_name: string | null;
@@ -13,11 +18,18 @@ export function formatCustomerName(customer?: OrderCustomerBrief | null): string
 }
 
 export function mapOrderSummary(order: orders, customer?: OrderCustomerBrief | null) {
+  const order_value = deriveOrderValueFromOrder(order);
+  const restaurant_list_total = deriveRestaurantListTotal(order);
   return {
     id: order.id.toString(),
     user_id: order.user_id?.toString() ?? null,
     restaurant_id: order.restaurant_id?.toString() ?? null,
     order_amount: Number(order.order_amount) || 0,
+    order_value,
+    restaurant_list_total,
+    gizra_pays_you: gizraPaysRestaurant(order_value),
+    delivery_charge: Number(order.delivery_charge) || 0,
+    total_tax_amount: Number(order.total_tax_amount) || 0,
     order_status: order.order_status,
     payment_status: order.payment_status,
     payment_method: order.payment_method,

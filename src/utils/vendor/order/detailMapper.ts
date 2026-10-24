@@ -1,6 +1,7 @@
 import { order_details, orders, food } from '@prisma/client';
 import prisma from '../../../config/database';
 import { mapOrderSummary, mapOrderLineItem, OrderCustomerBrief } from './mapper';
+import { gizraPaysRestaurant, taxOnOrderValue } from './orderSettlement';
 
 export type DeliveryAddressParsed = {
   contact_person_name?: string;
@@ -105,25 +106,29 @@ export function buildOrderPricing(order: orders, items: ReturnType<typeof mapOrd
   const total_tax_amount = Number(order.total_tax_amount) || 0;
   const delivery_charge = Number(order.delivery_charge) || 0;
 
-  /** Food + addons after order-level discounts (before tax). */
-  const food_amount_after_discounts = roundMoney(
+  /** Items + addons after order-level discounts (tax base — delivery excluded). */
+  const order_value = roundMoney(
     subtotal - restaurant_discount_amount - coupon_discount_amount - ref_bonus_amount
   );
 
-  /** Restaurant settlement: food + delivery fee, minus VAT/tax withheld. */
-  const gizra_pays_you = roundMoney(
-    Math.max(0, food_amount_after_discounts + delivery_charge - total_tax_amount)
-  );
+  const tax_on_order_value = taxOnOrderValue(order_value);
+  const gizra_pays_you = gizraPaysRestaurant(order_value);
+  const restaurant_list_total = roundMoney(order_value + delivery_charge);
 
   return {
     items_price: productPrice,
     addon_cost: totalAddonPrice,
     subtotal,
-    food_amount_after_discounts,
+    order_value,
+    /** @deprecated use order_value */
+    food_amount_after_discounts: order_value,
     restaurant_discount_amount,
     coupon_discount_amount,
     ref_bonus_amount,
     total_tax_amount,
+    tax_on_order_value,
+    tax_percent_on_order: 10,
+    restaurant_list_total,
     dm_tips: Number(order.dm_tips) || 0,
     delivery_charge,
     additional_charge: Number(order.additional_charge) || 0,
