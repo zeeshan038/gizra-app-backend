@@ -31,6 +31,10 @@ import {
   applyOrderListSearchFilter,
   paginationSkip,
 } from '../../utils/consumer/orderListHelpers';
+import {
+  getIgnoredPoolOrderIdSet,
+  recordDeliveryManIgnoredPoolOrder,
+} from '../../utils/deliveryman/ignoredPoolOrders';
 
 /**
  * @Description Active (current) orders assigned to the delivery man — home card / My Orders
@@ -208,6 +212,8 @@ export const getLatestOrders = async (req: Request, res: Response): Promise<any>
     const dmVehicleId = dm.vehicle_id != null ? Number(dm.vehicle_id) : null;
     const areaFilter = buildLatestOrdersAreaFilter(dm, restaurantIds);
 
+    const ignoredOrderIds = await getIgnoredPoolOrderIdSet(deliveryManId);
+
     const candidates = await prisma.orders.findMany({
       where: {
         AND: [
@@ -225,6 +231,7 @@ export const getLatestOrders = async (req: Request, res: Response): Promise<any>
 
     const filtered = candidates.filter(
       (order) =>
+        !ignoredOrderIds.has(order.id.toString()) &&
         passesScheduleWindow(order, 30) &&
         passesVehicleFilter(order, dmVehicleId, dm.type) &&
         passesNotDigitalPending(order)
@@ -392,6 +399,9 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
         if (!dm) {
           return res.status(404).json({ status: false, msg: 'Delivery man not found', message: 'Delivery man not found' });
         }
+        if (order.delivery_man_id == null && order.order_type === 'delivery') {
+          await recordDeliveryManIgnoredPoolOrder(deliveryManId, order.id);
+        }
         return res.status(200).json({
           status: true,
           msg: 'Order request ignored',
@@ -403,6 +413,9 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
     }
 
     if (status === 'ignore' || status === 'ignored') {
+      if (order.delivery_man_id == null && order.order_type === 'delivery') {
+        await recordDeliveryManIgnoredPoolOrder(deliveryManId, order.id);
+      }
       return res.status(200).json({
         status: true,
         msg: 'Order request ignored',

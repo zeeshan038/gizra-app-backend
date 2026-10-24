@@ -56,6 +56,11 @@ const deleteSteps: { label: string; count: (db: Db) => Promise<number>; del: (db
     count: (db) => db.order_delivery_histories.count(),
     del: (db) => db.order_delivery_histories.deleteMany(),
   },
+  {
+    label: 'delivery_man_ignored_orders',
+    count: (db) => db.delivery_man_ignored_orders.count(),
+    del: (db) => db.delivery_man_ignored_orders.deleteMany(),
+  },
   { label: 'delivery_histories', count: (db) => db.delivery_histories.count(), del: (db) => db.delivery_histories.deleteMany() },
   { label: 'order_references', count: (db) => db.order_references.count(), del: (db) => db.order_references.deleteMany() },
   { label: 'order_payments', count: (db) => db.order_payments.count(), del: (db) => db.order_payments.deleteMany() },

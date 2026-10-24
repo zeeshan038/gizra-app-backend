@@ -923,6 +923,18 @@ model order_delivery_histories {
   updated_at      DateTime? @db.Timestamptz(6)
 }
 
+/// Per-driver dismissals of unassigned pool jobs (ignore / decline on order request).
+model delivery_man_ignored_orders {
+  id              BigInt    @id @default(autoincrement())
+  delivery_man_id Decimal   @db.Decimal
+  order_id        Decimal   @db.Decimal
+  created_at      DateTime? @db.Timestamptz(6)
+  updated_at      DateTime? @db.Timestamptz(6)
+
+  @@unique([delivery_man_id, order_id], map: "delivery_man_ignored_orders_dm_order_unique")
+  @@index([delivery_man_id], map: "delivery_man_ignored_orders_delivery_man_id_idx")
+}
+
 model order_details {
   id                 BigInt    @id(map: "idx_17260_primary") @default(autoincrement())
   food_id            Decimal?  @db.Decimal

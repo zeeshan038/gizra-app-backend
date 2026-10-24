@@ -17,6 +17,7 @@ import {
   passesScheduleWindow,
   passesVehicleFilter,
 } from './orderHelpers';
+import { isOrderIgnoredByDeliveryMan } from './ignoredPoolOrders';
 
 const DEFAULT_RESTAURANT_IMAGE = 'default_logo.png';
 const DEFAULT_CUSTOMER_IMAGE = 'def.png';
@@ -95,11 +96,16 @@ export async function deliveryManCanViewOrder(
   }
 
   const dmVehicleId = dm.vehicle_id != null ? Number(dm.vehicle_id) : null;
-  return (
+  const poolEligible =
     passesScheduleWindow(order, 30) &&
     passesVehicleFilter(order, dmVehicleId, dm.type) &&
-    passesNotDigitalPending(order)
-  );
+    passesNotDigitalPending(order);
+  if (!poolEligible) return false;
+
+  if (await isOrderIgnoredByDeliveryMan(Number(dm.id), order.id)) {
+    return false;
+  }
+  return true;
 }
 
 export async function buildDeliveryManOrderDetail(

@@ -13,6 +13,7 @@ async function deleteOrderRelations(tx: Tx, orderId: number) {
     tx.order_references.deleteMany({ where }),
     tx.order_transactions.deleteMany({ where }),
     tx.order_delivery_histories.deleteMany({ where }),
+    tx.delivery_man_ignored_orders.deleteMany({ where }),
     tx.offline_payments.deleteMany({ where }),
     tx.refunds.deleteMany({ where }),
     tx.subscription_logs.deleteMany({ where }),
