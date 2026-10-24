@@ -49,21 +49,29 @@ echo "Ensure public schema grants (fixes Prisma P1010 gizra_db.public)…"
 
 ./scripts/docker-compose.sh up -d --build --force-recreate --remove-orphans backend
 
+backend_container_id() {
+  docker inspect -f '{{.Id}}' gizra-backend 2>/dev/null || true
+}
+
+BACKEND_CID="$(backend_container_id)"
+
 echo "Waiting for API (entrypoint DB check + npm start can take 2–3 min on small VPS)…"
 api_ready=0
 for i in $(seq 1 120); do
-  if docker logs gizra-backend 2>&1 | tail -40 | grep -q 'Server is running on port'; then
+  CID="${BACKEND_CID:-$(backend_container_id)}"
+  if [[ -n "$CID" ]] && docker logs "$CID" 2>&1 | tail -40 | grep -q 'Server is running on port'; then
     api_ready=1
     break
   fi
-  if docker logs gizra-backend 2>&1 | tail -30 | grep -qE 'P1010|denied access on the database'; then
+  if [[ -n "$CID" ]] && docker logs "$CID" 2>&1 | tail -30 | grep -qE 'P1010|denied access on the database'; then
     echo "Detected Prisma P1010 (Postgres grants) — repairing…"
     ./scripts/fix-postgres-grants.sh
     ./scripts/docker-compose.sh up -d --force-recreate backend
+    BACKEND_CID="$(backend_container_id)"
     sleep 5
   fi
-  if docker logs gizra-backend 2>&1 | tail -20 | grep -qE 'FATAL:|P1000|Authentication failed'; then
-    docker logs --tail=40 gizra-backend
+  if [[ -n "$CID" ]] && docker logs "$CID" 2>&1 | tail -20 | grep -qE 'FATAL:|P1000|Authentication failed'; then
+    docker logs --tail=40 "$CID"
     echo "If this persists once, run: npm run fix:prod-db — then use only deploy:server."
     exit 1
   fi
@@ -76,7 +84,7 @@ if [[ "$api_ready" -ne 1 ]]; then
 fi
 sleep 3
 
-for attempt in 1 2 3 4 5; do
+for attempt in $(seq 1 24); do
   if ./scripts/verify-db-docker.sh; then
     echo "Deploy OK."
     echo "  curl -s http://127.0.0.1:3002/api/health/db"
