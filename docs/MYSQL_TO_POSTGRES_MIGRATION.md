@@ -4,7 +4,46 @@ Legacy PHP uses **MySQL** `gizra_db`. The Node backend uses **PostgreSQL** `gizr
 
 ## Recommended: run on the VPS (no Mac SSH tunnel)
 
-If you can open **Hetzner console** or `ssh root@gizra-v2`, migrate **on the server** — MySQL and Postgres are both `127.0.0.1` there.
+If you can open **Hetzner console** or `ssh root@gizra-v2`, run migration **on the server** next to Docker Postgres (`127.0.0.1:5434`).
+
+**Check first — is MySQL on this machine?**
+
+```bash
+ss -tlnp | grep 3306 || echo "nothing listening on 3306"
+docker ps --format '{{.Names}}' | grep -iE 'mysql|maria' || true
+```
+
+If `mysql: command not found`, install only a **client** (does not install a server):
+
+```bash
+apt update && apt install -y mariadb-client
+mysql -h 127.0.0.1 -u root -e "SELECT COUNT(*) FROM gizra_db.users;"
+```
+
+- **Connects** → use `./scripts/migrate-on-server.sh` with default `MYSQL_MIGRATION_URL=mysql://root@127.0.0.1:3306/gizra_db`.
+- **Connection refused / no 3306** → **PHP prod MySQL is on another host** (shared hosting, old VPS). Hetzner `gizra-v2` is Postgres-only today. Use **“Import dump on VPS”** below, then `migrate-on-server.sh`.
+
+### Import dump on VPS (PHP MySQL elsewhere)
+
+On the **PHP / hosting** panel or SSH, create a dump:
+
+```bash
+mysqldump -u root --single-transaction --routines --triggers \
+  --default-character-set=utf8mb4 gizra_db > gizra_mysql_prod.sql
+```
+
+Copy to Hetzner (`scp gizra_mysql_prod.sql root@167.233.245.44:/root/`), then on **gizra-v2**:
+
+```bash
+cd ~/gizra-app-backend
+chmod +x scripts/mysql-docker-import.sh
+./scripts/mysql-docker-import.sh /root/gizra_mysql_prod.sql
+export MYSQL_MIGRATION_URL='mysql://root:migrate_local_root@127.0.0.1:3306/gizra_db'
+./scripts/migrate-on-server.sh
+./scripts/migrate-on-server.sh --apply --truncate --confirm
+```
+
+(Docker MariaDB listens on **3306** on the host; see script output.)
 
 1. **Push** migration scripts (this repo) and on the server:
 
@@ -14,32 +53,44 @@ If you can open **Hetzner console** or `ssh root@gizra-v2`, migrate **on the ser
    chmod +x scripts/migrate-on-server.sh
    ```
 
-2. **Backup** Postgres:
+2. **Rebuild** backend image (includes `mysql2` + migration scripts):
+
+   ```bash
+   unset DATABASE_URL POSTGRES_PASSWORD
+   npm run deploy:server
+   ```
+
+3. **Backup** Postgres:
 
    ```bash
    docker exec gizra-postgres pg_dump -U postgres -Fc gizra_db \
      > /root/gizra_pg_backup_$(date +%F).dump
    ```
 
-3. **Dry run** (row counts):
+   *(Note the space: `-U postgres -Fc`, not `postgres-Fc`.)*
+
+4. **Dry run** (row counts):
 
    ```bash
    ./scripts/migrate-on-server.sh
    ```
 
-4. **Load** (maintenance window — truncates Postgres):
+   If MySQL is not on the VPS, import a PHP dump first (see “Import dump on VPS” above).
+
+5. **Load** (maintenance window — truncates Postgres):
 
    ```bash
    ./scripts/migrate-on-server.sh --apply --truncate --confirm
-   node ./node_modules/ts-node/dist/bin.js scripts/resetPgSequences.ts
-   docker exec gizra-backend npx ts-node scripts/backfillCloudflareIds.ts
    ```
 
-5. **Redeploy** backend if the image was built before new scripts:
+   Then sequences + Cloudflare folders:
 
    ```bash
-   unset DATABASE_URL POSTGRES_PASSWORD
-   npm run deploy:server
+   PW="$(./scripts/read-db-password-from-env.sh .env)"
+   export DATABASE_URL="postgresql://postgres:${PW}@127.0.0.1:5434/gizra_db?schema=public"
+   bash scripts/docker-compose.sh run --rm -T --network host -e DATABASE_URL backend \
+     node ./node_modules/ts-node/dist/bin.js scripts/resetPgSequences.ts
+   docker exec gizra-backend npx ts-node scripts/backfillCloudflareIds.ts
    ```
 
 **MySQL must be on this VPS** (or set `MYSQL_MIGRATION_URL` to a host you can reach from the server). If PHP/MySQL lives on **another** machine, take a `mysqldump` there and import on the VPS, or use the Mac tunnel path below.

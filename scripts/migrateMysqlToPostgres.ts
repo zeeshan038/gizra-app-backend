@@ -78,7 +78,7 @@ async function pgColumns(client: Client, table: string): Promise<string[]> {
 
 async function mysqlColumns(conn: mysql.Connection, table: string): Promise<string[]> {
   const [rows] = await conn.query<RowDataPacket[]>(`SHOW COLUMNS FROM \`${table}\``);
-  return rows.map((r) => String(r.Field));
+  return rows.map((r: RowDataPacket) => String(r.Field));
 }
 
 async function mysqlCount(conn: mysql.Connection, table: string): Promise<number> {
@@ -128,7 +128,7 @@ async function copyTable(
     const values: unknown[] = [];
     const tuples: string[] = [];
 
-    chunk.forEach((row, ri) => {
+    chunk.forEach((row: RowDataPacket, ri: number) => {
       const placeholders: string[] = [];
       commonCols.forEach((col, ci) => {
         const idx = ri * commonCols.length + ci + 1;
@@ -178,9 +178,9 @@ async function main(): Promise<void> {
   try {
     const [mysqlTablesRaw] = await mysqlConn.query<RowDataPacket[]>('SHOW TABLES');
     const mysqlKey = Object.keys(mysqlTablesRaw[0] ?? { Tables_in_gizra_db: '' })[0] ?? 'Tables_in_gizra_db';
-    const mysqlTables = mysqlTablesRaw.map((r) => String(r[mysqlKey]));
+    const mysqlTables = mysqlTablesRaw.map((r: RowDataPacket) => String(r[mysqlKey]));
     const pgTables = new Set(await pgPublicTables(pgClient));
-    const shared = mysqlTables.filter((t) => pgTables.has(t)).sort();
+    const shared = mysqlTables.filter((t: string) => pgTables.has(t)).sort();
 
     console.log(`MySQL tables: ${mysqlTables.length}, Postgres public: ${pgTables.size}, shared: ${shared.length}`);
     console.log(apply ? 'Mode: APPLY' : 'Mode: dry run (counts only)');

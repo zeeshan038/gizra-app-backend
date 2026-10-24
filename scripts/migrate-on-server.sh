@@ -1,23 +1,20 @@
 #!/usr/bin/env bash
 # Run MySQL → Postgres migration ON the Hetzner VPS (no Mac SSH tunnels).
 #
-# Prerequisites:
-#   - MySQL gizra_db reachable at MYSQL_MIGRATION_URL (default root@127.0.0.1:3306/gizra_db)
-#   - Postgres Docker on 127.0.0.1:5434
-#
-# On server:
 #   cd ~/gizra-app-backend && git pull
-#   chmod +x scripts/migrate-on-server.sh scripts/read-db-password-from-env.sh
+#   npm run deploy:server    # rebuild backend image after migration script changes
 #   ./scripts/migrate-on-server.sh
 #   ./scripts/migrate-on-server.sh --apply --truncate --confirm
-#   npm run db:migrate-reset-sequences   # if node_modules on host
-#   docker exec gizra-backend npx ts-node scripts/backfillCloudflareIds.ts
+#
+# MySQL is usually NOT on this VPS — import a dump first:
+#   ./scripts/mysql-docker-import.sh /root/gizra_mysql_prod.sql
+#   export MYSQL_MIGRATION_URL='mysql://root:migrate_local_root@127.0.0.1:3306/gizra_db'
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
-chmod +x "$ROOT_DIR/scripts/read-db-password-from-env.sh"
+chmod +x "$ROOT_DIR/scripts/read-db-password-from-env.sh" "$ROOT_DIR/scripts/docker-compose.sh"
 PW="$("$ROOT_DIR/scripts/read-db-password-from-env.sh" "$ROOT_DIR/.env")"
 
 export DATABASE_URL="postgresql://postgres:${PW}@127.0.0.1:5434/gizra_db?schema=public"
@@ -26,17 +23,15 @@ export MYSQL_MIGRATION_URL="${MYSQL_MIGRATION_URL:-mysql://root@127.0.0.1:3306/g
 echo "DATABASE_URL → 127.0.0.1:5434/gizra_db"
 echo "MYSQL_MIGRATION_URL → ${MYSQL_MIGRATION_URL}"
 
-run_ts() {
-  node ./node_modules/ts-node/dist/bin.js "$ROOT_DIR/scripts/migrateMysqlToPostgres.ts" "$@"
-}
-
-if [[ -f "$ROOT_DIR/node_modules/ts-node/package.json" ]] && command -v node >/dev/null 2>&1; then
-  run_ts "$@"
-else
-  echo "No local node_modules — using Docker (host network)…"
-  docker run --rm --network host \
-    -v "${ROOT_DIR}:/app" -w /app \
-    -e DATABASE_URL -e MYSQL_MIGRATION_URL \
-    node:20-bookworm-slim \
-    bash -lc "npm ci && npx ts-node scripts/migrateMysqlToPostgres.ts $(printf '%q ' "$@")"
+if ! docker ps --format '{{.Names}}' | grep -qx 'gizra-postgres'; then
+  echo "gizra-postgres is not running. Run: npm run deploy:server"
+  exit 1
 fi
+
+# Host network so 127.0.0.1:5434 (Postgres) and 127.0.0.1:3306 (MySQL / MariaDB import) resolve on the VPS.
+node scripts/prepare-compose-env.js 2>/dev/null || true
+exec bash "$ROOT_DIR/scripts/docker-compose.sh" run --rm -T --network host \
+  -e DATABASE_URL \
+  -e MYSQL_MIGRATION_URL \
+  backend \
+  node ./node_modules/ts-node/dist/bin.js scripts/migrateMysqlToPostgres.ts "$@"
