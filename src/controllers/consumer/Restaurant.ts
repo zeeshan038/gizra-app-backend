@@ -29,7 +29,7 @@ import {
     parseMenuFoodType,
     parseOptionalCategoryId,
 } from '../../utils/consumer/restaurantMenuHelpers';
-import { publicMediaUrl } from '../../utils/mediaStorage';
+import { publicRestaurantMediaUrl } from '../../utils/mediaStorage';
 import { recordRestaurantVisit } from '../../utils/consumer/visitorLog';
 
 /*
@@ -735,8 +735,8 @@ export const getRestaurantDetails = async (req: Request, res: Response): Promise
                 id: restaurant.id.toString(),
                 minimum_order: restaurant.minimum_order ? Number(restaurant.minimum_order) : 0,
                 rating: restaurant.rating ? Number(restaurant.rating) : 0,
-                logo_full_url: logo ? publicMediaUrl(logo) : null,
-                cover_photo_full_url: cover ? publicMediaUrl(cover) : null,
+                logo_full_url: publicRestaurantMediaUrl(logo, 'logo'),
+                cover_photo_full_url: publicRestaurantMediaUrl(cover, 'cover'),
                 open,
                 categories,
                 category_ids: categories.map((c) => Number(c.id)),
