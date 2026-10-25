@@ -146,14 +146,18 @@ export function formatConsumerOrderListItem(
   const { order_date, order_time } = formatOrderDateTime(order.created_at);
   const id = order.id.toString();
 
+  const restaurantLogoUrl =
+    publicRestaurantMediaUrl(restaurant?.logo, 'logo') ??
+    publicRestaurantMediaUrl('default_logo.png', 'logo');
+
   return {
     id,
     order_id: id,
     order_number: id,
     restaurant_id: order.restaurant_id != null ? String(order.restaurant_id) : null,
     restaurant_name: restaurant?.name ?? 'Unknown',
-    restaurant_logo: restaurant?.logo ?? 'default_logo.png',
-    image: thumbImage ?? restaurant?.logo ?? 'default_logo.png',
+    restaurant_logo: restaurantLogoUrl,
+    image: thumbImage ?? restaurantLogoUrl,
     order_amount: Number(order.order_amount) || 0,
     order_status: order.order_status,
     status_label: orderStatusLabel(order.order_status),
@@ -261,11 +265,12 @@ type TrackDeliveryManRow = {
 
 export function formatTrackRestaurant(restaurant: TrackRestaurantRow | null | undefined) {
   if (!restaurant) return null;
+  const logoUrl = publicRestaurantMediaUrl(restaurant.logo, 'logo');
   return {
     id: restaurant.id.toString(),
     name: restaurant.name,
-    logo: restaurant.logo,
-    logo_url: publicRestaurantMediaUrl(restaurant.logo, 'logo'),
+    logo: logoUrl,
+    logo_url: logoUrl,
     phone: restaurant.phone,
     address: restaurant.address,
     latitude: restaurant.latitude != null ? Number(restaurant.latitude) : null,

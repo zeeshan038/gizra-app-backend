@@ -1,4 +1,5 @@
 import prisma from '../../config/database';
+import { consumerRestaurantMediaFields } from '../mediaStorage';
 import { formatTime, toMinutes } from '../vendor/restaurantSetup/helpers';
 import { distanceKm } from './favouriteHelpers';
 
@@ -167,11 +168,15 @@ export function formatDiscoverRestaurant(
       ? Math.round(options.distanceKm * 100) / 100
       : null;
 
+  const media = consumerRestaurantMediaFields({
+    logo: r.logo,
+    cover_photo: r.cover_photo,
+  });
+
   return {
     id: r.id.toString(),
     name: r.name,
-    logo: r.logo,
-    cover_photo: r.cover_photo,
+    ...media,
     delivery_time: r.delivery_time,
     minimum_order: r.minimum_order != null ? Number(r.minimum_order) : 0,
     tax: r.tax != null ? Number(r.tax) : 0,
@@ -268,10 +273,13 @@ export function formatMapRestaurant(
       ? Math.round(options.distanceKm * 100) / 100
       : null;
 
+  const { logo, logo_full_url } = consumerRestaurantMediaFields({ logo: r.logo });
+
   return {
     id: r.id.toString(),
     name: r.name,
-    logo: r.logo,
+    logo,
+    logo_full_url,
     rating: r.rating != null ? Number(r.rating) : 0,
     address: r.address,
     latitude: position?.latitude ?? null,

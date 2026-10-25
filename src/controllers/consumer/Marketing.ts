@@ -11,7 +11,7 @@ import {
   isOpenFromSchedules,
   loadTodaySchedulesByRestaurantId,
 } from '../../utils/consumer/restaurantDiscoverHelpers';
-import { publicMediaUrl } from '../../utils/mediaStorage';
+import { publicMediaUrl, publicRestaurantMediaUrl } from '../../utils/mediaStorage';
 import { paginationSkip } from '../../utils/consumer/orderListHelpers';
 
 function campaignRunningWhere(): Prisma.campaignsWhereInput {
@@ -356,7 +356,12 @@ export const getAdvertisements = async (req: Request, res: Response): Promise<an
     const restaurantById = new Map(
       restaurants.map((r) => [
         Number(r.id),
-        { id: r.id.toString(), name: r.name, logo: r.logo, rating: r.rating ? Number(r.rating) : 0 },
+        {
+          id: r.id.toString(),
+          name: r.name,
+          logo: publicRestaurantMediaUrl(r.logo, 'logo'),
+          rating: r.rating ? Number(r.rating) : 0,
+        },
       ])
     );
     const ads = await prisma.advertisements.findMany({

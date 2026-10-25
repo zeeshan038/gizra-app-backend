@@ -29,7 +29,7 @@ import {
     parseMenuFoodType,
     parseOptionalCategoryId,
 } from '../../utils/consumer/restaurantMenuHelpers';
-import { publicRestaurantMediaUrl } from '../../utils/mediaStorage';
+import { consumerRestaurantMediaFields } from '../../utils/mediaStorage';
 import { recordRestaurantVisit } from '../../utils/consumer/visitorLog';
 
 /*
@@ -97,12 +97,16 @@ export const getRestaurants = async (req: Request, res: Response): Promise<any> 
             })
         ]);
 
-        const formattedRestaurants = restaurants.map(r => ({
+        const formattedRestaurants = restaurants.map((r) => ({
             ...r,
             id: r.id.toString(),
             minimum_order: r.minimum_order ? Number(r.minimum_order) : 0,
             tax: r.tax ? Number(r.tax) : 0,
-            rating: r.rating ? Number(r.rating) : 0
+            rating: r.rating ? Number(r.rating) : 0,
+            ...consumerRestaurantMediaFields({
+                logo: r.logo,
+                cover_photo: r.cover_photo,
+            }),
         }));
 
         return res.status(200).json({
@@ -725,8 +729,10 @@ export const getRestaurantDetails = async (req: Request, res: Response): Promise
         const schedules = scheduleMap.get(restaurant.id.toString()) ?? [];
         const open = isOpenFromSchedules(schedules);
 
-        const logoFullUrl = publicRestaurantMediaUrl(restaurant.logo, 'logo');
-        const coverFullUrl = publicRestaurantMediaUrl(restaurant.cover_photo, 'cover');
+        const media = consumerRestaurantMediaFields({
+            logo: restaurant.logo,
+            cover_photo: restaurant.cover_photo,
+        });
 
         return res.status(200).json({
             status: true,
@@ -735,10 +741,7 @@ export const getRestaurantDetails = async (req: Request, res: Response): Promise
                 id: restaurant.id.toString(),
                 minimum_order: restaurant.minimum_order ? Number(restaurant.minimum_order) : 0,
                 rating: restaurant.rating ? Number(restaurant.rating) : 0,
-                logo: logoFullUrl,
-                cover_photo: coverFullUrl,
-                logo_full_url: logoFullUrl,
-                cover_photo_full_url: coverFullUrl,
+                ...media,
                 open,
                 categories,
                 category_ids: categories.map((c) => Number(c.id)),

@@ -74,3 +74,31 @@ export function publicRestaurantMediaUrl(
 
   return publicMediaUrl(path);
 }
+
+/** Consumer/mobile: resolve logo & cover to public URLs (apps often read `logo`, not `logo_full_url`). */
+export function consumerRestaurantMediaFields(stored: {
+  logo: string | null | undefined;
+  cover_photo?: string | null | undefined;
+}): {
+  logo: string | null;
+  logo_full_url: string | null;
+  cover_photo?: string | null;
+  cover_photo_full_url?: string | null;
+} {
+  const logoFullUrl = publicRestaurantMediaUrl(stored.logo, 'logo');
+  const out: {
+    logo: string | null;
+    logo_full_url: string | null;
+    cover_photo?: string | null;
+    cover_photo_full_url?: string | null;
+  } = {
+    logo: logoFullUrl,
+    logo_full_url: logoFullUrl,
+  };
+  if (stored.cover_photo !== undefined) {
+    const coverFullUrl = publicRestaurantMediaUrl(stored.cover_photo, 'cover');
+    out.cover_photo = coverFullUrl;
+    out.cover_photo_full_url = coverFullUrl;
+  }
+  return out;
+}

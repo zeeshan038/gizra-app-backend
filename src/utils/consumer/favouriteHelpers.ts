@@ -1,4 +1,5 @@
 import { Request } from 'express';
+import { consumerRestaurantMediaFields, publicRestaurantMediaUrl } from '../mediaStorage';
 
 function parseZoneIdsFromRaw(raw: unknown): number[] | null {
   if (raw == null || raw === '') return null;
@@ -151,7 +152,7 @@ export function formatFavouriteFood(
     category_id: f.category_id != null ? String(f.category_id) : null,
     restaurant_id: f.restaurant_id != null ? String(f.restaurant_id) : null,
     restaurant_name: restaurant?.name ?? null,
-    restaurant_logo: restaurant?.logo ?? null,
+    restaurant_logo: publicRestaurantMediaUrl(restaurant?.logo, 'logo'),
     restaurant_address: restaurant?.address ?? null,
     price: basePrice,
     price_after_discount: price,
@@ -191,12 +192,16 @@ export function formatFavouriteRestaurant(
       ? Math.round(options.distanceKm * 100) / 100
       : null;
 
+  const media = consumerRestaurantMediaFields({
+    logo: r.logo,
+    cover_photo: r.cover_photo,
+  });
+
   return {
     id: r.id.toString(),
     wishlist_id: options?.wishlistId?.toString() ?? null,
     name: r.name,
-    logo: r.logo,
-    cover_photo: r.cover_photo,
+    ...media,
     delivery_time: r.delivery_time,
     minimum_order: r.minimum_order != null ? Number(r.minimum_order) : 0,
     tax: r.tax != null ? Number(r.tax) : 0,
