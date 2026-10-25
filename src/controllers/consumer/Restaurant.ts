@@ -725,8 +725,8 @@ export const getRestaurantDetails = async (req: Request, res: Response): Promise
         const schedules = scheduleMap.get(restaurant.id.toString()) ?? [];
         const open = isOpenFromSchedules(schedules);
 
-        const logo = restaurant.logo ?? null;
-        const cover = restaurant.cover_photo ?? null;
+        const logoFullUrl = publicRestaurantMediaUrl(restaurant.logo, 'logo');
+        const coverFullUrl = publicRestaurantMediaUrl(restaurant.cover_photo, 'cover');
 
         return res.status(200).json({
             status: true,
@@ -735,8 +735,10 @@ export const getRestaurantDetails = async (req: Request, res: Response): Promise
                 id: restaurant.id.toString(),
                 minimum_order: restaurant.minimum_order ? Number(restaurant.minimum_order) : 0,
                 rating: restaurant.rating ? Number(restaurant.rating) : 0,
-                logo_full_url: publicRestaurantMediaUrl(logo, 'logo'),
-                cover_photo_full_url: publicRestaurantMediaUrl(cover, 'cover'),
+                logo: logoFullUrl,
+                cover_photo: coverFullUrl,
+                logo_full_url: logoFullUrl,
+                cover_photo_full_url: coverFullUrl,
                 open,
                 categories,
                 category_ids: categories.map((c) => Number(c.id)),
