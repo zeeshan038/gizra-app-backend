@@ -7,6 +7,7 @@ import {
     loadAddonLookup,
     resolveAddOnIdsForSave,
 } from '../../../utils/vendor/catalog/foodAddonHelpers';
+import { publicFoodMediaUrl } from '../../../utils/mediaStorage';
 
 async function getVendorRestaurant(req: Request) {
     return prisma.restaurants.findFirst({
@@ -23,10 +24,13 @@ function serializeFood(food: Record<string, unknown>) {
             variations = [];
         }
     }
+    const imageStored =
+        typeof food.image === 'string' ? food.image : food.image != null ? String(food.image) : null;
     return {
         ...food,
         id: String(food.id),
         variations,
+        image_full_url: publicFoodMediaUrl(imageStored),
     };
 }
 

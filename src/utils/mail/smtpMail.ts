@@ -19,28 +19,49 @@ function mailConfigEnabled(cfg: AdminMailConfig): boolean {
   return s === 1 || s === '1' || s === true || s === 'true';
 }
 
+function envValue(raw: string | undefined): string {
+  const v = raw?.trim() ?? '';
+  if (!v || v === 'null') return '';
+  return v;
+}
+
+/** Laravel / PHP `.env` mail keys (see deliverymain `.env.example` + admin mail_config fields). */
 function envSmtpConfig(): AdminMailConfig | null {
-  const host = process.env.SMTP_HOST?.trim();
-  const port = process.env.SMTP_PORT?.trim();
-  const username = process.env.SMTP_USER?.trim() ?? process.env.SMTP_USERNAME?.trim();
-  const password = process.env.SMTP_PASS?.trim() ?? process.env.SMTP_PASSWORD?.trim();
+  const host = envValue(process.env.SMTP_HOST) || envValue(process.env.MAIL_HOST);
+  const port = envValue(process.env.SMTP_PORT) || envValue(process.env.MAIL_PORT);
+  const username =
+    envValue(process.env.SMTP_USER) ||
+    envValue(process.env.SMTP_USERNAME) ||
+    envValue(process.env.MAIL_USERNAME);
+  const password =
+    envValue(process.env.SMTP_PASS) ||
+    envValue(process.env.SMTP_PASSWORD) ||
+    envValue(process.env.MAIL_PASSWORD);
   const email_id =
-    process.env.SMTP_FROM?.trim() ??
-    process.env.MAIL_FROM?.trim() ??
-    username ??
-    '';
+    envValue(process.env.SMTP_FROM) ||
+    envValue(process.env.MAIL_FROM) ||
+    envValue(process.env.MAIL_FROM_ADDRESS) ||
+    username;
   if (!host || !port || !username || !password || !email_id) {
     return null;
   }
+  const encryption =
+    envValue(process.env.SMTP_ENCRYPTION) ||
+    envValue(process.env.MAIL_ENCRYPTION) ||
+    'tls';
   return {
     status: 1,
-    name: process.env.SMTP_FROM_NAME?.trim() ?? 'Gizra',
+    name:
+      envValue(process.env.SMTP_FROM_NAME) ||
+      envValue(process.env.MAIL_FROM_NAME) ||
+      envValue(process.env.APP_NAME) ||
+      'Gizra',
     host,
     port,
     username,
     password,
     email_id,
-    encryption: process.env.SMTP_ENCRYPTION?.trim() ?? 'tls',
+    encryption: encryption === 'null' ? 'tls' : encryption,
     driver: 'smtp',
   };
 }
