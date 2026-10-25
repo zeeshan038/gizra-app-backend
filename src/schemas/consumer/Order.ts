@@ -21,6 +21,8 @@ export const placeOrderSchema = Joi.object({
   order_type: Joi.string().valid('delivery', 'take_away', 'dine_in').default('delivery'),
   delivery_address_id: Joi.number().optional(),
   order_note: Joi.string().optional().allow(''),
+  /** Fee shown at checkout from GET /consumer/config/delivery-fee (`delivery_fee`). */
+  delivery_fee: Joi.number().optional().min(0),
   delivery_charge: Joi.number().optional().min(0),
   total_tax_amount: Joi.number().optional().min(0),
   schedule_at: Joi.date().iso().optional(),
@@ -87,6 +89,7 @@ export type PlaceOrderInput = {
   order_type: string;
   delivery_address_id?: number;
   order_note?: string;
+  delivery_fee?: number;
   delivery_charge?: number;
   total_tax_amount?: number;
   schedule_at?: Date;

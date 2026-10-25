@@ -16,6 +16,7 @@ const PLACE_ORDER_BODY_EXAMPLE = {
   order_type: 'delivery',
   payment_method: 'cash_on_delivery',
   distance: 2.5,
+  delivery_fee: 12.5,
   delivery_address_id: 3,
   order_note: 'Ring the bell',
   dm_tips: 1,
@@ -30,6 +31,7 @@ const PLACE_ORDER_CART_EXAMPLE = {
   order_type: 'delivery',
   payment_method: 'cash_on_delivery',
   distance: 1.2,
+  delivery_fee: 8,
   delivery_address_id: 3,
   is_buy_now: false
 };
@@ -59,7 +61,8 @@ function registerRequestBodySchemas(schemas) {
     required: ['restaurant_id'],
     description:
       'Checkout payload. Use saved address via delivery_address_id, or inline address fields when no id. ' +
-      'For delivery, distance (km) is required. Cart checkout: omit items/cart and use DB cart; buy-now: set is_buy_now true with items (or cart array). ' +
+      'For delivery, distance (km) is required; send delivery_fee from GET /consumer/config/delivery-fee (legacy alias: delivery_charge). ' +
+      'Cart checkout: omit items/cart and use DB cart; buy-now: set is_buy_now true with items (or cart array). ' +
       'Guest checkout: send guest_id from POST /consumer/guest/request when not using Bearer token.',
     properties: {
       restaurant_id: { type: 'number', example: 12 },
@@ -74,7 +77,17 @@ function registerRequestBodySchemas(schemas) {
         default: 'cash_on_delivery'
       },
       order_amount: { type: 'number', minimum: 0 },
-      delivery_charge: { type: 'number', minimum: 0 },
+      delivery_fee: {
+        type: 'number',
+        minimum: 0,
+        description:
+          'Delivery fee quoted for the customer (same value as delivery_fee from GET /consumer/config/delivery-fee)'
+      },
+      delivery_charge: {
+        type: 'number',
+        minimum: 0,
+        description: 'Legacy alias for delivery_fee'
+      },
       total_tax_amount: { type: 'number', minimum: 0 },
       distance: {
         type: 'number',

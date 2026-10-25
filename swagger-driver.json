@@ -164,7 +164,7 @@
         "required": [
           "restaurant_id"
         ],
-        "description": "Checkout payload. Use saved address via delivery_address_id, or inline address fields when no id. For delivery, distance (km) is required. Cart checkout: omit items/cart and use DB cart; buy-now: set is_buy_now true with items (or cart array). Guest checkout: send guest_id from POST /consumer/guest/request when not using Bearer token.",
+        "description": "Checkout payload. Use saved address via delivery_address_id, or inline address fields when no id. For delivery, distance (km) is required; send delivery_fee from GET /consumer/config/delivery-fee (legacy alias: delivery_charge). Cart checkout: omit items/cart and use DB cart; buy-now: set is_buy_now true with items (or cart array). Guest checkout: send guest_id from POST /consumer/guest/request when not using Bearer token.",
         "properties": {
           "restaurant_id": {
             "type": "number",
@@ -193,9 +193,15 @@
             "type": "number",
             "minimum": 0
           },
+          "delivery_fee": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Delivery fee quoted for the customer (same value as delivery_fee from GET /consumer/config/delivery-fee)"
+          },
           "delivery_charge": {
             "type": "number",
-            "minimum": 0
+            "minimum": 0,
+            "description": "Legacy alias for delivery_fee"
           },
           "total_tax_amount": {
             "type": "number",

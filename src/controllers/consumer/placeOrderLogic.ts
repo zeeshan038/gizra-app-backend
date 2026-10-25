@@ -27,6 +27,13 @@ function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+/** Client-quoted delivery fee (prefer `delivery_fee` from GET /consumer/config/delivery-fee). */
+function clientQuotedDeliveryFee(payload: PlaceOrderInput): number | null {
+  const raw = payload.delivery_fee ?? payload.delivery_charge;
+  if (raw == null || !Number.isFinite(Number(raw))) return null;
+  return roundMoney(Math.max(0, Number(raw)));
+}
+
 function parseJson<T>(value: string | null | undefined, fallback: T): T {
   if (!value) return fallback;
   try {
@@ -658,18 +665,29 @@ export async function executePlaceOrder(params: {
     throw new PlaceOrderError(deliveryFee.error, 403, 'coordinates');
   }
 
-  const freeDelivery = await applyFreeDeliveryRules({
-    productSubtotal: productPrice + totalAddonPrice,
-    couponDiscount: couponResult.discount,
-    restaurantDiscount: restaurantDiscountAmount,
-    distance: payload.distance ?? 0,
-    restaurant,
-  });
-  if (freeDelivery.delivery_charge >= 0) {
+  const quotedDeliveryFee = clientQuotedDeliveryFee(payload);
+  let freeDelivery: { delivery_charge: number; free_delivery_by: string | null };
+
+  if (payload.order_type === 'delivery' && quotedDeliveryFee != null) {
     deliveryFee = {
       ...deliveryFee,
-      delivery_charge: freeDelivery.delivery_charge,
+      delivery_charge: quotedDeliveryFee,
     };
+    freeDelivery = { delivery_charge: quotedDeliveryFee, free_delivery_by: null };
+  } else {
+    freeDelivery = await applyFreeDeliveryRules({
+      productSubtotal: productPrice + totalAddonPrice,
+      couponDiscount: couponResult.discount,
+      restaurantDiscount: restaurantDiscountAmount,
+      distance: payload.distance ?? 0,
+      restaurant,
+    });
+    if (freeDelivery.delivery_charge >= 0) {
+      deliveryFee = {
+        ...deliveryFee,
+        delivery_charge: freeDelivery.delivery_charge,
+      };
+    }
   }
 
   const additionalCharge = await resolveAdditionalCharge();
