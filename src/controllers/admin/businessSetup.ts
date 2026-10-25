@@ -10,11 +10,13 @@ import {
   adminUpdateMaintenanceSchema,
   adminUpdateOrderSchema,
   adminUpdatePrioritySchema,
+  adminUpdateAppSettingsSchema,
   adminUpdateRefundSchema,
   adminUpdateRestaurantSchema,
 } from '../../schemas/admin/BusinessSetup';
 import {
   getBusinessSetup,
+  updateAppSettings,
   updateBusinessTab,
   updateCustomerTab,
   updateDeliverymanTab,
@@ -121,3 +123,8 @@ export const updateAdminRefundSetup = handleUpdate(adminUpdateRefundSchema, upda
  * @Route PUT /api/admin/business-setup/language
  */
 export const updateAdminLanguageSetup = handleUpdate(adminUpdateLanguageSchema, updateLanguageTab);
+
+/**
+ * @Route PUT /api/admin/business-setup/app
+ */
+export const updateAdminAppSettings = handleUpdate(adminUpdateAppSettingsSchema, updateAppSettings);

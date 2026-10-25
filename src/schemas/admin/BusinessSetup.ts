@@ -16,7 +16,8 @@ export const adminBusinessSetupTabQuerySchema = Joi.object({
       'customer',
       'language',
       'landing',
-      'disbursement'
+      'disbursement',
+      'app'
     )
     .optional()
     .default('all'),
@@ -185,4 +186,16 @@ export const adminUpdateRefundSchema = Joi.object({
 
 export const adminUpdateLanguageSchema = Joi.object({
   language: Joi.alternatives().try(Joi.array(), Joi.object(), Joi.string()).required(),
+});
+
+const appVersionField = Joi.alternatives()
+  .try(Joi.string().trim().allow('', null), Joi.number())
+  .optional();
+
+export const adminUpdateAppSettingsSchema = Joi.object({
+  app: Joi.string().valid('user', 'restaurant', 'deliveryman').default('user'),
+  app_minimum_version_android: appVersionField,
+  app_minimum_version_ios: appVersionField,
+  app_url_android: Joi.string().trim().allow('', null).optional(),
+  app_url_ios: Joi.string().trim().allow('', null).optional(),
 });

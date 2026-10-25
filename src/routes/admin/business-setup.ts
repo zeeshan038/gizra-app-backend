@@ -1,6 +1,7 @@
 import express from 'express';
 import {
   getAdminBusinessSetup,
+  updateAdminAppSettings,
   updateAdminBusiness,
   updateAdminCustomerSetup,
   updateAdminDeliverymanSetup,
@@ -31,5 +32,6 @@ router.put('/disbursement', updateAdminDisbursementSetup);
 router.put('/landing', updateAdminLandingSetup);
 router.put('/refund', updateAdminRefundSetup);
 router.put('/language', updateAdminLanguageSetup);
+router.put('/app', updateAdminAppSettings);
 
 export default router;

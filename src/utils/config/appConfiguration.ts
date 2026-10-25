@@ -30,6 +30,16 @@ function num(raw: string | null | undefined, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+/** Legacy PHP casts app min versions with `(float)` — e.g. "3.2.2" → 3.2 */
+function appMinVersionNum(raw: string | null | undefined, fallback = 0): number {
+  if (raw == null || raw === '') return fallback;
+  const trimmed = raw.trim();
+  const n = Number(trimmed);
+  if (Number.isFinite(n)) return n;
+  const pf = parseFloat(trimmed);
+  return Number.isFinite(pf) ? pf : fallback;
+}
+
 function paymentSettingEnabled(status: unknown): boolean {
   return Number(status) === 1;
 }
@@ -206,9 +216,9 @@ export async function buildAppConfiguration(locale?: string): Promise<Record<str
     map_api_key_server: s(settings, 'map_api_key_server') || null,
     currency_symbol: currencyRow?.currency_symbol ?? '$',
     currency_symbol_direction: s(settings, 'currency_symbol_position'),
-    app_minimum_version_android: num(s(settings, 'app_minimum_version_android')),
+    app_minimum_version_android: appMinVersionNum(s(settings, 'app_minimum_version_android')),
     app_url_android: s(settings, 'app_url_android'),
-    app_minimum_version_ios: num(s(settings, 'app_minimum_version_ios')),
+    app_minimum_version_ios: appMinVersionNum(s(settings, 'app_minimum_version_ios')),
     app_url_ios: s(settings, 'app_url_ios'),
     customer_verification: bool(s(settings, 'customer_verification')),
     schedule_order: bool(s(settings, 'schedule_order')),
@@ -260,17 +270,21 @@ export async function buildAppConfiguration(locale?: string): Promise<Record<str
     refund_active_status: bool(s(settings, 'refund_active_status')),
     free_trial_period_status: freeTrialRaw.status ?? 0,
     free_trial_period_data: freeTrialRaw.data ?? 0,
-    app_minimum_version_android_restaurant: num(
+    app_minimum_version_android_restaurant: appMinVersionNum(
       s(settings, 'app_minimum_version_android_restaurant')
     ),
     app_url_android_restaurant: s(settings, 'app_url_android_restaurant') || null,
-    app_minimum_version_ios_restaurant: num(s(settings, 'app_minimum_version_ios_restaurant')),
+    app_minimum_version_ios_restaurant: appMinVersionNum(
+      s(settings, 'app_minimum_version_ios_restaurant')
+    ),
     app_url_ios_restaurant: s(settings, 'app_url_ios_restaurant') || null,
-    app_minimum_version_android_deliveryman: num(
+    app_minimum_version_android_deliveryman: appMinVersionNum(
       s(settings, 'app_minimum_version_android_deliveryman')
     ),
     app_url_android_deliveryman: s(settings, 'app_url_android_deliveryman') || null,
-    app_minimum_version_ios_deliveryman: num(s(settings, 'app_minimum_version_ios_deliveryman')),
+    app_minimum_version_ios_deliveryman: appMinVersionNum(
+      s(settings, 'app_minimum_version_ios_deliveryman')
+    ),
     app_url_ios_deliveryman: s(settings, 'app_url_ios_deliveryman') || null,
     tax_included: num(s(settings, 'tax_included')),
     apple_login: parseSocialLoginBlocks(s(settings, 'apple_login')),

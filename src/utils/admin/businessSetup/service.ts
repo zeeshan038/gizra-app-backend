@@ -143,6 +143,40 @@ const LANDING_KEYS = ['landing_integration_via', 'landing_page_url', 'landing_fi
 const REFUND_KEYS = ['refund_active_status'];
 const LANGUAGE_KEYS = ['language'];
 
+const APP_SETTINGS_KEYS = [
+  'app_minimum_version_android',
+  'app_url_android',
+  'app_minimum_version_ios',
+  'app_url_ios',
+  'app_minimum_version_android_restaurant',
+  'app_url_android_restaurant',
+  'app_minimum_version_ios_restaurant',
+  'app_url_ios_restaurant',
+  'app_minimum_version_android_deliveryman',
+  'app_url_android_deliveryman',
+  'app_minimum_version_ios_deliveryman',
+  'app_url_ios_deliveryman',
+] as const;
+
+type AppSettingsSuffix = '' | '_restaurant' | '_deliveryman';
+
+function appSettingsBlock(map: Map<string, string | null>, suffix: AppSettingsSuffix) {
+  return {
+    app_minimum_version_android: settingValue(map, `app_minimum_version_android${suffix}`, '') ?? '',
+    app_minimum_version_ios: settingValue(map, `app_minimum_version_ios${suffix}`, '') ?? '',
+    app_url_android: settingValue(map, `app_url_android${suffix}`, '') ?? '',
+    app_url_ios: settingValue(map, `app_url_ios${suffix}`, '') ?? '',
+  };
+}
+
+function getAppSettingsPayload(map: Map<string, string | null>) {
+  return {
+    user: appSettingsBlock(map, ''),
+    restaurant: appSettingsBlock(map, '_restaurant'),
+    deliveryman: appSettingsBlock(map, '_deliveryman'),
+  };
+}
+
 async function getMaintenancePayload(map: Map<string, string | null>) {
   const data = await getDataSettings('maintenance_mode', [
     'maintenance_system_setup',
@@ -276,6 +310,7 @@ export async function getBusinessSetup(tab?: string) {
     ...LANDING_KEYS,
     ...REFUND_KEYS,
     ...LANGUAGE_KEYS,
+    ...APP_SETTINGS_KEYS,
     ...PRIORITY_ITEMS.map((i) => `${i}_default_status`),
   ];
   const map = await getSettingsMap(allKeys);
@@ -340,6 +375,7 @@ export async function getBusinessSetup(tab?: string) {
     language: {
       language: parseJsonValue(settingValue(map, 'language'), []),
     },
+    app: getAppSettingsPayload(map),
     meta: {
       currencies: currencies.map((c) => ({
         id: Number(c.id),
@@ -632,4 +668,41 @@ export async function updateLanguageTab(body: Record<string, any>) {
   await upsertBusinessSettings({
     language: typeof body.language === 'string' ? body.language : JSON.stringify(body.language ?? []),
   });
+}
+
+function normalizeAppSettingValue(value: string | number | null | undefined): string | null {
+  if (value === undefined || value === null) return null;
+  const trimmed = String(value).trim();
+  return trimmed === '' ? null : trimmed;
+}
+
+export async function updateAppSettings(body: {
+  app: 'user' | 'restaurant' | 'deliveryman';
+  app_minimum_version_android?: string | number | null;
+  app_minimum_version_ios?: string | number | null;
+  app_url_android?: string | null;
+  app_url_ios?: string | null;
+}) {
+  const suffix: AppSettingsSuffix =
+    body.app === 'restaurant' ? '_restaurant' : body.app === 'deliveryman' ? '_deliveryman' : '';
+
+  const entries: Record<string, string | null | undefined> = {};
+  if (body.app_minimum_version_android !== undefined) {
+    entries[`app_minimum_version_android${suffix}`] = normalizeAppSettingValue(
+      body.app_minimum_version_android
+    );
+  }
+  if (body.app_minimum_version_ios !== undefined) {
+    entries[`app_minimum_version_ios${suffix}`] = normalizeAppSettingValue(
+      body.app_minimum_version_ios
+    );
+  }
+  if (body.app_url_android !== undefined) {
+    entries[`app_url_android${suffix}`] = normalizeAppSettingValue(body.app_url_android);
+  }
+  if (body.app_url_ios !== undefined) {
+    entries[`app_url_ios${suffix}`] = normalizeAppSettingValue(body.app_url_ios);
+  }
+
+  await upsertBusinessSettings(entries);
 }
