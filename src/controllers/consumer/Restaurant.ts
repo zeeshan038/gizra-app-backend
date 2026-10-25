@@ -29,7 +29,7 @@ import {
     parseMenuFoodType,
     parseOptionalCategoryId,
 } from '../../utils/consumer/restaurantMenuHelpers';
-import { consumerRestaurantMediaFields } from '../../utils/mediaStorage';
+import { consumerFoodMediaFields, consumerRestaurantMediaFields } from '../../utils/mediaStorage';
 import { recordRestaurantVisit } from '../../utils/consumer/visitorLog';
 
 /*
@@ -648,7 +648,7 @@ export const searchFoods = async (req: Request, res: Response): Promise<any> => 
                 id: f.id.toString(),
                 name: f.name,
                 description: f.description,
-                image: f.image,
+                ...consumerFoodMediaFields(f.image),
                 category_id: f.category_id?.toString() || null,
                 restaurant_id: f.restaurant_id?.toString() || null,
                 price: Number(f.price),

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { notPosWhere } from '../vendor/order/query';
-import { publicMediaUrl, publicRestaurantMediaUrl } from '../mediaStorage';
+import { publicFoodMediaUrl, publicMediaUrl, publicRestaurantMediaUrl } from '../mediaStorage';
 import { customerOrderStatusLabel } from './customerOrderTracking';
 
 /** Past orders tab (PHP `get_order_list`). */
@@ -149,6 +149,7 @@ export function formatConsumerOrderListItem(
   const restaurantLogoUrl =
     publicRestaurantMediaUrl(restaurant?.logo, 'logo') ??
     publicRestaurantMediaUrl('default_logo.png', 'logo');
+  const thumbUrl = thumbImage ? publicFoodMediaUrl(thumbImage) : null;
 
   return {
     id,
@@ -157,7 +158,7 @@ export function formatConsumerOrderListItem(
     restaurant_id: order.restaurant_id != null ? String(order.restaurant_id) : null,
     restaurant_name: restaurant?.name ?? 'Unknown',
     restaurant_logo: restaurantLogoUrl,
-    image: thumbImage ?? restaurantLogoUrl,
+    image: thumbUrl ?? restaurantLogoUrl,
     order_amount: Number(order.order_amount) || 0,
     order_status: order.order_status,
     status_label: orderStatusLabel(order.order_status),

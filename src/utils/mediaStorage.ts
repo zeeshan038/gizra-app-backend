@@ -47,7 +47,17 @@ export function publicMediaUrl(stored: string | null | undefined): string | null
 export function publicFoodMediaUrl(stored: string | null | undefined): string | null {
   const raw = stored?.trim();
   if (!raw) return null;
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
   const path = raw.includes('/') ? raw : `product/${raw}`;
+  return publicMediaUrl(path);
+}
+
+/** Category tiles (home + restaurant menu chips). */
+export function publicCategoryMediaUrl(stored: string | null | undefined): string | null {
+  const raw = stored?.trim();
+  if (!raw) return null;
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  const path = raw.startsWith('category/') ? raw : `category/${raw}`;
   return publicMediaUrl(path);
 }
 
@@ -101,4 +111,22 @@ export function consumerRestaurantMediaFields(stored: {
     out.cover_photo_full_url = coverFullUrl;
   }
   return out;
+}
+
+/** Consumer/mobile: `image` and `image_full_url` for category rows. */
+export function consumerCategoryMediaFields(stored: string | null | undefined): {
+  image: string | null;
+  image_full_url: string | null;
+} {
+  const url = publicCategoryMediaUrl(stored);
+  return { image: url, image_full_url: url };
+}
+
+/** Consumer/mobile: `image` and `image_full_url` for food rows. */
+export function consumerFoodMediaFields(stored: string | null | undefined): {
+  image: string | null;
+  image_full_url: string | null;
+} {
+  const url = publicFoodMediaUrl(stored);
+  return { image: url, image_full_url: url };
 }

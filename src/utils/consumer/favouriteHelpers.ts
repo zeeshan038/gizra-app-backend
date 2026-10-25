@@ -1,5 +1,9 @@
 import { Request } from 'express';
-import { consumerRestaurantMediaFields, publicRestaurantMediaUrl } from '../mediaStorage';
+import {
+  consumerFoodMediaFields,
+  consumerRestaurantMediaFields,
+  publicRestaurantMediaUrl,
+} from '../mediaStorage';
 
 function parseZoneIdsFromRaw(raw: unknown): number[] | null {
   if (raw == null || raw === '') return null;
@@ -143,12 +147,14 @@ export function formatFavouriteFood(
   const discountType = f.discount_type ?? 'percent';
   const price = discountedPrice(basePrice, discount, discountType);
 
+  const foodMedia = consumerFoodMediaFields(f.image);
+
   return {
     id: f.id.toString(),
     wishlist_id: wishlistId?.toString() ?? null,
     name: f.name,
     description: f.description,
-    image: f.image,
+    ...foodMedia,
     category_id: f.category_id != null ? String(f.category_id) : null,
     restaurant_id: f.restaurant_id != null ? String(f.restaurant_id) : null,
     restaurant_name: restaurant?.name ?? null,

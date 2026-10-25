@@ -1,5 +1,5 @@
 import prisma from '../../config/database';
-import { publicMediaUrl } from '../mediaStorage';
+import { consumerCategoryMediaFields } from '../mediaStorage';
 import { getBusinessSetting } from './businessSettings';
 
 type CategoryRow = {
@@ -28,12 +28,12 @@ export function formatHomeCategory(
   row: CategoryRow,
   extras?: { products_count?: number; order_count?: number; childes?: HomeCategoryFormatted[] }
 ): HomeCategoryFormatted {
-  const image = row.image || 'def.png';
+  const media = consumerCategoryMediaFields(row.image || 'def.png');
   return {
     id: row.id.toString(),
     name: row.name,
-    image,
-    image_full_url: publicMediaUrl(image.startsWith('category/') ? image : `category/${image}`),
+    image: media.image ?? row.image ?? 'def.png',
+    image_full_url: media.image_full_url,
     slug: row.slug,
     priority: Number(row.priority),
     parent_id: row.parent_id.toString(),
