@@ -227,7 +227,11 @@ export const requestVendorWithdraw = async (req: Request, res: Response): Promis
   });
 
   if (balance < amount) {
-    return sendApiError(res, 403, 'Insufficient balance');
+    return sendApiError(
+      res,
+      403,
+      `Insufficient balance. Maximum you can withdraw is ${roundMoney(balance)}`
+    );
   }
 
   const now = new Date();

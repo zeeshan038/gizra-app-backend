@@ -3,9 +3,13 @@ import prisma from '../../../config/database';
 
 type Tx = Prisma.TransactionClient;
 
+function orderIdDec(orderId: number): Prisma.Decimal {
+  return new Prisma.Decimal(orderId);
+}
+
 /** Remove rows linked by order_id (Decimal) then delete the order. Admin-only. */
 async function deleteOrderRelations(tx: Tx, orderId: number) {
-  const where = { order_id: orderId };
+  const where = { order_id: orderIdDec(orderId) };
 
   await Promise.all([
     tx.order_details.deleteMany({ where }),
@@ -40,16 +44,19 @@ export async function deleteAdminOrder(orderId: number) {
     await prisma.$transaction(
       async (tx) => {
         await deleteOrderRelations(tx, orderId);
-        await tx.orders.delete({ where: { id: BigInt(orderId) } });
+        const removed = await tx.orders.deleteMany({ where: { id: BigInt(orderId) } });
+        if (removed.count === 0) {
+          throw new Error('Order not found');
+        }
       },
       { maxWait: 15_000, timeout: 60_000 }
     );
     return { ok: true as const };
   } catch (e) {
-    console.error('[deleteAdminOrder]', orderId, e);
-    return {
-      ok: false as const,
-      msg: e instanceof Error ? e.message : 'Failed to delete order',
-    };
+    const msg = e instanceof Error ? e.message : 'Failed to delete order';
+    if (msg !== 'Order not found') {
+      console.error('[deleteAdminOrder]', orderId, e);
+    }
+    return { ok: false as const, msg };
   }
 }

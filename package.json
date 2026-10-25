@@ -19,6 +19,7 @@
     "seed:demo": "npm run seed:business-settings && npm run seed:demo-checkout",
     "credit:restaurant-wallet": "ts-node scripts/creditRestaurantWallet.ts",
     "db:clear-transactions": "node ./node_modules/ts-node/dist/bin.js scripts/clearTransactionalData.ts",
+    "db:clear-vendor-transactions": "node ./node_modules/ts-node/dist/bin.js scripts/clearVendorTransactionalData.ts",
     "db:migrate-from-mysql": "node ./node_modules/ts-node/dist/bin.js scripts/migrateMysqlToPostgres.ts",
     "db:migrate-reset-sequences": "node ./node_modules/ts-node/dist/bin.js scripts/resetPgSequences.ts",
     "db:migrate-from-mysql:mac": "bash scripts/migrate-on-mac.sh",
