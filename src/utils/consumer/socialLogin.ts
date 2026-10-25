@@ -1,7 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../../config/database';
-import { fitDbString, normalizeStoredMedia } from '../mediaStorage';
+import { fitDbString, normalizeStoredMedia, publicConsumerProfileMediaUrl } from '../mediaStorage';
 
 export type GoogleTokenProfile = {
   email: string;
@@ -119,7 +119,7 @@ function existUserPayload(user: {
   return {
     id: user.id.toString(),
     name,
-    image: user.image,
+    image: publicConsumerProfileMediaUrl(user.image),
   };
 }
 

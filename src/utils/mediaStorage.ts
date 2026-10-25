@@ -130,3 +130,14 @@ export function consumerFoodMediaFields(stored: string | null | undefined): {
   const url = publicFoodMediaUrl(stored);
   return { image: url, image_full_url: url };
 }
+
+/** Customer profile avatar (R2 path `consumers/profile/…` or legacy filename). */
+export function publicConsumerProfileMediaUrl(
+  stored: string | null | undefined
+): string | null {
+  const raw = stored?.trim();
+  if (!raw) return null;
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  const path = raw.includes('/') ? raw : `consumers/profile/${raw}`;
+  return publicMediaUrl(path);
+}
