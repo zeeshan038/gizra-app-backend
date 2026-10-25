@@ -458,10 +458,39 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
       return res.status(404).json({ status: false, msg: 'Order not found' });
     }
 
-    if (order.picked_up && status !== 'canceled') {
+    const isManualDispatch = Boolean(order.is_manual_dispatch);
+
+    if (status === 'picked_up' && !isManualDispatch) {
       return res.status(400).json({
         status: false,
-        msg: 'Cannot change status after order was picked up by delivery',
+        msg: 'Out for delivery is updated by the assigned driver for online orders',
+      });
+    }
+
+    if (order.picked_up && status !== 'canceled') {
+      if (!isManualDispatch) {
+        return res.status(400).json({
+          status: false,
+          msg: 'Cannot change status after order was picked up by delivery',
+        });
+      }
+      if (status !== 'delivered') {
+        return res.status(400).json({
+          status: false,
+          msg: 'Manual dispatch orders can only be marked delivered after out for delivery',
+        });
+      }
+    }
+
+    if (
+      status === 'delivered' &&
+      isManualDispatch &&
+      order.order_type === 'delivery' &&
+      order.order_status !== 'picked_up'
+    ) {
+      return res.status(400).json({
+        status: false,
+        msg: 'Mark the order as out for delivery before delivered',
       });
     }
 
@@ -486,6 +515,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
       if (order.confirmed == null) updateData.confirmed = now;
     }
     if (status === 'handover') updateData.handover = now;
+    if (status === 'picked_up') updateData.picked_up = now;
     if (status === 'delivered') {
       updateData.delivered = now;
       updateData.payment_status = 'paid';
