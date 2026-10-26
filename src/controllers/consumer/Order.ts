@@ -109,11 +109,14 @@ async function sendPlaceOrderCreatedResponse(
     }
   }
 
+  const taxStatus = (orderResult.tax_status as 'included' | 'excluded') ?? 'excluded';
   const pricing = placed.pricing ?? {
     subtotal: placed.subtotal,
     total_tax_amount: Number(orderResult.total_tax_amount) || 0,
     tax_added_to_total: placed.taxAdded,
-    tax_status: (orderResult.tax_status as 'included' | 'excluded') ?? 'excluded',
+    tax_status: taxStatus,
+    tax_percentage: Number(orderResult.tax_percentage) || 0,
+    tax_included: taxStatus === 'included',
     delivery_charge: mappedOrder.delivery_charge,
     additional_charge: mappedOrder.additional_charge,
     extra_packaging_amount: Number(orderResult.extra_packaging_amount) || 0,

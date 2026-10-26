@@ -76,11 +76,17 @@ export type PlaceOrderPricing = {
   extra_packaging_amount: number;
   dm_tips: number;
   order_amount: number;
+  /** Restaurant VAT/GST % (`restaurants.tax`). */
+  tax_percentage: number;
+  /** Global business setting: menu prices include VAT when true. */
+  tax_included: boolean;
 };
 
 function buildPlaceOrderPricing(params: {
   totalPrice: number;
   taxResult: ReturnType<typeof orderLevelTax>;
+  taxPercent: number;
+  taxIncluded: boolean;
   deliveryCharge: number;
   additionalCharge: number;
   extraPackaging: number;
@@ -92,6 +98,8 @@ function buildPlaceOrderPricing(params: {
     total_tax_amount: params.taxResult.total_tax_amount,
     tax_added_to_total: params.taxResult.tax_to_add,
     tax_status: params.taxResult.tax_status,
+    tax_percentage: params.taxPercent,
+    tax_included: params.taxIncluded,
     delivery_charge: params.deliveryCharge,
     additional_charge: params.additionalCharge,
     extra_packaging_amount: params.extraPackaging,
@@ -805,6 +813,8 @@ export async function executePlaceOrder(params: {
   const pricing = buildPlaceOrderPricing({
     totalPrice,
     taxResult,
+    taxPercent,
+    taxIncluded,
     deliveryCharge: deliveryFee.delivery_charge,
     additionalCharge,
     extraPackaging,

@@ -11780,6 +11780,16 @@
             ],
             "example": "excluded"
           },
+          "tax_percentage": {
+            "type": "number",
+            "description": "Restaurant VAT/GST rate in percent (`restaurants.tax` for restaurant_id)",
+            "example": 5
+          },
+          "tax_included": {
+            "type": "boolean",
+            "description": "Global business setting (GET /config → tax_included): menu prices already include VAT when true",
+            "example": false
+          },
           "delivery_charge": {
             "type": "number",
             "example": 1
@@ -11808,6 +11818,8 @@
           "total_tax_amount",
           "tax_added_to_total",
           "tax_status",
+          "tax_percentage",
+          "tax_included",
           "delivery_charge",
           "additional_charge",
           "extra_packaging_amount",

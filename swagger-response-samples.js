@@ -43,6 +43,8 @@ const SAMPLE_ORDER_PRICING_BREAKDOWN = {
   total_tax_amount: 2,
   tax_added_to_total: 2,
   tax_status: 'excluded',
+  tax_percentage: 5,
+  tax_included: false,
   delivery_charge: 1,
   additional_charge: 0,
   extra_packaging_amount: 0,
