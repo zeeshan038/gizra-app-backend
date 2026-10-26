@@ -151,6 +151,9 @@ When restaurant/POS moves order to **cooking** (`processing`), assigned drivers 
 | `cooking_time_minutes` | number \| null | Parsed minutes |
 | `processing_started_at` | ISO datetime \| null | When kitchen started |
 | `cooking_ready_by` | ISO datetime \| null | Estimated ready time |
+| `cooking_minutes_remaining` | number \| null | Live countdown (only while `order_status === "processing"`) |
+
+Cooking fields are **null** when status is not `processing` (avoid showing a stale “15 min” after food is ready). Prefer **`cooking_minutes_remaining`** for the driver UI countdown, not a hardcoded value.
 
 **FCM** (assigned driver only, on `processing`):
 
@@ -181,7 +184,52 @@ When restaurant/POS moves order to **cooking** (`processing`), assigned drivers 
 
 ---
 
-## 6. Vendor / POS — start cooking with time
+## 6. POS — Request Gizra ride + restaurant order number
+
+When the restaurant uses **Request Gizra ride** (manual dispatch), they can send their **own ticket/receipt id** from an existing POS so drivers can match the job to the counter.
+
+**POST** `/vendor/dispatch/request-driver`
+
+Add optional field (any one name is accepted):
+
+| Body field | Notes |
+|------------|--------|
+| `restaurant_order_ref` | **Preferred** — max 100 chars |
+| `restaurant_order_number`, `pos_order_number`, `pos_order_id`, `external_order_id` | Aliases |
+
+Example:
+
+```json
+{
+  "customer_name": "Yossi Cohen",
+  "customer_phone": "+972501234567",
+  "address": "12 Herzl St",
+  "order_amount": 85,
+  "delivery_fee": 25,
+  "payment_method": "cash_on_delivery",
+  "idempotency_key": "pos-dispatch-2026-04-05-001",
+  "restaurant_order_ref": "4521"
+}
+```
+
+**Driver list/detail** (`GET /delivery-man/orders/latest`, `/active`, `/:id`) include:
+
+| Field | Meaning |
+|-------|---------|
+| `order_source` | `manual_dispatch` = Gizra ride from restaurant; `gizra_consumer` = customer app order |
+| `order_source_label` | Human-readable badge text |
+| `gizra_order_id` | Platform id (`orders.id`) |
+| `restaurant_order_ref` | Restaurant’s number when provided |
+| `display_order_number` | Show **`restaurant_order_ref`** if set, else **`gizra_order_id`** |
+| `is_manual_dispatch` | Same as `order_source === manual_dispatch` |
+
+Socket **`order_request`** payload includes the same identity fields so the request tab can show a badge without refetching.
+
+**Deploy:** run SQL `scripts/sql/add-restaurant-order-ref.sql` on the database before enabling the new backend build.
+
+---
+
+## 7. Vendor / POS — start cooking with time
 
 **PUT** `/vendor/orders/:id/status`
 
@@ -195,7 +243,9 @@ When restaurant/POS moves order to **cooking** (`processing`), assigned drivers 
 | Field | Required | Notes |
 |-------|----------|--------|
 | `status` | yes | Use `"processing"` for “Proceed for cooking” |
-| `processing_time` | recommended | Minutes until food ready (1–999). If omitted, backend may default from restaurant `delivery_time` (e.g. `30-40` → `30`) |
+| `processing_time` | **required** when `status` is `processing` | Minutes until food ready (1–999). Aliases accepted: `processingTime`, `cooking_time`, `cooking_time_minutes`. **Do not omit** — backend no longer defaults from restaurant delivery time (that caused every order to show e.g. 15 min). |
+
+**PUT** `/vendor/orders/:id/cooking-time` — change minutes while status is already `processing` (resets timer from now). Same body keys as above.
 
 Other statuses unchanged (`confirmed`, `handover`, `picked_up`, `delivered`, `canceled`, …).
 
@@ -203,13 +253,13 @@ Restaurant **web panel** already prompts for minutes on “Proceed For Cooking�
 
 ---
 
-## 7. Admin panel (reference)
+## 8. Admin panel (reference)
 
 **GET** `/admin/orders/:orderId` — same driver fields as vendor detail (`delivery_man_*`, `driver_accepted_at`, etc.) for support screens.
 
 ---
 
-## 8. Quick integration checklist
+## 9. Quick integration checklist
 
 ### Driver app
 
@@ -225,10 +275,15 @@ Restaurant **web panel** already prompts for minutes on “Proceed For Cooking�
 - [ ] Order detail → show assigned driver from `GET /vendor/orders/:id`
 - [ ] Cooking action → `PUT .../status` with `processing` + `processing_time`
 - [ ] Optional: poll or socket for driver assignment updates
+- [ ] Request Gizra ride form → optional `restaurant_order_ref` on `POST /vendor/dispatch/request-driver`
+
+### Driver app (order source)
+
+- [ ] Request cards: badge from `order_source_label`; show `display_order_number` + small “Gizra #…” when ref is set
 
 ---
 
-## 9. Questions / gaps
+## 10. Questions / gaps
 
 Contact backend if you need:
 

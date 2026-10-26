@@ -38,6 +38,12 @@ export type OrderRequestPayload = {
   order_status: string;
   zone_id: number | null;
   vehicle_id: number | null;
+  is_manual_dispatch?: boolean;
+  order_source?: string;
+  order_source_label?: string;
+  gizra_order_id?: string;
+  restaurant_order_ref?: string | null;
+  display_order_number?: string;
 };
 
 export type OrderUpdatedPayload = {
@@ -60,6 +66,7 @@ export type OrderUpdatedPayload = {
   cooking_time_minutes?: number | null;
   processing_started_at?: string | null;
   cooking_ready_by?: string | null;
+  cooking_minutes_remaining?: number | null;
 };
 
 export type SessionReadyPayload = {

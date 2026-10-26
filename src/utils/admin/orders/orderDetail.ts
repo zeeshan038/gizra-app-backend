@@ -11,6 +11,7 @@ import { publicMediaUrl } from '../../mediaStorage';
 import { publicRestaurantMediaUrl } from '../../mediaStorage';
 import { formatOrderAssignedDeliveryMan } from '../../vendor/order/detailMapper';
 import { listNotifiedDeliveryMenForZone } from './assignDeliveryMan';
+import { mapOrderIdentityFields } from '../../order/orderIdentity';
 
 function foodImageUrl(image: string | null | undefined) {
   const raw = image?.trim();
@@ -126,6 +127,7 @@ export async function getAdminOrderDetail(orderId: number) {
     order_status: order.order_status,
     order_type: order.order_type,
     is_manual_dispatch: order.is_manual_dispatch,
+    ...mapOrderIdentityFields(order),
     ...assignedDriver,
     zone_id: zoneId?.toString() ?? null,
     zone_name: zone?.name ?? null,

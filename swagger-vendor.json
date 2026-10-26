@@ -4240,6 +4240,11 @@
             "maxLength": 100,
             "description": "Unique per dispatch attempt; stored as orders.manual_dispatch_key"
           },
+          "restaurant_order_ref": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Optional restaurant/POS ticket or receipt number (stored on orders.restaurant_order_ref). Aliases: restaurant_order_number, pos_order_number, pos_order_id, external_order_id. Shown to drivers as order_source=manual_dispatch."
+          },
           "zone_id": {
             "type": "integer",
             "description": "Optional reporting only; drivers match restaurant zone_id"
@@ -5167,7 +5172,7 @@
           "processing_time": {
             "type": "string",
             "nullable": true,
-            "description": "Estimated cooking duration in minutes (from POS)"
+            "description": "Minutes from POS — only when order_status is processing"
           },
           "cooking_time_minutes": {
             "type": "integer",
@@ -5182,6 +5187,40 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "cooking_minutes_remaining": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Live countdown; null unless order_status is processing"
+          },
+          "is_manual_dispatch": {
+            "type": "boolean"
+          },
+          "order_source": {
+            "type": "string",
+            "enum": [
+              "gizra_consumer",
+              "manual_dispatch",
+              "pos_instore"
+            ],
+            "description": "manual_dispatch = Request Gizra ride / phone order from POS"
+          },
+          "order_source_label": {
+            "type": "string",
+            "example": "Gizra customer app"
+          },
+          "gizra_order_id": {
+            "type": "string",
+            "description": "Platform order id (orders.id)"
+          },
+          "restaurant_order_ref": {
+            "type": "string",
+            "nullable": true,
+            "description": "Restaurant's own POS/receipt number when provided on manual dispatch"
+          },
+          "display_order_number": {
+            "type": "string",
+            "description": "restaurant_order_ref if set, else gizra_order_id — use for list card title"
           }
         },
         "example": {
@@ -5275,6 +5314,27 @@
           "is_manual_dispatch": {
             "type": "boolean"
           },
+          "order_source": {
+            "type": "string",
+            "enum": [
+              "gizra_consumer",
+              "manual_dispatch",
+              "pos_instore"
+            ]
+          },
+          "order_source_label": {
+            "type": "string"
+          },
+          "gizra_order_id": {
+            "type": "string"
+          },
+          "restaurant_order_ref": {
+            "type": "string",
+            "nullable": true
+          },
+          "display_order_number": {
+            "type": "string"
+          },
           "order_note": {
             "type": "string",
             "nullable": true
@@ -5282,7 +5342,7 @@
           "processing_time": {
             "type": "string",
             "nullable": true,
-            "description": "Estimated cooking duration in minutes (from POS)"
+            "description": "Minutes from POS — only when order_status is processing"
           },
           "cooking_time_minutes": {
             "type": "integer",
@@ -5298,6 +5358,11 @@
             "format": "date-time",
             "nullable": true
           },
+          "cooking_minutes_remaining": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Use for driver UI countdown; null when not processing"
+          },
           "dispatch_summary": {
             "type": "object",
             "nullable": true,
@@ -5307,6 +5372,13 @@
               },
               "delivery_fee": {
                 "type": "number"
+              },
+              "restaurant_order_ref": {
+                "type": "string",
+                "nullable": true
+              },
+              "gizra_order_id": {
+                "type": "string"
               }
             }
           },
@@ -12547,7 +12619,7 @@
             }
           },
           "500": {
-            "description": "Internal Server Error - Something went wrong on the server",
+            "description": "Internal Server Error",
             "content": {
               "application/json": {
                 "schema": {
@@ -13209,6 +13281,204 @@
             }
           }
         }
+      }
+    },
+    "/vendor/orders/{id}/cooking-time": {
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Cooking time updated",
+                  "data": {
+                    "id": "1001",
+                    "order_status": "confirmed",
+                    "order_type": "delivery",
+                    "payment_status": "paid",
+                    "order_amount": 45.5,
+                    "created_at": "2026-01-15T10:30:00.000Z",
+                    "customer_name": "John Doe",
+                    "customer_phone": "+1234567890"
+                  },
+                  "null": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Cooking time updated"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "1001"
+                        },
+                        "order_status": {
+                          "type": "string",
+                          "example": "confirmed"
+                        },
+                        "order_type": {
+                          "type": "string",
+                          "example": "delivery"
+                        },
+                        "payment_status": {
+                          "type": "string",
+                          "example": "paid"
+                        },
+                        "order_amount": {
+                          "type": "number",
+                          "example": 45.5
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "example": "2026-01-15T10:30:00.000Z"
+                        },
+                        "customer_name": {
+                          "type": "string",
+                          "example": "John Doe"
+                        },
+                        "customer_phone": {
+                          "type": "string",
+                          "example": "+1234567890"
+                        }
+                      },
+                      "example": {
+                        "id": "1001",
+                        "order_status": "confirmed",
+                        "order_type": "delivery",
+                        "payment_status": "paid",
+                        "order_amount": 45.5,
+                        "created_at": "2026-01-15T10:30:00.000Z",
+                        "customer_name": "John Doe",
+                        "customer_phone": "+1234567890"
+                      }
+                    },
+                    "null": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Cooking time updated",
+                    "data": {
+                      "id": "1001",
+                      "order_status": "confirmed",
+                      "order_type": "delivery",
+                      "payment_status": "paid",
+                      "order_amount": 45.5,
+                      "created_at": "2026-01-15T10:30:00.000Z",
+                      "customer_name": "John Doe",
+                      "customer_phone": "+1234567890"
+                    },
+                    "null": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Orders (Web Panel & POS)"
+        ]
       }
     },
     "/vendor/restaurant/business-setup": {

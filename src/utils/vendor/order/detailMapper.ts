@@ -4,6 +4,7 @@ import { mapOrderSummary, mapOrderLineItem, OrderCustomerBrief } from './mapper'
 import { deriveOrderValueFromOrder, gizraPaysRestaurant, taxOnOrderValue } from './orderSettlement';
 import { publicMediaUrl } from '../../mediaStorage';
 import { mapOrderCookingTimeForApi } from './cookingTime';
+import { mapOrderIdentityFields } from '../../order/orderIdentity';
 
 export type OrderAssignedDeliveryManRow = Pick<
   delivery_men,
@@ -315,6 +316,7 @@ export function mapVendorOrderDetail(
     canceled_by: order.canceled_by,
     pricing,
     is_manual_dispatch: Boolean(order.is_manual_dispatch),
+    ...mapOrderIdentityFields(order),
     items: displayItems,
     restaurant: restaurant
       ? {

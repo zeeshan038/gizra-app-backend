@@ -10,6 +10,10 @@ import { sendOrderNotification } from '../../utils/notifications/sendOrderNotifi
 import { notifyManualDispatchDriverPool } from '../../utils/notifications/manualDispatchPush';
 import { emitManualDispatchOrderRequest } from '../../sockets/orderRealtime';
 import { manualDispatchGizraCharge } from '../../utils/order/manualDispatchMoney';
+import {
+  mapOrderIdentityFields,
+  resolveRestaurantOrderRefFromBody,
+} from '../../utils/order/orderIdentity';
 
 async function allowedManualDispatchRestaurants(): Promise<number[]> {
   const raw = (await getBusinessSetting('manual_dispatch_restaurants')) ?? '';
@@ -44,6 +48,9 @@ async function walkInCustomer(restaurantId: number) {
 function dispatchSummary(
   order: {
     id: bigint;
+    is_manual_dispatch: boolean;
+    order_type: string;
+    restaurant_order_ref: string | null;
     order_amount: unknown;
     original_delivery_charge: unknown;
     delivery_charge: unknown;
@@ -65,6 +72,7 @@ function dispatchSummary(
   const orderAmount = Number(order.order_amount) || 0;
 
   return {
+    ...mapOrderIdentityFields(order),
     order_id: order.id.toString(),
     commission_rate: commissionRate,
     commission,
@@ -165,6 +173,7 @@ export const requestDriver = async (req: Request, res: Response): Promise<any> =
     const prepaid = body.payment_method === 'prepaid';
     const now = new Date();
     const zoneId = restaurant.zone_id != null ? Number(restaurant.zone_id) : null;
+    const restaurantOrderRef = resolveRestaurantOrderRefFromBody(body);
 
     const order = await prisma.orders.create({
       data: {
@@ -199,6 +208,7 @@ export const requestDriver = async (req: Request, res: Response): Promise<any> =
         }),
         is_manual_dispatch: true,
         manual_dispatch_key: body.idempotency_key,
+        restaurant_order_ref: restaurantOrderRef,
         order_note: 'Manual dispatch - phone order',
         checked: false,
         created_at: now,

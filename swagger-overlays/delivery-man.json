@@ -1393,11 +1393,33 @@
           "processing_time": {
             "type": "string",
             "nullable": true,
-            "description": "Estimated cooking duration in minutes (from POS)"
+            "description": "Minutes from POS — only when order_status is processing"
           },
           "cooking_time_minutes": { "type": "integer", "nullable": true },
           "processing_started_at": { "type": "string", "format": "date-time", "nullable": true },
-          "cooking_ready_by": { "type": "string", "format": "date-time", "nullable": true }
+          "cooking_ready_by": { "type": "string", "format": "date-time", "nullable": true },
+          "cooking_minutes_remaining": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Live countdown; null unless order_status is processing"
+          },
+          "is_manual_dispatch": { "type": "boolean" },
+          "order_source": {
+            "type": "string",
+            "enum": ["gizra_consumer", "manual_dispatch", "pos_instore"],
+            "description": "manual_dispatch = Request Gizra ride / phone order from POS"
+          },
+          "order_source_label": { "type": "string", "example": "Gizra customer app" },
+          "gizra_order_id": { "type": "string", "description": "Platform order id (orders.id)" },
+          "restaurant_order_ref": {
+            "type": "string",
+            "nullable": true,
+            "description": "Restaurant's own POS/receipt number when provided on manual dispatch"
+          },
+          "display_order_number": {
+            "type": "string",
+            "description": "restaurant_order_ref if set, else gizra_order_id — use for list card title"
+          }
         },
         "example": {
           "id": "100179",
@@ -1451,21 +1473,36 @@
           "schedule_at": { "type": "string", "format": "date-time", "nullable": true },
           "created_at": { "type": "string", "format": "date-time", "nullable": true },
           "is_manual_dispatch": { "type": "boolean" },
+          "order_source": {
+            "type": "string",
+            "enum": ["gizra_consumer", "manual_dispatch", "pos_instore"]
+          },
+          "order_source_label": { "type": "string" },
+          "gizra_order_id": { "type": "string" },
+          "restaurant_order_ref": { "type": "string", "nullable": true },
+          "display_order_number": { "type": "string" },
           "order_note": { "type": "string", "nullable": true },
           "processing_time": {
             "type": "string",
             "nullable": true,
-            "description": "Estimated cooking duration in minutes (from POS)"
+            "description": "Minutes from POS — only when order_status is processing"
           },
           "cooking_time_minutes": { "type": "integer", "nullable": true },
           "processing_started_at": { "type": "string", "format": "date-time", "nullable": true },
           "cooking_ready_by": { "type": "string", "format": "date-time", "nullable": true },
+          "cooking_minutes_remaining": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Use for driver UI countdown; null when not processing"
+          },
           "dispatch_summary": {
             "type": "object",
             "nullable": true,
             "properties": {
               "title": { "type": "string" },
-              "delivery_fee": { "type": "number" }
+              "delivery_fee": { "type": "number" },
+              "restaurant_order_ref": { "type": "string", "nullable": true },
+              "gizra_order_id": { "type": "string" }
             }
           },
           "restaurant": { "$ref": "#/components/schemas/DeliveryManOrderDetailRestaurant" },

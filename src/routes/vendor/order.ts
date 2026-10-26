@@ -15,6 +15,7 @@ import {
   sendKitchenNote,
   streamVendorOrderEvents,
   updateOrderStatus,
+  updateOrderCookingTime,
 } from '../../controllers/vendor/Order';
 
 const router = express.Router();
@@ -30,5 +31,6 @@ router.get('/:id/invoice', getOrderInvoice);
 router.post('/:id/kitchen-note', sendKitchenNote);
 router.get('/:id', getOrderDetails);
 router.put('/:id/status', updateOrderStatus);
+router.put('/:id/cooking-time', updateOrderCookingTime);
 
 export default router;

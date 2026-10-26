@@ -19,6 +19,7 @@ import {
 import { sendOrderNotification } from '../utils/notifications/sendOrderNotification';
 import { customerTrackingCopy } from '../utils/notifications/orderStatusMessage';
 import { mapOrderCookingTimeForApi } from '../utils/vendor/order/cookingTime';
+import { mapOrderIdentityFields } from '../utils/order/orderIdentity';
 
 function plainId(value: { toString(): string } | null | undefined): string | null {
   if (value == null) return null;
@@ -54,6 +55,7 @@ export function emitNewOrderRealtime(payload: {
 }
 
 export function buildOrderRequestPayload(order: orders): OrderRequestPayload {
+  const identity = mapOrderIdentityFields(order);
   return {
     order_id: order.id.toString(),
     restaurant_id: Number(order.restaurant_id),
@@ -63,6 +65,8 @@ export function buildOrderRequestPayload(order: orders): OrderRequestPayload {
     order_status: order.order_status,
     zone_id: order.zone_id != null ? Number(order.zone_id) : null,
     vehicle_id: order.vehicle_id != null ? Number(order.vehicle_id) : null,
+    is_manual_dispatch: Boolean(order.is_manual_dispatch),
+    ...identity,
   };
 }
 
@@ -120,6 +124,7 @@ export function emitOrderStatusRealtime(order: orders): void {
     cooking_time_minutes: cooking.cooking_time_minutes,
     processing_started_at: cooking.processing_started_at,
     cooking_ready_by: cooking.cooking_ready_by,
+    cooking_minutes_remaining: cooking.cooking_minutes_remaining,
   };
   publishOrderUpdated(payload);
 

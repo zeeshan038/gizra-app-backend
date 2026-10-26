@@ -19,6 +19,7 @@ import {
 } from './orderHelpers';
 import { isOrderIgnoredByDeliveryMan } from './ignoredPoolOrders';
 import { mapOrderCookingTimeForApi } from '../vendor/order/cookingTime';
+import { mapOrderIdentityFields } from '../order/orderIdentity';
 
 const DEFAULT_RESTAURANT_IMAGE = 'default_logo.png';
 const DEFAULT_CUSTOMER_IMAGE = 'def.png';
@@ -237,6 +238,7 @@ export async function buildDeliveryManOrderDetail(
   const assigned = order.delivery_man_id != null;
   const isAssignedToMe = assigned && Number(order.delivery_man_id) === Number(dm.id);
   const cookingTime = mapOrderCookingTimeForApi(order);
+  const identity = mapOrderIdentityFields(order);
 
   const restaurantImageStored =
     restaurant?.logo?.trim() || restaurant?.cover_photo?.trim() || DEFAULT_RESTAURANT_IMAGE;
@@ -259,11 +261,14 @@ export async function buildDeliveryManOrderDetail(
     schedule_at: order.schedule_at?.toISOString() ?? null,
     created_at: order.created_at?.toISOString() ?? null,
     is_manual_dispatch: Boolean(order.is_manual_dispatch),
+    ...identity,
     order_note: order.order_note,
     dispatch_summary: order.is_manual_dispatch
       ? {
-          title: 'Manual Dispatch delivery request',
+          title: 'Gizra ride — restaurant requested driver',
           delivery_fee: pricing.delivery_charge,
+          restaurant_order_ref: identity.restaurant_order_ref,
+          gizra_order_id: identity.gizra_order_id,
         }
       : null,
     restaurant: restaurant

@@ -12,4 +12,10 @@ export const vendorRequestDriverSchema = Joi.object({
   latitude: Joi.number().optional(),
   longitude: Joi.number().optional(),
   tax: Joi.number().min(0).optional(),
+  /** Restaurant's own ticket / receipt number from their POS or legacy system */
+  restaurant_order_ref: Joi.string().trim().max(100).optional().allow(''),
+  restaurant_order_number: Joi.string().trim().max(100).optional().allow(''),
+  pos_order_number: Joi.string().trim().max(100).optional().allow(''),
+  pos_order_id: Joi.string().trim().max(100).optional().allow(''),
+  external_order_id: Joi.string().trim().max(100).optional().allow(''),
 });

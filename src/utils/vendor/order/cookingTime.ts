@@ -27,20 +27,55 @@ export function normalizeProcessingTimeInput(input: unknown): string | null {
   return String(n);
 }
 
-export function mapOrderCookingTimeForApi(order: orders) {
-  const cooking_time_minutes = parseCookingMinutes(order.processing_time);
-  const processing_started_at = order.processing?.toISOString() ?? null;
-  let cooking_ready_by: string | null = null;
-  if (cooking_time_minutes != null && order.processing) {
-    cooking_ready_by = new Date(
-      order.processing.getTime() + cooking_time_minutes * 60_000
-    ).toISOString();
+/** POS apps may send snake_case or camelCase — do not rely on Joi stripUnknown for aliases. */
+export function resolveProcessingTimeFromRequest(body: unknown): string | null {
+  if (!body || typeof body !== 'object') return null;
+  const b = body as Record<string, unknown>;
+  const candidates = [
+    b.processing_time,
+    b.processingTime,
+    b.cooking_time,
+    b.cookingTime,
+    b.cooking_time_minutes,
+    b.cookingTimeMinutes,
+  ];
+  for (const raw of candidates) {
+    const normalized = normalizeProcessingTimeInput(raw);
+    if (normalized) return normalized;
   }
+  return null;
+}
+
+export function mapOrderCookingTimeForApi(order: orders) {
+  const inactive = {
+    processing_time: null as string | null,
+    cooking_time_minutes: null as number | null,
+    processing_started_at: null as string | null,
+    cooking_ready_by: null as string | null,
+    cooking_minutes_remaining: null as number | null,
+  };
+
+  if (order.order_status !== 'processing' || order.processing == null) {
+    return inactive;
+  }
+
+  const cooking_time_minutes = parseCookingMinutes(order.processing_time);
+  const processing_started_at = order.processing.toISOString();
+  let cooking_ready_by: string | null = null;
+  let cooking_minutes_remaining: number | null = null;
+
+  if (cooking_time_minutes != null) {
+    const readyAt = order.processing.getTime() + cooking_time_minutes * 60_000;
+    cooking_ready_by = new Date(readyAt).toISOString();
+    cooking_minutes_remaining = Math.max(0, Math.ceil((readyAt - Date.now()) / 60_000));
+  }
+
   return {
     processing_time: order.processing_time ?? null,
     cooking_time_minutes,
     processing_started_at,
     cooking_ready_by,
+    cooking_minutes_remaining,
   };
 }
 

@@ -21,10 +21,7 @@ import {
   resolveOrderDeliveryAddress,
 } from '../../utils/vendor/order/detailMapper';
 import { listNotifiedDeliveryMenForZone } from '../../utils/admin/orders/assignDeliveryMan';
-import {
-  defaultCookingMinutesFromDeliveryTime,
-  normalizeProcessingTimeInput,
-} from '../../utils/vendor/order/cookingTime';
+import { resolveProcessingTimeFromRequest } from '../../utils/vendor/order/cookingTime';
 import {
   findCustomerForOrder,
   loadCustomersForOrders,
@@ -475,7 +472,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
     });
   }
 
-  const { status, cancellation_reason, processing_time: processingTimeBody } = validated.value;
+  const { status, cancellation_reason } = validated.value;
   const orderId = parseOrderIdParam(req);
   if (!orderId) {
     return res.status(400).json({ status: false, msg: 'Order id required' });
@@ -537,7 +534,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 
     const restaurantZone = await prisma.restaurants.findUnique({
       where: { id: BigInt(Number(order.restaurant_id)) },
-      select: { zone_id: true, delivery_time: true },
+      select: { zone_id: true },
     });
     if (restaurantZone?.zone_id != null) {
       updateData.zone_id = Number(restaurantZone.zone_id);
@@ -546,14 +543,17 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
     if (status === 'confirmed') updateData.confirmed = now;
     if (status === 'accepted') updateData.accepted = now;
     if (status === 'processing') {
+      const cookingMinutes = resolveProcessingTimeFromRequest(req.body);
+      if (!cookingMinutes) {
+        return res.status(400).json({
+          status: false,
+          msg:
+            'processing_time is required when starting cooking (minutes until food is ready). Do not use delivery_time as a substitute.',
+        });
+      }
       updateData.processing = now;
+      updateData.processing_time = cookingMinutes;
       if (order.confirmed == null) updateData.confirmed = now;
-      const fromBody = normalizeProcessingTimeInput(processingTimeBody);
-      updateData.processing_time =
-        fromBody ??
-        defaultCookingMinutesFromDeliveryTime(restaurantZone?.delivery_time) ??
-        order.processing_time ??
-        null;
     }
     if (status === 'handover') updateData.handover = now;
     if (status === 'picked_up') updateData.picked_up = now;
@@ -611,6 +611,70 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
   }
 };
 
+/**
+ * @Description Update cooking duration while order is in kitchen (resets timer from now)
+ * @Route PUT /api/vendor/orders/:id/cooking-time
+ * @Access Vendor
+ */
+export const updateOrderCookingTime = async (req: Request, res: Response): Promise<any> => {
+  const ctx = getVendorContext(req);
+  if (!ctx) {
+    return res.status(403).json({ status: false, msg: 'Restaurant context not found for vendor' });
+  }
+
+  const orderId = parseOrderIdParam(req);
+  if (!orderId) {
+    return res.status(400).json({ status: false, msg: 'Order id required' });
+  }
+
+  const cookingMinutes = resolveProcessingTimeFromRequest(req.body);
+  if (!cookingMinutes) {
+    return res.status(400).json({
+      status: false,
+      msg: 'processing_time (minutes) is required',
+    });
+  }
+
+  try {
+    const order = await prisma.orders.findFirst({
+      where: {
+        id: BigInt(orderId),
+        ...restaurantOrdersBase(ctx.restaurantId),
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ status: false, msg: 'Order not found' });
+    }
+
+    if (order.order_status !== 'processing') {
+      return res.status(400).json({
+        status: false,
+        msg: 'Cooking time can only be updated while order status is processing',
+      });
+    }
+
+    const now = new Date();
+    const updated = await prisma.orders.update({
+      where: { id: order.id },
+      data: {
+        processing_time: cookingMinutes,
+        processing: now,
+        updated_at: now,
+      },
+    });
+
+    emitOrderStatusRealtime(updated);
+
+    return res.status(200).json({
+      status: true,
+      msg: 'Cooking time updated',
+      data: mapOrderSummary(updated, null),
+    });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message });
+  }
+};
 
 /**
  * @Description Order history api for POS app

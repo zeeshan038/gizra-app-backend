@@ -6,6 +6,7 @@ import {
 } from '../vendor/order/detailMapper';
 import { publicMediaUrl } from '../mediaStorage';
 import { mapOrderCookingTimeForApi } from '../vendor/order/cookingTime';
+import { mapOrderIdentityFields } from '../order/orderIdentity';
 
 export const DM_ACTIVE_ORDER_STATUSES = [
   'accepted',
@@ -78,6 +79,13 @@ export type DmOrderListItem = {
   cooking_time_minutes: number | null;
   processing_started_at: string | null;
   cooking_ready_by: string | null;
+  cooking_minutes_remaining: number | null;
+  is_manual_dispatch: boolean;
+  order_source: string;
+  order_source_label: string;
+  gizra_order_id: string;
+  restaurant_order_ref: string | null;
+  display_order_number: string;
 };
 
 const DEFAULT_RESTAURANT_IMAGE = 'default_logo.png';
@@ -199,6 +207,7 @@ export async function mapOrdersForDeliveryManList(
     const customerImageStored = user?.image?.trim() || DEFAULT_CUSTOMER_IMAGE;
 
     const cookingTime = mapOrderCookingTimeForApi(order);
+    const identity = mapOrderIdentityFields(order);
 
     return {
       id,
@@ -234,6 +243,8 @@ export async function mapOrdersForDeliveryManList(
         : null,
       restaurant_image_url: driverMediaUrl(restaurantImageStored, DEFAULT_RESTAURANT_IMAGE),
       customer_image_url: driverMediaUrl(customerImageStored, DEFAULT_CUSTOMER_IMAGE),
+      is_manual_dispatch: Boolean(order.is_manual_dispatch),
+      ...identity,
       ...cookingTime,
     };
   });

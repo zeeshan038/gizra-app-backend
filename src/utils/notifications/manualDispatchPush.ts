@@ -4,6 +4,7 @@ import { getManualDispatchBroadcastTopics } from '../deliveryman/pushTopics';
 import { sendFcmToTopic, type FcmPushData } from './fcm';
 import { isPushNotificationEnabled } from './notificationSettings';
 import { persistUserNotification } from './persistUserNotification';
+import { mapOrderIdentityFields } from '../order/orderIdentity';
 
 /**
  * PHP DispatchController extra push: manual orders have no vehicle_id, so notify
@@ -16,9 +17,13 @@ export async function notifyManualDispatchDriverPool(order: orders): Promise<voi
   if (!Number.isFinite(zoneId)) return;
 
   const orderId = order.id.toString();
+  const identity = mapOrderIdentityFields(order);
+  const description = identity.restaurant_order_ref
+    ? `Gizra ride — POS #${identity.restaurant_order_ref} (Gizra #${orderId})`
+    : `Gizra ride — Order #${orderId}`;
   const pushData: FcmPushData = {
-    title: 'Order notification',
-    description: `New delivery request — Order ID: ${orderId}`,
+    title: 'Gizra ride request',
+    description,
     order_id: orderId,
     image: '',
     type: 'order_request',
