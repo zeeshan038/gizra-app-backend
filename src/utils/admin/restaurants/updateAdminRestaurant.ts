@@ -45,10 +45,28 @@ export async function updateAdminRestaurant(restaurantId: number, payload: Admin
     throw new Error('Vendor not found');
   }
 
-  const inZone = await isPointInZone(payload.zone_id, payload.latitude, payload.longitude);
-  if (!inZone) {
-    throw new Error('Coordinates are outside the selected zone');
+  const zoneRow = await prisma.zones.findUnique({
+    where: { id: BigInt(payload.zone_id) },
+    select: { id: true },
+  });
+  if (!zoneRow) {
+    throw new Error('Zone not found');
   }
+  const hasCoords = await prisma.$queryRaw<{ ok: boolean }[]>`
+    SELECT EXISTS(
+      SELECT 1 FROM zones
+      WHERE id = ${BigInt(payload.zone_id)}
+      AND coordinates IS NOT NULL
+    ) AS ok
+  `;
+  if (hasCoords[0]?.ok) {
+    const inZone = await isPointInZone(payload.zone_id, payload.latitude, payload.longitude);
+    if (!inZone) {
+      throw new Error('Coordinates are outside the selected zone');
+    }
+  }
+
+
 
   const vendorId = Number(vendor.id);
   const emailConflict = await prisma.vendors.findFirst({

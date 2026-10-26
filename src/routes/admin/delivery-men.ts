@@ -4,6 +4,7 @@ import {
   approveAllAdminIncentives,
   createAdminDeliveryManHandler,
   denyAdminIncentive,
+  getAdminDeliveryManDetailHandler,
   listAdminDeliveryVehicles,
   listAdminDeliveryManBonus,
   listAdminDeliveryManJoinRequests,
@@ -13,6 +14,7 @@ import {
   listAdminPendingIncentives,
   selectAdminDeliveryMen,
   updateAdminDeliveryManApplication,
+  updateAdminDeliveryManHandler,
   updateAdminDeliveryManReviewStatus,
   updateAdminDeliveryManStatus,
 } from '../../controllers/admin/deliveryman';
@@ -26,8 +28,6 @@ router.post('/', createAdminDeliveryManHandler);
 router.get('/list', listAdminDeliveryMen);
 router.get('/join-requests', listAdminDeliveryManJoinRequests);
 router.get('/select', selectAdminDeliveryMen);
-router.patch('/:id/application', updateAdminDeliveryManApplication);
-router.patch('/:id/status', updateAdminDeliveryManStatus);
 
 router.get('/reviews', listAdminDeliveryManReviews);
 router.patch('/reviews/:id/status', updateAdminDeliveryManReviewStatus);
@@ -40,4 +40,11 @@ router.post('/incentives/approve-all', approveAllAdminIncentives);
 router.get('/bonus', listAdminDeliveryManBonus);
 router.post('/bonus', addAdminDeliveryManBonus);
 
+router.get('/:id', getAdminDeliveryManDetailHandler);
+router.put('/:id', updateAdminDeliveryManHandler);
+router.patch('/:id', updateAdminDeliveryManHandler);
+router.patch('/:id/application', updateAdminDeliveryManApplication);
+router.patch('/:id/status', updateAdminDeliveryManStatus);
+
 export default router;
+

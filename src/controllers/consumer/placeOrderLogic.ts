@@ -78,7 +78,6 @@ export type PlaceOrderPricing = {
   order_amount: number;
   /** Restaurant VAT/GST % (`restaurants.tax`). */
   tax_percentage: number;
-  /** Global business setting: menu prices include VAT when true. */
   tax_included: boolean;
 };
 

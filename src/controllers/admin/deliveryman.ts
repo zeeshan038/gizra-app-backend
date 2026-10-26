@@ -11,9 +11,12 @@ import {
   adminIncentiveDenySchema,
   adminListQuerySchema,
   adminReviewStatusSchema,
+  adminUpdateDeliveryManSchema,
 } from '../../schemas/admin/DeliveryMan';
 import { dmWalletTransaction } from '../../utils/admin/deliverymen/dmWalletTransaction';
 import { createAdminDeliveryMan } from '../../utils/admin/deliverymen/createAdminDeliveryMan';
+import { getAdminDeliveryManDetail } from '../../utils/admin/deliverymen/getAdminDeliveryManDetail';
+import { updateAdminDeliveryMan } from '../../utils/admin/deliverymen/updateAdminDeliveryMan';
 import { listDeliveryMenAdmin } from '../../utils/admin/deliverymen/listDeliveryMenAdmin';
 import { sendDeliveryManRegistrationDecisionPush } from '../../utils/notifications/sendRegistrationDecisionPush';
 
@@ -103,6 +106,60 @@ export const createAdminDeliveryManHandler = async (req: Request, res: Response)
     return res.status(status).json({ status: false, msg });
   }
 };
+
+/**
+ * @Route GET /api/admin/delivery-men/:id
+ */
+export const getAdminDeliveryManDetailHandler = async (req: Request, res: Response): Promise<any> => {
+  const id = Number(req.params.id);
+  if (!id || Number.isNaN(id)) {
+    return res.status(400).json({ status: false, msg: 'Invalid ID' });
+  }
+  try {
+    const data = await getAdminDeliveryManDetail(id);
+    if (!data) {
+      return res.status(404).json({ status: false, msg: 'Delivery man not found' });
+    }
+    return res.status(200).json({ status: true, msg: 'Success', data });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Fetch failed';
+    return res.status(500).json({ status: false, msg });
+  }
+};
+
+/**
+ * @Route PUT /api/admin/delivery-men/:id
+ */
+export const updateAdminDeliveryManHandler = async (req: Request, res: Response): Promise<any> => {
+  const id = Number(req.params.id);
+  if (!id || Number.isNaN(id)) {
+    return res.status(400).json({ status: false, msg: 'Invalid ID' });
+  }
+  const validated = adminUpdateDeliveryManSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({ status: false, msg: validated.error.details[0]?.message });
+  }
+  try {
+    const data = await updateAdminDeliveryMan(id, validated.value);
+    return res.status(200).json({
+      status: true,
+      msg: 'Delivery man updated successfully',
+      data: { id: Number(data.id) },
+    });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Update failed';
+    const status =
+      msg === 'Delivery man not found'
+        ? 404
+        : msg === 'Phone or email already exists' ||
+          msg === 'Invalid or inactive zone' ||
+          msg === 'Invalid or inactive vehicle'
+        ? 400
+        : 500;
+    return res.status(status).json({ status: false, msg });
+  }
+};
+
 
 /**
  * @Route GET /api/admin/delivery-men/list
