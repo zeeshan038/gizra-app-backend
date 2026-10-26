@@ -9,6 +9,7 @@ import {
 import { formatCustomerName } from '../../vendor/order/mapper';
 import { publicMediaUrl } from '../../mediaStorage';
 import { publicRestaurantMediaUrl } from '../../mediaStorage';
+import { formatOrderAssignedDeliveryMan } from '../../vendor/order/detailMapper';
 import { listNotifiedDeliveryMenForZone } from './assignDeliveryMan';
 
 function foodImageUrl(image: string | null | undefined) {
@@ -39,7 +40,7 @@ export async function getAdminOrderDetail(orderId: number) {
     order.delivery_man_id
       ? prisma.delivery_men.findUnique({
           where: { id: BigInt(Number(order.delivery_man_id)) },
-          select: { f_name: true, l_name: true, phone: true },
+          select: { id: true, f_name: true, l_name: true, phone: true, email: true, image: true },
         })
       : null,
   ]);
@@ -107,6 +108,8 @@ export async function getAdminOrderDetail(orderId: number) {
       : formatCustomerName(customer);
   const customer_phone = customer?.phone ?? guestPhone ?? null;
 
+  const assignedDriver = formatOrderAssignedDeliveryMan(order, deliveryMan);
+
   return {
     id: order.id.toString(),
     created_at: order.created_at?.toISOString() ?? null,
@@ -123,10 +126,7 @@ export async function getAdminOrderDetail(orderId: number) {
     order_status: order.order_status,
     order_type: order.order_type,
     is_manual_dispatch: order.is_manual_dispatch,
-    delivery_man_id: order.delivery_man_id?.toString() ?? null,
-    delivery_man_name: deliveryMan
-      ? [deliveryMan.f_name, deliveryMan.l_name].filter(Boolean).join(' ')
-      : null,
+    ...assignedDriver,
     zone_id: zoneId?.toString() ?? null,
     zone_name: zone?.name ?? null,
     order_note: order.order_note,

@@ -14,6 +14,10 @@ export const updateOrderStatusSchema = Joi.object({
   status: Joi.string()
     .valid('confirmed', 'accepted', 'processing', 'handover', 'picked_up', 'delivered', 'canceled')
     .required(),
+  /** Minutes until food is ready — sent when status is `processing` (Proceed for cooking). */
+  processing_time: Joi.alternatives()
+    .try(Joi.string().trim().max(10), Joi.number().integer().min(1).max(999))
+    .optional(),
   cancellation_reason: Joi.string().optional().allow(''),
 });
 

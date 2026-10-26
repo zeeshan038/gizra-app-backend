@@ -2,6 +2,7 @@ import { order_transactions, orders, Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import { parseFoodImageFromDetail } from '../consumer/orderListHelpers';
 import { endOfDay, startOfDay, startOfMonth, startOfWeek } from './periodBounds';
+import { computeDeliveryManWithdrawableBalance } from './walletHelpers';
 
 function roundMoney(n: number): number {
   return Math.round(n * 100) / 100;
@@ -46,6 +47,7 @@ export type DeliveryManEarningsSummary = {
     pending_withdraw: number;
     collected_cash: number;
     balance: number;
+    withdrawable_balance: number;
   };
   todays_earning: number;
   this_week_earning: number;
@@ -94,6 +96,12 @@ export async function getDeliveryManEarningsSummary(
       pending_withdraw: roundMoney(pending_withdraw),
       collected_cash: roundMoney(collected_cash),
       balance: roundMoney(total_earning - total_withdrawn),
+      withdrawable_balance: computeDeliveryManWithdrawableBalance({
+        total_earning,
+        total_withdrawn,
+        pending_withdraw,
+        collected_cash,
+      }),
     },
     todays_earning,
     this_week_earning,

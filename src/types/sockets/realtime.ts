@@ -56,6 +56,10 @@ export type OrderUpdatedPayload = {
   order_type: string;
   payment_method: string | null;
   updated_at: string;
+  processing_time?: string | null;
+  cooking_time_minutes?: number | null;
+  processing_started_at?: string | null;
+  cooking_ready_by?: string | null;
 };
 
 export type SessionReadyPayload = {

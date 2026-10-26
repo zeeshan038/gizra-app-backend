@@ -20,6 +20,11 @@ import {
   mapVendorOrderDetail,
   resolveOrderDeliveryAddress,
 } from '../../utils/vendor/order/detailMapper';
+import { listNotifiedDeliveryMenForZone } from '../../utils/admin/orders/assignDeliveryMan';
+import {
+  defaultCookingMinutesFromDeliveryTime,
+  normalizeProcessingTimeInput,
+} from '../../utils/vendor/order/cookingTime';
 import {
   findCustomerForOrder,
   loadCustomersForOrders,
@@ -290,8 +295,34 @@ export const getOrderDetails = async (req: Request, res: Response): Promise<any>
         logo: true,
         latitude: true,
         longitude: true,
+        zone_id: true,
       },
     });
+
+    const zoneId =
+      restaurant?.zone_id != null
+        ? Number(restaurant.zone_id)
+        : order.zone_id != null
+          ? Number(order.zone_id)
+          : null;
+
+    const [deliveryMan, zone, notified_delivery_men] = await Promise.all([
+      order.delivery_man_id
+        ? prisma.delivery_men.findUnique({
+            where: { id: BigInt(Number(order.delivery_man_id)) },
+            select: { id: true, f_name: true, l_name: true, phone: true, email: true, image: true },
+          })
+        : Promise.resolve(null),
+      zoneId != null
+        ? prisma.zones.findUnique({
+            where: { id: BigInt(zoneId) },
+            select: { name: true },
+          })
+        : Promise.resolve(null),
+      order.is_manual_dispatch && !order.delivery_man_id
+        ? listNotifiedDeliveryMenForZone(zoneId)
+        : Promise.resolve([]),
+    ]);
 
     const deliveryAddress = await resolveOrderDeliveryAddress(order);
     const orderForDetail = deliveryAddress
@@ -300,7 +331,11 @@ export const getOrderDetails = async (req: Request, res: Response): Promise<any>
 
     return res.status(200).json({
       status: true,
-      data: mapVendorOrderDetail(orderForDetail, customer, lineItems, restaurant),
+      data: mapVendorOrderDetail(orderForDetail, customer, lineItems, restaurant, {
+        deliveryMan,
+        notified_delivery_men,
+        zone_name: zone?.name ?? null,
+      }),
     });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });
@@ -440,7 +475,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
     });
   }
 
-  const { status, cancellation_reason } = validated.value;
+  const { status, cancellation_reason, processing_time: processingTimeBody } = validated.value;
   const orderId = parseOrderIdParam(req);
   if (!orderId) {
     return res.status(400).json({ status: false, msg: 'Order id required' });
@@ -502,7 +537,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
 
     const restaurantZone = await prisma.restaurants.findUnique({
       where: { id: BigInt(Number(order.restaurant_id)) },
-      select: { zone_id: true },
+      select: { zone_id: true, delivery_time: true },
     });
     if (restaurantZone?.zone_id != null) {
       updateData.zone_id = Number(restaurantZone.zone_id);
@@ -513,6 +548,12 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
     if (status === 'processing') {
       updateData.processing = now;
       if (order.confirmed == null) updateData.confirmed = now;
+      const fromBody = normalizeProcessingTimeInput(processingTimeBody);
+      updateData.processing_time =
+        fromBody ??
+        defaultCookingMinutesFromDeliveryTime(restaurantZone?.delivery_time) ??
+        order.processing_time ??
+        null;
     }
     if (status === 'handover') updateData.handover = now;
     if (status === 'picked_up') updateData.picked_up = now;

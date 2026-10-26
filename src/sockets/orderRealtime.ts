@@ -18,6 +18,7 @@ import {
 } from '../utils/deliveryman/orderHelpers';
 import { sendOrderNotification } from '../utils/notifications/sendOrderNotification';
 import { customerTrackingCopy } from '../utils/notifications/orderStatusMessage';
+import { mapOrderCookingTimeForApi } from '../utils/vendor/order/cookingTime';
 
 function plainId(value: { toString(): string } | null | undefined): string | null {
   if (value == null) return null;
@@ -101,6 +102,7 @@ export async function emitDriverOrderRequestIfEligible(order: orders): Promise<v
 
 export function emitOrderStatusRealtime(order: orders): void {
   const tracking = customerTrackingCopy(order.order_status);
+  const cooking = mapOrderCookingTimeForApi(order);
   const payload: OrderUpdatedPayload = {
     order_id: order.id.toString(),
     restaurant_id: Number(order.restaurant_id),
@@ -114,6 +116,10 @@ export function emitOrderStatusRealtime(order: orders): void {
     order_type: order.order_type,
     payment_method: order.payment_method,
     updated_at: (order.updated_at ?? new Date()).toISOString(),
+    processing_time: cooking.processing_time,
+    cooking_time_minutes: cooking.cooking_time_minutes,
+    processing_started_at: cooking.processing_started_at,
+    cooking_ready_by: cooking.cooking_ready_by,
   };
   publishOrderUpdated(payload);
 

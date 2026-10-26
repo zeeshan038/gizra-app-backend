@@ -18,6 +18,7 @@ import {
   passesVehicleFilter,
 } from './orderHelpers';
 import { isOrderIgnoredByDeliveryMan } from './ignoredPoolOrders';
+import { mapOrderCookingTimeForApi } from '../vendor/order/cookingTime';
 
 const DEFAULT_RESTAURANT_IMAGE = 'default_logo.png';
 const DEFAULT_CUSTOMER_IMAGE = 'def.png';
@@ -235,6 +236,7 @@ export async function buildDeliveryManOrderDetail(
 
   const assigned = order.delivery_man_id != null;
   const isAssignedToMe = assigned && Number(order.delivery_man_id) === Number(dm.id);
+  const cookingTime = mapOrderCookingTimeForApi(order);
 
   const restaurantImageStored =
     restaurant?.logo?.trim() || restaurant?.cover_photo?.trim() || DEFAULT_RESTAURANT_IMAGE;
@@ -301,5 +303,6 @@ export async function buildDeliveryManOrderDetail(
     assigned_to_me: isAssignedToMe,
     can_accept: !assigned && (await deliveryManCanViewOrder(dm, order)),
     can_update_status: isAssignedToMe,
+    ...cookingTime,
   };
 }

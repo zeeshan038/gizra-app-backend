@@ -64,14 +64,21 @@ function publishVendorWithdrawSocket(
  * Admin panel also polls pending count for in-browser sound.
  */
 export async function notifyAdminOfWithdrawRequest(input: {
-  vendorId: number;
+  vendorId?: number;
+  deliveryManId?: number;
   amount: number;
   withdrawId?: number;
 }): Promise<void> {
   const enabled = await isPushNotificationEnabled('admin', 'withdraw_request');
+  const who =
+    input.deliveryManId != null
+      ? `Delivery partner #${input.deliveryManId}`
+      : input.vendorId != null
+        ? `Restaurant vendor #${input.vendorId}`
+        : 'A user';
   const payload: FcmPushData = {
     title: 'Withdraw request',
-    description: `A restaurant requested a withdraw of ${input.amount.toFixed(2)}`,
+    description: `${who} requested a withdraw of ${input.amount.toFixed(2)}`,
     order_id: input.withdrawId != null ? String(input.withdrawId) : '',
     image: '',
     type: 'withdraw',

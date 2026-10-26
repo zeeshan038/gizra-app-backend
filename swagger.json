@@ -13791,8 +13791,6 @@
                     "tax": 5,
                     "rating": 0,
                     "address": "123 Main Street",
-                    "logo_full_url": 0,
-                    "cover_photo_full_url": 0,
                     "open": "…",
                     "categories": "…",
                     "category_ids": "…"
@@ -13844,14 +13842,6 @@
                           "type": "string",
                           "example": "123 Main Street"
                         },
-                        "logo_full_url": {
-                          "type": "number",
-                          "example": 0
-                        },
-                        "cover_photo_full_url": {
-                          "type": "number",
-                          "example": 0
-                        },
                         "open": {
                           "type": "string",
                           "example": "…"
@@ -13875,8 +13865,6 @@
                         "tax": 5,
                         "rating": 0,
                         "address": "123 Main Street",
-                        "logo_full_url": 0,
-                        "cover_photo_full_url": 0,
                         "open": "…",
                         "categories": "…",
                         "category_ids": "…"
@@ -13895,8 +13883,6 @@
                       "tax": 5,
                       "rating": 0,
                       "address": "123 Main Street",
-                      "logo_full_url": 0,
-                      "cover_photo_full_url": 0,
                       "open": "…",
                       "categories": "…",
                       "category_ids": "…"
@@ -14086,7 +14072,7 @@
         ]
       }
     },
-    "/consumer/restaurants/{popularrestaurant.id.toString())??[];constopen=isOpenFromSchedules(schedules);constlogo=restaurant.logo??null;constcover=restaurant.cover_photo??null;returnres.status(200).json({statustrue}": {
+    "/consumer/restaurants/{popularrestaurant.id.toString())??[];constopen=isOpenFromSchedules(schedules);constmedia=consumerRestaurantMediaFields({logorestaurant.logo}": {
       "get": {
         "description": "",
         "responses": {
@@ -27804,6 +27790,595 @@
           "Delivery Man Earnings"
         ],
         "summary": "Earnings summary + history"
+      }
+    },
+    "/delivery-man/wallet": {
+      "get": {
+        "description": "Balance, withdrawable amount (minus collected COD cash), pending/approved withdraw requests, and collected-cash payment rows (`account_transactions`).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 25
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Wallet payload",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Success",
+                  "data": {
+                    "wallet": "…",
+                    "withdrawal_methods": "…",
+                    "withdraw_requests": "…",
+                    "withdraw_total_size": "…",
+                    "payment_history": "…",
+                    "payment_total_size": "…",
+                    "limit": 20,
+                    "offset": 0,
+                    "search": 0
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Success"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "wallet": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "withdrawal_methods": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "withdraw_requests": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "withdraw_total_size": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "payment_history": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "payment_total_size": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "limit": {
+                          "type": "number",
+                          "example": 20
+                        },
+                        "offset": {
+                          "type": "number",
+                          "example": 0
+                        },
+                        "search": {
+                          "type": "number",
+                          "example": 0
+                        }
+                      },
+                      "example": {
+                        "wallet": "…",
+                        "withdrawal_methods": "…",
+                        "withdraw_requests": "…",
+                        "withdraw_total_size": "…",
+                        "payment_history": "…",
+                        "payment_total_size": "…",
+                        "limit": 20,
+                        "offset": 0,
+                        "search": 0
+                      }
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Success",
+                    "data": {
+                      "wallet": "…",
+                      "withdrawal_methods": "…",
+                      "withdraw_requests": "…",
+                      "withdraw_total_size": "…",
+                      "payment_history": "…",
+                      "payment_total_size": "…",
+                      "limit": 20,
+                      "offset": 0,
+                      "search": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Wallet"
+        ],
+        "summary": "Wallet, withdraw history, payment history"
+      }
+    },
+    "/delivery-man/wallet/withdraw-method-options": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Method templates with field defs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "method_name": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "method_fields": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "data": "…",
+                    "method_name": "…",
+                    "method_fields": "…"
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "data": "…",
+                  "method_name": "…",
+                  "method_fields": "…"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Wallet"
+        ],
+        "summary": "Active withdrawal methods"
+      }
+    },
+    "/delivery-man/wallet/withdraw-request": {
+      "post": {
+        "description": "Creates `withdraw_requests` with `delivery_man_id` and increases `pending_withdraw` on `delivery_man_wallets`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request placed",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Withdraw request placed successfully"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Withdraw request placed successfully"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Withdraw request placed successfully"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient balance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Wallet"
+        ],
+        "summary": "Request withdraw",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "amount",
+                  "id"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": "number"
+                  },
+                  "id": {
+                    "type": "integer",
+                    "description": "withdrawal_methods.id"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/delivery-man/wallet/withdraw-request/{id}": {
+      "delete": {
+        "description": "",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Canceled",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Withdraw request canceled"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Withdraw request canceled"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Withdraw request canceled"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Wallet"
+        ],
+        "summary": "Cancel pending withdraw"
       }
     },
     "/delivery-man/whoami": {
@@ -49970,6 +50545,25 @@
           "longitude": {
             "type": "string",
             "nullable": true
+          },
+          "processing_time": {
+            "type": "string",
+            "nullable": true,
+            "description": "Estimated cooking duration in minutes (from POS)"
+          },
+          "cooking_time_minutes": {
+            "type": "integer",
+            "nullable": true
+          },
+          "processing_started_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cooking_ready_by": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         },
         "example": {
@@ -50065,6 +50659,25 @@
           },
           "order_note": {
             "type": "string",
+            "nullable": true
+          },
+          "processing_time": {
+            "type": "string",
+            "nullable": true,
+            "description": "Estimated cooking duration in minutes (from POS)"
+          },
+          "cooking_time_minutes": {
+            "type": "integer",
+            "nullable": true
+          },
+          "processing_started_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cooking_ready_by": {
+            "type": "string",
+            "format": "date-time",
             "nullable": true
           },
           "dispatch_summary": {

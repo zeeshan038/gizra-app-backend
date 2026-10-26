@@ -17,6 +17,11 @@ import { buildOrderStatusDescription } from './orderStatusMessage';
 import { sendOrderDeliveredSmsIfEnabled } from './sendOrderStatusSms';
 import { persistUserNotification } from './persistUserNotification';
 import { isRecipientPushOn } from './pushNotificationPreference';
+import {
+  cookingTimePushDescription,
+  mapOrderCookingTimeForApi,
+  parseCookingMinutes,
+} from '../vendor/order/cookingTime';
 
 const ORDER_PUSH_TITLE = 'Order notification';
 
@@ -489,6 +494,31 @@ export async function sendOrderNotification(orderInput: orders | bigint): Promis
       image: '',
       type: 'order_status',
       order_status: order.order_status,
+    };
+    await notifyDeliveryMan(
+      Number(ctx.deliveryMan.id),
+      ctx.deliveryMan.fcm_token,
+      dmData,
+      ctx.deliveryMan.is_notification_on
+    );
+  }
+
+  if (ctx.deliveryMan && order.order_status === 'processing') {
+    const cooking = mapOrderCookingTimeForApi(order);
+    const minutes = parseCookingMinutes(order.processing_time);
+    const dmData: FcmPushData = {
+      title: ORDER_PUSH_TITLE,
+      description: cookingTimePushDescription(minutes),
+      order_id: orderId,
+      image: '',
+      type: 'order_status',
+      order_status: order.order_status,
+      order_type: order.order_type,
+      processing_time: cooking.processing_time ?? undefined,
+      cooking_time_minutes:
+        cooking.cooking_time_minutes != null
+          ? String(cooking.cooking_time_minutes)
+          : undefined,
     };
     await notifyDeliveryMan(
       Number(ctx.deliveryMan.id),

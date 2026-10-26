@@ -17,6 +17,12 @@ import { toggleDeliveryManPushNotification } from '../../controllers/notificatio
 import { activeStatus, getProfile, updateProfile } from '../../controllers/deliveryman/Profile';
 import { getHome } from '../../controllers/deliveryman/Home';
 import { getEarnings } from '../../controllers/deliveryman/earnings';
+import {
+  cancelDeliveryManWithdraw,
+  getDeliveryManWallet,
+  getDeliveryManWithdrawMethodOptions,
+  requestDeliveryManWithdraw,
+} from '../../controllers/deliveryman/Wallet';
 import { verifyDeliveryMan } from '../../middlewares/verifyDeliveryMan';
 
 const router = express.Router();
@@ -34,6 +40,10 @@ router.use(verifyDeliveryMan);
 router.put('/password/change', changePassword);
 router.get('/home', getHome);
 router.get('/earnings', getEarnings);
+router.get('/wallet', getDeliveryManWallet);
+router.get('/wallet/withdraw-method-options', getDeliveryManWithdrawMethodOptions);
+router.post('/wallet/withdraw-request', requestDeliveryManWithdraw);
+router.delete('/wallet/withdraw-request/:id', cancelDeliveryManWithdraw);
 router.get('/whoami', whoami);
 router.get('/profile', getProfile);
 router.put('/profile', updateProfile);

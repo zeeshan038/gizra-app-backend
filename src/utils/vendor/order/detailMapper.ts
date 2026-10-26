@@ -1,7 +1,58 @@
-import { order_details, orders, food } from '@prisma/client';
+import { delivery_men, order_details, orders, food } from '@prisma/client';
 import prisma from '../../../config/database';
 import { mapOrderSummary, mapOrderLineItem, OrderCustomerBrief } from './mapper';
 import { deriveOrderValueFromOrder, gizraPaysRestaurant, taxOnOrderValue } from './orderSettlement';
+import { publicMediaUrl } from '../../mediaStorage';
+import { mapOrderCookingTimeForApi } from './cookingTime';
+
+export type OrderAssignedDeliveryManRow = Pick<
+  delivery_men,
+  'id' | 'f_name' | 'l_name' | 'phone' | 'email' | 'image'
+>;
+
+export type NotifiedDeliveryManBrief = {
+  id: string;
+  name: string;
+  phone: string;
+  image: string | null;
+  current_orders: number;
+};
+
+export function formatOrderAssignedDeliveryMan(
+  order: orders,
+  deliveryMan?: OrderAssignedDeliveryManRow | null
+) {
+  const delivery_man_id = order.delivery_man_id?.toString() ?? null;
+  if (!delivery_man_id) {
+    return {
+      delivery_man_id: null,
+      delivery_man_name: null,
+      delivery_man_phone: null,
+      delivery_man: null,
+      driver_accepted_at: null,
+    };
+  }
+
+  const delivery_man_name = deliveryMan
+    ? [deliveryMan.f_name, deliveryMan.l_name].filter(Boolean).join(' ') || 'Delivery man'
+    : null;
+
+  return {
+    delivery_man_id,
+    delivery_man_name,
+    delivery_man_phone: deliveryMan?.phone ?? null,
+    delivery_man: deliveryMan
+      ? {
+          id: deliveryMan.id.toString(),
+          name: delivery_man_name ?? 'Delivery man',
+          phone: deliveryMan.phone,
+          email: deliveryMan.email ?? null,
+          image_url: publicMediaUrl(deliveryMan.image),
+        }
+      : null,
+    driver_accepted_at: order.accepted?.toISOString?.() ?? null,
+  };
+}
 
 export type DeliveryAddressParsed = {
   contact_person_name?: string;
@@ -189,7 +240,12 @@ export function mapVendorOrderDetail(
     logo: string | null;
     latitude: string | null;
     longitude: string | null;
-  } | null
+  } | null,
+  extras?: {
+    deliveryMan?: OrderAssignedDeliveryManRow | null;
+    notified_delivery_men?: NotifiedDeliveryManBrief[];
+    zone_name?: string | null;
+  }
 ) {
   const deliveryParsed = parseDeliveryAddress(order.delivery_address);
   const displayItems =
@@ -230,8 +286,15 @@ export function mapVendorOrderDetail(
     }
   }
 
+  const assignedDriver = formatOrderAssignedDeliveryMan(order, extras?.deliveryMan);
+  const cookingTime = mapOrderCookingTimeForApi(order);
+
   return {
     ...mapOrderSummary(order, customer),
+    ...assignedDriver,
+    ...cookingTime,
+    notified_delivery_men: extras?.notified_delivery_men ?? [],
+    zone_name: extras?.zone_name ?? null,
     customer_email: customer?.email ?? null,
     customer_orders_count: customer?.orders_count ?? 0,
     is_guest: order.is_guest,

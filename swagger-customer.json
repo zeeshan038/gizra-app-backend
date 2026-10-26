@@ -5205,6 +5205,25 @@
           "longitude": {
             "type": "string",
             "nullable": true
+          },
+          "processing_time": {
+            "type": "string",
+            "nullable": true,
+            "description": "Estimated cooking duration in minutes (from POS)"
+          },
+          "cooking_time_minutes": {
+            "type": "integer",
+            "nullable": true
+          },
+          "processing_started_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cooking_ready_by": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         },
         "example": {
@@ -5300,6 +5319,25 @@
           },
           "order_note": {
             "type": "string",
+            "nullable": true
+          },
+          "processing_time": {
+            "type": "string",
+            "nullable": true,
+            "description": "Estimated cooking duration in minutes (from POS)"
+          },
+          "cooking_time_minutes": {
+            "type": "integer",
+            "nullable": true
+          },
+          "processing_started_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cooking_ready_by": {
+            "type": "string",
+            "format": "date-time",
             "nullable": true
           },
           "dispatch_summary": {
@@ -12499,8 +12537,6 @@
                     "tax": 5,
                     "rating": 0,
                     "address": "123 Main Street",
-                    "logo_full_url": 0,
-                    "cover_photo_full_url": 0,
                     "open": "…",
                     "categories": "…",
                     "category_ids": "…"
@@ -12552,14 +12588,6 @@
                           "type": "string",
                           "example": "123 Main Street"
                         },
-                        "logo_full_url": {
-                          "type": "number",
-                          "example": 0
-                        },
-                        "cover_photo_full_url": {
-                          "type": "number",
-                          "example": 0
-                        },
                         "open": {
                           "type": "string",
                           "example": "…"
@@ -12583,8 +12611,6 @@
                         "tax": 5,
                         "rating": 0,
                         "address": "123 Main Street",
-                        "logo_full_url": 0,
-                        "cover_photo_full_url": 0,
                         "open": "…",
                         "categories": "…",
                         "category_ids": "…"
@@ -12603,8 +12629,6 @@
                       "tax": 5,
                       "rating": 0,
                       "address": "123 Main Street",
-                      "logo_full_url": 0,
-                      "cover_photo_full_url": 0,
                       "open": "…",
                       "categories": "…",
                       "category_ids": "…"
@@ -12794,7 +12818,7 @@
         ]
       }
     },
-    "/consumer/restaurants/{popularrestaurant.id.toString())??[];constopen=isOpenFromSchedules(schedules);constlogo=restaurant.logo??null;constcover=restaurant.cover_photo??null;returnres.status(200).json({statustrue}": {
+    "/consumer/restaurants/{popularrestaurant.id.toString())??[];constopen=isOpenFromSchedules(schedules);constmedia=consumerRestaurantMediaFields({logorestaurant.logo}": {
       "get": {
         "description": "",
         "responses": {

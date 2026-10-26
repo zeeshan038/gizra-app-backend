@@ -9565,6 +9565,133 @@
         ]
       }
     },
+    "/delivery-man/wallet": {
+      "get": {
+        "summary": "Wallet, withdraw history, payment history",
+        "description": "Balance, withdrawable amount (minus collected COD cash), pending/approved withdraw requests, and collected-cash payment rows (`account_transactions`).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 25
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Wallet payload"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Delivery Man Wallet"
+        ]
+      }
+    },
+    "/delivery-man/wallet/withdraw-method-options": {
+      "get": {
+        "summary": "Active withdrawal methods",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Method templates with field defs"
+          }
+        },
+        "tags": [
+          "Delivery Man Wallet"
+        ]
+      }
+    },
+    "/delivery-man/wallet/withdraw-request": {
+      "post": {
+        "summary": "Request withdraw",
+        "description": "Creates `withdraw_requests` with `delivery_man_id` and increases `pending_withdraw` on `delivery_man_wallets`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "amount",
+                  "id"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": "number"
+                  },
+                  "id": {
+                    "type": "integer",
+                    "description": "withdrawal_methods.id"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Request placed"
+          },
+          "403": {
+            "description": "Insufficient balance"
+          }
+        },
+        "tags": [
+          "Delivery Man Wallet"
+        ]
+      }
+    },
+    "/delivery-man/wallet/withdraw-request/{id}": {
+      "delete": {
+        "summary": "Cancel pending withdraw",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Canceled"
+          }
+        },
+        "tags": [
+          "Delivery Man Wallet"
+        ]
+      }
+    },
     "/delivery-man/home": {
       "get": {
         "summary": "Home dashboard stats",
@@ -16106,6 +16233,25 @@
           "longitude": {
             "type": "string",
             "nullable": true
+          },
+          "processing_time": {
+            "type": "string",
+            "nullable": true,
+            "description": "Estimated cooking duration in minutes (from POS)"
+          },
+          "cooking_time_minutes": {
+            "type": "integer",
+            "nullable": true
+          },
+          "processing_started_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cooking_ready_by": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         },
         "example": {
@@ -16201,6 +16347,25 @@
           },
           "order_note": {
             "type": "string",
+            "nullable": true
+          },
+          "processing_time": {
+            "type": "string",
+            "nullable": true,
+            "description": "Estimated cooking duration in minutes (from POS)"
+          },
+          "cooking_time_minutes": {
+            "type": "integer",
+            "nullable": true
+          },
+          "processing_started_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cooking_ready_by": {
+            "type": "string",
+            "format": "date-time",
             "nullable": true
           },
           "dispatch_summary": {

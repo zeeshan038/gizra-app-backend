@@ -5154,6 +5154,25 @@
           "longitude": {
             "type": "string",
             "nullable": true
+          },
+          "processing_time": {
+            "type": "string",
+            "nullable": true,
+            "description": "Estimated cooking duration in minutes (from POS)"
+          },
+          "cooking_time_minutes": {
+            "type": "integer",
+            "nullable": true
+          },
+          "processing_started_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cooking_ready_by": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         },
         "example": {
@@ -5249,6 +5268,25 @@
           },
           "order_note": {
             "type": "string",
+            "nullable": true
+          },
+          "processing_time": {
+            "type": "string",
+            "nullable": true,
+            "description": "Estimated cooking duration in minutes (from POS)"
+          },
+          "cooking_time_minutes": {
+            "type": "integer",
+            "nullable": true
+          },
+          "processing_started_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cooking_ready_by": {
+            "type": "string",
+            "format": "date-time",
             "nullable": true
           },
           "dispatch_summary": {

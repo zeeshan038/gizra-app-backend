@@ -9,6 +9,8 @@ export type FcmPushData = {
   type: string;
   order_type?: string;
   order_status?: string;
+  processing_time?: string;
+  cooking_time_minutes?: string;
 };
 
 function buildStringData(data: FcmPushData): Record<string, string> {
@@ -21,6 +23,8 @@ function buildStringData(data: FcmPushData): Record<string, string> {
       order_type: data.order_type,
       order_status: data.order_status,
       image: data.image,
+      processing_time: data.processing_time,
+      cooking_time_minutes: data.cooking_time_minutes,
     })
       .filter(([, v]) => v != null && v !== '')
       .map(([k, v]) => [k, String(v)])
