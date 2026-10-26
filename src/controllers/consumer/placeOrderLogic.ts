@@ -31,6 +31,14 @@ function clientQuotedDeliveryFee(payload: PlaceOrderInput): number | null {
   return roundMoney(Math.max(0, Number(raw)));
 }
 
+/** Client-quoted food + addons amount from order_amount (e.g. Flutter checkout). */
+function clientQuotedOrderAmount(payload: PlaceOrderInput): number | null {
+  const raw = payload.order_amount;
+  if (raw == null || !Number.isFinite(Number(raw))) return null;
+  const val = Number(raw);
+  return val > 0 ? roundMoney(val) : null;
+}
+
 function parseJson<T>(value: string | null | undefined, fallback: T): T {
   if (!value) return fallback;
   try {
@@ -643,10 +651,13 @@ export async function executePlaceOrder(params: {
     });
   }
 
-  const subtotalBeforeCoupon =
+  const clientOrderAmount = clientQuotedOrderAmount(payload);
+  const calculatedSubtotal =
     productPrice + totalAddonPrice - restaurantDiscountAmount;
+  const subtotalBeforeCoupon = clientOrderAmount ?? calculatedSubtotal;
 
-  if (Number(restaurant.minimum_order) > productPrice + totalAddonPrice) {
+  const baseForMinOrder = clientOrderAmount ?? (productPrice + totalAddonPrice);
+  if (Number(restaurant.minimum_order) > baseForMinOrder) {
     throw new PlaceOrderError(
       `Minimum order amount is ${Number(restaurant.minimum_order)}`,
       406,
@@ -692,7 +703,7 @@ export async function executePlaceOrder(params: {
     freeDelivery = { delivery_charge: quotedDeliveryFee, free_delivery_by: null };
   } else {
     freeDelivery = await applyFreeDeliveryRules({
-      productSubtotal: productPrice + totalAddonPrice,
+      productSubtotal: clientOrderAmount ?? (productPrice + totalAddonPrice),
       couponDiscount: couponResult.discount,
       restaurantDiscount: restaurantDiscountAmount,
       distance: payload.distance ?? 0,
