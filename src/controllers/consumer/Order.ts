@@ -109,15 +109,76 @@ async function sendPlaceOrderCreatedResponse(
     }
   }
 
+  const pricing = placed.pricing ?? {
+    subtotal: placed.subtotal,
+    total_tax_amount: Number(orderResult.total_tax_amount) || 0,
+    tax_added_to_total: placed.taxAdded,
+    tax_status: (orderResult.tax_status as 'included' | 'excluded') ?? 'excluded',
+    delivery_charge: mappedOrder.delivery_charge,
+    additional_charge: mappedOrder.additional_charge,
+    extra_packaging_amount: Number(orderResult.extra_packaging_amount) || 0,
+    dm_tips: mappedOrder.dm_tips,
+    order_amount: mappedOrder.order_amount,
+  };
+
   return res.status(201).json({
     status: true,
     msg: 'Order placed successfully',
     message: 'Order placed successfully',
     order_id: mappedOrder.id,
-    total_ammount: placed.subtotal + placed.taxAdded + placed.delivery_charge,
+    /** Legacy field — same as `pricing.order_amount` / `data.order_amount` (full amount to pay). */
+    total_ammount: pricing.order_amount,
+    pricing_breakdown: pricing,
     data: mappedOrder,
   });
 }
+
+/**
+ * @Description Preview order totals (same pricing as place, no DB order row)
+ * @Route POST /api/consumer/order/quote
+ * @Access Consumer
+ */
+export const quoteOrder = async (req: Request, res: Response): Promise<any> => {
+  const payload = req.body;
+
+  const result = placeOrderSchema.validate(payload, { stripUnknown: true });
+  if (result.error) {
+    return res.status(400).json({
+      status: false,
+      msg: result.error.details.map((d: any) => d.message).join(','),
+    });
+  }
+
+  const orderPayload = result.value as PlaceOrderInput;
+  const identity = resolveOrderUser(req, orderPayload);
+  if (!identity) {
+    return res.status(401).json({ status: false, msg: 'Unauthorized' });
+  }
+
+  try {
+    const quoted = await executePlaceOrder({
+      payload: orderPayload,
+      userId: identity.userId,
+      isGuest: identity.isGuest,
+      dryRun: true,
+    });
+
+    return res.status(200).json({
+      status: true,
+      total_ammount: quoted.pricing?.order_amount ?? quoted.orderAmount,
+      pricing_breakdown: quoted.pricing,
+    });
+  } catch (e: unknown) {
+    if (e instanceof PlaceOrderError) {
+      return res.status(e.statusCode).json({ status: false, msg: e.message });
+    }
+    const msg = e instanceof Error ? e.message : 'Quote failed';
+    if (msg === 'EMPTY_ORDER') {
+      return res.status(403).json({ status: false, msg: 'You cannot quote an empty order' });
+    }
+    return res.status(500).json({ status: false, msg });
+  }
+};
 
 /**
  * @Description Place an order (cart from DB or buy-now payload; pricing validated server-side)

@@ -21,6 +21,7 @@ import {
   CheckoutPaymentError,
   findPaidUnusedCheckoutPayment,
 } from '../../utils/payment/checkoutPayment';
+import { computeVariationExtra } from '../../utils/consumer/variationPricing';
 
 
 function roundMoney(value: number): number {
@@ -69,26 +70,38 @@ async function calculateAddonPrice(addOnIds: number[], addOnQtys: number[]) {
   return { total_add_on_price: roundMoney(total), addons: details };
 }
 
-function computeVariationExtra(
-  productVariationsJson: string | null,
-  selectedVariations: unknown[]
-): number {
-  const defs = parseJson<any[]>(productVariationsJson, []);
-  if (!defs.length || !selectedVariations?.length) return 0;
+export type PlaceOrderPricing = {
+  subtotal: number;
+  total_tax_amount: number;
+  tax_added_to_total: number;
+  tax_status: 'included' | 'excluded';
+  delivery_charge: number;
+  additional_charge: number;
+  extra_packaging_amount: number;
+  dm_tips: number;
+  order_amount: number;
+};
 
-  let extra = 0;
-  for (const selected of selectedVariations as any[]) {
-    const def = defs.find((d) => d.name === selected.name || d.type === selected.name);
-    if (!def?.values) continue;
-    const values = selected.values ?? selected.options ?? [];
-    for (const val of values) {
-      const label = typeof val === 'string' ? val : val.label ?? val.name;
-      const match = def.values.find((v: any) => v.label === label || v.name === label);
-      if (match?.optionPrice != null) extra += Number(match.optionPrice);
-      else if (match?.price != null) extra += Number(match.price);
-    }
-  }
-  return extra;
+function buildPlaceOrderPricing(params: {
+  totalPrice: number;
+  taxResult: ReturnType<typeof orderLevelTax>;
+  deliveryCharge: number;
+  additionalCharge: number;
+  extraPackaging: number;
+  dmTips: number;
+  orderAmount: number;
+}): PlaceOrderPricing {
+  return {
+    subtotal: params.totalPrice,
+    total_tax_amount: params.taxResult.total_tax_amount,
+    tax_added_to_total: params.taxResult.tax_to_add,
+    tax_status: params.taxResult.tax_status,
+    delivery_charge: params.deliveryCharge,
+    additional_charge: params.additionalCharge,
+    extra_packaging_amount: params.extraPackaging,
+    dm_tips: params.dmTips,
+    order_amount: params.orderAmount,
+  };
 }
 
 function productDiscountAmount(
@@ -793,6 +806,16 @@ export async function executePlaceOrder(params: {
     }
   }
 
+  const pricing = buildPlaceOrderPricing({
+    totalPrice,
+    taxResult,
+    deliveryCharge: deliveryFee.delivery_charge,
+    additionalCharge,
+    extraPackaging,
+    dmTips,
+    orderAmount,
+  });
+
   if (dryRun) {
     return {
       order: null,
@@ -800,6 +823,7 @@ export async function executePlaceOrder(params: {
       subtotal: totalPrice,
       taxAdded: taxResult.tax_to_add,
       delivery_charge: deliveryFee.delivery_charge,
+      pricing,
     };
   }
 
@@ -895,6 +919,7 @@ export async function executePlaceOrder(params: {
     subtotal: totalPrice,
     taxAdded: taxResult.tax_to_add,
     delivery_charge: deliveryFee.delivery_charge,
+    pricing,
   };
 }
 

@@ -216,20 +216,28 @@ export const requestDriver = async (req: Request, res: Response): Promise<any> =
       },
     });
 
-    try {
-      await sendOrderNotification(order);
-      await notifyManualDispatchDriverPool(order);
-      await emitManualDispatchOrderRequest(order);
-    } catch (notifyErr) {
-      console.error('[dispatch] notification failed', notifyErr);
-    }
-
     const rate = Number(await getBusinessSetting('manual_dispatch_commission')) || 10;
-    return res.status(200).json({
-      status: true,
+    const responseBody = {
+      status: true as const,
       msg: 'Driver requested successfully',
       data: dispatchSummary(order, rate),
-    });
+    };
+
+    // Respond before FCM / driver inbox fan-out — POS HTTP clients often timeout (~30s)
+    // while Firebase + N driver notification rows can be slow on busy zones.
+    void (async () => {
+      try {
+        await Promise.all([
+          sendOrderNotification(order),
+          notifyManualDispatchDriverPool(order),
+          emitManualDispatchOrderRequest(order),
+        ]);
+      } catch (notifyErr) {
+        console.error('[dispatch] notification failed', notifyErr);
+      }
+    })();
+
+    return res.status(200).json(responseBody);
   } catch (error: unknown) {
     console.error('[dispatch] request-driver failed', error);
     return res.status(403).json({

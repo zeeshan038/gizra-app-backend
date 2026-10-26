@@ -227,6 +227,8 @@ Socket **`order_request`** payload includes the same identity fields so the requ
 
 **Deploy:** run SQL `scripts/sql/add-restaurant-order-ref.sql` on the database before enabling the new backend build.
 
+**POS timeout (“connection took longer”):** The backend returns **immediately** after the order row is created; driver FCM + socket run in the background. If the POS still shows a timeout, check network to `backend-prod` and increase the app HTTP timeout (e.g. 60s). Retrying with the **same** `idempotency_key` is safe — you get the existing order, not a duplicate.
+
 ---
 
 ## 7. Vendor / POS — start cooking with time

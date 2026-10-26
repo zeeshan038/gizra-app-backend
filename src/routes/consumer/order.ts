@@ -6,6 +6,7 @@ import {
   cancelOrder,
   completeCheckoutPayment,
   placeOrder,
+  quoteOrder,
   getOrderHistory,
   getRunningOrders,
   getSubscriptionOrders,
@@ -32,6 +33,7 @@ router.get('/cancellation-reasons', getCancellationReasons);
 router.get('/refund-reasons', getRefundReasons);
 router.get('/most-tips', getMostTips);
 
+router.post('/quote', verifyConsumer, quoteOrder);
 router.post('/place', verifyConsumer, placeOrder);
 
 router.use(verifyConsumer);
