@@ -578,6 +578,90 @@
           }
         }
       },
+      "ConsumerOrderPricingBreakdown": {
+        "type": "object",
+        "description": "Server-side order pricing (placeOrderLogic). VAT rate from restaurant.tax; included vs excluded from business_settings.tax_included (GET /config → tax_included).",
+        "properties": {
+          "subtotal": {
+            "type": "number",
+            "description": "Food + add-ons − product and coupon discounts (tax base before VAT add-on)",
+            "example": 40
+          },
+          "total_tax_amount": {
+            "type": "number",
+            "description": "VAT amount (reporting line; included in order_amount when tax_status is excluded)",
+            "example": 2
+          },
+          "tax_added_to_total": {
+            "type": "number",
+            "description": "VAT added on top of subtotal when tax_status is excluded; 0 when included",
+            "example": 2
+          },
+          "tax_status": {
+            "type": "string",
+            "enum": [
+              "included",
+              "excluded"
+            ],
+            "example": "excluded"
+          },
+          "delivery_charge": {
+            "type": "number",
+            "example": 1
+          },
+          "additional_charge": {
+            "type": "number",
+            "description": "Platform service fee when enabled in business settings",
+            "example": 0
+          },
+          "extra_packaging_amount": {
+            "type": "number",
+            "example": 0
+          },
+          "dm_tips": {
+            "type": "number",
+            "example": 0
+          },
+          "order_amount": {
+            "type": "number",
+            "description": "Full amount the customer pays — use for checkout label and HyperPay",
+            "example": 43
+          }
+        },
+        "required": [
+          "subtotal",
+          "total_tax_amount",
+          "tax_added_to_total",
+          "tax_status",
+          "delivery_charge",
+          "additional_charge",
+          "extra_packaging_amount",
+          "dm_tips",
+          "order_amount"
+        ]
+      },
+      "ConsumerQuoteOrderResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "total_ammount": {
+            "type": "number",
+            "description": "Legacy PHP field name; equals pricing_breakdown.order_amount",
+            "example": 43
+          },
+          "pricing_breakdown": {
+            "$ref": "#/components/schemas/ConsumerOrderPricingBreakdown"
+          }
+        },
+        "required": [
+          "status",
+          "total_ammount",
+          "pricing_breakdown"
+        ]
+      },
       "ConsumerPlaceOrderResponse": {
         "type": "object",
         "properties": {
@@ -599,7 +683,11 @@
           },
           "total_ammount": {
             "type": "number",
-            "description": "Legacy PHP field name (subtotal + tax + delivery before tips in response helper)"
+            "description": "Legacy PHP field name; equals pricing_breakdown.order_amount (full pay amount)",
+            "example": 43
+          },
+          "pricing_breakdown": {
+            "$ref": "#/components/schemas/ConsumerOrderPricingBreakdown"
           },
           "data": {
             "$ref": "#/components/schemas/ConsumerPlaceOrderData"

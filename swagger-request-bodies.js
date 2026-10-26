@@ -166,6 +166,26 @@ const ROUTE_REQUEST_BODIES = {
       }
     }
   },
+  'post /consumer/order/quote': {
+    required: true,
+    description:
+      'Same body as place order. Returns pricing_breakdown only (no order row). Matches placeOrderSchema in src/schemas/consumer/Order.ts.',
+    content: {
+      'application/json': {
+        schema: { $ref: '#/components/schemas/PlaceOrderRequest' },
+        examples: {
+          buyNowDelivery: {
+            summary: 'Buy now — quote delivery checkout',
+            value: PLACE_ORDER_BODY_EXAMPLE
+          },
+          cartCheckout: {
+            summary: 'Quote — cart already in DB',
+            value: PLACE_ORDER_CART_EXAMPLE
+          }
+        }
+      }
+    }
+  },
   'post /consumer/order/place': {
     required: true,
     description: 'Place order (cart from DB or buy-now line items). Matches placeOrderSchema in src/schemas/consumer/Order.ts.',

@@ -38,6 +38,18 @@ const SAMPLE_CONSUMER_FOOD = {
   add_ons: [{ id: 42, name: 'Extra cheese', price: 15, status: true }]
 };
 
+const SAMPLE_ORDER_PRICING_BREAKDOWN = {
+  subtotal: 40,
+  total_tax_amount: 2,
+  tax_added_to_total: 2,
+  tax_status: 'excluded',
+  delivery_charge: 1,
+  additional_charge: 0,
+  extra_packaging_amount: 0,
+  dm_tips: 0,
+  order_amount: 43
+};
+
 const SAMPLE_PLACED_ORDER = {
   id: '1001',
   user_id: '7',
@@ -519,12 +531,18 @@ const ROUTE_RESPONSE_OVERRIDES = {
     msg: 'Order canceled successfully',
     message: 'Order canceled successfully'
   },
+  'post /consumer/order/quote': {
+    status: true,
+    total_ammount: 43,
+    pricing_breakdown: SAMPLE_ORDER_PRICING_BREAKDOWN
+  },
   'post /consumer/order/place': {
     status: true,
     msg: 'Order placed successfully',
     message: 'Order placed successfully',
     order_id: '1001',
-    total_ammount: 51,
+    total_ammount: 43,
+    pricing_breakdown: SAMPLE_ORDER_PRICING_BREAKDOWN,
     data: SAMPLE_PLACED_ORDER
   },
   'get /consumer/favourites/list': {

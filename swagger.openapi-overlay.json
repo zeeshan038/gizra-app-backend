@@ -6124,9 +6124,105 @@
         ]
       }
     },
+    "/consumer/order/quote": {
+      "post": {
+        "summary": "Quote order totals (checkout preview)",
+        "description": "Preview the same pricing as **POST /consumer/order/place** without creating an order row. Use on checkout before pay/place so the app shows **pricing_breakdown.order_amount** (VAT, delivery, fees). Request body is identical to place order (`PlaceOrderRequest` / `ConsumerPlaceOrderBody`). Send **`delivery_fee`** from **GET /consumer/config/delivery-fee** when available so delivery matches place. Client `price`, `order_amount`, and `total_tax_amount` fields are ignored for calculation. Bearer JWT required (registered customer or guest session).",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pricing quote",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerQuoteOrderResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "\"distance\" is required"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - consumer JWT required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Business rule failed (empty cart, coupon, restaurant closed, etc.)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Product unavailable"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumerPlaceOrderBody"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Orders"
+        ]
+      }
+    },
     "/consumer/order/place": {
       "post": {
-        "description": "Place a marketplace order (Figma checkout / legacy PHP parity). Default: line items loaded from server `carts` for the authenticated user or guest (`guest_id`). Buy-now: set `is_buy_now` true and send `cart` or `items`. Delivery requires `distance` plus either `delivery_address_id` (from GET /consumer/addresses) or inline `address`, `latitude`, `longitude`. Totals (tax, delivery, platform fee, tips) are calculated server-side. Triggers vendor FCM for Web Panel & POS.",
+        "description": "Place a marketplace order (Figma checkout / legacy PHP parity). Default: line items loaded from server `carts` for the authenticated user or guest (`guest_id`). Buy-now: set `is_buy_now` true and send `cart` or `items`. Delivery requires `distance` plus either `delivery_address_id` (from GET /consumer/addresses) or inline `address`, `latitude`, `longitude`. Totals (tax, delivery, platform fee, tips) are calculated server-side. Prefer **POST /consumer/order/quote** for checkout UI. Triggers vendor FCM for Web Panel & POS.",
         "parameters": [
           {
             "name": "authorization",
@@ -11657,6 +11753,90 @@
           }
         }
       },
+      "ConsumerOrderPricingBreakdown": {
+        "type": "object",
+        "description": "Server-side order pricing (placeOrderLogic). VAT rate from restaurant.tax; included vs excluded from business_settings.tax_included (GET /config → tax_included).",
+        "properties": {
+          "subtotal": {
+            "type": "number",
+            "description": "Food + add-ons − product and coupon discounts (tax base before VAT add-on)",
+            "example": 40
+          },
+          "total_tax_amount": {
+            "type": "number",
+            "description": "VAT amount (reporting line; included in order_amount when tax_status is excluded)",
+            "example": 2
+          },
+          "tax_added_to_total": {
+            "type": "number",
+            "description": "VAT added on top of subtotal when tax_status is excluded; 0 when included",
+            "example": 2
+          },
+          "tax_status": {
+            "type": "string",
+            "enum": [
+              "included",
+              "excluded"
+            ],
+            "example": "excluded"
+          },
+          "delivery_charge": {
+            "type": "number",
+            "example": 1
+          },
+          "additional_charge": {
+            "type": "number",
+            "description": "Platform service fee when enabled in business settings",
+            "example": 0
+          },
+          "extra_packaging_amount": {
+            "type": "number",
+            "example": 0
+          },
+          "dm_tips": {
+            "type": "number",
+            "example": 0
+          },
+          "order_amount": {
+            "type": "number",
+            "description": "Full amount the customer pays — use for checkout label and HyperPay",
+            "example": 43
+          }
+        },
+        "required": [
+          "subtotal",
+          "total_tax_amount",
+          "tax_added_to_total",
+          "tax_status",
+          "delivery_charge",
+          "additional_charge",
+          "extra_packaging_amount",
+          "dm_tips",
+          "order_amount"
+        ]
+      },
+      "ConsumerQuoteOrderResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "total_ammount": {
+            "type": "number",
+            "description": "Legacy PHP field name; equals pricing_breakdown.order_amount",
+            "example": 43
+          },
+          "pricing_breakdown": {
+            "$ref": "#/components/schemas/ConsumerOrderPricingBreakdown"
+          }
+        },
+        "required": [
+          "status",
+          "total_ammount",
+          "pricing_breakdown"
+        ]
+      },
       "ConsumerPlaceOrderResponse": {
         "type": "object",
         "properties": {
@@ -11678,7 +11858,11 @@
           },
           "total_ammount": {
             "type": "number",
-            "description": "Legacy PHP field name (subtotal + tax + delivery before tips in response helper)"
+            "description": "Legacy PHP field name; equals pricing_breakdown.order_amount (full pay amount)",
+            "example": 43
+          },
+          "pricing_breakdown": {
+            "$ref": "#/components/schemas/ConsumerOrderPricingBreakdown"
           },
           "data": {
             "$ref": "#/components/schemas/ConsumerPlaceOrderData"

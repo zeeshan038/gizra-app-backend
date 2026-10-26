@@ -1,7 +1,3 @@
-/**
- * Place-order business logic (ported from Laravel OrderController@place_order).
- * Kept in one module next to the controller — not scattered under utils/.
- */
 import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import type { PlaceOrderInput } from '../../schemas/consumer/Order';
