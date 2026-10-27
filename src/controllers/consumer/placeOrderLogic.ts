@@ -19,7 +19,10 @@ import {
 } from '../../utils/payment/checkoutPayment';
 import { computeVariationExtra } from '../../utils/consumer/variationPricing';
 import { computeAvailabilityForRestaurant } from '../../utils/consumer/restaurantAvailability';
-import { resolveUnitFoodPrice } from '../../utils/consumer/orderLinePricing';
+import {
+  resolveUnitFoodPrice,
+  unbundleLinePriceWhenAddonsListedSeparately,
+} from '../../utils/consumer/orderLinePricing';
 
 
 function roundMoney(value: number): number {
@@ -713,11 +716,21 @@ export async function executePlaceOrder(params: {
     const variationExtra = computeVariationExtra(food.variations, line.variations ?? []);
     const serverUnitBase = roundMoney(Number(food.price) + variationExtra);
     const addonData = await calculateAddonPrice(line.add_on_ids ?? [], line.add_on_qtys ?? []);
-    const unitBase = resolveUnitFoodPrice({
+    const addonPerUnit = addonData.total_add_on_price;
+    let unitBase = resolveUnitFoodPrice({
       linePrice: line.price,
       serverUnitBase,
-      addonPerUnit: addonData.total_add_on_price,
+      addonPerUnit,
     });
+    if (line.price != null && addonPerUnit > 0) {
+      unitBase = unbundleLinePriceWhenAddonsListedSeparately({
+        clientUnit: Number(line.price),
+        serverUnitBase,
+        addonPerUnit,
+        catalogFoodPrice: Number(food.price),
+        resolvedUnit: unitBase,
+      });
+    }
     const discountOnFood = productDiscountAmount(food, unitBase);
     const lineTax = lineTaxAmount({
       unitFood: unitBase,

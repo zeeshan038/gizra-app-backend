@@ -62,3 +62,42 @@ export function resolveUnitFoodPrice(params: {
 
   return clientUnit;
 }
+
+/**
+ * Flutter sometimes sends `price` = food + add-ons while `add_on_ids` are also present,
+ * with `price` equal to server food+var (e.g. 27 = 23 + 4 when server line is 27).
+ */
+export function unbundleLinePriceWhenAddonsListedSeparately(params: {
+  clientUnit: number;
+  serverUnitBase: number;
+  addonPerUnit: number;
+  catalogFoodPrice: number;
+  resolvedUnit: number;
+}): number {
+  const clientUnit = roundOrderMoney(params.clientUnit);
+  const serverUnitBase = roundOrderMoney(params.serverUnitBase);
+  const addonPerUnit = roundOrderMoney(params.addonPerUnit);
+  const bundleTotal = roundOrderMoney(serverUnitBase + addonPerUnit);
+  const catalogMin = roundOrderMoney(params.catalogFoodPrice) - ORDER_PRICE_TOLERANCE;
+
+  if (addonPerUnit <= 0) return params.resolvedUnit;
+
+  if (
+    Math.abs(params.resolvedUnit - serverUnitBase) > ORDER_PRICE_TOLERANCE ||
+    Math.abs(clientUnit - serverUnitBase) > ORDER_PRICE_TOLERANCE ||
+    clientUnit >= bundleTotal - ORDER_PRICE_TOLERANCE
+  ) {
+    return params.resolvedUnit;
+  }
+
+  const unbundled = roundOrderMoney(clientUnit - addonPerUnit);
+  if (
+    unbundled < serverUnitBase - ORDER_PRICE_TOLERANCE &&
+    unbundled >= catalogMin &&
+    Math.abs(clientUnit - (unbundled + addonPerUnit)) <= ORDER_PRICE_TOLERANCE
+  ) {
+    return Math.max(unbundled, roundOrderMoney(params.catalogFoodPrice));
+  }
+
+  return params.resolvedUnit;
+}
