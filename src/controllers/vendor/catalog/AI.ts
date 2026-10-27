@@ -2,27 +2,21 @@ import { Request, Response } from 'express';
 import { aiPdfSchema, aiTextSchema } from '../../../schemas/vendor/Catalog';
 import { uploadToCloudflare } from '../../../utils/cloudflare';
 
+/** Google AI Studio (new keys): prefer 3.8+ ; 2.5-* is blocked for new users. */
+const GEMINI_GENERATION_MODELS = [
+    'gemini-3.8-flash',
+    'gemini-3.6-flash',
+    'gemini-flash-latest',
+    'gemini-2.0-flash-001',
+];
+
+const GEMINI_TEXT_MODELS = GEMINI_GENERATION_MODELS;
+
+const GEMINI_VISION_MODELS = GEMINI_GENERATION_MODELS;
+
 const GEMINI_IMAGE_MODELS = [
-    'gemini-2.5-flash-image',
     'gemini-3.1-flash-image',
     'gemini-3-pro-image',
-];
-
-const GEMINI_TEXT_MODELS = [
-    'gemini-2.5-flash',
-    'gemini-3.6-flash',
-    'gemini-2.0-flash-001',
-    'gemini-flash-latest',
-    'gemini-2.0-flash',
-];
-
-/** Multimodal (image/PDF menu OCR) — avoid retired ids like gemini-pro-vision. */
-const GEMINI_VISION_MODELS = [
-    'gemini-2.5-flash',
-    'gemini-3.6-flash',
-    'gemini-2.0-flash-001',
-    'gemini-flash-latest',
-    'gemini-2.0-flash',
 ];
 
 function isHebrewText(text: string) {
@@ -248,7 +242,7 @@ Before you finish: for every PIZZA (and similar) item, confirm "variations" is n
                 if (!response.ok) {
                     const msg = data.error?.message || `HTTP ${response.status} for ${model}`;
                     console.warn(`[menu-import] Gemini ${model}: ${msg}`);
-                    if (lastError === 'Failed to parse menu with Gemini') lastError = msg;
+                    lastError = msg;
                     continue;
                 }
 
@@ -262,7 +256,7 @@ Before you finish: for every PIZZA (and similar) item, confirm "variations" is n
             } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : 'Parse failed';
                 console.warn(`[menu-import] Gemini ${model}: ${msg}`);
-                if (lastError === 'Failed to parse menu with Gemini') lastError = msg;
+                lastError = msg;
             }
         }
 
