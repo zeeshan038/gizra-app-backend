@@ -1,6 +1,5 @@
 import { roundMoney } from '../vendor/walletHelpers';
 
-/** Cash held from COD deliveries reduces what the driver can withdraw (legacy PHP profile). */
 export function computeDeliveryManWithdrawableBalance(input: {
   total_earning: number;
   total_withdrawn: number;
