@@ -8,7 +8,22 @@ const GEMINI_IMAGE_MODELS = [
     'gemini-3-pro-image',
 ];
 
-const GEMINI_TEXT_MODELS = ['gemini-3.6-flash', 'gemini-2.0-flash-001', 'gemini-flash-latest'];
+const GEMINI_TEXT_MODELS = [
+    'gemini-2.5-flash',
+    'gemini-3.6-flash',
+    'gemini-2.0-flash-001',
+    'gemini-flash-latest',
+    'gemini-2.0-flash',
+];
+
+/** Multimodal (image/PDF menu OCR) — avoid retired ids like gemini-pro-vision. */
+const GEMINI_VISION_MODELS = [
+    'gemini-2.5-flash',
+    'gemini-3.6-flash',
+    'gemini-2.0-flash-001',
+    'gemini-flash-latest',
+    'gemini-2.0-flash',
+];
 
 function isHebrewText(text: string) {
     return /[\u0590-\u05FF]/.test(text);
@@ -207,35 +222,50 @@ Slash names "X / Y" → two items unless clearly one bilingual label for the sam
 Before you finish: for every PIZZA (and similar) item, confirm "variations" is non-empty when a size footer exists. Re-scan the bottom of the image if any item is missing Size options.`;
 
     try {
-        const models = ['gemini-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro', 'gemini-1.0-pro-vision-latest', 'gemini-pro-vision'];
-        let lastError = 'Failed to generate content';
+        let lastError = 'Failed to parse menu with Gemini';
         let parsedMenu = null;
 
-        for (const model of models) {
+        for (const model of GEMINI_VISION_MODELS) {
             try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: mimeType, data: fileBase64 } }] }],
-                        generationConfig: { responseMimeType: 'application/json' }
-                    })
-                });
-                
+                const response = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [
+                                    { text: prompt },
+                                    { inlineData: { mimeType, data: fileBase64 } },
+                                ],
+                            }],
+                            generationConfig: { responseMimeType: 'application/json' },
+                        }),
+                    }
+                );
+
                 const data = await response.json();
                 if (!response.ok) {
-                    lastError = data.error?.message || `Error with model ${model}`;
+                    const msg = data.error?.message || `HTTP ${response.status} for ${model}`;
+                    console.warn(`[menu-import] Gemini ${model}: ${msg}`);
+                    if (lastError === 'Failed to parse menu with Gemini') lastError = msg;
                     continue;
                 }
-                
-                const text = data.candidates[0].content.parts[0].text;
+
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!text?.trim()) {
+                    lastError = `Empty response from ${model}`;
+                    continue;
+                }
                 parsedMenu = JSON.parse(text);
                 break;
-            } catch (err: any) {
-                lastError = err.message;
+            } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : 'Parse failed';
+                console.warn(`[menu-import] Gemini ${model}: ${msg}`);
+                if (lastError === 'Failed to parse menu with Gemini') lastError = msg;
             }
         }
-        
+
         if (!parsedMenu) {
             throw new Error(lastError);
         }
@@ -263,11 +293,10 @@ export const generateDescription = async (req: Request, res: Response): Promise<
     const prompt = `Write a short, appetizing menu description for a food item called "${payload.name}". 1-2 sentences only, focus on taste and appeal. Plain text, no markdown.`;
 
     try {
-        const models = ['gemini-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro', 'gemini-pro'];
         let lastError = 'Failed to generate content';
         let text = null;
 
-        for (const model of models) {
+        for (const model of GEMINI_TEXT_MODELS) {
             try {
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
                     method: 'POST',
