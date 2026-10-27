@@ -73,7 +73,7 @@ echo "Starting isolated Dev PostgreSQL and Redis containers..."
 $COMPOSE up -d postgres redis
 
 echo "Ensuring Dev PostgreSQL credentials..."
-./scripts/ensure-postgres-password.sh
+SKIP_SCHEMA_PATCHES=1 ./scripts/ensure-postgres-password.sh
 
 # 7. Clone production database into dev database
 echo "Cloning production database into dev..."

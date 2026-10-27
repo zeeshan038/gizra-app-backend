@@ -25,6 +25,14 @@ if [[ -z "$NET" ]]; then
   exit 1
 fi
 
+TABLE_COUNT="$(docker run --rm --network "$NET" -e PGPASSWORD="$PW" postgres:16-alpine \
+  psql -h postgres -U postgres -d gizra_db -tAc "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public';" 2>/dev/null || echo "0")"
+
+if [[ "${TABLE_COUNT:-0}" -eq 0 ]]; then
+  echo "SKIP: database has no tables yet (empty database). Patches will apply after DB restore/migration."
+  exit 0
+fi
+
 for SQL in "${PATCH_FILES[@]}"; do
   echo "Applying schema patches from $(basename "$SQL")…"
   docker run --rm --network "$NET" -e PGPASSWORD="$PW" \
