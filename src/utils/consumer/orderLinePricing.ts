@@ -12,6 +12,30 @@ function splitIsClean(clientUnit: number, foodUnit: number, addonPerUnit: number
   );
 }
 
+/**
+ * Buy-now checkout sends `price` as the line subtotal (food + variations + add-ons) while
+ * also listing `add_on_ids`. Strip add-ons once so tax is not computed on 27 + 4.
+ */
+export function applyBuyNowLineSubtotalPriceRule(params: {
+  unitFood: number;
+  linePrice: number | undefined;
+  addonPerUnit: number;
+  hasAddonIds: boolean;
+  isBuyNow: boolean;
+}): number {
+  if (!params.isBuyNow || !params.hasAddonIds || params.addonPerUnit <= 0) {
+    return params.unitFood;
+  }
+  if (params.linePrice == null || !Number.isFinite(params.linePrice) || params.linePrice <= 0) {
+    return params.unitFood;
+  }
+  const clientLineSubtotal = roundOrderMoney(Number(params.linePrice));
+  const foodFromSubtotal = roundOrderMoney(clientLineSubtotal - params.addonPerUnit);
+  if (foodFromSubtotal < 0) {
+    return params.unitFood;
+  }
+  return foodFromSubtotal;
+}
 
 /**
  * Unit price for food + variations only (never add-ons).
@@ -47,6 +71,12 @@ export function resolveUnitFoodPrice(params: {
 
   // Food-only unit from app (e.g. 23 with add-ons billed separately).
   if (
+    Math.abs(clientUnit + addonPerUnit - serverUnitBase) <= ORDER_PRICE_TOLERANCE
+  ) {
+    return clientUnit;
+  }
+
+  if (
     clientUnit <= serverUnitBase + ORDER_PRICE_TOLERANCE &&
     clientUnit < bundleTotal - ORDER_PRICE_TOLERANCE
   ) {
@@ -56,6 +86,14 @@ export function resolveUnitFoodPrice(params: {
   // Legacy: `price` = food + add-ons while add-ons are also summed separately.
   if (
     clientUnit >= bundleTotal - ORDER_PRICE_TOLERANCE &&
+    splitIsClean(clientUnit, asFoodOnly, addonPerUnit)
+  ) {
+    return asFoodOnly;
+  }
+
+  // `price` equals catalog food+var while add-ons are listed separately (e.g. 27 + add-ons 4).
+  if (
+    Math.abs(clientUnit - serverUnitBase) <= ORDER_PRICE_TOLERANCE &&
     splitIsClean(clientUnit, asFoodOnly, addonPerUnit)
   ) {
     return asFoodOnly;
@@ -82,21 +120,21 @@ export function unbundleLinePriceWhenAddonsListedSeparately(params: {
 
   if (addonPerUnit <= 0) return params.resolvedUnit;
 
+  const asFoodOnly = roundOrderMoney(clientUnit - addonPerUnit);
+
   if (
-    Math.abs(params.resolvedUnit - serverUnitBase) > ORDER_PRICE_TOLERANCE ||
-    Math.abs(clientUnit - serverUnitBase) > ORDER_PRICE_TOLERANCE ||
-    clientUnit >= bundleTotal - ORDER_PRICE_TOLERANCE
+    Math.abs(params.resolvedUnit - serverUnitBase) <= ORDER_PRICE_TOLERANCE &&
+    Math.abs(clientUnit - serverUnitBase) <= ORDER_PRICE_TOLERANCE &&
+    splitIsClean(clientUnit, asFoodOnly, addonPerUnit)
   ) {
-    return params.resolvedUnit;
+    return asFoodOnly;
   }
 
-  const unbundled = roundOrderMoney(clientUnit - addonPerUnit);
   if (
-    unbundled < serverUnitBase - ORDER_PRICE_TOLERANCE &&
-    clientUnit > unbundled + addonPerUnit + ORDER_PRICE_TOLERANCE &&
-    Math.abs(clientUnit - (unbundled + addonPerUnit)) <= ORDER_PRICE_TOLERANCE
+    clientUnit >= bundleTotal - ORDER_PRICE_TOLERANCE &&
+    splitIsClean(clientUnit, asFoodOnly, addonPerUnit)
   ) {
-    return unbundled;
+    return asFoodOnly;
   }
 
   return params.resolvedUnit;

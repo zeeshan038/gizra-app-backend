@@ -19,7 +19,10 @@ import {
 } from '../../utils/payment/checkoutPayment';
 import { computeVariationExtra } from '../../utils/consumer/variationPricing';
 import { computeAvailabilityForRestaurant } from '../../utils/consumer/restaurantAvailability';
-import { resolveCartLineUnitFoodPrice } from '../../utils/consumer/orderLinePricing';
+import {
+  applyBuyNowLineSubtotalPriceRule,
+  resolveCartLineUnitFoodPrice,
+} from '../../utils/consumer/orderLinePricing';
 
 
 function roundMoney(value: number): number {
@@ -458,15 +461,27 @@ async function resolveCartLines(params: {
   const { userId, isGuest, isBuyNow, cartId, inlineCart, inlineItems } = params;
 
   if (isBuyNow) {
-    const source = inlineCart ?? inlineItems ?? [];
-    if (!source.length) {
+    const cartLines = inlineCart ?? inlineItems ?? [];
+    const altLines =
+      inlineCart?.length && inlineItems?.length ? inlineItems : undefined;
+    if (!cartLines.length) {
       throw new Error('EMPTY_ORDER');
     }
-    return source.map((line) => ({
-      ...line,
-      quantity: Number(line.quantity),
-      item_id: Number(line.item_id),
-    }));
+    return cartLines.map((line, index) => {
+      const alt = altLines?.[index];
+      const price =
+        line.price != null && Number(line.price) > 0
+          ? Number(line.price)
+          : alt?.price != null && Number(alt.price) > 0
+            ? Number(alt.price)
+            : line.price;
+      return {
+        ...line,
+        ...(price != null ? { price } : {}),
+        quantity: Number(line.quantity),
+        item_id: Number(line.item_id),
+      };
+    });
   }
 
   const dbCarts = await prisma.carts.findMany({
@@ -714,11 +729,18 @@ export async function executePlaceOrder(params: {
     const serverUnitBase = roundMoney(Number(food.price) + variationExtra);
     const addonData = await calculateAddonPrice(line.add_on_ids ?? [], line.add_on_qtys ?? []);
     const addonPerUnit = addonData.total_add_on_price;
-    const unitBase = resolveCartLineUnitFoodPrice({
+    let unitBase = resolveCartLineUnitFoodPrice({
       linePrice: line.price,
       serverUnitBase,
       addonPerUnit,
       catalogFoodPrice: Number(food.price),
+    });
+    unitBase = applyBuyNowLineSubtotalPriceRule({
+      unitFood: unitBase,
+      linePrice: line.price,
+      addonPerUnit,
+      hasAddonIds: (line.add_on_ids?.length ?? 0) > 0,
+      isBuyNow: payload.is_buy_now ?? false,
     });
     const discountOnFood = productDiscountAmount(food, unitBase);
     const lineTax = lineTaxAmount({
