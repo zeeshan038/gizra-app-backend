@@ -580,12 +580,22 @@
       },
       "ConsumerOrderPricingBreakdown": {
         "type": "object",
-        "description": "Server-side order pricing (placeOrderLogic). VAT rate from restaurant.tax; included vs excluded from business_settings.tax_included (GET /config → tax_included).",
+        "description": "Order pricing from place/quote. VAT rate from restaurant.tax; included vs excluded from business_settings.tax_included (GET /config → tax_included).",
         "properties": {
+          "items_price": {
+            "type": "number",
+            "description": "Sum of cart line prices × qty (food + variations only, no add-ons)",
+            "example": 23
+          },
+          "addon_cost": {
+            "type": "number",
+            "description": "Sum of add-on prices × qty",
+            "example": 4
+          },
           "subtotal": {
             "type": "number",
-            "description": "Food + add-ons − product and coupon discounts (tax base before VAT add-on)",
-            "example": 40
+            "description": "items_price + addon_cost − product and coupon discounts (before tax & delivery)",
+            "example": 27
           },
           "total_tax_amount": {
             "type": "number",
@@ -594,7 +604,7 @@
           },
           "tax_added_to_total": {
             "type": "number",
-            "description": "VAT added on top of subtotal when tax_status is excluded; 0 when included",
+            "description": "When tax_status is `excluded`, menu prices do not include VAT — this is the VAT amount **added at checkout** (same as total_tax_amount in that mode). When `included`, this is 0 and total_tax_amount is informational only. Grand total = subtotal + tax_added_to_total + delivery_charge + fees.",
             "example": 2
           },
           "tax_status": {
@@ -639,6 +649,8 @@
           }
         },
         "required": [
+          "items_price",
+          "addon_cost",
           "subtotal",
           "total_tax_amount",
           "tax_added_to_total",
@@ -23147,74 +23159,49 @@
           "Upload"
         ],
         "summary": "Upload file to Cloudflare R2",
-        "parameters": [
-          {
-            "name": "file",
-            "in": "formData",
-            "required": true,
-            "description": "The file to upload",
-            "schema": {
-              "type": "file"
-            }
-          },
-          {
-            "name": "role",
-            "in": "formData",
-            "required": false,
-            "description": "Registration uploads: vendor | deliveryman",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "vendor",
-                "deliveryman"
-              ]
-            }
-          },
-          {
-            "name": "cloudflare_id",
-            "in": "formData",
-            "required": false,
-            "description": "12-char hex from POST /storage/registration-init (required with role for scoped uploads)",
-            "schema": {
-              "type": "string",
-              "pattern": "^[a-f0-9]{12}$",
-              "example": "a1b2c3d4e5f6"
-            }
-          },
-          {
-            "name": "category",
-            "in": "formData",
-            "required": false,
-            "description": "With role + cloudflare_id: restaurant (vendor logo/cover), identity, profile, assets",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "restaurant",
-                "identity",
-                "profile",
-                "assets"
-              ],
-              "default": "assets"
-            }
-          },
-          {
-            "name": "subfolder",
-            "in": "formData",
-            "required": false,
-            "description": "Legacy optional path e.g. vendors/abc/assets (must match cloudflare_id prefix if role is set)",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
+          "required": true,
           "content": {
-            "application/json": {
+            "multipart/form-data": {
               "schema": {
                 "type": "object",
+                "required": [
+                  "file"
+                ],
                 "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The file to upload"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "vendor",
+                      "deliveryman"
+                    ],
+                    "description": "Registration uploads"
+                  },
+                  "cloudflare_id": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{12}$",
+                    "example": "a1b2c3d4e5f6",
+                    "description": "12-char hex from POST /storage/registration-init (required with role for scoped uploads)"
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "restaurant",
+                      "identity",
+                      "profile",
+                      "assets"
+                    ],
+                    "default": "assets",
+                    "description": "With role + cloudflare_id: restaurant (vendor logo/cover), identity, profile, assets"
+                  },
                   "subfolder": {
-                    "example": "any"
+                    "type": "string",
+                    "description": "Legacy optional path e.g. vendors/abc/assets (must match cloudflare_id prefix if role is set)"
                   }
                 }
               }

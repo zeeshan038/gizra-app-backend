@@ -232,6 +232,10 @@ function writeRoleSpecs(swaggerDoc) {
 
     fs.writeFileSync(role.file, JSON.stringify(spec, null, 2));
     console.log(`${role.file}: ${Object.keys(paths).length} paths`);
+    if (role.file === './swagger-customer.json') {
+      fs.writeFileSync('./gizra_customer.openapi.json', JSON.stringify(spec, null, 2));
+      console.log('gizra_customer.openapi.json: customer spec (OpenAPI 3.0, for mobile codegen)');
+    }
   }
 }
 
