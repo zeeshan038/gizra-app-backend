@@ -41,6 +41,7 @@
     "prepare:compose-env": "node scripts/prepare-compose-env.js",
     "swagger:gen": "node scripts/mergeDeliveryManSwaggerOverlay.js && node swagger-gen.js",
     "test:order-pricing": "node ./node_modules/ts-node/dist/bin.js scripts/test-order-line-pricing.ts",
+    "test:order-pricing:dist": "npm run build && node scripts/test-order-line-pricing.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
