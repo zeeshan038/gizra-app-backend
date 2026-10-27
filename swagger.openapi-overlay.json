@@ -848,7 +848,7 @@
     "/vendor/restaurant/active-status": {
       "put": {
         "summary": "Open or temporarily close restaurant",
-        "description": "Vendor panel **restaurant open/closed** toggle. `closed: true` = temporarily closed (not accepting orders).",
+        "description": "Vendor panel **temporary close** override. `closed: true` sets `restaurants.active` to false — consumer restaurant APIs return `is_temporarily_closed: true`, `can_order: false`, and place-order is blocked until reopened. Weekly hours are unchanged; this overrides accepting orders immediately.",
         "parameters": [
           {
             "$ref": "#/components/parameters/VendorAuthorizationHeader"
@@ -4491,7 +4491,7 @@
     },
     "/consumer/restaurants/all": {
       "get": {
-        "description": "Active restaurants assigned to the customer zone(s). **Flow:** 1) GET /consumer/config/zone-id?lat=&lng= 2) pass returned id(s) as query **zone_id** (e.g. ?zone_id=2). Public; no Bearer token.",
+        "description": "Active restaurants assigned to the customer zone(s). Each restaurant includes **server-computed availability** (`status`, `can_order`, `next_open_at`, `next_close_at`, `is_temporarily_closed`; legacy `open` = `can_order`). **Flow:** 1) GET /consumer/config/zone-id?lat=&lng= 2) pass returned id(s) as query **zone_id** (e.g. ?zone_id=2). Public; no Bearer token.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerZoneIdQuery"
@@ -4570,7 +4570,13 @@
                         "minimum_order": 25,
                         "tax": 17,
                         "rating": 4.9,
-                        "address": "1631 W 2nd St, Example City"
+                        "address": "1631 W 2nd St, Example City",
+                        "status": "OPEN",
+                        "can_order": true,
+                        "next_open_at": null,
+                        "next_close_at": "2026-10-27T23:00:00+02:00",
+                        "is_temporarily_closed": false,
+                        "open": true
                       },
                       {
                         "id": "8",
@@ -4581,7 +4587,13 @@
                         "minimum_order": 0,
                         "tax": 0,
                         "rating": 4.2,
-                        "address": "Main Street 10"
+                        "address": "Main Street 10",
+                        "status": "CLOSED",
+                        "can_order": false,
+                        "next_open_at": "2026-10-28T10:00:00+02:00",
+                        "next_close_at": null,
+                        "is_temporarily_closed": false,
+                        "open": false
                       }
                     ]
                   }
@@ -4714,7 +4726,7 @@
     },
     "/consumer/restaurants/popular": {
       "get": {
-        "description": "Popular restaurants for the home screen horizontal list. Same zone flow as GET /consumer/restaurants/all. Sorted **open first**, then **order_count** (legacy PHP `restaurants/popular`). Optional **latitude** / **longitude** (query or headers) for distance on cards.",
+        "description": "Popular restaurants for the home screen horizontal list. Same zone flow as GET /consumer/restaurants/all. Sorted **can_order first** (restaurants accepting orders), then **order_count** (legacy PHP `restaurants/popular`). Each item includes computed availability fields. Optional **latitude** / **longitude** (query or headers) for distance on cards.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerZoneIdQuery"
@@ -4822,6 +4834,11 @@
                         "latitude": "32.0853",
                         "longitude": "34.7818",
                         "order_count": 240,
+                        "status": "OPEN",
+                        "can_order": true,
+                        "next_open_at": null,
+                        "next_close_at": "2026-10-27T23:00:00+02:00",
+                        "is_temporarily_closed": false,
                         "open": true,
                         "distance": 0.93,
                         "distance_text": "0.93 km"
@@ -4994,6 +5011,11 @@
                         "address": "1631 W 2nd St",
                         "latitude": 32.086,
                         "longitude": 34.782,
+                        "status": "CLOSES_SOON",
+                        "can_order": true,
+                        "next_open_at": null,
+                        "next_close_at": "2026-10-27T22:15:00+02:00",
+                        "is_temporarily_closed": false,
                         "open": true,
                         "distance": 0.42,
                         "distance_text": "0.42 km"
@@ -5018,7 +5040,7 @@
     },
     "/consumer/restaurants/nearby": {
       "get": {
-        "description": "**All Restaurants near you** / list flow (paginated). Requires customer **latitude** and **longitude** (query or headers) plus **zone_id**. Returns active restaurants in the zone with valid coordinates, sorted **open first**, then **nearest** (legacy PHP `get-restaurants` + `nearest_first`). For **map pins** use GET `/consumer/restaurants/discover/map` instead.",
+        "description": "**All Restaurants near you** / list flow (paginated). Requires customer **latitude** and **longitude** (query or headers) plus **zone_id**. Returns active restaurants in the zone with valid coordinates, sorted **can_order first**, then **nearest** (legacy PHP `get-restaurants` + `nearest_first`). Each item includes computed availability. For **map pins** use GET `/consumer/restaurants/discover/map` instead.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerZoneIdQuery"
@@ -5137,6 +5159,11 @@
                         "latitude": "32.0853",
                         "longitude": "34.7818",
                         "order_count": 18,
+                        "status": "OPEN",
+                        "can_order": true,
+                        "next_open_at": null,
+                        "next_close_at": "2026-10-27T23:00:00+02:00",
+                        "is_temporarily_closed": false,
                         "open": true,
                         "distance": 0.93,
                         "distance_text": "0.93 km"
@@ -5180,6 +5207,92 @@
                 }
               }
             }
+          }
+        },
+        "tags": [
+          "Consumer Discover"
+        ]
+      }
+    },
+    "/consumer/restaurants/specific/{id}": {
+      "get": {
+        "summary": "Restaurant details",
+        "description": "Single restaurant profile for the menu / details screen. Includes **server-computed availability** (`status`, `can_order`, `next_open_at`, `next_close_at`, `is_temporarily_closed`; legacy `open` = `can_order`), menu category chips, and vendor `active` (temporary close flag). Public; optional Bearer for visit tracking.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Restaurant id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Restaurant details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerRestaurantDetailResponse"
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "id": "12",
+                    "name": "Demo Kitchen",
+                    "logo": "https://cdn.example.com/logo.png",
+                    "cover_photo": "https://cdn.example.com/cover.png",
+                    "delivery_time": "30-40 min",
+                    "minimum_order": 10,
+                    "tax": 5,
+                    "rating": 4.5,
+                    "address": "123 Main Street",
+                    "veg": true,
+                    "non_veg": true,
+                    "active": true,
+                    "latitude": "32.0853",
+                    "longitude": "34.7818",
+                    "status": "OPEN",
+                    "can_order": true,
+                    "next_open_at": null,
+                    "next_close_at": "2026-10-27T23:00:00+02:00",
+                    "is_temporarily_closed": false,
+                    "open": true,
+                    "categories": [
+                      {
+                        "id": "1",
+                        "name": "Burgers"
+                      }
+                    ],
+                    "category_ids": [
+                      1
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "404": {
+            "description": "Restaurant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Restaurant not found"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError500"
           }
         },
         "tags": [
@@ -5480,7 +5593,12 @@
                         "rating": 4.5,
                         "address": "123 Main Street",
                         "order_count": 240,
-                        "open": true,
+                        "status": "OPENS_SOON",
+                        "can_order": false,
+                        "next_open_at": "2026-10-27T11:00:00+02:00",
+                        "next_close_at": null,
+                        "is_temporarily_closed": false,
+                        "open": false,
                         "distance": 0.93,
                         "distance_text": "0.93 km"
                       }
@@ -6127,7 +6245,7 @@
     "/consumer/order/quote": {
       "post": {
         "summary": "Quote order totals (checkout preview)",
-        "description": "Preview the same pricing as **POST /consumer/order/place** without creating an order row. Use on checkout before pay/place so the app shows **pricing_breakdown.order_amount** (VAT, delivery, fees). Request body is identical to place order (`PlaceOrderRequest` / `ConsumerPlaceOrderBody`). Send **`delivery_fee`** from **GET /consumer/config/delivery-fee** when available so delivery matches place. Client `price`, `order_amount`, and `total_tax_amount` fields are ignored for calculation. Bearer JWT required (registered customer or guest session).",
+        "description": "Preview the same pricing as **POST /consumer/order/place** without creating an order row. Request body matches place order. Send cart line **`price`** (food + variations, excluding add-ons), **`delivery_fee`**, **`total_tax_amount`**, and **`order_amount`** (full checkout total). Response **`pricing_breakdown`** includes separate **`items_price`**, **`addon_cost`**, **`subtotal`** (food after discounts), tax, delivery, and **`order_amount`**. Bearer JWT required.",
         "parameters": [
           {
             "name": "authorization",
@@ -11755,12 +11873,22 @@
       },
       "ConsumerOrderPricingBreakdown": {
         "type": "object",
-        "description": "Server-side order pricing (placeOrderLogic). VAT rate from restaurant.tax; included vs excluded from business_settings.tax_included (GET /config → tax_included).",
+        "description": "Order pricing from place/quote. VAT rate from restaurant.tax; included vs excluded from business_settings.tax_included (GET /config → tax_included).",
         "properties": {
+          "items_price": {
+            "type": "number",
+            "description": "Sum of cart line prices × qty (food + variations only, no add-ons)",
+            "example": 23
+          },
+          "addon_cost": {
+            "type": "number",
+            "description": "Sum of add-on prices × qty",
+            "example": 4
+          },
           "subtotal": {
             "type": "number",
-            "description": "Food + add-ons − product and coupon discounts (tax base before VAT add-on)",
-            "example": 40
+            "description": "items_price + addon_cost − product and coupon discounts (before tax & delivery)",
+            "example": 27
           },
           "total_tax_amount": {
             "type": "number",
@@ -11814,6 +11942,8 @@
           }
         },
         "required": [
+          "items_price",
+          "addon_cost",
           "subtotal",
           "total_tax_amount",
           "tax_added_to_total",
@@ -15126,13 +15256,65 @@
           }
         }
       },
+      "ConsumerRestaurantAvailabilityStatus": {
+        "type": "string",
+        "enum": [
+          "OPEN",
+          "CLOSES_SOON",
+          "CLOSED",
+          "OPENS_SOON"
+        ],
+        "description": "Computed on the backend from weekly `restaurant_schedule`, admin business `timezone` (business_settings), and vendor temporary close (`restaurants.active` / PUT /vendor/restaurant/active-status)."
+      },
+      "ConsumerRestaurantAvailabilityFields": {
+        "type": "object",
+        "required": [
+          "status",
+          "can_order",
+          "next_open_at",
+          "next_close_at",
+          "is_temporarily_closed",
+          "open"
+        ],
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean",
+            "description": "Enable ordering in the customer app when true (OPEN and CLOSES_SOON)."
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-8601 datetime with offset; next opening instant (CLOSED, OPENS_SOON, or temporarily closed)."
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-8601 datetime with offset; closing time of the current open slot (OPEN and CLOSES_SOON)."
+          },
+          "is_temporarily_closed": {
+            "type": "boolean",
+            "description": "True when the vendor set temporary close (active=false)."
+          },
+          "open": {
+            "type": "boolean",
+            "description": "Legacy alias of can_order."
+          }
+        }
+      },
       "ConsumerRestaurantMapPin": {
         "type": "object",
         "required": [
           "id",
           "name",
           "latitude",
-          "longitude"
+          "longitude",
+          "status",
+          "can_order",
+          "is_temporarily_closed",
+          "open"
         ],
         "properties": {
           "id": {
@@ -15161,6 +15343,23 @@
             "type": "number",
             "format": "double",
             "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean"
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_temporarily_closed": {
+            "type": "boolean"
           },
           "open": {
             "type": "boolean"
@@ -15274,7 +15473,7 @@
               "restaurants": {
                 "type": "array",
                 "items": {
-                  "$ref": "#/components/schemas/ConsumerRestaurantSummary"
+                  "$ref": "#/components/schemas/ConsumerRestaurantDiscoverItem"
                 }
               }
             }
@@ -15283,6 +15482,15 @@
       },
       "ConsumerRestaurantSummary": {
         "type": "object",
+        "description": "Restaurant list/card fields including server-computed opening status.",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "can_order",
+          "is_temporarily_closed",
+          "open"
+        ],
         "properties": {
           "id": {
             "type": "string"
@@ -15314,6 +15522,113 @@
           "address": {
             "type": "string",
             "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean"
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_temporarily_closed": {
+            "type": "boolean"
+          },
+          "open": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ConsumerRestaurantDiscoverItem": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConsumerRestaurantSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "latitude": {
+                "type": "string",
+                "nullable": true
+              },
+              "longitude": {
+                "type": "string",
+                "nullable": true
+              },
+              "order_count": {
+                "type": "integer"
+              },
+              "distance": {
+                "type": "number",
+                "nullable": true,
+                "description": "km from customer when latitude/longitude sent"
+              },
+              "distance_text": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          }
+        ]
+      },
+      "ConsumerRestaurantDetailResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConsumerRestaurantSummary"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "veg": {
+                    "type": "boolean"
+                  },
+                  "non_veg": {
+                    "type": "boolean"
+                  },
+                  "active": {
+                    "type": "boolean",
+                    "description": "Vendor temporary-close flag (false = temporarily closed)."
+                  },
+                  "latitude": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "longitude": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "categories": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "category_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            ]
           }
         }
       },

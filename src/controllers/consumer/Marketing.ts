@@ -7,9 +7,8 @@ import { parseCoordinatesFromRequest } from '../../utils/consumer/favouriteHelpe
 import {
   DISCOVER_RESTAURANT_SELECT,
   distanceKmForRestaurant,
+  availabilityMapForRestaurants,
   formatDiscoverRestaurant,
-  isOpenFromSchedules,
-  loadTodaySchedulesByRestaurantId,
 } from '../../utils/consumer/restaurantDiscoverHelpers';
 import { publicMediaUrl, publicRestaurantMediaUrl } from '../../utils/mediaStorage';
 import { paginationSkip } from '../../utils/consumer/orderListHelpers';
@@ -85,10 +84,10 @@ async function formatRestaurantsForIds(
     },
     select: DISCOVER_RESTAURANT_SELECT,
   });
-  const scheduleMap = await loadTodaySchedulesByRestaurantId(rows.map((r) => r.id));
+  const availabilityMap = await availabilityMapForRestaurants(rows);
   return rows.map((row) =>
     formatDiscoverRestaurant(row, {
-      open: isOpenFromSchedules(scheduleMap.get(row.id.toString()) ?? []),
+      availability: availabilityMap.get(row.id.toString()) ?? undefined,
       distanceKm: distanceKmForRestaurant(coords, row.latitude, row.longitude),
     })
   );
@@ -319,7 +318,7 @@ export const getCuisineRestaurants = async (req: Request, res: Response): Promis
         orderBy: [{ order_count: 'desc' }, { id: 'desc' }],
       }),
     ]);
-    const scheduleMap = await loadTodaySchedulesByRestaurantId(rows.map((r) => r.id));
+    const availabilityMap = await availabilityMapForRestaurants(rows);
     return res.status(200).json({
       status: true,
       total_size,
@@ -327,7 +326,7 @@ export const getCuisineRestaurants = async (req: Request, res: Response): Promis
       offset,
       restaurants: rows.map((row) =>
         formatDiscoverRestaurant(row, {
-          open: isOpenFromSchedules(scheduleMap.get(row.id.toString()) ?? []),
+          availability: availabilityMap.get(row.id.toString()) ?? undefined,
           distanceKm: distanceKmForRestaurant(coords, row.latitude, row.longitude),
         })
       ),

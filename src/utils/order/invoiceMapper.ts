@@ -160,8 +160,7 @@ export async function buildOrderInvoice(
       name: item.food_name,
       quantity: item.quantity,
       unit_price: item.price,
-      line_total:
-        item.line_subtotal + item.addon_lines.reduce((s, a) => s + a.price * a.quantity, 0),
+      line_total: item.line_subtotal,
       variation: item.variation,
       addons: item.addon_lines,
     })),

@@ -3951,13 +3951,65 @@
           }
         }
       },
+      "ConsumerRestaurantAvailabilityStatus": {
+        "type": "string",
+        "enum": [
+          "OPEN",
+          "CLOSES_SOON",
+          "CLOSED",
+          "OPENS_SOON"
+        ],
+        "description": "Computed on the backend from weekly `restaurant_schedule`, admin business `timezone` (business_settings), and vendor temporary close (`restaurants.active` / PUT /vendor/restaurant/active-status)."
+      },
+      "ConsumerRestaurantAvailabilityFields": {
+        "type": "object",
+        "required": [
+          "status",
+          "can_order",
+          "next_open_at",
+          "next_close_at",
+          "is_temporarily_closed",
+          "open"
+        ],
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean",
+            "description": "Enable ordering in the customer app when true (OPEN and CLOSES_SOON)."
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-8601 datetime with offset; next opening instant (CLOSED, OPENS_SOON, or temporarily closed)."
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-8601 datetime with offset; closing time of the current open slot (OPEN and CLOSES_SOON)."
+          },
+          "is_temporarily_closed": {
+            "type": "boolean",
+            "description": "True when the vendor set temporary close (active=false)."
+          },
+          "open": {
+            "type": "boolean",
+            "description": "Legacy alias of can_order."
+          }
+        }
+      },
       "ConsumerRestaurantMapPin": {
         "type": "object",
         "required": [
           "id",
           "name",
           "latitude",
-          "longitude"
+          "longitude",
+          "status",
+          "can_order",
+          "is_temporarily_closed",
+          "open"
         ],
         "properties": {
           "id": {
@@ -3986,6 +4038,23 @@
             "type": "number",
             "format": "double",
             "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean"
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_temporarily_closed": {
+            "type": "boolean"
           },
           "open": {
             "type": "boolean"
@@ -4099,7 +4168,7 @@
               "restaurants": {
                 "type": "array",
                 "items": {
-                  "$ref": "#/components/schemas/ConsumerRestaurantSummary"
+                  "$ref": "#/components/schemas/ConsumerRestaurantDiscoverItem"
                 }
               }
             }
@@ -4108,6 +4177,15 @@
       },
       "ConsumerRestaurantSummary": {
         "type": "object",
+        "description": "Restaurant list/card fields including server-computed opening status.",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "can_order",
+          "is_temporarily_closed",
+          "open"
+        ],
         "properties": {
           "id": {
             "type": "string"
@@ -4139,6 +4217,113 @@
           "address": {
             "type": "string",
             "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean"
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_temporarily_closed": {
+            "type": "boolean"
+          },
+          "open": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ConsumerRestaurantDiscoverItem": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConsumerRestaurantSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "latitude": {
+                "type": "string",
+                "nullable": true
+              },
+              "longitude": {
+                "type": "string",
+                "nullable": true
+              },
+              "order_count": {
+                "type": "integer"
+              },
+              "distance": {
+                "type": "number",
+                "nullable": true,
+                "description": "km from customer when latitude/longitude sent"
+              },
+              "distance_text": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          }
+        ]
+      },
+      "ConsumerRestaurantDetailResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConsumerRestaurantSummary"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "veg": {
+                    "type": "boolean"
+                  },
+                  "non_veg": {
+                    "type": "boolean"
+                  },
+                  "active": {
+                    "type": "boolean",
+                    "description": "Vendor temporary-close flag (false = temporarily closed)."
+                  },
+                  "latitude": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "longitude": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "categories": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "category_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            ]
           }
         }
       },
@@ -11115,6 +11300,156 @@
         ]
       }
     },
+    "/admin/orders/{orderId}/status": {
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Order status updated successfully",
+                  "data": {
+                    "id": "1",
+                    "order_status": "…"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Order status updated successfully"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "1"
+                        },
+                        "order_status": {
+                          "type": "string",
+                          "example": "…"
+                        }
+                      },
+                      "example": {
+                        "id": "1",
+                        "order_status": "…"
+                      }
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Order status updated successfully",
+                    "data": {
+                      "id": "1",
+                      "order_status": "…"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
     "/admin/orders/{orderId}/invoice": {
       "get": {
         "description": "",
@@ -15614,256 +15949,6 @@
         ]
       }
     },
-    "/admin/delivery-men/{id}/application": {
-      "patch": {
-        "description": "",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "example": {
-                  "status": true,
-                  "msg": "Application status updated"
-                },
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "Application status updated"
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "msg": "Application status updated"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Bad Request"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Unauthorized"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Forbidden"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found - The requested resource could not be found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Not Found"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Admin"
-        ]
-      }
-    },
-    "/admin/delivery-men/{id}/status": {
-      "patch": {
-        "description": "",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "example": {
-                  "status": true,
-                  "msg": "Delivery man status updated"
-                },
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "Delivery man status updated"
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "msg": "Delivery man status updated"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Bad Request"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Unauthorized"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Forbidden"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found - The requested resource could not be found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Not Found"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Admin"
-        ]
-      }
-    },
     "/admin/delivery-men/reviews": {
       "get": {
         "description": "",
@@ -16824,6 +16909,634 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/delivery-men/{id}": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Success"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Success"
+                    },
+                    "data": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Success"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      },
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Delivery man updated successfully",
+                  "data": {
+                    "id": 1
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Delivery man updated successfully"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "number",
+                          "example": 1
+                        }
+                      },
+                      "example": {
+                        "id": 1
+                      }
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Delivery man updated successfully",
+                    "data": {
+                      "id": 1
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      },
+      "patch": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/delivery-men/{id}/application": {
+      "patch": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Application status updated"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Application status updated"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Application status updated"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/delivery-men/{id}/status": {
+      "patch": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Delivery man status updated"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Delivery man status updated"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Delivery man status updated"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
             "content": {
               "application/json": {
                 "schema": {

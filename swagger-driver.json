@@ -3969,13 +3969,65 @@
           }
         }
       },
+      "ConsumerRestaurantAvailabilityStatus": {
+        "type": "string",
+        "enum": [
+          "OPEN",
+          "CLOSES_SOON",
+          "CLOSED",
+          "OPENS_SOON"
+        ],
+        "description": "Computed on the backend from weekly `restaurant_schedule`, admin business `timezone` (business_settings), and vendor temporary close (`restaurants.active` / PUT /vendor/restaurant/active-status)."
+      },
+      "ConsumerRestaurantAvailabilityFields": {
+        "type": "object",
+        "required": [
+          "status",
+          "can_order",
+          "next_open_at",
+          "next_close_at",
+          "is_temporarily_closed",
+          "open"
+        ],
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean",
+            "description": "Enable ordering in the customer app when true (OPEN and CLOSES_SOON)."
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-8601 datetime with offset; next opening instant (CLOSED, OPENS_SOON, or temporarily closed)."
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-8601 datetime with offset; closing time of the current open slot (OPEN and CLOSES_SOON)."
+          },
+          "is_temporarily_closed": {
+            "type": "boolean",
+            "description": "True when the vendor set temporary close (active=false)."
+          },
+          "open": {
+            "type": "boolean",
+            "description": "Legacy alias of can_order."
+          }
+        }
+      },
       "ConsumerRestaurantMapPin": {
         "type": "object",
         "required": [
           "id",
           "name",
           "latitude",
-          "longitude"
+          "longitude",
+          "status",
+          "can_order",
+          "is_temporarily_closed",
+          "open"
         ],
         "properties": {
           "id": {
@@ -4004,6 +4056,23 @@
             "type": "number",
             "format": "double",
             "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean"
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_temporarily_closed": {
+            "type": "boolean"
           },
           "open": {
             "type": "boolean"
@@ -4117,7 +4186,7 @@
               "restaurants": {
                 "type": "array",
                 "items": {
-                  "$ref": "#/components/schemas/ConsumerRestaurantSummary"
+                  "$ref": "#/components/schemas/ConsumerRestaurantDiscoverItem"
                 }
               }
             }
@@ -4126,6 +4195,15 @@
       },
       "ConsumerRestaurantSummary": {
         "type": "object",
+        "description": "Restaurant list/card fields including server-computed opening status.",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "can_order",
+          "is_temporarily_closed",
+          "open"
+        ],
         "properties": {
           "id": {
             "type": "string"
@@ -4157,6 +4235,113 @@
           "address": {
             "type": "string",
             "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean"
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_temporarily_closed": {
+            "type": "boolean"
+          },
+          "open": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ConsumerRestaurantDiscoverItem": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConsumerRestaurantSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "latitude": {
+                "type": "string",
+                "nullable": true
+              },
+              "longitude": {
+                "type": "string",
+                "nullable": true
+              },
+              "order_count": {
+                "type": "integer"
+              },
+              "distance": {
+                "type": "number",
+                "nullable": true,
+                "description": "km from customer when latitude/longitude sent"
+              },
+              "distance_text": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          }
+        ]
+      },
+      "ConsumerRestaurantDetailResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConsumerRestaurantSummary"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "veg": {
+                    "type": "boolean"
+                  },
+                  "non_veg": {
+                    "type": "boolean"
+                  },
+                  "active": {
+                    "type": "boolean",
+                    "description": "Vendor temporary-close flag (false = temporarily closed)."
+                  },
+                  "latitude": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "longitude": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "categories": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "category_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            ]
           }
         }
       },

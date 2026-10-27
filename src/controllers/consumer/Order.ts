@@ -111,6 +111,8 @@ async function sendPlaceOrderCreatedResponse(
 
   const taxStatus = (orderResult.tax_status as 'included' | 'excluded') ?? 'excluded';
   const pricing = placed.pricing ?? {
+    items_price: placed.subtotal,
+    addon_cost: 0,
     subtotal: placed.subtotal,
     total_tax_amount: Number(orderResult.total_tax_amount) || 0,
     tax_added_to_total: placed.taxAdded,

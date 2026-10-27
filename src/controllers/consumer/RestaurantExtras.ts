@@ -7,10 +7,9 @@ import {
   applyDiscoverTypeFilter,
   DISCOVER_RESTAURANT_SELECT,
   distanceKmForRestaurant,
+  availabilityMapForRestaurants,
   formatDiscoverRestaurant,
-  isOpenFromSchedules,
   loadActiveDiscountRestaurantIds,
-  loadTodaySchedulesByRestaurantId,
   parseDiscoverType,
 } from '../../utils/consumer/restaurantDiscoverHelpers';
 import { formatRestaurantMenuFood } from '../../utils/consumer/restaurantMenuHelpers';
@@ -109,7 +108,7 @@ export const searchRestaurants = async (req: Request, res: Response): Promise<an
               : [{ order_count: 'desc' }, { id: 'desc' }],
       }),
     ]);
-    const scheduleMap = await loadTodaySchedulesByRestaurantId(rows.map((r) => r.id));
+    const availabilityMap = await availabilityMapForRestaurants(rows);
     return res.status(200).json({
       status: true,
       total_size,
@@ -117,7 +116,7 @@ export const searchRestaurants = async (req: Request, res: Response): Promise<an
       offset,
       restaurants: rows.map((row) =>
         formatDiscoverRestaurant(row, {
-          open: isOpenFromSchedules(scheduleMap.get(row.id.toString()) ?? []),
+          availability: availabilityMap.get(row.id.toString()) ?? undefined,
           distanceKm: distanceKmForRestaurant(coords, row.latitude, row.longitude),
         })
       ),
@@ -165,7 +164,7 @@ export const getDineInRestaurants = async (req: Request, res: Response): Promise
         orderBy: [{ order_count: 'desc' }, { id: 'desc' }],
       }),
     ]);
-    const scheduleMap = await loadTodaySchedulesByRestaurantId(rows.map((r) => r.id));
+    const availabilityMap = await availabilityMapForRestaurants(rows);
     return res.status(200).json({
       status: true,
       total_size,
@@ -173,7 +172,7 @@ export const getDineInRestaurants = async (req: Request, res: Response): Promise
       offset,
       restaurants: rows.map((row) =>
         formatDiscoverRestaurant(row, {
-          open: isOpenFromSchedules(scheduleMap.get(row.id.toString()) ?? []),
+          availability: availabilityMap.get(row.id.toString()) ?? undefined,
           distanceKm: distanceKmForRestaurant(coords, row.latitude, row.longitude),
         })
       ),
@@ -215,12 +214,12 @@ export const getRecentlyViewedRestaurants = async (req: Request, res: Response):
       select: DISCOVER_RESTAURANT_SELECT,
       take: limit,
     });
-    const scheduleMap = await loadTodaySchedulesByRestaurantId(rows.map((r) => r.id));
+    const availabilityMap = await availabilityMapForRestaurants(rows);
     return res.status(200).json({
       status: true,
       data: rows.map((row) =>
         formatDiscoverRestaurant(row, {
-          open: isOpenFromSchedules(scheduleMap.get(row.id.toString()) ?? []),
+          availability: availabilityMap.get(row.id.toString()) ?? undefined,
           distanceKm: distanceKmForRestaurant(coords, row.latitude, row.longitude),
         })
       ),
@@ -247,13 +246,13 @@ export const getRecommendedRestaurants = async (req: Request, res: Response): Pr
       orderBy: [{ order_count: 'desc' }, { id: 'desc' }],
     });
     const shuffled = [...rows].sort(() => Math.random() - 0.5).slice(0, 20);
-    const scheduleMap = await loadTodaySchedulesByRestaurantId(shuffled.map((r) => r.id));
+    const availabilityMap = await availabilityMapForRestaurants(shuffled);
     const foods = await attachTopFoods(shuffled, 5);
     return res.status(200).json({
       status: true,
       data: shuffled.map((row) => ({
         ...formatDiscoverRestaurant(row, {
-          open: isOpenFromSchedules(scheduleMap.get(row.id.toString()) ?? []),
+          availability: availabilityMap.get(row.id.toString()) ?? undefined,
           distanceKm: distanceKmForRestaurant(coords, row.latitude, row.longitude),
         }),
         foods: foods.get(Number(row.id)) ?? [],
@@ -295,13 +294,13 @@ export const getVisitedRestaurants = async (req: Request, res: Response): Promis
       select: DISCOVER_RESTAURANT_SELECT,
       take: 20,
     });
-    const scheduleMap = await loadTodaySchedulesByRestaurantId(rows.map((r) => r.id));
+    const availabilityMap = await availabilityMapForRestaurants(rows);
     const foods = await attachTopFoods(rows, 5);
     return res.status(200).json({
       status: true,
       data: rows.map((row) => ({
         ...formatDiscoverRestaurant(row, {
-          open: isOpenFromSchedules(scheduleMap.get(row.id.toString()) ?? []),
+          availability: availabilityMap.get(row.id.toString()) ?? undefined,
           distanceKm: distanceKmForRestaurant(coords, row.latitude, row.longitude),
         }),
         foods: foods.get(Number(row.id)) ?? [],

@@ -126,30 +126,92 @@ export function parseAddonLines(raw: string | null): AddonDisplayLine[] {
   }
 }
 
+function roundMoney(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function catalogFoodBaseFromDetails(row: order_details): number | null {
+  if (!row.food_details?.trim()) return null;
+  try {
+    const parsed = JSON.parse(row.food_details);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const base = Number((parsed as { price?: unknown }).price);
+    return Number.isFinite(base) ? base : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Per-unit add-on total (sum of add-on line prices for one food unit). */
+export function addonPerUnitFromDetail(
+  row: order_details,
+  addonLines?: AddonDisplayLine[]
+): number {
+  const lines = addonLines ?? parseAddonLines(row.add_ons);
+  const fromLines = lines.reduce((s, a) => s + roundMoney(a.price * a.quantity), 0);
+  if (fromLines > 0) return roundMoney(fromLines);
+  return roundMoney(Number(row.total_add_on_price) || 0);
+}
+
+/**
+ * Food + variation unit price stored on order_details.price.
+ * Some legacy rows bundle add-ons into `price`; subtract them so add-ons are not counted twice.
+ */
+export function unitFoodPriceFromDetail(row: order_details, addonPerUnit: number): number {
+  const stored = roundMoney(Number(row.price) || 0);
+  if (addonPerUnit <= 0) return stored;
+
+  const withoutAddons = roundMoney(stored - addonPerUnit);
+  if (withoutAddons < 0) return stored;
+
+  const catalogBase = catalogFoodBaseFromDetails(row);
+
+  // Catalog base matches stored price → add-ons are stored separately.
+  if (catalogBase != null && Math.abs(stored - catalogBase) <= 0.02) {
+    return stored;
+  }
+
+  // Stored unit price = food/variation + add-ons (double-count if we also sum add_ons).
+  if (Math.abs(stored - (withoutAddons + addonPerUnit)) <= 0.02) {
+    return withoutAddons;
+  }
+
+  if (catalogBase != null && stored > catalogBase + 0.02 && withoutAddons >= catalogBase - 0.02) {
+    return withoutAddons;
+  }
+
+  return stored;
+}
+
 export function mapOrderDetailLineItem(
   row: order_details,
   foodRow?: Pick<food, 'id' | 'name' | 'image'> | null
 ) {
   const base = mapOrderLineItem(row, foodRow);
-  const addonLines = parseAddonLines(row.add_ons);
-  const lineBase = base.price * base.quantity;
+  const addon_lines = parseAddonLines(row.add_ons);
+  const addon_per_unit = addonPerUnitFromDetail(row, addon_lines);
+  const unit_food_price = unitFoodPriceFromDetail(row, addon_per_unit);
+  const quantity = base.quantity;
+  const line_food_total = roundMoney(unit_food_price * quantity);
+  const line_addon_total = roundMoney(addon_per_unit * quantity);
+  const line_subtotal = roundMoney(line_food_total + line_addon_total);
+
   return {
     ...base,
-    addon_lines: addonLines,
-    line_subtotal: lineBase,
+    /** Food + variations only (excludes add-ons). */
+    price: unit_food_price,
+    unit_food_price,
+    addon_per_unit,
+    addon_lines,
+    line_food_total,
+    line_addon_total,
+    line_subtotal,
   };
 }
 
-function roundMoney(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
 export function buildOrderPricing(order: orders, items: ReturnType<typeof mapOrderDetailLineItem>[]) {
-  let productPrice = items.reduce((sum, i) => sum + i.line_subtotal, 0);
-  let totalAddonPrice = items.reduce((sum, item) => {
-    const fromLines = item.addon_lines.reduce((s, a) => s + a.price * a.quantity, 0);
-    return sum + (fromLines || item.total_add_on_price || 0);
-  }, 0);
+  let productPrice = items.reduce((sum, i) => sum + i.line_food_total, 0);
+  let totalAddonPrice = items.reduce((sum, i) => sum + i.line_addon_total, 0);
 
   /** Manual dispatch (Request Gizra driver) has no order_details — derive from order totals. */
   if (roundMoney(productPrice + totalAddonPrice) === 0) {
@@ -160,22 +222,44 @@ export function buildOrderPricing(order: orders, items: ReturnType<typeof mapOrd
     }
   }
 
-  const subtotal = roundMoney(productPrice + totalAddonPrice);
   const restaurant_discount_amount = Number(order.restaurant_discount_amount) || 0;
   const coupon_discount_amount = Number(order.coupon_discount_amount) || 0;
   const ref_bonus_amount = Number(order.ref_bonus_amount) || 0;
-  const total_tax_amount = Number(order.total_tax_amount) || 0;
-  const delivery_charge = Number(order.delivery_charge) || 0;
+  const discountTotal = roundMoney(
+    restaurant_discount_amount + coupon_discount_amount + ref_bonus_amount
+  );
+
+  let subtotal = roundMoney(productPrice + totalAddonPrice);
 
   /** Items + addons after order-level discounts (tax base — delivery excluded). */
-  const order_value = roundMoney(
-    subtotal - restaurant_discount_amount - coupon_discount_amount - ref_bonus_amount
-  );
+  let order_value = roundMoney(subtotal - discountTotal);
+
+  const foodValueFromOrder = deriveOrderValueFromOrder(order);
+  if (foodValueFromOrder > 0 && Math.abs(order_value - foodValueFromOrder) > 0.02) {
+    const overshoot = roundMoney(order_value - foodValueFromOrder);
+    if (
+      overshoot > 0.01 &&
+      totalAddonPrice > 0 &&
+      Math.abs(overshoot - totalAddonPrice) <= 0.05
+    ) {
+      productPrice = roundMoney(Math.max(0, productPrice - totalAddonPrice));
+      subtotal = roundMoney(productPrice + totalAddonPrice);
+      order_value = roundMoney(subtotal - discountTotal);
+    }
+    if (Math.abs(order_value - foodValueFromOrder) > 0.02) {
+      order_value = foodValueFromOrder;
+      subtotal = roundMoney(order_value + discountTotal);
+    }
+  }
+
+  const total_tax_amount = Number(order.total_tax_amount) || 0;
+  const delivery_charge = Number(order.delivery_charge) || 0;
+  const order_amount = Number(order.order_amount) || 0;
 
   const tax_on_order_value = taxOnOrderValue(order_value);
   const gizra_pays_you = gizraPaysRestaurant(order_value);
   const restaurant_list_total = roundMoney(order_value + delivery_charge);
-  const customer_paid_food_delivery = restaurant_list_total;
+  const customer_paid_food_delivery = roundMoney(order_amount - total_tax_amount);
 
   return {
     items_price: productPrice,
@@ -192,11 +276,12 @@ export function buildOrderPricing(order: orders, items: ReturnType<typeof mapOrd
     tax_percent_on_order: 10,
     restaurant_list_total,
     customer_paid_food_delivery,
+    customer_order_total: order_amount,
     dm_tips: Number(order.dm_tips) || 0,
     delivery_charge,
     additional_charge: Number(order.additional_charge) || 0,
     extra_packaging_amount: Number(order.extra_packaging_amount) || 0,
-    order_amount: Number(order.order_amount) || 0,
+    order_amount,
     gizra_pays_you,
     tax_status: order.tax_status,
   };
@@ -226,7 +311,11 @@ function manualDispatchPlaceholderItem(
     add_ons: null,
     tax_amount: Number(order.total_tax_amount) || 0,
     total_add_on_price: 0,
+    unit_food_price: itemSubtotal,
+    addon_per_unit: 0,
     addon_lines: [],
+    line_food_total: itemSubtotal,
+    line_addon_total: 0,
     line_subtotal: itemSubtotal,
   };
 }

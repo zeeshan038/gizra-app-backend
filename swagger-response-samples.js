@@ -1,5 +1,23 @@
 /** Realistic OpenAPI examples aligned with API formatters (not generic placeholders). */
 
+const SAMPLE_RESTAURANT_AVAILABILITY_OPEN = {
+  status: 'OPEN',
+  can_order: true,
+  next_open_at: null,
+  next_close_at: '2026-10-27T23:00:00+02:00',
+  is_temporarily_closed: false,
+  open: true
+};
+
+const SAMPLE_RESTAURANT_AVAILABILITY_CLOSED = {
+  status: 'CLOSED',
+  can_order: false,
+  next_open_at: '2026-10-28T10:00:00+02:00',
+  next_close_at: null,
+  is_temporarily_closed: false,
+  open: false
+};
+
 const SAMPLE_CONSUMER_RESTAURANT = {
   id: '12',
   name: 'Demo Kitchen',
@@ -9,7 +27,8 @@ const SAMPLE_CONSUMER_RESTAURANT = {
   minimum_order: 10,
   tax: 5,
   rating: 4.5,
-  address: '123 Main Street'
+  address: '123 Main Street',
+  ...SAMPLE_RESTAURANT_AVAILABILITY_OPEN
 };
 
 const SAMPLE_CONSUMER_FOOD = {
@@ -387,7 +406,6 @@ const ROUTE_RESPONSE_OVERRIDES = {
         {
           ...SAMPLE_CONSUMER_RESTAURANT,
           order_count: 240,
-          open: true,
           distance: 0.93,
           distance_text: '0.93 km'
         }
@@ -404,7 +422,6 @@ const ROUTE_RESPONSE_OVERRIDES = {
         {
           ...SAMPLE_CONSUMER_RESTAURANT,
           order_count: 18,
-          open: true,
           distance: 0.93,
           distance_text: '0.93 km'
         }
@@ -432,7 +449,6 @@ const ROUTE_RESPONSE_OVERRIDES = {
         {
           ...SAMPLE_CONSUMER_RESTAURANT,
           order_count: 240,
-          open: true,
           distance: 0.93,
           distance_text: '0.93 km'
         }
@@ -447,7 +463,22 @@ const ROUTE_RESPONSE_OVERRIDES = {
       non_veg: true,
       active: true,
       latitude: '40.7128',
-      longitude: '-74.0060'
+      longitude: '-74.0060',
+      categories: [],
+      category_ids: []
+    }
+  },
+  'get /consumer/restaurants/specific/{id}': {
+    status: true,
+    data: {
+      ...SAMPLE_CONSUMER_RESTAURANT,
+      veg: true,
+      non_veg: true,
+      active: true,
+      latitude: '40.7128',
+      longitude: '-74.0060',
+      categories: [],
+      category_ids: []
     }
   },
   'get /vendor/orders': {
@@ -836,6 +867,8 @@ function inferValueFromExpression(expr, key) {
 module.exports = {
   ROUTE_RESPONSE_OVERRIDES,
   SAMPLE_CONSUMER_RESTAURANT,
+  SAMPLE_RESTAURANT_AVAILABILITY_OPEN,
+  SAMPLE_RESTAURANT_AVAILABILITY_CLOSED,
   SAMPLE_CONSUMER_FOOD,
   inferValueFromExpression
 };
