@@ -1,23 +1,26 @@
 import { Request, Response } from 'express';
 import { aiPdfSchema, aiTextSchema } from '../../../schemas/vendor/Catalog';
 import { uploadToCloudflare } from '../../../utils/cloudflare';
+import {
+    isGeminiBillingOrQuotaError,
+    isGeminiModelUnavailableError,
+    listGeminiGenerationModelIds,
+    listGeminiImageModelIds,
+} from '../../../utils/gemini/geminiModels';
 
-/** Google AI Studio (new keys): prefer 3.8+ ; 2.5-* is blocked for new users. */
-const GEMINI_GENERATION_MODELS = [
-    'gemini-3.8-flash',
-    'gemini-3.6-flash',
-    'gemini-flash-latest',
-    'gemini-2.0-flash-001',
-];
-
-const GEMINI_TEXT_MODELS = GEMINI_GENERATION_MODELS;
-
-const GEMINI_VISION_MODELS = GEMINI_GENERATION_MODELS;
-
-const GEMINI_IMAGE_MODELS = [
-    'gemini-3.1-flash-image',
-    'gemini-3-pro-image',
-];
+function extractJsonObject(text: string): unknown {
+    const trimmed = text.trim();
+    try {
+        return JSON.parse(trimmed);
+    } catch {
+        const start = trimmed.indexOf('{');
+        const end = trimmed.lastIndexOf('}');
+        if (start >= 0 && end > start) {
+            return JSON.parse(trimmed.slice(start, end + 1));
+        }
+        throw new Error('Model returned non-JSON menu output');
+    }
+}
 
 function isHebrewText(text: string) {
     return /[\u0590-\u05FF]/.test(text);
@@ -26,7 +29,8 @@ function isHebrewText(text: string) {
 async function translateFoodNameToEnglish(name: string, apiKey: string): Promise<string> {
     if (!isHebrewText(name)) return name;
 
-    for (const model of GEMINI_TEXT_MODELS) {
+    const textModels = await listGeminiGenerationModelIds(apiKey);
+    for (const model of textModels) {
         try {
             const response = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -57,7 +61,8 @@ async function generateGeminiFoodImageBuffer(
     prompt: string,
     apiKey: string
 ): Promise<{ buffer: Buffer; mimeType: string } | null> {
-    for (const model of GEMINI_IMAGE_MODELS) {
+    const imageModels = await listGeminiImageModelIds(apiKey);
+    for (const model of imageModels) {
         try {
             const response = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -216,47 +221,64 @@ Slash names "X / Y" → two items unless clearly one bilingual label for the sam
 Before you finish: for every PIZZA (and similar) item, confirm "variations" is non-empty when a size footer exists. Re-scan the bottom of the image if any item is missing Size options.`;
 
     try {
+        const models = await listGeminiGenerationModelIds(apiKey);
+        console.info(`[menu-import] Gemini models (top 5): ${models.slice(0, 5).join(', ')}`);
+
         let lastError = 'Failed to parse menu with Gemini';
-        let parsedMenu = null;
+        let parsedMenu: unknown = null;
 
-        for (const model of GEMINI_VISION_MODELS) {
-            try {
-                const response = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{
-                                parts: [
-                                    { text: prompt },
-                                    { inlineData: { mimeType, data: fileBase64 } },
-                                ],
-                            }],
-                            generationConfig: { responseMimeType: 'application/json' },
-                        }),
+        outer: for (const model of models) {
+            for (const jsonMode of [true, false] as const) {
+                try {
+                    const response = await fetch(
+                        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: [{
+                                    parts: [
+                                        { text: prompt },
+                                        { inlineData: { mimeType, data: fileBase64 } },
+                                    ],
+                                }],
+                                ...(jsonMode
+                                    ? { generationConfig: { responseMimeType: 'application/json' } }
+                                    : {}),
+                            }),
+                        }
+                    );
+
+                    const data = await response.json();
+                    if (!response.ok) {
+                        const msg = data.error?.message || `HTTP ${response.status} for ${model}`;
+                        console.warn(`[menu-import] Gemini ${model} json=${jsonMode}: ${msg}`);
+                        if (isGeminiBillingOrQuotaError(msg)) {
+                            throw new Error(
+                                'Gemini API credits or quota exhausted. Open Google AI Studio → Billing / credits for this API key, then retry menu import.'
+                            );
+                        }
+                        if (!isGeminiModelUnavailableError(msg)) {
+                            lastError = msg;
+                        }
+                        continue;
                     }
-                );
 
-                const data = await response.json();
-                if (!response.ok) {
-                    const msg = data.error?.message || `HTTP ${response.status} for ${model}`;
-                    console.warn(`[menu-import] Gemini ${model}: ${msg}`);
+                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!text?.trim()) {
+                        lastError = `Empty response from ${model}`;
+                        continue;
+                    }
+                    parsedMenu = extractJsonObject(text);
+                    break outer;
+                } catch (err: unknown) {
+                    if (err instanceof Error && isGeminiBillingOrQuotaError(err.message)) {
+                        throw err;
+                    }
+                    const msg = err instanceof Error ? err.message : 'Parse failed';
+                    console.warn(`[menu-import] Gemini ${model} json=${jsonMode}: ${msg}`);
                     lastError = msg;
-                    continue;
                 }
-
-                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (!text?.trim()) {
-                    lastError = `Empty response from ${model}`;
-                    continue;
-                }
-                parsedMenu = JSON.parse(text);
-                break;
-            } catch (err: unknown) {
-                const msg = err instanceof Error ? err.message : 'Parse failed';
-                console.warn(`[menu-import] Gemini ${model}: ${msg}`);
-                lastError = msg;
             }
         }
 
@@ -290,7 +312,8 @@ export const generateDescription = async (req: Request, res: Response): Promise<
         let lastError = 'Failed to generate content';
         let text = null;
 
-        for (const model of GEMINI_TEXT_MODELS) {
+        const textModels = await listGeminiGenerationModelIds(apiKey);
+        for (const model of textModels) {
             try {
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
                     method: 'POST',
@@ -300,7 +323,13 @@ export const generateDescription = async (req: Request, res: Response): Promise<
                 
                 const data = await response.json();
                 if (!response.ok) {
-                    lastError = data.error?.message || `Error with model ${model}`;
+                    const msg = data.error?.message || `Error with model ${model}`;
+                    if (isGeminiBillingOrQuotaError(msg)) {
+                        throw new Error(
+                            'Gemini API credits or quota exhausted. Check Google AI Studio billing for this API key.'
+                        );
+                    }
+                    lastError = msg;
                     continue;
                 }
                 
