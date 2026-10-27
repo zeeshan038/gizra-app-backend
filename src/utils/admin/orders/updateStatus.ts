@@ -22,6 +22,7 @@ export async function updateAdminOrderStatus(
   };
 
   if (status === 'confirmed') updateData.confirmed = now;
+  if (status === 'accepted') updateData.accepted = now;
   if (status === 'processing') updateData.processing = now;
   if (status === 'handover') updateData.handover = now;
   if (status === 'picked_up' || status === 'food_on_the_way') {
