@@ -12,6 +12,7 @@ function splitIsClean(clientUnit: number, foodUnit: number, addonPerUnit: number
   );
 }
 
+
 /**
  * Unit price for food + variations only (never add-ons).
  * Cart contract: `price` excludes add-ons; legacy rows may bundle food+addons in one number.
@@ -78,7 +79,6 @@ export function unbundleLinePriceWhenAddonsListedSeparately(params: {
   const serverUnitBase = roundOrderMoney(params.serverUnitBase);
   const addonPerUnit = roundOrderMoney(params.addonPerUnit);
   const bundleTotal = roundOrderMoney(serverUnitBase + addonPerUnit);
-  const catalogMin = roundOrderMoney(params.catalogFoodPrice) - ORDER_PRICE_TOLERANCE;
 
   if (addonPerUnit <= 0) return params.resolvedUnit;
 
@@ -93,11 +93,54 @@ export function unbundleLinePriceWhenAddonsListedSeparately(params: {
   const unbundled = roundOrderMoney(clientUnit - addonPerUnit);
   if (
     unbundled < serverUnitBase - ORDER_PRICE_TOLERANCE &&
-    unbundled >= catalogMin &&
+    clientUnit > unbundled + addonPerUnit + ORDER_PRICE_TOLERANCE &&
     Math.abs(clientUnit - (unbundled + addonPerUnit)) <= ORDER_PRICE_TOLERANCE
   ) {
-    return Math.max(unbundled, roundOrderMoney(params.catalogFoodPrice));
+    return unbundled;
   }
 
   return params.resolvedUnit;
+}
+
+/** Same unit-food resolution as place-order / quote (single source of truth). */
+export function resolveCartLineUnitFoodPrice(params: {
+  linePrice: number | undefined;
+  serverUnitBase: number;
+  addonPerUnit: number;
+  catalogFoodPrice: number;
+}): number {
+  const addonPerUnit = roundOrderMoney(params.addonPerUnit);
+  let unitBase = resolveUnitFoodPrice({
+    linePrice: params.linePrice,
+    serverUnitBase: params.serverUnitBase,
+    addonPerUnit,
+  });
+
+  if (params.linePrice == null || addonPerUnit <= 0) {
+    return unitBase;
+  }
+
+  unitBase = unbundleLinePriceWhenAddonsListedSeparately({
+    clientUnit: Number(params.linePrice),
+    serverUnitBase: params.serverUnitBase,
+    addonPerUnit,
+    catalogFoodPrice: params.catalogFoodPrice,
+    resolvedUnit: unitBase,
+  });
+
+  const clientUnit = roundOrderMoney(Number(params.linePrice));
+  const foodOnlyFromClient = roundOrderMoney(clientUnit - addonPerUnit);
+  const serverFoodOnly = roundOrderMoney(params.serverUnitBase - addonPerUnit);
+  if (
+    Math.abs(clientUnit - params.serverUnitBase) <= ORDER_PRICE_TOLERANCE &&
+    clientUnit <
+      roundOrderMoney(params.serverUnitBase + addonPerUnit) - ORDER_PRICE_TOLERANCE &&
+    Math.abs(foodOnlyFromClient - serverFoodOnly) <= ORDER_PRICE_TOLERANCE &&
+    foodOnlyFromClient < params.serverUnitBase - ORDER_PRICE_TOLERANCE &&
+    clientUnit > serverFoodOnly + addonPerUnit - ORDER_PRICE_TOLERANCE
+  ) {
+    unitBase = foodOnlyFromClient;
+  }
+
+  return unitBase;
 }

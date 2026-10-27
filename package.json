@@ -40,6 +40,7 @@
     "compose": "bash scripts/docker-compose.sh",
     "prepare:compose-env": "node scripts/prepare-compose-env.js",
     "swagger:gen": "node scripts/mergeDeliveryManSwaggerOverlay.js && node swagger-gen.js",
+    "test:order-pricing": "node ./node_modules/ts-node/dist/bin.js scripts/test-order-line-pricing.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
