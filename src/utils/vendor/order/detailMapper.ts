@@ -1,6 +1,59 @@
-import { order_details, orders, food } from '@prisma/client';
+import { delivery_men, order_details, orders, food } from '@prisma/client';
 import prisma from '../../../config/database';
 import { mapOrderSummary, mapOrderLineItem, OrderCustomerBrief } from './mapper';
+import { deriveOrderValueFromOrder, gizraPaysRestaurant, taxOnOrderValue } from './orderSettlement';
+import { publicMediaUrl } from '../../mediaStorage';
+import { mapOrderCookingTimeForApi } from './cookingTime';
+import { mapOrderIdentityFields } from '../../order/orderIdentity';
+
+export type OrderAssignedDeliveryManRow = Pick<
+  delivery_men,
+  'id' | 'f_name' | 'l_name' | 'phone' | 'email' | 'image'
+>;
+
+export type NotifiedDeliveryManBrief = {
+  id: string;
+  name: string;
+  phone: string;
+  image: string | null;
+  current_orders: number;
+};
+
+export function formatOrderAssignedDeliveryMan(
+  order: orders,
+  deliveryMan?: OrderAssignedDeliveryManRow | null
+) {
+  const delivery_man_id = order.delivery_man_id?.toString() ?? null;
+  if (!delivery_man_id) {
+    return {
+      delivery_man_id: null,
+      delivery_man_name: null,
+      delivery_man_phone: null,
+      delivery_man: null,
+      driver_accepted_at: null,
+    };
+  }
+
+  const delivery_man_name = deliveryMan
+    ? [deliveryMan.f_name, deliveryMan.l_name].filter(Boolean).join(' ') || 'Delivery man'
+    : null;
+
+  return {
+    delivery_man_id,
+    delivery_man_name,
+    delivery_man_phone: deliveryMan?.phone ?? null,
+    delivery_man: deliveryMan
+      ? {
+          id: deliveryMan.id.toString(),
+          name: delivery_man_name ?? 'Delivery man',
+          phone: deliveryMan.phone,
+          email: deliveryMan.email ?? null,
+          image_url: publicMediaUrl(deliveryMan.image),
+        }
+      : null,
+    driver_accepted_at: order.accepted?.toISOString?.() ?? null,
+  };
+}
 
 export type DeliveryAddressParsed = {
   contact_person_name?: string;
@@ -87,26 +140,64 @@ export function mapOrderDetailLineItem(
   };
 }
 
+function roundMoney(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
 export function buildOrderPricing(order: orders, items: ReturnType<typeof mapOrderDetailLineItem>[]) {
-  const productPrice = items.reduce((sum, i) => sum + i.line_subtotal, 0);
-  const totalAddonPrice = items.reduce((sum, item) => {
+  let productPrice = items.reduce((sum, i) => sum + i.line_subtotal, 0);
+  let totalAddonPrice = items.reduce((sum, item) => {
     const fromLines = item.addon_lines.reduce((s, a) => s + a.price * a.quantity, 0);
     return sum + (fromLines || item.total_add_on_price || 0);
   }, 0);
 
+  /** Manual dispatch (Request Gizra driver) has no order_details — derive from order totals. */
+  if (roundMoney(productPrice + totalAddonPrice) === 0) {
+    const fromOrder = deriveOrderValueFromOrder(order);
+    if (fromOrder > 0) {
+      productPrice = fromOrder;
+      totalAddonPrice = 0;
+    }
+  }
+
+  const subtotal = roundMoney(productPrice + totalAddonPrice);
+  const restaurant_discount_amount = Number(order.restaurant_discount_amount) || 0;
+  const coupon_discount_amount = Number(order.coupon_discount_amount) || 0;
+  const ref_bonus_amount = Number(order.ref_bonus_amount) || 0;
+  const total_tax_amount = Number(order.total_tax_amount) || 0;
+  const delivery_charge = Number(order.delivery_charge) || 0;
+
+  /** Items + addons after order-level discounts (tax base — delivery excluded). */
+  const order_value = roundMoney(
+    subtotal - restaurant_discount_amount - coupon_discount_amount - ref_bonus_amount
+  );
+
+  const tax_on_order_value = taxOnOrderValue(order_value);
+  const gizra_pays_you = gizraPaysRestaurant(order_value);
+  const restaurant_list_total = roundMoney(order_value + delivery_charge);
+  const customer_paid_food_delivery = restaurant_list_total;
+
   return {
     items_price: productPrice,
     addon_cost: totalAddonPrice,
-    subtotal: productPrice + totalAddonPrice,
-    restaurant_discount_amount: Number(order.restaurant_discount_amount) || 0,
-    coupon_discount_amount: Number(order.coupon_discount_amount) || 0,
-    ref_bonus_amount: Number(order.ref_bonus_amount) || 0,
-    total_tax_amount: Number(order.total_tax_amount) || 0,
+    subtotal,
+    order_value,
+    /** @deprecated use order_value */
+    food_amount_after_discounts: order_value,
+    restaurant_discount_amount,
+    coupon_discount_amount,
+    ref_bonus_amount,
+    total_tax_amount,
+    tax_on_order_value,
+    tax_percent_on_order: 10,
+    restaurant_list_total,
+    customer_paid_food_delivery,
     dm_tips: Number(order.dm_tips) || 0,
-    delivery_charge: Number(order.delivery_charge) || 0,
+    delivery_charge,
     additional_charge: Number(order.additional_charge) || 0,
     extra_packaging_amount: Number(order.extra_packaging_amount) || 0,
     order_amount: Number(order.order_amount) || 0,
+    gizra_pays_you,
     tax_status: order.tax_status,
   };
 }
@@ -119,6 +210,27 @@ export type MapLocationPoint = {
   kind: 'customer' | 'restaurant' | 'delivery_man';
 };
 
+function manualDispatchPlaceholderItem(
+  order: orders,
+  restaurant?: { logo: string | null } | null
+): ReturnType<typeof mapOrderDetailLineItem> {
+  const itemSubtotal = deriveOrderValueFromOrder(order);
+  return {
+    id: 'manual-dispatch',
+    food_id: null,
+    food_name: 'Manual dispatch (phone order)',
+    food_image: restaurant?.logo ?? null,
+    price: itemSubtotal,
+    quantity: 1,
+    variation: null,
+    add_ons: null,
+    tax_amount: Number(order.total_tax_amount) || 0,
+    total_add_on_price: 0,
+    addon_lines: [],
+    line_subtotal: itemSubtotal,
+  };
+}
+
 export function mapVendorOrderDetail(
   order: orders,
   customer: (OrderCustomerBrief & { orders_count?: number }) | null,
@@ -129,10 +241,19 @@ export function mapVendorOrderDetail(
     logo: string | null;
     latitude: string | null;
     longitude: string | null;
-  } | null
+  } | null,
+  extras?: {
+    deliveryMan?: OrderAssignedDeliveryManRow | null;
+    notified_delivery_men?: NotifiedDeliveryManBrief[];
+    zone_name?: string | null;
+  }
 ) {
   const deliveryParsed = parseDeliveryAddress(order.delivery_address);
-  const pricing = buildOrderPricing(order, items);
+  const displayItems =
+    items.length === 0 && order.is_manual_dispatch
+      ? [manualDispatchPlaceholderItem(order, restaurant)]
+      : items;
+  const pricing = buildOrderPricing(order, displayItems);
 
   const map_locations: MapLocationPoint[] = [];
 
@@ -166,8 +287,15 @@ export function mapVendorOrderDetail(
     }
   }
 
+  const assignedDriver = formatOrderAssignedDeliveryMan(order, extras?.deliveryMan);
+  const cookingTime = mapOrderCookingTimeForApi(order);
+
   return {
     ...mapOrderSummary(order, customer),
+    ...assignedDriver,
+    ...cookingTime,
+    notified_delivery_men: extras?.notified_delivery_men ?? [],
+    zone_name: extras?.zone_name ?? null,
     customer_email: customer?.email ?? null,
     customer_orders_count: customer?.orders_count ?? 0,
     is_guest: order.is_guest,
@@ -187,7 +315,9 @@ export function mapVendorOrderDetail(
     cancellation_note: order.cancellation_note,
     canceled_by: order.canceled_by,
     pricing,
-    items,
+    is_manual_dispatch: Boolean(order.is_manual_dispatch),
+    ...mapOrderIdentityFields(order),
+    items: displayItems,
     restaurant: restaurant
       ? {
           name: restaurant.name,

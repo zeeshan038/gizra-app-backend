@@ -12,10 +12,24 @@ export const orderListQuerySchema = Joi.object({
 
 export const updateOrderStatusSchema = Joi.object({
   status: Joi.string()
-    .valid('confirmed', 'accepted', 'processing', 'handover', 'delivered', 'canceled')
+    .valid('confirmed', 'accepted', 'processing', 'handover', 'picked_up', 'delivered', 'canceled')
     .required(),
+  /** Minutes until food is ready — sent when status is `processing` (Proceed for cooking). */
+  processing_time: Joi.alternatives()
+    .try(Joi.string().trim().max(10), Joi.number().integer().min(1).max(999))
+    .optional(),
   cancellation_reason: Joi.string().optional().allow(''),
 });
+
+/** POS kitchen note — chips joined client-side as `note`, or send `notes[]` to join with " • ". */
+export const kitchenNoteSchema = Joi.object({
+  note: Joi.string().trim().max(500).optional().allow(''),
+  notes: Joi.array().items(Joi.string().trim().max(200)).max(10).optional(),
+})
+  .or('note', 'notes')
+  .messages({
+    'object.missing': 'note or notes is required',
+  });
 
 export const pollOrdersQuerySchema = Joi.object({
   after_id: Joi.number().integer().min(0).default(0),

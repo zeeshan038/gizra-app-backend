@@ -76,6 +76,26 @@ export const dmLoginSchema = Joi.object({
   remember_me: Joi.boolean().optional(),
 });
 
+export const dmLoginSendOtpSchema = Joi.object({
+  phone: Joi.string().trim().min(9).required().messages({
+    'string.empty': 'Phone is required',
+    'string.min': 'Phone is required',
+  }),
+});
+
+export const dmLoginVerifyOtpSchema = Joi.object({
+  phone: Joi.string().trim().min(9).required().messages({
+    'string.empty': 'Phone is required',
+    'string.min': 'Phone is required',
+  }),
+  otp: Joi.string()
+    .pattern(/^\d{4,6}$/)
+    .required()
+    .messages({
+      'string.pattern.base': 'OTP must be 4–6 digits',
+    }),
+});
+
 /** Figma reset screen — phone only (+972…). */
 export const dmForgotPasswordSchema = Joi.object({
   phone: Joi.string().trim().min(9).required().messages({
@@ -120,5 +140,25 @@ export const dmFcmTokenSchema = Joi.object({
     'string.empty': 'FCM token is required',
     'any.required': 'FCM token is required',
   }),
+});
+
+/** Driver app — edit profile (legacy PHP PUT update-profile). */
+export const dmUpdateProfileSchema = Joi.object({
+  f_name: Joi.string().trim().min(1).required().messages({
+    'string.empty': 'First name is required',
+    'any.required': 'First name is required',
+  }),
+  l_name: Joi.string().trim().min(1).required().messages({
+    'string.empty': 'Last name is required',
+    'any.required': 'Last name is required',
+  }),
+  email: Joi.string().email().required().messages({
+    'string.empty': 'Email is required',
+    'string.email': 'Email is invalid',
+  }),
+  password: Joi.string().min(6).optional().allow('', null),
+  /** Storage path from POST /upload (category=profile). */
+  image: Joi.string().trim().optional().allow('', null),
+  vehicle_id: Joi.number().integer().optional().allow(null),
 });
 

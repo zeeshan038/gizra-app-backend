@@ -1,18 +1,32 @@
 /**
- * Upsert a platform admin for Postman / admin API testing.
- * Usage: npx ts-node scripts/createAdmin.ts
- * Optional: ADMIN_SEED_EMAIL, ADMIN_SEED_PASSWORD in .env
+ * Upsert a platform admin for admin panel / API testing.
+ *
+ * Usage:
+ *   npm run create-admin
+ *   npx ts-node scripts/createAdmin.ts
+ *   npx ts-node scripts/createAdmin.ts --email=admin@gizra.com --password=12345678
+ *
+ * Optional env: ADMIN_SEED_EMAIL, ADMIN_SEED_PASSWORD (used when CLI flags omitted)
  */
 import dotenv from 'dotenv';
+import path from 'path';
 import bcrypt from 'bcrypt';
 import prisma from '../src/config/database';
 import { provisionAccountStorage } from '../src/utils/accountStorage';
 
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+
+function arg(name: string, fallback: string): string {
+  const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
+  return hit ? hit.slice(name.length + 3) : fallback;
+}
+
+const email = arg('email', process.env.ADMIN_SEED_EMAIL || 'admin@gizra.com')
+  .trim()
+  .toLowerCase();
+const plainPassword = arg('password', process.env.ADMIN_SEED_PASSWORD || '12345678');
 
 async function main() {
-  const email = process.env.ADMIN_SEED_EMAIL || 'admin@gizra.com';
-  const plainPassword = process.env.ADMIN_SEED_PASSWORD || 'AdminPassword123!';
   const hash = await bcrypt.hash(plainPassword, 10);
 
   const existing = await prisma.admins.findUnique({ where: { email } });
@@ -44,6 +58,7 @@ async function main() {
 
   console.log('Admin account ready.');
   console.log('  email:', admin.email);
+  console.log('  password:', plainPassword);
   console.log('  id:', admin.id.toString());
   console.log('Login: POST /api/admin/auth/login');
 }

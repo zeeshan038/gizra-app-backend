@@ -4,6 +4,8 @@ export const SocketEvents = {
   NEW_ORDER: 'new_order',
   ORDER_REQUEST: 'order_request',
   ORDER_STATUS_CHANGED: 'order_status_changed',
+  CHAT_MESSAGE: 'chat_message',
+  WITHDRAW_STATUS: 'withdraw_status',
 } as const;
 
 export type SocketServerEventName = (typeof SocketEvents)[keyof typeof SocketEvents];
@@ -12,6 +14,8 @@ export type SocketServerEventName = (typeof SocketEvents)[keyof typeof SocketEve
 export const ClientEvents = {
   WATCH_ORDER: 'watch_order',
   UNWATCH_ORDER: 'unwatch_order',
+  WATCH_CONVERSATION: 'watch_conversation',
+  UNWATCH_CONVERSATION: 'unwatch_conversation',
 } as const;
 
 export type SocketClientEventName = (typeof ClientEvents)[keyof typeof ClientEvents];
@@ -34,6 +38,12 @@ export type OrderRequestPayload = {
   order_status: string;
   zone_id: number | null;
   vehicle_id: number | null;
+  is_manual_dispatch?: boolean;
+  order_source?: string;
+  order_source_label?: string;
+  gizra_order_id?: string;
+  restaurant_order_ref?: string | null;
+  display_order_number?: string;
 };
 
 export type OrderUpdatedPayload = {
@@ -42,10 +52,21 @@ export type OrderUpdatedPayload = {
   user_id: string | null;
   delivery_man_id: string | null;
   order_status: string;
+  /** Customer-facing label. Vendor accept (`confirmed`) and cooking are both `Preparing`. */
+  status_label: string;
+  /** Sentence for the tracking screen and the push body. */
+  message: string;
+  /** 1–6 progress step for customer tracking UI (6 = completed). */
+  tracking_step: number;
   order_amount: number;
   order_type: string;
   payment_method: string | null;
   updated_at: string;
+  processing_time?: string | null;
+  cooking_time_minutes?: number | null;
+  processing_started_at?: string | null;
+  cooking_ready_by?: string | null;
+  cooking_minutes_remaining?: number | null;
 };
 
 export type SessionReadyPayload = {
@@ -53,6 +74,7 @@ export type SessionReadyPayload = {
   restaurant_id?: number;
   user_id?: number;
   delivery_man_id?: number;
+  is_guest?: boolean;
 };
 
 /** @deprecated use SessionReadyPayload */
@@ -64,4 +86,20 @@ export type OrderSubscribePayload = {
 
 export type OrderSubscribeAck =
   | { ok: true; order_id: string }
+  | { ok: false; msg: string };
+
+export type ChatMessagePayload = {
+  conversation_id: string;
+  message: Record<string, unknown>;
+  sender_type: string;
+  receiver_type: string;
+  receiver_user_info_id: number;
+};
+
+export type ConversationSubscribePayload = {
+  conversation_id: string | number;
+};
+
+export type ConversationSubscribeAck =
+  | { ok: true; conversation_id: string }
   | { ok: false; msg: string };

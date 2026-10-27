@@ -21,6 +21,8 @@ export const placeOrderSchema = Joi.object({
   order_type: Joi.string().valid('delivery', 'take_away', 'dine_in').default('delivery'),
   delivery_address_id: Joi.number().optional(),
   order_note: Joi.string().optional().allow(''),
+  /** Fee shown at checkout from GET /consumer/config/delivery-fee (`delivery_fee`). */
+  delivery_fee: Joi.number().optional().min(0),
   delivery_charge: Joi.number().optional().min(0),
   total_tax_amount: Joi.number().optional().min(0),
   schedule_at: Joi.date().iso().optional(),
@@ -76,6 +78,8 @@ export const placeOrderSchema = Joi.object({
   items: Joi.array().items(placeOrderItemSchema).optional(),
   guest_id: Joi.number().optional(),
   is_guest: Joi.boolean().optional(),
+  /** After HyperPay checkout (payment-first flow). Links a paid `order_checkout` payment request. */
+  payment_request_id: Joi.string().trim().uuid().optional(),
 });
 
 export type PlaceOrderInput = {
@@ -85,6 +89,7 @@ export type PlaceOrderInput = {
   order_type: string;
   delivery_address_id?: number;
   order_note?: string;
+  delivery_fee?: number;
   delivery_charge?: number;
   total_tax_amount?: number;
   schedule_at?: Date;
@@ -121,4 +126,35 @@ export type PlaceOrderInput = {
   items?: PlaceOrderInput['cart'];
   guest_id?: number;
   is_guest?: boolean;
+  payment_request_id?: string;
 };
+
+export const attachCheckoutPaymentSchema = Joi.object({
+  order_id: Joi.alternatives()
+    .try(Joi.number().integer().positive(), Joi.string().trim().pattern(/^\d+$/))
+    .required(),
+  payment_request_id: Joi.string().trim().uuid().required(),
+});
+
+/** After HyperPay success — place order using checkout body stored on the payment request. */
+export const completeCheckoutPaymentSchema = Joi.object({
+  payment_request_id: Joi.string().trim().uuid().required(),
+});
+
+export const trackOrderQuerySchema = Joi.object({
+  order_id: Joi.alternatives(
+    Joi.number().integer().positive(),
+    Joi.string().pattern(/^\d+$/)
+  ).required(),
+  guest_id: Joi.number().integer().positive().optional(),
+  contact_number: Joi.string().trim().optional(),
+});
+
+export const cancelOrderSchema = Joi.object({
+  order_id: Joi.alternatives(
+    Joi.number().integer().positive(),
+    Joi.string().pattern(/^\d+$/)
+  ).required(),
+  reason: Joi.string().trim().max(255).required(),
+  guest_id: Joi.number().integer().positive().optional(),
+});

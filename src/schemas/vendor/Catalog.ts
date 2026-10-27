@@ -14,7 +14,19 @@ export const createFoodSchema = Joi.object({
   price: Joi.number().required(),
   restaurant_id: Joi.number().required(),
   variations: Joi.array().items(Joi.object()).optional().default([]),
-  add_ons: Joi.array().items(Joi.number()).optional().default([]),
+  add_ons: Joi.array()
+    .items(
+      Joi.alternatives().try(
+        Joi.number(),
+        Joi.object({
+          id: Joi.number().optional(),
+          name: Joi.string().required(),
+          price: Joi.number().required().min(0),
+        })
+      )
+    )
+    .optional()
+    .default([]),
   status: Joi.boolean().optional().default(true),
   is_draft: Joi.number().optional().default(0),
 });

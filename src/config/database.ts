@@ -1,6 +1,51 @@
+import '../loadEnv';
 import { PrismaClient } from '@prisma/client';
+import { isTransientDbError } from '../utils/safeApiError';
 
-const prisma = new PrismaClient();
+const base = new PrismaClient();
+
+async function resetPool(): Promise<void> {
+  try {
+    await base.$disconnect();
+  } catch {
+    /* ignore a dead socket */
+  }
+  await base.$connect();
+}
+
+async function withTransientRetry<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    if (!isTransientDbError(error)) throw error;
+    console.warn('[prisma] transient DB error — reset pool and retry once');
+    await resetPool();
+    return run();
+  }
+}
+
+const prisma = base.$extends({
+  query: {
+    async $allOperations({ args, query }) {
+      return withTransientRetry(() => query(args));
+    },
+  },
+}) as unknown as PrismaClient;
+
+// Keepalive: ping every 4 minutes to prevent idle TCP connection drops (avoids P1001 after ~30 min silence)
+let _keepaliveTimer: ReturnType<typeof setInterval> | null = null;
+export function startKeepalive(): void {
+  if (_keepaliveTimer) return;
+  _keepaliveTimer = setInterval(async () => {
+    try {
+      await base.$queryRaw`SELECT 1`;
+    } catch (err) {
+      console.warn('[prisma] keepalive ping failed — resetting pool:', (err as Error)?.message);
+      try { await resetPool(); } catch { /* will recover on next real query */ }
+    }
+  }, 4 * 60 * 1000); // every 4 minutes
+  _keepaliveTimer.unref(); // don't block process exit
+}
 
 function databaseUrlHint(): string {
   const raw = process.env.DATABASE_URL ?? '';
@@ -19,16 +64,20 @@ function databaseUrlHint(): string {
   } catch {
     /* ignore parse errors */
   }
-  return 'Verify DATABASE_URL user/password matches Postgres (P1000 = wrong password). On server: docker exec gizra-postgres psql -U postgres -c "ALTER USER postgres WITH PASSWORD \'...\';" then update .env and recreate backend.';
+  return 'Verify DATABASE_URL user/password matches Postgres (P1000 = wrong password, P1010 = role denied on gizra_db.public). On server: npm run deploy:server (syncs password + GRANT on public).';
+}
+
+export async function prismaPing(): Promise<void> {
+  await withTransientRetry(() => base.$queryRaw`SELECT 1`);
 }
 
 //Test Connection
 export const connectDB = async (): Promise<void> => {
   try {
-    await prisma.$connect();
-    await prisma.$queryRaw`SELECT 1`;
+    await base.$connect();
+    await prismaPing();
     try {
-      await prisma.$executeRawUnsafe('CREATE EXTENSION IF NOT EXISTS postgis;');
+      await base.$executeRawUnsafe('CREATE EXTENSION IF NOT EXISTS postgis;');
     } catch (postgisErr) {
       console.warn(
         'PostGIS extension could not be enabled (zone APIs need postgis/postgis image or CREATE EXTENSION postgis):',

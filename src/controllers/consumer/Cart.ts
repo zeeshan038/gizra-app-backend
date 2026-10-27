@@ -1,8 +1,6 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
-import { addToCartSchema, updateCartSchema } from '../../schemas/consumer/Cart';
-
-const prisma = new PrismaClient();
+import prisma from '../../config/database';
+import { addMultipleCartSchema, addToCartSchema, updateCartSchema } from '../../schemas/consumer/Cart';
 
 /**
  * @Description Get all cart items for a user or guest
@@ -10,11 +8,16 @@ const prisma = new PrismaClient();
  * @Access Public
  */
 export const getCart = async (req: Request, res: Response): Promise<any> => {
-    const is_guest = req.query.is_guest === 'true';
+    const isGuestSession = req.user?.isGuest === true;
+    const is_guest = req.query.is_guest === 'true' || isGuestSession;
     let user_id;
 
     if (is_guest) {
-        user_id = req.query.guest_id ? Number(req.query.guest_id) : null;
+        user_id = isGuestSession
+            ? Number(req.user?.id)
+            : req.query.guest_id
+              ? Number(req.query.guest_id)
+              : null;
         if (!user_id) return res.status(400).json({ status: false, msg: 'guest_id is required' });
     } else {
         user_id = Number(req.user?.id);
@@ -56,10 +59,12 @@ export const getCart = async (req: Request, res: Response): Promise<any> => {
 export const addToCart = async (req: Request, res: Response): Promise<any> => {
     const payload = req.body;
     
-    // Securely resolve user_id based on whether they are a guest
+    const isGuestSession = req.user?.isGuest === true;
+    const is_guest = Boolean(payload.is_guest) || isGuestSession;
+
     let user_id;
-    if (payload.is_guest) {
-        user_id = Number(payload.guest_id);
+    if (is_guest) {
+        user_id = isGuestSession ? Number(req.user?.id) : Number(payload.guest_id);
         if (!user_id) return res.status(400).json({ status: false, msg: 'guest_id is required for guest users' });
     } else {
         user_id = Number(req.user?.id);
@@ -81,7 +86,7 @@ export const addToCart = async (req: Request, res: Response): Promise<any> => {
             where: {
                 user_id: user_id,
                 item_id: payload.item_id,
-                is_guest: payload.is_guest,
+                is_guest: is_guest,
                 variations: JSON.stringify(payload.variations)
             }
         });
@@ -94,7 +99,7 @@ export const addToCart = async (req: Request, res: Response): Promise<any> => {
                 data: {
                     user_id: user_id,
                     item_id: payload.item_id,
-                    is_guest: payload.is_guest,
+                    is_guest: is_guest,
                     item_type: payload.item_type,
                     price: payload.price,
                     quantity: payload.quantity,
@@ -184,6 +189,107 @@ export const removeCartItem = async (req: Request, res: Response): Promise<any> 
     } catch (e: any) {
         return res.status(500).json({ status: false, msg: e.message });
     }
+};
+
+function mapCartRow(cart: {
+  id: bigint;
+  user_id: unknown;
+  item_id: unknown;
+  price: number;
+  add_on_ids: string | null;
+  add_on_qtys: string | null;
+  variations: string | null;
+  variation_options: string | null;
+  [key: string]: unknown;
+}) {
+  return {
+    ...cart,
+    id: cart.id.toString(),
+    user_id: cart.user_id != null ? String(cart.user_id) : null,
+    item_id: cart.item_id != null ? String(cart.item_id) : null,
+    price: Number(cart.price),
+    add_on_ids: cart.add_on_ids ? JSON.parse(cart.add_on_ids) : [],
+    add_on_qtys: cart.add_on_qtys ? JSON.parse(cart.add_on_qtys) : [],
+    variations: cart.variations ? JSON.parse(cart.variations) : [],
+    variation_options: cart.variation_options ? JSON.parse(cart.variation_options) : [],
+  };
+}
+
+/**
+ * @Description Add several items in one request (PHP POST /api/v1/customer/cart/add-multiple)
+ * @Route POST /api/consumer/cart/add-multiple
+ * @Access Consumer
+ */
+export const addMultipleToCart = async (req: Request, res: Response): Promise<any> => {
+  const payload = req.body;
+  const isGuestSession = req.user?.isGuest === true;
+  const is_guest = Boolean(payload.is_guest) || isGuestSession;
+  let user_id: number | null;
+  if (is_guest) {
+    user_id = isGuestSession ? Number(req.user?.id) : Number(payload.guest_id);
+    if (!user_id) return res.status(400).json({ status: false, msg: 'guest_id is required for guest users' });
+  } else {
+    user_id = Number(req.user?.id);
+    if (!user_id) return res.status(401).json({ status: false, msg: 'Unauthorized' });
+  }
+
+  const result = addMultipleCartSchema.validate(payload, { stripUnknown: true });
+  if (result.error) {
+    return res.status(400).json({
+      status: false,
+      msg: result.error.details.map((d: { message: string }) => d.message).join(','),
+    });
+  }
+
+  const items = result.value.item_list as Array<{
+    item_id: number;
+    model?: string;
+    item_type?: string;
+    price: number;
+    quantity: number;
+    add_on_ids?: number[];
+    add_on_qtys?: number[];
+    variations?: unknown[];
+    variation_options?: unknown[];
+  }>;
+
+  try {
+    for (const single of items) {
+      const itemType = single.item_type ?? single.model ?? 'Food';
+      const existing = await prisma.carts.findFirst({
+        where: {
+          user_id,
+          item_id: single.item_id,
+          is_guest,
+          variations: JSON.stringify(single.variations ?? []),
+        },
+      });
+      if (existing) {
+        return res.status(403).json({ status: false, msg: 'Item already exists' });
+      }
+      await prisma.carts.create({
+        data: {
+          user_id,
+          item_id: single.item_id,
+          is_guest,
+          item_type: itemType,
+          price: single.price,
+          quantity: single.quantity,
+          add_on_ids: JSON.stringify(single.add_on_ids ?? []),
+          add_on_qtys: JSON.stringify(single.add_on_qtys ?? []),
+          variations: JSON.stringify(single.variations ?? []),
+          variation_options: JSON.stringify(single.variation_options ?? []),
+        },
+      });
+    }
+
+    const carts = await prisma.carts.findMany({
+      where: { user_id, is_guest },
+    });
+    return res.status(200).json({ status: true, data: carts.map(mapCartRow) });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message });
+  }
 };
 
 /**

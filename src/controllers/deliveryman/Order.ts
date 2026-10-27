@@ -9,6 +9,7 @@ import {
 } from '../../utils/order/createOrderTransaction';
 import {
   buildLatestOrderStatusFilter,
+  buildLatestOrdersAreaFilter,
   DM_ACTIVE_ORDER_STATUSES,
   getBusinessSetting,
   getEligibleRestaurantIdsForDm,
@@ -23,9 +24,17 @@ import {
   mapMyOrdersForDeliveryMan,
 } from '../../utils/deliveryman/myOrdersHelpers';
 import {
+  buildDeliveryManOrderDetail,
+  deliveryManCanViewOrder,
+} from '../../utils/deliveryman/orderDetailMapper';
+import {
   applyOrderListSearchFilter,
   paginationSkip,
 } from '../../utils/consumer/orderListHelpers';
+import {
+  getIgnoredPoolOrderIdSet,
+  recordDeliveryManIgnoredPoolOrder,
+} from '../../utils/deliveryman/ignoredPoolOrders';
 
 /**
  * @Description Active (current) orders assigned to the delivery man — home card / My Orders
@@ -117,6 +126,54 @@ export const getMyOrders = async (req: Request, res: Response): Promise<any> => 
   }
 };
 
+
+/**
+ * @Description Order detail for request / active delivery screens (restaurant, customer, items, pricing)
+ * @Route GET /api/delivery-man/orders/:id
+ * @Access Private (Delivery Man)
+ */
+export const getOrderDetails = async (req: Request, res: Response): Promise<any> => {
+  const deliveryManId = requireDmIdFromRequest(req);
+  const orderIdParam = String(req.params.id ?? '').trim();
+
+  if (deliveryManId == null) {
+    return res.status(401).json({ status: false, msg: 'Unauthorized' });
+  }
+
+  if (!orderIdParam || !/^\d+$/.test(orderIdParam)) {
+    return res.status(400).json({ status: false, msg: 'Order id required' });
+  }
+
+  try {
+    const dm = await prisma.delivery_men.findUnique({
+      where: { id: BigInt(deliveryManId) },
+    });
+    if (!dm) {
+      return res.status(404).json({ status: false, msg: 'Delivery man not found' });
+    }
+
+    const order = await prisma.orders.findUnique({
+      where: { id: BigInt(orderIdParam) },
+    });
+
+    if (!order || order.order_type === 'pos') {
+      return res.status(404).json({ status: false, msg: 'Order not found' });
+    }
+
+    const canView = await deliveryManCanViewOrder(dm, order);
+    if (!canView) {
+      return res.status(403).json({ 
+        status: false, msg: 'You cannot view this order' });
+    }
+
+    const data = await buildDeliveryManOrderDetail(order, dm);
+    return res.status(200).json({ status: true, msg: 'Success', data });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Request failed';
+    return res.status(500).json({ status: false, msg });
+  }
+};
+
 /**
  * @Description Unassigned orders in the driver's zone (order request pool)
  * @Route GET /api/delivery-man/orders/latest
@@ -138,7 +195,11 @@ export const getLatestOrders = async (req: Request, res: Response): Promise<any>
     }
 
     const restaurantIds = await getEligibleRestaurantIdsForDm(dm);
-    if (restaurantIds.length === 0) {
+    const zoneId = dm.zone_id != null ? Number(dm.zone_id) : NaN;
+    if (
+      restaurantIds.length === 0 &&
+      (dm.type !== 'zone_wise' || !Number.isFinite(zoneId))
+    ) {
       return res.status(200).json({ status: true, msg: 'Success', data: [] });
     }
 
@@ -149,13 +210,20 @@ export const getLatestOrders = async (req: Request, res: Response): Promise<any>
 
     const statusFilter = buildLatestOrderStatusFilter(dm.type, orderConfirmationModel);
     const dmVehicleId = dm.vehicle_id != null ? Number(dm.vehicle_id) : null;
+    const areaFilter = buildLatestOrdersAreaFilter(dm, restaurantIds);
+
+    const ignoredOrderIds = await getIgnoredPoolOrderIdSet(deliveryManId);
 
     const candidates = await prisma.orders.findMany({
       where: {
-        ...statusFilter,
-        delivery_man_id: null,
-        order_type: 'delivery',
-        restaurant_id: { in: restaurantIds },
+        AND: [
+          statusFilter,
+          {
+            delivery_man_id: null,
+            order_type: 'delivery',
+          },
+          areaFilter,
+        ],
       },
       orderBy: [{ schedule_at: 'desc' }, { id: 'desc' }],
       take: 100,
@@ -163,8 +231,9 @@ export const getLatestOrders = async (req: Request, res: Response): Promise<any>
 
     const filtered = candidates.filter(
       (order) =>
+        !ignoredOrderIds.has(order.id.toString()) &&
         passesScheduleWindow(order, 30) &&
-        passesVehicleFilter(order, dmVehicleId) &&
+        passesVehicleFilter(order, dmVehicleId, dm.type) &&
         passesNotDigitalPending(order)
     );
 
@@ -219,7 +288,13 @@ export const acceptOrder = async (req: Request, res: Response): Promise<any> => 
     }
 
     const restaurantIds = await getEligibleRestaurantIdsForDm(dm);
-    if (!restaurantIds.includes(Number(order.restaurant_id))) {
+    const inRestaurantList = restaurantIds.includes(Number(order.restaurant_id));
+    const zoneMatch =
+      dm.type === 'zone_wise' &&
+      dm.zone_id != null &&
+      order.zone_id != null &&
+      Number(order.zone_id) === Number(dm.zone_id);
+    if (!inRestaurantList && !zoneMatch) {
       return res.status(403).json({ status: false, msg: 'Order is outside your delivery area' });
     }
 
@@ -314,8 +389,64 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
       return res.status(404).json({ status: false, msg: 'Order not found' });
     }
 
-    if (order.delivery_man_id?.toString() !== String(deliveryManId)) {
-      return res.status(403).json({ status: false, msg: 'You are not assigned to this order' });
+    const isAssigned = order.delivery_man_id?.toString() === String(deliveryManId);
+
+    if (!isAssigned) {
+      if (status === 'canceled' || status === 'ignore' || status === 'ignored') {
+        const dm = await prisma.delivery_men.findUnique({
+          where: { id: BigInt(deliveryManId) },
+        });
+        if (!dm) {
+          return res.status(404).json({ status: false, msg: 'Delivery man not found', message: 'Delivery man not found' });
+        }
+        if (order.delivery_man_id == null && order.order_type === 'delivery') {
+          await recordDeliveryManIgnoredPoolOrder(deliveryManId, order.id);
+        }
+        return res.status(200).json({
+          status: true,
+          msg: 'Order request ignored',
+          message: 'Status updated',
+          data: { id: order.id.toString(), order_status: order.order_status },
+        });
+      }
+      return res.status(403).json({ status: false, msg: 'You are not assigned to this order', message: 'You are not assigned to this order' });
+    }
+
+    if (status === 'ignore' || status === 'ignored') {
+      if (order.delivery_man_id == null && order.order_type === 'delivery') {
+        await recordDeliveryManIgnoredPoolOrder(deliveryManId, order.id);
+      }
+      return res.status(200).json({
+        status: true,
+        msg: 'Order request ignored',
+        message: 'Status updated',
+        data: { id: order.id.toString(), order_status: order.order_status },
+      });
+    }
+
+    if (status === 'picked_up') {
+      // Driver cannot pick up order before kitchen prepares it (processing or handover)
+      if (order.order_status !== 'handover' && order.order_status !== 'processing') {
+        return res.status(403).json({
+          status: false,
+          msg: 'Order has not been prepared or handed over by the restaurant yet',
+        });
+      }
+    }
+
+    if (status === 'delivered') {
+      if (order.order_type === 'delivery' && order.picked_up == null) {
+        return res.status(403).json({
+          status: false,
+          msg: 'Mark the order as picked up before delivery',
+        });
+      }
+      if (order.order_type === 'delivery' && order.order_status !== 'picked_up') {
+        return res.status(403).json({
+          status: false,
+          msg: 'Order must be picked up before it can be delivered',
+        });
+      }
     }
 
     if (status === 'canceled') {

@@ -1,7 +1,3 @@
-/**
- * Place-order business logic (ported from Laravel OrderController@place_order).
- * Kept in one module next to the controller — not scattered under utils/.
- */
 import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import type { PlaceOrderInput } from '../../schemas/consumer/Order';
@@ -11,11 +7,36 @@ import {
   getBusinessSettingNumber,
   parseJsonSetting,
 } from '../../utils/consumer/businessSettings';
-import { getZoneById } from '../../utils/consumer/zone';
+import { resolveTieredDeliveryPricing } from '../../utils/delivery/resolveDeliveryPricing';
+import { computeTieredDeliveryFee } from '../../utils/delivery/tieredDeliveryFee';
+import { calculateCouponDiscount, validateCouponForUser } from '../../utils/consumer/couponHelpers';
+import { createWalletTransaction } from '../../utils/consumer/walletTransactions';
+import {
+  assertPaidCheckoutPayment,
+  attachCheckoutPaymentToOrder,
+  CheckoutPaymentError,
+  findPaidUnusedCheckoutPayment,
+} from '../../utils/payment/checkoutPayment';
+import { computeVariationExtra } from '../../utils/consumer/variationPricing';
 
 
 function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+/** Client-quoted delivery fee (prefer `delivery_fee` from GET /consumer/config/delivery-fee). */
+function clientQuotedDeliveryFee(payload: PlaceOrderInput): number | null {
+  const raw = payload.delivery_fee ?? payload.delivery_charge;
+  if (raw == null || !Number.isFinite(Number(raw))) return null;
+  return roundMoney(Math.max(0, Number(raw)));
+}
+
+/** Client-quoted food + addons amount from order_amount (e.g. Flutter checkout). */
+function clientQuotedOrderAmount(payload: PlaceOrderInput): number | null {
+  const raw = payload.order_amount;
+  if (raw == null || !Number.isFinite(Number(raw))) return null;
+  const val = Number(raw);
+  return val > 0 ? roundMoney(val) : null;
 }
 
 function parseJson<T>(value: string | null | undefined, fallback: T): T {
@@ -53,26 +74,45 @@ async function calculateAddonPrice(addOnIds: number[], addOnQtys: number[]) {
   return { total_add_on_price: roundMoney(total), addons: details };
 }
 
-function computeVariationExtra(
-  productVariationsJson: string | null,
-  selectedVariations: unknown[]
-): number {
-  const defs = parseJson<any[]>(productVariationsJson, []);
-  if (!defs.length || !selectedVariations?.length) return 0;
+export type PlaceOrderPricing = {
+  subtotal: number;
+  total_tax_amount: number;
+  tax_added_to_total: number;
+  tax_status: 'included' | 'excluded';
+  delivery_charge: number;
+  additional_charge: number;
+  extra_packaging_amount: number;
+  dm_tips: number;
+  order_amount: number;
+  /** Restaurant VAT/GST % (`restaurants.tax`). */
+  tax_percentage: number;
+  tax_included: boolean;
+};
 
-  let extra = 0;
-  for (const selected of selectedVariations as any[]) {
-    const def = defs.find((d) => d.name === selected.name || d.type === selected.name);
-    if (!def?.values) continue;
-    const values = selected.values ?? selected.options ?? [];
-    for (const val of values) {
-      const label = typeof val === 'string' ? val : val.label ?? val.name;
-      const match = def.values.find((v: any) => v.label === label || v.name === label);
-      if (match?.optionPrice != null) extra += Number(match.optionPrice);
-      else if (match?.price != null) extra += Number(match.price);
-    }
-  }
-  return extra;
+function buildPlaceOrderPricing(params: {
+  totalPrice: number;
+  taxResult: ReturnType<typeof orderLevelTax>;
+  taxPercent: number;
+  taxIncluded: boolean;
+  deliveryCharge: number;
+  additionalCharge: number;
+  extraPackaging: number;
+  dmTips: number;
+  orderAmount: number;
+}): PlaceOrderPricing {
+  return {
+    subtotal: params.totalPrice,
+    total_tax_amount: params.taxResult.total_tax_amount,
+    tax_added_to_total: params.taxResult.tax_to_add,
+    tax_status: params.taxResult.tax_status,
+    tax_percentage: params.taxPercent,
+    tax_included: params.taxIncluded,
+    delivery_charge: params.deliveryCharge,
+    additional_charge: params.additionalCharge,
+    extra_packaging_amount: params.extraPackaging,
+    dm_tips: params.dmTips,
+    order_amount: params.orderAmount,
+  };
 }
 
 function productDiscountAmount(
@@ -124,33 +164,19 @@ async function getCouponDiscount(params: {
     return { coupon: null, discount: 0, error: 'Invalid coupon code' };
   }
 
-  const today = new Date();
-  if (coupon.start_date && coupon.start_date > today) {
-    return { coupon: null, discount: 0, error: 'Coupon not started yet' };
-  }
-  if (coupon.expire_date && coupon.expire_date < today) {
-    return { coupon: null, discount: 0, error: 'Coupon expired' };
-  }
-
   if (Number(coupon.min_purchase) > 0 && params.orderSubtotal < Number(coupon.min_purchase)) {
     return { coupon: null, discount: 0, error: 'Minimum purchase not met for coupon' };
   }
 
-  if (coupon.created_by === 'vendor' && Number(coupon.restaurant_id) !== params.restaurantId) {
-    return { coupon: null, discount: 0, error: 'Coupon not valid for this restaurant' };
+  const check = await validateCouponForUser(coupon, params.userId, params.restaurantId);
+  if (!('ok' in check)) {
+    return { coupon: null, discount: 0, error: check.message };
   }
 
-  let discount = 0;
-  if (coupon.discount_type === 'percent') {
-    discount = params.orderSubtotal * (Number(coupon.discount) / 100);
-  } else {
-    discount = Number(coupon.discount);
-  }
-  if (Number(coupon.max_discount) > 0) {
-    discount = Math.min(discount, Number(coupon.max_discount));
-  }
-
-  return { coupon, discount: roundMoney(discount) };
+  return {
+    coupon,
+    discount: roundMoney(calculateCouponDiscount(coupon, params.orderSubtotal)),
+  };
 }
 
 async function calculateDeliveryFee(params: {
@@ -161,6 +187,7 @@ async function calculateDeliveryFee(params: {
     free_delivery: boolean;
     self_delivery_system: boolean;
     minimum_shipping_charge: unknown;
+    base_distance_km?: unknown;
     per_km_shipping_charge: number | null;
     maximum_shipping_charge: number | null;
   };
@@ -176,43 +203,21 @@ async function calculateDeliveryFee(params: {
     return { delivery_charge: 0, original_delivery_charge: 0, max_cod_order_amount: 0 };
   }
 
-  let perKm = Number(params.restaurant.per_km_shipping_charge) || 0;
-  let minimum = Number(params.restaurant.minimum_shipping_charge) || 0;
-  let maximum = Number(params.restaurant.maximum_shipping_charge) || 0;
-  let maxCod = 0;
-  let increasedPct = 0;
+  const { pricing, max_cod_order_amount: maxCod } = await resolveTieredDeliveryPricing(
+    {
+      zone_id: params.restaurant.zone_id,
+      self_delivery_system: params.restaurant.self_delivery_system,
+      minimum_shipping_charge: params.restaurant.minimum_shipping_charge,
+      base_distance_km: params.restaurant.base_distance_km,
+      per_km_shipping_charge: params.restaurant.per_km_shipping_charge,
+      maximum_shipping_charge: params.restaurant.maximum_shipping_charge,
+    },
+    { latitude: params.latitude, longitude: params.longitude }
+  );
 
-  if (params.latitude && params.longitude && params.restaurant.zone_id) {
-    const zone = await getZoneById(Number(params.restaurant.zone_id));
-    if (zone) {
-      if (zone.per_km_shipping_charge != null && zone.minimum_shipping_charge != null) {
-        perKm = zone.per_km_shipping_charge;
-        minimum = zone.minimum_shipping_charge;
-        maximum = zone.maximum_shipping_charge ?? maximum;
-        maxCod = zone.max_cod_order_amount ?? 0;
-      }
-      if (zone.increased_delivery_fee_status && zone.increased_delivery_fee) {
-        increasedPct = zone.increased_delivery_fee;
-      }
-    }
-  }
-
-  if (params.restaurant.self_delivery_system) {
-    perKm = Number(params.restaurant.per_km_shipping_charge) || perKm;
-    minimum = Number(params.restaurant.minimum_shipping_charge) || minimum;
-    maximum = Number(params.restaurant.maximum_shipping_charge) || maximum;
-  }
-
-  let original = params.distance * perKm > minimum ? params.distance * perKm : minimum;
-  let delivery = params.distance * perKm > minimum ? params.distance * perKm : minimum;
-
-  if (maximum > minimum && original > maximum) original = maximum;
-  if (maximum > minimum && delivery > maximum) delivery = maximum;
-
-  if (increasedPct > 0) {
-    original += (original * increasedPct) / 100;
-    delivery += (delivery * increasedPct) / 100;
-  }
+  const breakdown = computeTieredDeliveryFee(params.distance, pricing);
+  let original = breakdown.delivery_fee;
+  let delivery = breakdown.delivery_fee;
 
   if (params.restaurant.free_delivery) {
     return {
@@ -511,8 +516,39 @@ export async function executePlaceOrder(params: {
   userId: number;
   isGuest: boolean;
   user?: { f_name?: string | null; l_name?: string | null; phone?: string | null; email?: string | null; wallet_balance?: unknown };
+  /** Compute totals only — used before payment (no order row). */
+  dryRun?: boolean;
 }) {
-  const { payload, userId, isGuest, user } = params;
+  const { payload, userId, isGuest, user, dryRun = false } = params;
+
+  if (payload.payment_request_id) {
+    if (payload.payment_method !== 'digital_payment') {
+      throw new PlaceOrderError(
+        'payment_request_id requires payment_method digital_payment',
+        400,
+        'payment_method'
+      );
+    }
+    if (isGuest) {
+      throw new PlaceOrderError('Login required for prepaid checkout', 401, 'payment_request_id');
+    }
+  }
+
+  if (
+    !dryRun &&
+    payload.payment_method === 'digital_payment' &&
+    !payload.payment_request_id &&
+    !isGuest
+  ) {
+    const paidCheckout = await findPaidUnusedCheckoutPayment(userId);
+    if (paidCheckout) {
+      throw new PlaceOrderError(
+        `Card payment is already completed. Call place order again with payment_request_id "${paidCheckout.id}" (same checkout as payment), or POST /consumer/order/attach-checkout-payment to link an existing unpaid order.`,
+        403,
+        'payment_request_id'
+      );
+    }
+  }
   const paymentSettings = await getPaymentSettings();
 
   if (isGuest && !paymentSettings.guestCheckoutEnabled) {
@@ -615,10 +651,13 @@ export async function executePlaceOrder(params: {
     });
   }
 
-  const subtotalBeforeCoupon =
+  const clientOrderAmount = clientQuotedOrderAmount(payload);
+  const calculatedSubtotal =
     productPrice + totalAddonPrice - restaurantDiscountAmount;
+  const subtotalBeforeCoupon = clientOrderAmount ?? calculatedSubtotal;
 
-  if (Number(restaurant.minimum_order) > productPrice + totalAddonPrice) {
+  const baseForMinOrder = clientOrderAmount ?? (productPrice + totalAddonPrice);
+  if (Number(restaurant.minimum_order) > baseForMinOrder) {
     throw new PlaceOrderError(
       `Minimum order amount is ${Number(restaurant.minimum_order)}`,
       406,
@@ -653,18 +692,29 @@ export async function executePlaceOrder(params: {
     throw new PlaceOrderError(deliveryFee.error, 403, 'coordinates');
   }
 
-  const freeDelivery = await applyFreeDeliveryRules({
-    productSubtotal: productPrice + totalAddonPrice,
-    couponDiscount: couponResult.discount,
-    restaurantDiscount: restaurantDiscountAmount,
-    distance: payload.distance ?? 0,
-    restaurant,
-  });
-  if (freeDelivery.delivery_charge >= 0) {
+  const quotedDeliveryFee = clientQuotedDeliveryFee(payload);
+  let freeDelivery: { delivery_charge: number; free_delivery_by: string | null };
+
+  if (payload.order_type === 'delivery' && quotedDeliveryFee != null) {
     deliveryFee = {
       ...deliveryFee,
-      delivery_charge: freeDelivery.delivery_charge,
+      delivery_charge: quotedDeliveryFee,
     };
+    freeDelivery = { delivery_charge: quotedDeliveryFee, free_delivery_by: null };
+  } else {
+    freeDelivery = await applyFreeDeliveryRules({
+      productSubtotal: clientOrderAmount ?? (productPrice + totalAddonPrice),
+      couponDiscount: couponResult.discount,
+      restaurantDiscount: restaurantDiscountAmount,
+      distance: payload.distance ?? 0,
+      restaurant,
+    });
+    if (freeDelivery.delivery_charge >= 0) {
+      deliveryFee = {
+        ...deliveryFee,
+        delivery_charge: freeDelivery.delivery_charge,
+      };
+    }
   }
 
   const additionalCharge = await resolveAdditionalCharge();
@@ -742,9 +792,55 @@ export async function executePlaceOrder(params: {
 
   let orderStatus = 'pending';
   let paymentStatus = 'unpaid';
+  let storedPaymentMethod = payload.payment_method;
   if (payload.payment_method === 'wallet') {
-    orderStatus = 'confirmed';
     paymentStatus = 'paid';
+  }
+
+  let prepaidCheckout:
+    | { paymentRequestId: string; gatewayMethod: string }
+    | undefined;
+
+  if (payload.payment_request_id) {
+    try {
+      const payment = await assertPaidCheckoutPayment({
+        paymentRequestId: payload.payment_request_id,
+        userId,
+        orderAmount,
+      });
+      prepaidCheckout = {
+        paymentRequestId: payment.id,
+        gatewayMethod: payment.payment_method ?? 'hypay',
+      };
+      paymentStatus = 'paid';
+      storedPaymentMethod = prepaidCheckout.gatewayMethod;
+    } catch (e) {
+      const msg = e instanceof CheckoutPaymentError ? e.message : 'Invalid payment';
+      throw new PlaceOrderError(msg, 403, 'payment_request_id');
+    }
+  }
+
+  const pricing = buildPlaceOrderPricing({
+    totalPrice,
+    taxResult,
+    taxPercent,
+    taxIncluded,
+    deliveryCharge: deliveryFee.delivery_charge,
+    additionalCharge,
+    extraPackaging,
+    dmTips,
+    orderAmount,
+  });
+
+  if (dryRun) {
+    return {
+      order: null,
+      orderAmount,
+      subtotal: totalPrice,
+      taxAdded: taxResult.tax_to_add,
+      delivery_charge: deliveryFee.delivery_charge,
+      pricing,
+    };
   }
 
   const order = await prisma.$transaction(async (tx) => {
@@ -760,7 +856,7 @@ export async function executePlaceOrder(params: {
         payment_status: paymentStatus,
         order_status: orderStatus,
         total_tax_amount: taxResult.total_tax_amount,
-        payment_method: payload.payment_method,
+        payment_method: storedPaymentMethod,
         order_type: payload.order_type,
         delivery_charge: deliveryFee.delivery_charge,
         original_delivery_charge: deliveryFee.original_delivery_charge,
@@ -782,7 +878,7 @@ export async function executePlaceOrder(params: {
         extra_packaging_amount: extraPackaging,
         free_delivery_by: freeDelivery.free_delivery_by,
         is_guest: isGuest,
-        checked: payload.payment_method === 'digital_payment',
+        checked: payload.payment_method === 'digital_payment' && !prepaidCheckout,
         otp: String(Math.floor(1000 + Math.random() * 9000)),
         pending: new Date(),
         confirmed: orderStatus === 'confirmed' ? new Date() : null,
@@ -809,8 +905,22 @@ export async function executePlaceOrder(params: {
       });
     }
 
+    if (payload.payment_method === 'wallet' && !isGuest) {
+      await createWalletTransaction(tx, {
+        userId,
+        amount: orderAmount,
+        transactionType: 'order_place',
+        reference: Number(created.id),
+        skipStatusCheck: true,
+      });
+    }
+
     return created;
   });
+
+  if (prepaidCheckout) {
+    await attachCheckoutPaymentToOrder(prepaidCheckout.paymentRequestId, order.id);
+  }
 
   await clearCartAfterOrder({
     userId,
@@ -825,6 +935,7 @@ export async function executePlaceOrder(params: {
     subtotal: totalPrice,
     taxAdded: taxResult.tax_to_add,
     delivery_charge: deliveryFee.delivery_charge,
+    pricing,
   };
 }
 

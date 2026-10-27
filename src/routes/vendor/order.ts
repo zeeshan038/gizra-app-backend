@@ -8,11 +8,14 @@ import { verifyVendor } from '../../middlewares/verifyVendor';
 import {
   getOrderCounts,
   getOrderDetails,
+  getOrderInvoice,
   getPosOrderHistory,
   listOrders,
   pollRecentOrders,
+  sendKitchenNote,
   streamVendorOrderEvents,
   updateOrderStatus,
+  updateOrderCookingTime,
 } from '../../controllers/vendor/Order';
 
 const router = express.Router();
@@ -24,7 +27,10 @@ router.get('/events', streamVendorOrderEvents);
 router.get('/recent', pollRecentOrders);
 router.get('/pos-history', getPosOrderHistory);
 router.get('/', listOrders);
+router.get('/:id/invoice', getOrderInvoice);
+router.post('/:id/kitchen-note', sendKitchenNote);
 router.get('/:id', getOrderDetails);
 router.put('/:id/status', updateOrderStatus);
+router.put('/:id/cooking-time', updateOrderCookingTime);
 
 export default router;

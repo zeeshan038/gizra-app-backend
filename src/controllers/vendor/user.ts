@@ -1,11 +1,14 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../config/database';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { genrateToken } from '../../utils/methods/methods';
+import { verifyPassword } from '../../utils/passwordHash';
 import {
   vendorFcmTokenSchema,
   vendorLoginSchema,
+  vendorLoginSendOtpSchema,
+  vendorLoginVerifyOtpSchema,
   vendorRegisterSchema,
 } from '../../schemas/vendor/User';
 import {
@@ -25,10 +28,28 @@ import {
 } from '../../utils/consumer/passwordResetDb';
 import { maskEmailForClient, sendConsumerOtpEmail } from '../../utils/consumer/sendConsumerOtpEmail';
 import { sendConsumerOtpSms } from '../../utils/consumer/sendConsumerOtpSms';
+import {
+  exposeOtpInApiResponse,
+  otpTestingFields,
+  treatOtpDeliveryAsSuccess,
+} from '../../utils/otp/otpTestingResponse';
 import { provisionAccountStorage } from '../../utils/accountStorage';
-import { normalizeStoredMedia } from '../../utils/mediaStorage';
+import {
+  normalizeStoredMedia,
+  publicMediaUrl,
+  publicRestaurantMediaUrl,
+} from '../../utils/mediaStorage';
+import { clientSafeErrorMessage } from '../../utils/safeClientError';
+import { maskPhoneForClient } from '../../utils/deliveryman/authHelpers';
+import { readPosAppSettingsFromAdditionalData } from '../../utils/vendor/posAppSettings';
+import {
+  deleteLoginOtp,
+  findLoginOtp,
+  secondsUntilOtpResend as loginOtpResendSeconds,
+  upsertLoginOtp,
+  verifyLoginOtpToken,
+} from '../../utils/partner/loginOtpDb';
 
-const prisma = new PrismaClient();
 
 type ResetIdentityBody = {
   field_type: 'email' | 'phone';
@@ -63,7 +84,78 @@ async function findVendorByResetIdentity(channel: PasswordResetChannel, value: s
   }
   return prisma.vendors.findFirst({ where: { phone: value } });
 }
+
+function formatVendorPublic(vendor: Record<string, unknown>) {
+  const { password, auth_token, remember_token, ...rest } = vendor;
+  void password;
+  void auth_token;
+  void remember_token;
+  const formatted: Record<string, unknown> = { ...rest };
+  if (formatted.id != null) formatted.id = String(formatted.id);
+  return formatted;
+}
+
+function formatRestaurantPublic(restaurant: Record<string, unknown>) {
+  const formatted: Record<string, unknown> = { ...restaurant };
+  if (formatted.id != null) formatted.id = String(formatted.id);
+  if (formatted.vendor_id != null) formatted.vendor_id = String(formatted.vendor_id);
+  if (formatted.zone_id != null) formatted.zone_id = String(formatted.zone_id);
+  if (formatted.package_id != null) formatted.package_id = String(formatted.package_id);
+
+  const posSettings = readPosAppSettingsFromAdditionalData(
+    restaurant.additional_data != null ? String(restaurant.additional_data) : null
+  );
+  formatted.autoAcceptOrder = posSettings.autoAcceptOrder;
+  formatted.autoPrintOnAccept = posSettings.autoPrintOnAccept;
+  formatted.use58mmPaper = posSettings.use58mmPaper;
+
+  return formatted;
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_here';
+
+type VendorRecord = NonNullable<Awaited<ReturnType<typeof prisma.vendors.findFirst>>>;
+
+async function issueVendorLoginSession(vendor: VendorRecord, res: Response): Promise<any> {
+  const restaurants = await prisma.restaurants.findMany({
+    where: { vendor_id: Number(vendor.id) },
+  });
+
+  const restaurant = restaurants[0];
+
+  if (restaurant?.status === false && vendor.status === false) {
+    return res.status(403).json({
+      status: false,
+      msg: 'Your registration is not approved yet. You can login once admin approved the request',
+    });
+  }
+  if (restaurant?.status === false && vendor.status === true) {
+    return res.status(403).json({
+      status: false,
+      msg: 'Your account is suspended',
+    });
+  }
+
+  const tokenData = await genrateToken(vendor, restaurant, JWT_SECRET);
+
+  if (restaurant?.restaurant_model === 'none' || restaurant?.restaurant_model === 'unsubscribed') {
+    return res.status(200).json({
+      subscribed: {
+        restaurant_id: Number(restaurant?.id),
+        token: tokenData.token,
+        package_id: restaurant?.package_id ? Number(restaurant.package_id) : null,
+        zone_wise_topic: tokenData.zone_wise_topic,
+        type: 'new_join',
+      },
+    });
+  }
+
+  return res.status(200).json({
+    status: true,
+    msg: 'Login success',
+    data: { ...tokenData, restaurant_id: restaurant ? Number(restaurant.id) : null },
+  });
+}
 
 /**
  * @Description Login Vendor
@@ -83,16 +175,16 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       }
   try {
 
-    const vendor = await prisma.vendors.findUnique({
-      where: { email : payload.email},
+    const vendor = await prisma.vendors.findFirst({
+      where: { email: { equals: String(payload.email).trim(), mode: 'insensitive' } },
     });
 
     if (!vendor) {
       return res.status(401).json({ status: false, msg: 'Credential do not match, please try again.' });
     }
 
-    const isPasswordValid = await bcrypt.compare(payload.password, vendor?.password || '');
-    
+    const isPasswordValid = await verifyPassword(payload.password, vendor.password);
+
     if (!isPasswordValid) {
       return res.status(401).json({
         status: false,
@@ -100,48 +192,118 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    const restaurants = await prisma.restaurants.findMany({
-      where: { vendor_id: Number(vendor.id) },
+    return issueVendorLoginSession(vendor, res);
+  } catch (error: unknown) {
+    console.error('vendor login error:', error);
+    return res.status(503).json({
+      status: false,
+      msg: clientSafeErrorMessage(error),
     });
-    
-    const restaurant = restaurants[0];
+  }
+};
 
-    if (restaurant?.status === false && vendor.status === false) {
-      return res.status(403).json({
+
+/**
+ * @Description Send login OTP (vendor / POS app — phone sign-in)
+ * @Route POST /api/vendor/login/send-otp
+ * @Access Public
+ */
+export const sendLoginOtp = async (req: Request, res: Response): Promise<any> => {
+  const validated = vendorLoginSendOtpSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(','),
+    });
+  }
+
+  const phone = String(validated.value.phone).trim();
+
+  try {
+    const vendor = await prisma.vendors.findFirst({ where: { phone } });
+    if (!vendor) {
+      return res.status(401).json({
         status: false,
-        msg: 'Your registration is not approved yet. You can login once admin approved the request'
-      });
-    } else if (restaurant?.status === false && vendor.status === true) {
-      return res.status(403).json({
-        status: false,
-        msg: 'Your account is suspended'
+        msg: 'Credential do not match, please try again.',
       });
     }
 
-    const tokenData = await genrateToken(vendor, restaurant, JWT_SECRET);
+    const existing = await findLoginOtp(phone, 'login_vendor');
+    const waitSec = loginOtpResendSeconds(existing?.created_at ?? null);
+    if (waitSec > 0) {
+      return res.status(405).json({
+        status: false,
+        msg: `Please try again after ${waitSec} seconds`,
+        data: { resend_after_seconds: waitSec },
+      });
+    }
 
-    if (restaurant?.restaurant_model === 'none' || restaurant?.restaurant_model === 'unsubscribed') {
-        return res.status(200).json({
-            subscribed: {
-                restaurant_id: Number(restaurant?.id),
-                token: tokenData.token,
-                package_id: restaurant?.package_id ? Number(restaurant.package_id) : null,
-                zone_wise_topic: tokenData.zone_wise_topic,
-                type: 'new_join'
-            }
-        });
+    const otp = generateResetOtp();
+    await upsertLoginOtp(phone, 'login_vendor', otp);
+
+    try {
+      await sendConsumerOtpSms(phone, otp);
+    } catch {
+      // SMS optional while OTP is returned in the response for development.
     }
 
     return res.status(200).json({
       status: true,
-      msg: 'Login success',
-      data : {...tokenData}
+      msg: 'OTP successfully sent',
+      data: {
+        phone_mask: maskPhoneForClient(phone),
+        otp,
+        resend_after_seconds: 60,
+      },
     });
-
-  } catch (error: any) {
-    return res.status(500).json({
+  } catch (error: unknown) {
+    console.error('vendor send login otp error:', error);
+    return res.status(503).json({
       status: false,
-      msg: error.message
+      msg: clientSafeErrorMessage(error),
+    });
+  }
+};
+
+
+/**
+ * @Description Verify login OTP and issue JWT (vendor / POS app)
+ * @Route POST /api/vendor/login/verify-otp
+ * @Access Public
+ */
+export const verifyLoginOtp = async (req: Request, res: Response): Promise<any> => {
+  const validated = vendorLoginVerifyOtpSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(','),
+    });
+  }
+
+  const { phone: rawPhone, otp } = validated.value as { phone: string; otp: string };
+  const phone = rawPhone.trim();
+
+  try {
+    const vendor = await prisma.vendors.findFirst({ where: { phone } });
+    if (!vendor) {
+      return res.status(401).json({
+        status: false,
+        msg: 'Credential do not match, please try again.',
+      });
+    }
+
+    const valid = await verifyLoginOtpToken(phone, 'login_vendor', otp);
+    if (!valid) {
+      return res.status(400).json({ status: false, msg: 'Invalid OTP' });
+    }
+
+    await deleteLoginOtp(phone, 'login_vendor');
+    return issueVendorLoginSession(vendor, res);
+  } catch (error: unknown) {
+    console.error('vendor verify login otp error:', error);
+    return res.status(503).json({
+      status: false,
+      msg: clientSafeErrorMessage(error),
     });
   }
 };
@@ -262,11 +424,7 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     }
 };
 
-/**
- * @Description Change password while logged in (vendor app / web panel profile)
- * @Route PUT /api/vendor/password/change
- * @Access Private (Bearer vendor JWT)
- */
+
 export const changePassword = async (req: Request, res: Response): Promise<any> => {
   const vendorId = requireVendorId(req, res);
   if (vendorId == null) return;
@@ -291,7 +449,7 @@ export const changePassword = async (req: Request, res: Response): Promise<any> 
       return res.status(400).json({ status: false, msg: 'Password login is not set for this account' });
     }
 
-    const matches = await bcrypt.compare(current_password, vendor.password);
+    const matches = await verifyPassword(current_password, vendor.password);
     if (!matches) {
       return res.status(403).json({ status: false, msg: 'Current password is incorrect' });
     }
@@ -347,28 +505,33 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
 
     if (channel === 'email') {
       const sent = await sendConsumerOtpEmail(value, token);
-      if (!sent) {
+      if (!treatOtpDeliveryAsSuccess(sent)) {
         return res.status(405).json({ status: false, msg: 'Failed to send email' });
       }
       return res.status(200).json({
         status: true,
-        msg: 'OTP successfully sent to your email',
+        msg: exposeOtpInApiResponse()
+          ? 'OTP generated (testing — see data.otp)'
+          : 'OTP successfully sent to your email',
         data: {
           field_type: 'email',
           email_mask: maskEmailForClient(value),
+          ...otpTestingFields(token),
         },
       });
     }
 
     const sent = await sendConsumerOtpSms(value, token);
-    if (!sent) {
+    if (!treatOtpDeliveryAsSuccess(sent)) {
       return res.status(405).json({ status: false, msg: 'Failed to send SMS' });
     }
 
     return res.status(200).json({
       status: true,
-      msg: 'OTP successfully sent to your phone',
-      data: { field_type: 'phone' },
+      msg: exposeOtpInApiResponse()
+        ? 'OTP generated (testing — see data.otp)'
+        : 'OTP successfully sent to your phone',
+      data: { field_type: 'phone', ...otpTestingFields(token) },
     });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });
@@ -501,7 +664,146 @@ export const updateFcmToken = async (req: Request, res: Response): Promise<any> 
       message: 'successfully updated!',
     });
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Request failed';
-    return res.status(500).json({ status: false, msg });
+    console.error('vendor fcm update error:', error);
+    return res.status(503).json({ status: false, msg: clientSafeErrorMessage(error) });
+  }
+};
+
+
+
+
+/**
+ * @Description Get vendor details (+ POS toggles autoAcceptOrder, autoPrintOnAccept, use58mmPaper on restaurant and posSettings)
+ * @Route GET /api/vendor/whoami
+ * @Access Private (Bearer vendor JWT)
+ */
+export const whoami = async (req: Request, res: Response): Promise<any> => {
+  const vendorId = requireVendorId(req, res);
+  if (vendorId == null) return;
+
+  try {
+    const vendor = await prisma.vendors.findUnique({
+      where: { id: BigInt(vendorId) },
+    });
+
+    if (!vendor) {
+      return res.status(404).json({ status: false, msg: 'Vendor not found' });
+    }
+
+    const restaurants = await prisma.restaurants.findMany({
+      where: { vendor_id: vendorId },
+      orderBy: { id: 'asc' },
+    });
+
+    const primary = restaurants[0] ?? null;
+    const restaurant = primary
+      ? formatRestaurantPublic(primary as unknown as Record<string, unknown>)
+      : null;
+    const posSettings = readPosAppSettingsFromAdditionalData(primary?.additional_data ?? null);
+
+    return res.status(200).json({
+      status: true,
+      msg: 'Success',
+      data: {
+        vendor: formatVendorPublic(vendor as unknown as Record<string, unknown>),
+        restaurant,
+        restaurants: restaurants.map((row) =>
+          formatRestaurantPublic(row as unknown as Record<string, unknown>)
+        ),
+        /** POS app toggles (also mirrored on data.restaurant) */
+        autoAcceptOrder: posSettings.autoAcceptOrder,
+        autoPrintOnAccept: posSettings.autoPrintOnAccept,
+        use58mmPaper: posSettings.use58mmPaper,
+        posSettings,
+      },
+    });
+  } catch (error: unknown) {
+    console.error('vendor whoami error:', error);
+    return res.status(503).json({ status: false, msg: clientSafeErrorMessage(error) });
+  }
+};
+
+/**
+ * @Description Lean profile for POS / vendor mobile app (name, email, phone, image, notification + POS toggles). Full restaurant row stays on GET /vendor/whoami for web panel.
+ * @Route GET /api/vendor/whoami-mobile
+ * @Access Private (Bearer vendor JWT)
+ */
+export const whoamiMobile = async (req: Request, res: Response): Promise<any> => {
+  const vendorId = requireVendorId(req, res);
+  if (vendorId == null) return;
+
+  try {
+    const vendor = await prisma.vendors.findUnique({
+      where: { id: BigInt(vendorId) },
+      select: {
+        id: true,
+        f_name: true,
+        l_name: true,
+        phone: true,
+        email: true,
+        image: true,
+        status: true,
+        is_notification_on: true,
+      },
+    });
+
+    if (!vendor) {
+      return res.status(404).json({ status: false, msg: 'Vendor not found' });
+    }
+
+    const restaurant = await prisma.restaurants.findFirst({
+      where: { vendor_id: vendorId },
+      orderBy: { id: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        logo: true,
+        address: true,
+        zone_id: true,
+        active: true,
+        status: true,
+        additional_data: true,
+      },
+    });
+
+    const posSettings = readPosAppSettingsFromAdditionalData(restaurant?.additional_data ?? null);
+
+    return res.status(200).json({
+      status: true,
+      msg: 'Success',
+      data: {
+        id: vendor.id.toString(),
+        f_name: vendor.f_name,
+        l_name: vendor.l_name,
+        name: [vendor.f_name, vendor.l_name].filter(Boolean).join(' ').trim(),
+        phone: vendor.phone,
+        email: vendor.email,
+        image: publicMediaUrl(vendor.image),
+        status: vendor.status,
+        is_notification_on: vendor.is_notification_on,
+        restaurant: restaurant
+          ? {
+              id: restaurant.id.toString(),
+              name: restaurant.name,
+              phone: restaurant.phone,
+              email: restaurant.email,
+              logo: publicRestaurantMediaUrl(restaurant.logo, 'logo'),
+              address: restaurant.address,
+              zone_id: restaurant.zone_id != null ? String(restaurant.zone_id) : null,
+              active: restaurant.active,
+              status: restaurant.status,
+            }
+          : null,
+        autoAcceptOrder: posSettings.autoAcceptOrder,
+        autoPrintOnAccept: posSettings.autoPrintOnAccept,
+        use58mmPaper: posSettings.use58mmPaper,
+        posSettings,
+      },
+    });
+  } catch (error: unknown) {
+    console.error('vendor whoami-mobile error:', error);
+    return res.status(503).json({ status: false, msg: clientSafeErrorMessage(error) });
   }
 };

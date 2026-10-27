@@ -16,3 +16,24 @@ export const updateCartSchema = Joi.object({
   cart_id: Joi.number().required(),
   quantity: Joi.number().integer().min(1).required(),
 });
+
+export const addMultipleCartSchema = Joi.object({
+  item_list: Joi.array()
+    .items(
+      Joi.object({
+        item_id: Joi.number().required(),
+        model: Joi.string().valid('Food', 'ItemCampaign').default('Food'),
+        item_type: Joi.string().valid('Food', 'ItemCampaign').optional(),
+        price: Joi.number().required(),
+        quantity: Joi.number().integer().min(1).required(),
+        add_on_ids: Joi.array().items(Joi.number()).optional().default([]),
+        add_on_qtys: Joi.array().items(Joi.number()).optional().default([]),
+        variations: Joi.array().items(Joi.object()).optional().default([]),
+        variation_options: Joi.array().items(Joi.object()).optional().default([]),
+      })
+    )
+    .min(1)
+    .required(),
+  is_guest: Joi.boolean().default(false),
+  guest_id: Joi.number().optional(),
+});

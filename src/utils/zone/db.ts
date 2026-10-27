@@ -13,6 +13,7 @@ export type ZoneSummaryRow = {
   status: boolean;
   per_km_shipping_charge: number | null;
   minimum_shipping_charge: number | null;
+  base_distance_km: number | null;
   maximum_shipping_charge: number | null;
   max_cod_order_amount: number | null;
   increased_delivery_fee: number;
@@ -36,6 +37,7 @@ export function formatZoneDataRow(row: ZoneAtPointRow) {
     name: row.name,
     display_name: row.display_name,
     minimum_shipping_charge: row.minimum_shipping_charge,
+    base_distance_km: row.base_distance_km,
     per_km_shipping_charge: row.per_km_shipping_charge,
     maximum_shipping_charge: row.maximum_shipping_charge,
     max_cod_order_amount: row.max_cod_order_amount,
@@ -52,7 +54,7 @@ export async function findZonesContainingPoint(
   return prisma.$queryRaw<ZoneAtPointRow[]>`
     SELECT
       id, name, display_name, status,
-      per_km_shipping_charge, minimum_shipping_charge, maximum_shipping_charge,
+      per_km_shipping_charge, minimum_shipping_charge, base_distance_km, maximum_shipping_charge,
       max_cod_order_amount, increased_delivery_fee, increased_delivery_fee_status,
       increase_delivery_charge_message,
       restaurant_wise_topic, customer_wise_topic, deliveryman_wise_topic,
@@ -88,7 +90,7 @@ export async function listZonesWithGeo(): Promise<ZoneWithGeoJson[]> {
   return prisma.$queryRaw<ZoneWithGeoJson[]>`
     SELECT
       id, name, display_name, status,
-      per_km_shipping_charge, minimum_shipping_charge, maximum_shipping_charge,
+      per_km_shipping_charge, minimum_shipping_charge, base_distance_km, maximum_shipping_charge,
       max_cod_order_amount, increased_delivery_fee, increased_delivery_fee_status,
       increase_delivery_charge_message,
       restaurant_wise_topic, customer_wise_topic, deliveryman_wise_topic,
@@ -103,7 +105,7 @@ export async function getZoneWithGeoById(id: number): Promise<ZoneWithGeoJson | 
   const rows = await prisma.$queryRaw<ZoneWithGeoJson[]>`
     SELECT
       id, name, display_name, status,
-      per_km_shipping_charge, minimum_shipping_charge, maximum_shipping_charge,
+      per_km_shipping_charge, minimum_shipping_charge, base_distance_km, maximum_shipping_charge,
       max_cod_order_amount, increased_delivery_fee, increased_delivery_fee_status,
       increase_delivery_charge_message,
       restaurant_wise_topic, customer_wise_topic, deliveryman_wise_topic,
@@ -135,6 +137,7 @@ export async function insertZone(params: {
   coordinates: LngLatPair[];
   per_km_shipping_charge: number;
   minimum_shipping_charge: number;
+  base_distance_km: number;
   maximum_shipping_charge: number | null;
   max_cod_order_amount: number | null;
   increased_delivery_fee: number;
@@ -147,7 +150,7 @@ export async function insertZone(params: {
   const inserted = await prisma.$queryRaw<{ id: bigint }[]>`
     INSERT INTO zones (
       name, display_name, status, coordinates,
-      per_km_shipping_charge, minimum_shipping_charge, maximum_shipping_charge,
+      per_km_shipping_charge, minimum_shipping_charge, base_distance_km, maximum_shipping_charge,
       max_cod_order_amount, increased_delivery_fee, increased_delivery_fee_status,
       increase_delivery_charge_message, created_at, updated_at
     ) VALUES (
@@ -157,6 +160,7 @@ export async function insertZone(params: {
       ${pgPolygon}::polygon,
       ${params.per_km_shipping_charge},
       ${params.minimum_shipping_charge},
+      ${params.base_distance_km},
       ${params.maximum_shipping_charge},
       ${params.max_cod_order_amount},
       ${params.increased_delivery_fee},

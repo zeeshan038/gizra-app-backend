@@ -1,17 +1,28 @@
 import type { Server } from 'socket.io';
-import { authenticateSocketToken, canAccessOrder } from './auth';
+import { authenticateSocketToken, canAccessConversation, canAccessOrder } from './auth';
 import { ClientEvents, SocketEvents } from '../types/sockets/realtime';
 import type { SocketActor } from '../types/sockets/auth';
 import type {
+  ConversationSubscribeAck,
+  ConversationSubscribePayload,
   OrderSubscribeAck,
   OrderSubscribePayload,
   SessionReadyPayload,
 } from '../types/sockets/realtime';
-import { deliveryManRoom, fcmTopicRoom, orderRoom, restaurantRoom, userRoom } from './rooms';
+import {
+  conversationRoom,
+  deliveryManRoom,
+  fcmTopicRoom,
+  orderRoom,
+  restaurantRoom,
+  userRoom,
+  vendorRoom,
+} from './rooms';
 
 function joinDefaultRooms(socket: { join: (room: string) => void }, actor: SocketActor): void {
   if (actor.role === 'vendor') {
     socket.join(restaurantRoom(actor.restaurantId));
+    socket.join(vendorRoom(actor.vendorId));
   } else if (actor.role === 'customer') {
     socket.join(userRoom(actor.userId));
   } else if (actor.role === 'delivery_man') {
@@ -46,6 +57,7 @@ export function registerSocketHandlers(io: Server): void {
       restaurant_id: actor.role === 'vendor' ? actor.restaurantId : undefined,
       user_id: actor.role === 'customer' ? actor.userId : undefined,
       delivery_man_id: actor.role === 'delivery_man' ? actor.deliveryManId : undefined,
+      is_guest: actor.role === 'customer' ? actor.isGuest === true : undefined,
     };
     socket.emit(SocketEvents.SESSION_READY, sessionReady);
 
@@ -71,6 +83,31 @@ export function registerSocketHandlers(io: Server): void {
       const orderId = Number(payload?.order_id);
       if (Number.isFinite(orderId) && orderId > 0) {
         socket.leave(orderRoom(orderId));
+      }
+    });
+
+    socket.on(
+      ClientEvents.WATCH_CONVERSATION,
+      async (payload: ConversationSubscribePayload, ack?: (res: ConversationSubscribeAck) => void) => {
+        const conversationId = Number(payload?.conversation_id);
+        if (!Number.isFinite(conversationId) || conversationId <= 0) {
+          ack?.({ ok: false, msg: 'Invalid conversation_id' });
+          return;
+        }
+        const allowed = await canAccessConversation(actor, conversationId);
+        if (!allowed) {
+          ack?.({ ok: false, msg: 'Forbidden' });
+          return;
+        }
+        socket.join(conversationRoom(conversationId));
+        ack?.({ ok: true, conversation_id: String(conversationId) });
+      }
+    );
+
+    socket.on(ClientEvents.UNWATCH_CONVERSATION, (payload: ConversationSubscribePayload) => {
+      const conversationId = Number(payload?.conversation_id);
+      if (Number.isFinite(conversationId) && conversationId > 0) {
+        socket.leave(conversationRoom(conversationId));
       }
     });
   });

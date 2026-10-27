@@ -8,13 +8,18 @@ import {
   parseNotificationIdParam,
 } from '../../utils/notifications/inbox';
 import { parseConsumerZoneIds } from '../../utils/notifications/parseConsumerZoneIds';
+import { sendFcmToDevice } from '../../utils/notifications/fcm';
+
+
 
 /**
- * @Description Notifications (admin broadcasts + order pushes), paginated
+ * 
  * @Route GET /api/consumer/notifications
  * @Query limit, offset|page, days (default 15), zone_id
  * @Header zoneId — legacy JSON array of zone ids
  * @Access Private (Consumer)
+ * @param res 
+ * @returns 
  */
 export const getNotifications = async (req: Request, res: Response): Promise<any> => {
   const userId = Number(req.user?.id);
@@ -67,6 +72,7 @@ export const getNotifications = async (req: Request, res: Response): Promise<any
   }
 };
 
+
 /**
  * @Route DELETE /api/consumer/notifications/:id
  * @Access Private (Consumer)
@@ -90,6 +96,30 @@ export const deleteNotification = async (req: Request, res: Response): Promise<a
       return res.status(404).json({ status: false, msg: 'Notification not found' });
     }
     return res.status(200).json({ status: true, msg: 'Notification removed' });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Request failed';
+    return res.status(500).json({ status: false, msg });
+  }
+};
+
+
+
+/** POST or GET /api/consumer/notifications/test — no auth, dev only */
+export const testNotification = async (req: Request, res: Response): Promise<any> => {
+  const raw = req.body?.fcm_token ?? req.query?.fcm_token;
+  const fcm_token = typeof raw === 'string' ? raw.trim() : '';
+  if (!fcm_token) {
+    return res.status(400).json({ status: false, msg: 'fcm_token is required' });
+  }
+
+  try {
+    await sendFcmToDevice(String(fcm_token), {
+      title: 'Test',
+      description: 'Test notification',
+      type: 'test',
+      image: '',
+    });
+    return res.status(200).json({ status: true, msg: 'Notification test successful' });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Request failed';
     return res.status(500).json({ status: false, msg });

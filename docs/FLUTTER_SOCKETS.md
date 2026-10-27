@@ -3,7 +3,8 @@
 **Audience:** Flutter developers (consumer app, vendor POS, delivery driver)  
 **Backend:** `gizra-backend`  
 **Wire contract (TypeScript):** `src/types/sockets/realtime.ts`  
-**Implementation:** `src/sockets/` (`handlers.ts`, `publish.ts`, `auth.ts`, `rooms.ts`)
+**Implementation:** `src/sockets/` (`handlers.ts`, `publish.ts`, `auth.ts`, `rooms.ts`)  
+**In-app chat (REST + sockets + FCM per role):** [FLUTTER_CHAT.md](./FLUTTER_CHAT.md)
 
 ---
 
@@ -79,7 +80,7 @@ IO.Socket connectGizraSocket({
 
 ## 3. Event names (complete list)
 
-There are **four** server → client events and **two** client → server events today.
+There are **five** server → client events and **four** client → server events today.
 
 ### 3.1 Server → client (`.on`)
 
@@ -89,6 +90,7 @@ There are **four** server → client events and **two** client → server events
 | `new_order` | `SocketEvents.NEW_ORDER` | New marketplace order placed (checkout) |
 | `order_request` | `SocketEvents.ORDER_REQUEST` | Unassigned delivery job entered the driver pool (zone FCM topics) |
 | `order_status_changed` | `SocketEvents.ORDER_STATUS_CHANGED` | Order row updated after a status-changing REST call |
+| `chat_message` | `SocketEvents.CHAT_MESSAGE` | New message after `POST …/message/send` (thread + inbox) |
 
 ### 3.2 Client → server (`.emit`)
 
@@ -96,6 +98,8 @@ There are **four** server → client events and **two** client → server events
 |-------|----------------|---------|
 | `watch_order` | `ClientEvents.WATCH_ORDER` | Join room `order:{id}` for one order (use ack) |
 | `unwatch_order` | `ClientEvents.UNWATCH_ORDER` | Leave `order:{id}` (no ack) |
+| `watch_conversation` | `ClientEvents.WATCH_CONVERSATION` | Join `conversation:{id}` for live chat (use ack) |
+| `unwatch_conversation` | `ClientEvents.UNWATCH_CONVERSATION` | Leave `conversation:{id}` (no ack) |
 
 ---
 
@@ -105,8 +109,8 @@ On connect, the server joins one default room per role:
 
 | Role | Room | Receives by default |
 |------|------|---------------------|
-| Vendor | `restaurant:{restaurantId}` | `new_order`, `order_status_changed` for that restaurant |
-| Customer | `user:{userId}` | `order_status_changed` when payload includes your `user_id` |
+| Vendor | `restaurant:{restaurantId}` and `vendor:{vendorId}` | Orders on restaurant room; `chat_message` on vendor room |
+| Customer | `user:{userId}` | `order_status_changed` when payload includes your `user_id`; `chat_message` when you are the receiver |
 | Driver | `delivery_man:{deliveryManId}` plus `topic:{fcmTopic}` from login | `order_request` on zone/vehicle topics; `order_status_changed` when assigned or on pool topic when another driver accepts |
 
 `watch_order` additionally joins `order:{orderId}` so all parties on that order get the same status events.
@@ -310,7 +314,8 @@ Use **`emitWithAck`**. Server responses:
 |--------|------|--------|-----|
 | Login | `POST /api/delivery-man/login` | Connect; subscribe **`data.topic`** | Topic subscription |
 | **Order Request** | **`GET /api/delivery-man/orders/latest`** | Stay connected (no pool event) | Refresh list on notification |
-| Accept / Ignore | **`PUT .../orders/:id/accept`** (ignore = don’t call accept; card disappears for others via their poll) | After accept: `order_status_changed` | — |
+| **Order detail** (tap pool card or active trip) | **`GET /api/delivery-man/orders/:id`** — items, pricing, restaurant/customer, `can_accept`, `user_id` / `vendor_id` for chat | `watch_order` + `order_status_changed` | — |
+| Accept / Ignore | **`PUT .../orders/:id/accept`**; ignore = **`PUT .../orders/:id/status`** with `{ "status": "canceled", "reason": "…" }` while **not** assigned (returns 200, order unchanged) | After accept: `order_status_changed` | — |
 | **Home / active trip** | `GET /api/delivery-man/orders/active` | `watch_order` + `order_status_changed` | Optional |
 | Status (picked up, delivered, …) | **`PUT .../orders/:id/status`** | `order_status_changed` | — |
 | My Orders / History | `GET .../history` | `order_status_changed` for assigned orders | — |
@@ -414,9 +419,9 @@ Base prefix: **`/api`**. Header: **`Authorization: Bearer {jwt}`** unless noted.
 |------|-------|---------------------|------------------|
 | Vendor | `POST /vendor/login` | `GET /vendor/orders`, `GET /vendor/orders/:id` | `PUT /vendor/orders/:id/status` |
 | Consumer | `POST /consumer/login` | Consumer order APIs | (status via vendor/driver) |
-| Driver | `POST /delivery-man/login` | `GET /delivery-man/orders/latest`, `active`, `history` | `PUT /delivery-man/orders/:id/accept`, `PUT .../status` |
+| Driver | `POST /delivery-man/login` | `GET /delivery-man/orders/latest`, **`GET /delivery-man/orders/:id` (detail)**, `active`, `history` | `PUT /delivery-man/orders/:id/accept`, `PUT .../status` |
 
-Swagger: merged driver overlay + main `swagger.json`; run `npm run swagger:gen` locally.
+Swagger (driver app): **`/swagger/driver`** → `swagger-driver.json` — **Delivery Man Orders** → **`GET /delivery-man/orders/{id}`**. Regenerate locally: `npm run swagger:gen`.
 
 ---
 

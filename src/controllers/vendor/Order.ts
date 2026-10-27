@@ -20,14 +20,28 @@ import {
   mapVendorOrderDetail,
   resolveOrderDeliveryAddress,
 } from '../../utils/vendor/order/detailMapper';
+import { listNotifiedDeliveryMenForZone } from '../../utils/admin/orders/assignDeliveryMan';
+import { resolveProcessingTimeFromRequest } from '../../utils/vendor/order/cookingTime';
 import {
   findCustomerForOrder,
   loadCustomersForOrders,
 } from '../../utils/vendor/order/customers';
 import { parseOrderIdParam } from '../../utils/vendor/order/params';
+import {
+  createOrderTransactionIfNeeded,
+  ORDER_SETTLEMENT_TX_OPTIONS,
+  OrderSettlementError,
+} from '../../utils/order/createOrderTransaction';
+import { buildOrderInvoice } from '../../utils/order/invoiceMapper';
+import {
+  buildKitchenNoteText,
+  KITCHEN_NOTE_PRESETS,
+  notifyCustomerKitchenNote,
+} from '../../utils/vendor/order/kitchenNote';
 
 //Schema
 import {
+  kitchenNoteSchema,
   orderListQuerySchema,
   pollOrdersQuerySchema,
   posOrderHistoryQuerySchema,
@@ -278,8 +292,34 @@ export const getOrderDetails = async (req: Request, res: Response): Promise<any>
         logo: true,
         latitude: true,
         longitude: true,
+        zone_id: true,
       },
     });
+
+    const zoneId =
+      restaurant?.zone_id != null
+        ? Number(restaurant.zone_id)
+        : order.zone_id != null
+          ? Number(order.zone_id)
+          : null;
+
+    const [deliveryMan, zone, notified_delivery_men] = await Promise.all([
+      order.delivery_man_id
+        ? prisma.delivery_men.findUnique({
+            where: { id: BigInt(Number(order.delivery_man_id)) },
+            select: { id: true, f_name: true, l_name: true, phone: true, email: true, image: true },
+          })
+        : Promise.resolve(null),
+      zoneId != null
+        ? prisma.zones.findUnique({
+            where: { id: BigInt(zoneId) },
+            select: { name: true },
+          })
+        : Promise.resolve(null),
+      order.is_manual_dispatch && !order.delivery_man_id
+        ? listNotifiedDeliveryMenForZone(zoneId)
+        : Promise.resolve([]),
+    ]);
 
     const deliveryAddress = await resolveOrderDeliveryAddress(order);
     const orderForDetail = deliveryAddress
@@ -288,7 +328,125 @@ export const getOrderDetails = async (req: Request, res: Response): Promise<any>
 
     return res.status(200).json({
       status: true,
-      data: mapVendorOrderDetail(orderForDetail, customer, lineItems, restaurant),
+      data: mapVendorOrderDetail(orderForDetail, customer, lineItems, restaurant, {
+        deliveryMan,
+        notified_delivery_men,
+        zone_name: zone?.name ?? null,
+      }),
+    });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message });
+  }
+};
+
+/**
+ * @Description Order invoice payload for browser/thermal print (legacy PHP generate-invoice). Frontend renders and prints; backend only returns receipt JSON.
+ * @Route GET /api/vendor/orders/:id/invoice
+ * @Access Vendor
+ */
+export const getOrderInvoice = async (req: Request, res: Response): Promise<any> => {
+  const ctx = getVendorContext(req);
+  if (!ctx) {
+    return res.status(403).json({ status: false, msg: 'Restaurant context not found for vendor' });
+  }
+
+  const orderId = parseOrderIdParam(req);
+  if (!orderId) {
+    return res.status(400).json({ status: false, msg: 'Order id required' });
+  }
+
+  try {
+    const order = await prisma.orders.findFirst({
+      where: {
+        id: BigInt(orderId),
+        ...restaurantOrdersBase(ctx.restaurantId),
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ status: false, msg: 'Order not found' });
+    }
+
+    const data = await buildOrderInvoice(order, { restaurantId: ctx.restaurantId });
+    if (!data) {
+      return res.status(404).json({ status: false, msg: 'Invoice not available for this order' });
+    }
+
+    return res.status(200).json({
+      status: true,
+      msg: 'Invoice fetched successfully',
+      data,
+    });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message });
+  }
+};
+
+/**
+ * @Description POS kitchen note — save & notify customer (presets + free text). No schema change; notifies via chat + FCM (legacy Flutter used message/send).
+ * @Route POST /api/vendor/orders/:id/kitchen-note
+ * @Access Vendor
+ * @Body note — full text e.g. "Item out of stock • Running 10 min late"
+ * @Body notes — optional string[] chips; joined with " • " if note omitted
+ */
+export const sendKitchenNote = async (req: Request, res: Response): Promise<any> => {
+  const ctx = getVendorContext(req);
+  if (!ctx) {
+    return res.status(403).json({ status: false, msg: 'Restaurant context not found for vendor' });
+  }
+
+  const validated = kitchenNoteSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(', '),
+    });
+  }
+
+  const note = buildKitchenNoteText(validated.value);
+  if (!note) {
+    return res.status(400).json({ status: false, msg: 'Kitchen note cannot be empty' });
+  }
+
+  const orderId = parseOrderIdParam(req);
+  if (!orderId) {
+    return res.status(400).json({ status: false, msg: 'Order id required' });
+  }
+
+  try {
+    const order = await prisma.orders.findFirst({
+      where: {
+        id: BigInt(orderId),
+        ...restaurantOrdersBase(ctx.restaurantId),
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ status: false, msg: 'Order not found' });
+    }
+
+    const restaurant = await prisma.restaurants.findUnique({
+      where: { id: BigInt(ctx.restaurantId) },
+      select: { name: true },
+    });
+
+    const notify = await notifyCustomerKitchenNote({
+      order,
+      vendorId: ctx.vendorId,
+      restaurantName: restaurant?.name ?? 'Restaurant',
+      note,
+    });
+
+    return res.status(200).json({
+      status: true,
+      msg: 'Kitchen note sent to customer',
+      data: {
+        order_id: order.id.toString(),
+        note,
+        presets: [...KITCHEN_NOTE_PRESETS],
+        chat_sent: notify.chat_sent,
+        push_sent: notify.push_sent,
+      },
     });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });
@@ -332,10 +490,39 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
       return res.status(404).json({ status: false, msg: 'Order not found' });
     }
 
-    if (order.picked_up && status !== 'canceled') {
+    const isManualDispatch = Boolean(order.is_manual_dispatch);
+
+    if (status === 'picked_up' && !isManualDispatch) {
       return res.status(400).json({
         status: false,
-        msg: 'Cannot change status after order was picked up by delivery',
+        msg: 'Out for delivery is updated by the assigned driver for online orders',
+      });
+    }
+
+    if (order.picked_up && status !== 'canceled') {
+      if (!isManualDispatch) {
+        return res.status(400).json({
+          status: false,
+          msg: 'Cannot change status after order was picked up by delivery',
+        });
+      }
+      if (status !== 'delivered') {
+        return res.status(400).json({
+          status: false,
+          msg: 'Manual dispatch orders can only be marked delivered after out for delivery',
+        });
+      }
+    }
+
+    if (
+      status === 'delivered' &&
+      isManualDispatch &&
+      order.order_type === 'delivery' &&
+      order.order_status !== 'picked_up'
+    ) {
+      return res.status(400).json({
+        status: false,
+        msg: 'Mark the order as out for delivery before delivered',
       });
     }
 
@@ -345,21 +532,69 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
       updated_at: now,
     };
 
+    const restaurantZone = await prisma.restaurants.findUnique({
+      where: { id: BigInt(Number(order.restaurant_id)) },
+      select: { zone_id: true },
+    });
+    if (restaurantZone?.zone_id != null) {
+      updateData.zone_id = Number(restaurantZone.zone_id);
+    }
+
     if (status === 'confirmed') updateData.confirmed = now;
     if (status === 'accepted') updateData.accepted = now;
-    if (status === 'processing') updateData.processing = now;
+    if (status === 'processing') {
+      const cookingMinutes = resolveProcessingTimeFromRequest(req.body);
+      if (!cookingMinutes) {
+        return res.status(400).json({
+          status: false,
+          msg:
+            'processing_time is required when starting cooking (minutes until food is ready). Do not use delivery_time as a substitute.',
+        });
+      }
+      updateData.processing = now;
+      updateData.processing_time = cookingMinutes;
+      if (order.confirmed == null) updateData.confirmed = now;
+    }
     if (status === 'handover') updateData.handover = now;
-    if (status === 'delivered') updateData.delivered = now;
+    if (status === 'picked_up') updateData.picked_up = now;
+    if (status === 'delivered') {
+      updateData.delivered = now;
+      updateData.payment_status = 'paid';
+    }
     if (status === 'canceled') {
       updateData.canceled = now;
       updateData.canceled_by = 'restaurant';
       if (cancellation_reason) updateData.cancellation_reason = cancellation_reason;
     }
 
-    const updated = await prisma.orders.update({
-      where: { id: order.id },
-      data: updateData,
-    });
+    const updated = await prisma.$transaction(async (tx) => {
+      if (status === 'delivered') {
+        const isCod = order.payment_method === 'cash_on_delivery';
+        // Match PHP vendor deliver: COD → restaurant cash-in-hand; else admin/digital path.
+        const settled = await createOrderTransactionIfNeeded(
+          tx,
+          order.id,
+          isCod ? 'restaurant' : 'admin'
+        );
+        if (!settled) {
+          throw new OrderSettlementError();
+        }
+      }
+
+      const row = await tx.orders.update({
+        where: { id: order.id },
+        data: updateData,
+      });
+
+      if (status === 'delivered') {
+        await tx.restaurants.update({
+          where: { id: BigInt(Number(row.restaurant_id)) },
+          data: { order_count: { increment: 1 }, updated_at: now },
+        });
+      }
+
+      return row;
+    }, ORDER_SETTLEMENT_TX_OPTIONS);
 
     emitOrderStatusRealtime(updated);
 
@@ -369,10 +604,77 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
       data: mapOrderSummary(updated, null),
     });
   } catch (e: any) {
+    if (e instanceof OrderSettlementError) {
+      return res.status(400).json({ status: false, msg: e.message });
+    }
     return res.status(500).json({ status: false, msg: e.message });
   }
 };
 
+/**
+ * @Description Update cooking duration while order is in kitchen (resets timer from now)
+ * @Route PUT /api/vendor/orders/:id/cooking-time
+ * @Access Vendor
+ */
+export const updateOrderCookingTime = async (req: Request, res: Response): Promise<any> => {
+  const ctx = getVendorContext(req);
+  if (!ctx) {
+    return res.status(403).json({ status: false, msg: 'Restaurant context not found for vendor' });
+  }
+
+  const orderId = parseOrderIdParam(req);
+  if (!orderId) {
+    return res.status(400).json({ status: false, msg: 'Order id required' });
+  }
+
+  const cookingMinutes = resolveProcessingTimeFromRequest(req.body);
+  if (!cookingMinutes) {
+    return res.status(400).json({
+      status: false,
+      msg: 'processing_time (minutes) is required',
+    });
+  }
+
+  try {
+    const order = await prisma.orders.findFirst({
+      where: {
+        id: BigInt(orderId),
+        ...restaurantOrdersBase(ctx.restaurantId),
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ status: false, msg: 'Order not found' });
+    }
+
+    if (order.order_status !== 'processing') {
+      return res.status(400).json({
+        status: false,
+        msg: 'Cooking time can only be updated while order status is processing',
+      });
+    }
+
+    const now = new Date();
+    const updated = await prisma.orders.update({
+      where: { id: order.id },
+      data: {
+        processing_time: cookingMinutes,
+        processing: now,
+        updated_at: now,
+      },
+    });
+
+    emitOrderStatusRealtime(updated);
+
+    return res.status(200).json({
+      status: true,
+      msg: 'Cooking time updated',
+      data: mapOrderSummary(updated, null),
+    });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message });
+  }
+};
 
 /**
  * @Description Order history api for POS app

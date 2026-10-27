@@ -1,11 +1,14 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../config/database';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { verifyPassword } from '../../utils/passwordHash';
 import {
   dmChangePasswordSchema,
   dmForgotPasswordSchema,
   dmLoginSchema,
+  dmLoginSendOtpSchema,
+  dmLoginVerifyOtpSchema,
   dmRegisterSchema,
   dmResetPasswordSchema,
   dmVerifyPasswordOtpSchema,
@@ -28,10 +31,21 @@ import {
   verifyResetToken,
 } from '../../utils/consumer/passwordResetDb';
 import { generateDmResetOtp, maskPhoneForClient } from '../../utils/deliveryman/authHelpers';
+import {
+  deleteLoginOtp,
+  findLoginOtp,
+  secondsUntilOtpResend as loginOtpResendSeconds,
+  upsertLoginOtp,
+  verifyLoginOtpToken,
+} from '../../utils/partner/loginOtpDb';
 import { maskEmailForClient, sendConsumerOtpEmail } from '../../utils/consumer/sendConsumerOtpEmail';
 import { sendConsumerOtpSms } from '../../utils/consumer/sendConsumerOtpSms';
+import {
+  exposeOtpInApiResponse,
+  otpTestingFields,
+  treatOtpDeliveryAsSuccess,
+} from '../../utils/otp/otpTestingResponse';
 
-const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_here';
 
 type ResetIdentityBody = {
@@ -40,7 +54,7 @@ type ResetIdentityBody = {
   phone?: string;
 };
 
-function requireDeliveryManId(req: Request, res: Response): number | null {
+export function requireDeliveryManId(req: Request, res: Response): number | null {
   const dmId = Number(req.user?.id);
   if (!dmId) {
     res.status(401).json({ status: false, msg: 'Unauthorized' });
@@ -68,7 +82,7 @@ async function findDriverByResetIdentity(channel: PasswordResetChannel, value: s
   return prisma.delivery_men.findFirst({ where: { phone: value } });
 }
 
-function formatDeliveryManPublic(dm: Record<string, unknown>) {
+export function formatDeliveryManPublic(dm: Record<string, unknown>) {
   const { password, auth_token, ...rest } = dm;
   void password;
   void auth_token;
@@ -96,7 +110,7 @@ function formatDeliveryManPublic(dm: Record<string, unknown>) {
  * @Route POST /api/delivery-man/register
  * @Access Public
  * @Body Step 1: f_name, l_name, phone, email, password, confirm_password, image (portrait upload path)
- * @Body Step 2: zone_id (city), delivery_type|earning, identity_type, identity_number, identity_image (1–2 ID doc paths)
+ * @Body Step 2: zone_id (city from GET /delivery-man/zones), delivery_type|earning, identity_type, identity_number, identity_image (1–2 ID doc paths)
  * @Body Media: POST /storage/registration-init { role: deliveryman } → POST /upload → cloudflare_id + paths
  */
 export const register = async (req: Request, res: Response): Promise<any> => {
@@ -138,6 +152,17 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       return res.status(400).json({
         status: false,
         msg: 'Phone or email already exists.',
+      });
+    }
+
+    const zone = await prisma.zones.findFirst({
+      where: { id: BigInt(data.zone_id), status: true },
+      select: { id: true },
+    });
+    if (!zone) {
+      return res.status(400).json({
+        status: false,
+        msg: 'Invalid or inactive zone. Please select a city from the list.',
       });
     }
 
@@ -195,6 +220,53 @@ export const register = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
+type DeliveryManRecord = NonNullable<Awaited<ReturnType<typeof prisma.delivery_men.findUnique>>>;
+
+function deliveryManLoginBlockReason(driver: DeliveryManRecord): string | null {
+  if (driver.application_status !== 'approved') {
+    return 'Your application is not approved yet';
+  }
+  if (!driver.status) {
+    return 'Your account has been suspended';
+  }
+  return null;
+}
+
+async function issueDeliveryManLoginSession(driver: DeliveryManRecord, res: Response): Promise<any> {
+  const blockReason = deliveryManLoginBlockReason(driver);
+  if (blockReason) {
+    return res.status(401).json({ status: false, msg: blockReason });
+  }
+
+  const token = jwt.sign(
+    { id: driver.id.toString(), phone: driver.phone, role: 'delivery_man' },
+    JWT_SECRET,
+    { expiresIn: '30d' }
+  );
+
+  await prisma.delivery_men.update({
+    where: { id: driver.id },
+    data: { auth_token: token } as any,
+  });
+
+  const fcmTopics = await getDeliveryManFcmTopics(driver);
+  const topic = fcmTopics[0] ?? 'No_topic_found';
+
+  return res.status(200).json({
+    status: true,
+    msg: 'Login success',
+    data: {
+      token,
+      topic,
+      topics: fcmTopics,
+      id: driver.id.toString(),
+      f_name: driver.f_name,
+      l_name: driver.l_name,
+      phone: driver.phone,
+    },
+  });
+}
+
 /**
  * @Description Login Delivery Man (Figma: phone + password)
  * @Route POST /api/delivery-man/login
@@ -224,7 +296,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    const isPasswordValid = await bcrypt.compare(payload.password, driver.password);
+    const isPasswordValid = await verifyPassword(payload.password, driver.password);
     if (!isPasswordValid) {
       return res.status(401).json({
         status: false,
@@ -232,51 +304,113 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       });
     }
 
-    if (driver.application_status !== 'approved') {
-      return res.status(401).json({
-        status: false,
-        msg: 'Your application is not approved yet',
-      });
-    }
-
-    if (!driver.status) {
-      return res.status(401).json({
-        status: false,
-        msg: 'Your account has been suspended',
-      });
-    }
-
-    const token = jwt.sign(
-      { id: driver.id.toString(), phone: driver.phone, role: 'delivery_man' },
-      JWT_SECRET,
-      { expiresIn: '30d' }
-    );
-
-    await prisma.delivery_men.update({
-      where: { id: driver.id },
-      data: { auth_token: token } as any,
-    });
-
-    const fcmTopics = await getDeliveryManFcmTopics(driver);
-    const topic = fcmTopics[0] ?? 'No_topic_found';
-
-    return res.status(200).json({
-      status: true,
-      msg: 'Login success',
-      data: {
-        token,
-        topic,
-        id: driver.id.toString(),
-        f_name: driver.f_name,
-        l_name: driver.l_name,
-        phone: driver.phone,
-      },
-    });
+    return issueDeliveryManLoginSession(driver, res);
   } catch (error: any) {
     return res.status(500).json({
       status: false,
       msg: error.message,
     });
+  }
+};
+
+/**
+ * @Description Send login OTP (driver app — phone sign-in)
+ * @Route POST /api/delivery-man/login/send-otp
+ * @Access Public
+ */
+export const sendLoginOtp = async (req: Request, res: Response): Promise<any> => {
+  const validated = dmLoginSendOtpSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(','),
+    });
+  }
+
+  const phone = String(validated.value.phone).trim();
+
+  try {
+    const driver = await prisma.delivery_men.findUnique({ where: { phone } });
+    if (!driver) {
+      return res.status(401).json({
+        status: false,
+        msg: 'Credential do not match, please try again.',
+      });
+    }
+
+    const blockReason = deliveryManLoginBlockReason(driver);
+    if (blockReason) {
+      return res.status(401).json({ status: false, msg: blockReason });
+    }
+
+    const existing = await findLoginOtp(phone, 'login_deliveryman');
+    const waitSec = loginOtpResendSeconds(existing?.created_at ?? null);
+    if (waitSec > 0) {
+      return res.status(405).json({
+        status: false,
+        msg: `Please try again after ${waitSec} seconds`,
+        data: { resend_after_seconds: waitSec },
+      });
+    }
+
+    const otp = generateDmResetOtp();
+    await upsertLoginOtp(phone, 'login_deliveryman', otp);
+
+    try {
+      await sendConsumerOtpSms(phone, otp);
+    } catch {
+      // SMS optional while OTP is returned in the response for development.
+    }
+
+    return res.status(200).json({
+      status: true,
+      msg: 'OTP successfully sent',
+      data: {
+        phone_mask: maskPhoneForClient(phone),
+        otp,
+        resend_after_seconds: 60,
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({ status: false, msg: error.message });
+  }
+};
+
+/**
+ * @Description Verify login OTP and issue JWT (driver app)
+ * @Route POST /api/delivery-man/login/verify-otp
+ * @Access Public
+ */
+export const verifyLoginOtp = async (req: Request, res: Response): Promise<any> => {
+  const validated = dmLoginVerifyOtpSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(','),
+    });
+  }
+
+  const { phone: rawPhone, otp } = validated.value as { phone: string; otp: string };
+  const phone = rawPhone.trim();
+
+  try {
+    const driver = await prisma.delivery_men.findUnique({ where: { phone } });
+    if (!driver) {
+      return res.status(401).json({
+        status: false,
+        msg: 'Credential do not match, please try again.',
+      });
+    }
+
+    const valid = await verifyLoginOtpToken(phone, 'login_deliveryman', otp);
+    if (!valid) {
+      return res.status(400).json({ status: false, msg: 'Invalid OTP' });
+    }
+
+    await deleteLoginOtp(phone, 'login_deliveryman');
+    return issueDeliveryManLoginSession(driver, res);
+  } catch (error: any) {
+    return res.status(500).json({ status: false, msg: error.message });
   }
 };
 
@@ -311,7 +445,7 @@ export const changePassword = async (req: Request, res: Response): Promise<any> 
       return res.status(400).json({ status: false, msg: 'Password login is not set for this account' });
     }
 
-    const matches = await bcrypt.compare(current_password, driver.password);
+    const matches = await verifyPassword(current_password, driver.password);
     if (!matches) {
       return res.status(403).json({ status: false, msg: 'Current password is incorrect' });
     }
@@ -381,18 +515,21 @@ export const forgotPassword = async (req: Request, res: Response): Promise<any> 
       }
     }
 
-    if (!smsSent && !emailSent && process.env.APP_MODE !== 'test') {
+    if (!treatOtpDeliveryAsSuccess(smsSent || emailSent)) {
       return res.status(405).json({ status: false, msg: 'Failed to send OTP' });
     }
 
     return res.status(200).json({
       status: true,
-      msg: 'OTP successfully sent',
+      msg: exposeOtpInApiResponse()
+        ? 'OTP generated (testing — see data.otp)'
+        : 'OTP successfully sent',
       data: {
         field_type: 'phone',
         phone_mask: maskPhoneForClient(phone),
         email_mask: driver.email ? maskEmailForClient(driver.email) : null,
         resend_after_seconds: 60,
+        ...otpTestingFields(token),
       },
     });
   } catch (error: any) {

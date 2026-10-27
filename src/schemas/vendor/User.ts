@@ -1,8 +1,29 @@
 import Joi from 'joi';
 
 export const vendorLoginSchema = Joi.object({
-  email: Joi.string().email().required(),
+  // Allow demo seeds like vendor@gizra.test (Joi default TLD list excludes .test).
+  email: Joi.string().email({ tlds: { allow: false } }).required(),
   password: Joi.string().min(6).required(),
+});
+
+export const vendorLoginSendOtpSchema = Joi.object({
+  phone: Joi.string().trim().min(9).required().messages({
+    'string.empty': 'Phone is required',
+    'string.min': 'Phone is required',
+  }),
+});
+
+export const vendorLoginVerifyOtpSchema = Joi.object({
+  phone: Joi.string().trim().min(9).required().messages({
+    'string.empty': 'Phone is required',
+    'string.min': 'Phone is required',
+  }),
+  otp: Joi.string()
+    .pattern(/^\d{4,6}$/)
+    .required()
+    .messages({
+      'string.pattern.base': 'OTP must be 4–6 digits',
+    }),
 });
 
 export const vendorRegisterSchema = Joi.object({

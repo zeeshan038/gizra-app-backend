@@ -19,6 +19,7 @@ export type ProfileUserRow = Pick<
   | 'current_language_key'
   | 'created_at'
   | 'order_count'
+  | 'is_notification_on'
 >;
 
 export type ProfileUserInfoRow = Pick<

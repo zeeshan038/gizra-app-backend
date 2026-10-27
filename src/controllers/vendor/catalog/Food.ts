@@ -1,8 +1,13 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../../../config/database';
 import { createFoodSchema } from '../../../schemas/vendor/Catalog';
-
-const prisma = new PrismaClient();
+import {
+    buildAddonLookupFromFoodRows,
+    expandAddOnsFromStored,
+    loadAddonLookup,
+    resolveAddOnIdsForSave,
+} from '../../../utils/vendor/catalog/foodAddonHelpers';
+import { publicFoodMediaUrl } from '../../../utils/mediaStorage';
 
 async function getVendorRestaurant(req: Request) {
     return prisma.restaurants.findFirst({
@@ -19,10 +24,24 @@ function serializeFood(food: Record<string, unknown>) {
             variations = [];
         }
     }
+    const imageStored =
+        typeof food.image === 'string' ? food.image : food.image != null ? String(food.image) : null;
     return {
         ...food,
         id: String(food.id),
         variations,
+        image_full_url: publicFoodMediaUrl(imageStored),
+    };
+}
+
+function serializeFoodWithAddons(
+    food: Record<string, unknown>,
+    addonLookup: Map<number, { id: number; name: string; price: number; status: boolean }>
+) {
+    const base = serializeFood(food);
+    return {
+        ...base,
+        add_ons: expandAddOnsFromStored(food.add_ons, addonLookup),
     };
 }
 
@@ -55,6 +74,11 @@ export const createFood = async (req: Request, res: Response): Promise<any> => {
     }
 
     try {
+        const addonIds = await resolveAddOnIdsForSave(
+            payload.restaurant_id,
+            payload.add_ons
+        );
+
         const food = await prisma.food.create({
             data: {
                 name: payload.name,
@@ -64,7 +88,7 @@ export const createFood = async (req: Request, res: Response): Promise<any> => {
                 price: payload.price,
                 restaurant_id: payload.restaurant_id,
                 variations: JSON.stringify(payload.variations),
-                add_ons: JSON.stringify(payload.add_ons),
+                add_ons: JSON.stringify(addonIds),
                 status: payload.status !== undefined ? payload.status : true,
                 is_draft:
                     payload.is_draft !== undefined && payload.is_draft !== null
@@ -73,11 +97,13 @@ export const createFood = async (req: Request, res: Response): Promise<any> => {
                 veg: false
             }
         });
+
+        const addonLookup = await loadAddonLookup(addonIds);
         
         return res.status(201).json({ 
             status: true, 
             msg: 'Food item created successfully', 
-            data: { ...food, id: food.id.toString() } 
+            data: serializeFoodWithAddons(food as Record<string, unknown>, addonLookup),
         });
     } catch (e: any) {
         return res.status(500).json({ status: false, msg: e.message });
@@ -94,6 +120,11 @@ export const updateFood = async (req: Request, res: Response): Promise<any> => {
     const payload = req.body;
 
     try {
+        const existing = await prisma.food.findUnique({ where: { id: Number(id) } });
+        if (!existing) {
+            return res.status(404).json({ status: false, msg: 'Food item not found' });
+        }
+
         const dataToUpdate: any = {};
         if (payload.name !== undefined) dataToUpdate.name = payload.name;
         if (payload.description !== undefined) dataToUpdate.description = payload.description;
@@ -101,7 +132,13 @@ export const updateFood = async (req: Request, res: Response): Promise<any> => {
         if (payload.category_id !== undefined) dataToUpdate.category_id = payload.category_id;
         if (payload.price !== undefined) dataToUpdate.price = payload.price;
         if (payload.variations !== undefined) dataToUpdate.variations = JSON.stringify(payload.variations);
-        if (payload.add_ons !== undefined) dataToUpdate.add_ons = JSON.stringify(payload.add_ons);
+        if (payload.add_ons !== undefined) {
+            const addonIds = await resolveAddOnIdsForSave(
+                Number(existing.restaurant_id),
+                payload.add_ons
+            );
+            dataToUpdate.add_ons = JSON.stringify(addonIds);
+        }
         if (payload.status !== undefined) dataToUpdate.status = payload.status;
         if (payload.is_draft !== undefined) dataToUpdate.is_draft = payload.is_draft;
 
@@ -109,8 +146,14 @@ export const updateFood = async (req: Request, res: Response): Promise<any> => {
             where: { id: Number(id) },
             data: dataToUpdate
         });
+
+        const addonLookup = await buildAddonLookupFromFoodRows([food]);
         
-        return res.status(200).json({ status: true, msg: 'Food item updated successfully', data: food });
+        return res.status(200).json({
+            status: true,
+            msg: 'Food item updated successfully',
+            data: serializeFoodWithAddons(food as Record<string, unknown>, addonLookup),
+        });
     } catch (error: any) {
         return res.status(500).json({ status: false, msg: error.message });
     }
@@ -154,9 +197,13 @@ export const getFoods = async (req: Request, res: Response): Promise<any> => {
             orderBy: { id: 'desc' },
         });
 
+        const addonLookup = await buildAddonLookupFromFoodRows(foods);
+
         return res.status(200).json({
             status: true,
-            data: foods.map((food) => serializeFood(food as Record<string, unknown>)),
+            data: foods.map((food) =>
+                serializeFoodWithAddons(food as Record<string, unknown>, addonLookup)
+            ),
             pagination: {
                 total,
                 page,

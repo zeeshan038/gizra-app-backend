@@ -9,6 +9,8 @@ export type FcmPushData = {
   type: string;
   order_type?: string;
   order_status?: string;
+  processing_time?: string;
+  cooking_time_minutes?: string;
 };
 
 function buildStringData(data: FcmPushData): Record<string, string> {
@@ -21,6 +23,8 @@ function buildStringData(data: FcmPushData): Record<string, string> {
       order_type: data.order_type,
       order_status: data.order_status,
       image: data.image,
+      processing_time: data.processing_time,
+      cooking_time_minutes: data.cooking_time_minutes,
     })
       .filter(([, v]) => v != null && v !== '')
       .map(([k, v]) => [k, String(v)])
@@ -46,8 +50,17 @@ async function sendViaFirebaseAdmin(
       apns: { payload: { aps: { sound: 'notification.wav' } } },
     });
     return true;
-  } catch (error) {
+  } catch (error: unknown) {
+    const code =
+      error && typeof error === 'object' && 'code' in error
+        ? String((error as { code?: string }).code)
+        : '';
     console.error('[notify] Firebase Admin send failed', error);
+    if (code.includes('registration-token-not-registered') || code.includes('invalid-argument')) {
+      console.warn(
+        '[notify] FCM token invalid or expired — vendor must re-open POS and call PUT /api/vendor/fcm-token'
+      );
+    }
     return false;
   }
 }

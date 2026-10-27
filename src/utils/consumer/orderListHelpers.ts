@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { notPosWhere } from '../vendor/order/query';
+import { publicFoodMediaUrl, publicMediaUrl, publicRestaurantMediaUrl } from '../mediaStorage';
+import { customerOrderStatusLabel } from './customerOrderTracking';
 
 /** Past orders tab (PHP `get_order_list`). */
 export const HISTORY_ORDER_STATUSES = [
@@ -20,7 +22,10 @@ export function resolveConsumerOrderUser(
   guestIdFromQuery?: number
 ): { userId: number; isGuest: boolean } | null {
   if (req.user?.id) {
-    return { userId: Number(req.user.id), isGuest: false };
+    return {
+      userId: Number(req.user.id),
+      isGuest: req.user.isGuest === true || req.user.role === 'guest',
+    };
   }
   if (guestIdFromQuery != null && Number.isFinite(guestIdFromQuery)) {
     return { userId: guestIdFromQuery, isGuest: true };
@@ -71,23 +76,15 @@ export function paginationSkip(limit: number, page: number): number {
   return (safePage - 1) * limit;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Pending',
-  confirmed: 'Confirmed',
-  accepted: 'Accepted',
-  processing: 'Processing',
-  handover: 'Handover',
-  picked_up: 'On the way',
-  delivered: 'Completed',
-  canceled: 'Canceled',
+const EXTRA_STATUS_LABELS: Record<string, string> = {
   refund_requested: 'Refund requested',
   refund_request_canceled: 'Refund canceled',
   refunded: 'Refunded',
-  failed: 'Failed',
 };
 
 export function orderStatusLabel(status: string): string {
-  return STATUS_LABELS[status] ?? status.replace(/_/g, ' ');
+  if (EXTRA_STATUS_LABELS[status]) return EXTRA_STATUS_LABELS[status];
+  return customerOrderStatusLabel(status);
 }
 
 function formatOrderDateTime(createdAt: Date | null | undefined): {
@@ -149,14 +146,19 @@ export function formatConsumerOrderListItem(
   const { order_date, order_time } = formatOrderDateTime(order.created_at);
   const id = order.id.toString();
 
+  const restaurantLogoUrl =
+    publicRestaurantMediaUrl(restaurant?.logo, 'logo') ??
+    publicRestaurantMediaUrl('default_logo.png', 'logo');
+  const thumbUrl = thumbImage ? publicFoodMediaUrl(thumbImage) : null;
+
   return {
     id,
     order_id: id,
     order_number: id,
     restaurant_id: order.restaurant_id != null ? String(order.restaurant_id) : null,
     restaurant_name: restaurant?.name ?? 'Unknown',
-    restaurant_logo: restaurant?.logo ?? 'default_logo.png',
-    image: thumbImage ?? restaurant?.logo ?? 'default_logo.png',
+    restaurant_logo: restaurantLogoUrl,
+    image: thumbUrl ?? restaurantLogoUrl,
     order_amount: Number(order.order_amount) || 0,
     order_status: order.order_status,
     status_label: orderStatusLabel(order.order_status),
@@ -204,4 +206,88 @@ export async function applyOrderListSearchFilter(
   }
 
   return { AND: [where, { OR: ors }] };
+}
+
+export function parseOrderIdParam(value: string | number): bigint | null {
+  const n = typeof value === 'string' ? Number(value) : value;
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return BigInt(n);
+}
+
+export function parseDeliveryAddressJson(
+  raw: string | null | undefined
+): Record<string, unknown> | null {
+  if (!raw?.trim()) return null;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function normalizePhoneDigits(phone: string): string {
+  return phone.replace(/\D/g, '');
+}
+
+/** Guest track: delivery_address.contact_person_number must match request contact_number. */
+export function guestContactMatchesOrder(
+  deliveryAddress: string | null | undefined,
+  contactNumber: string
+): boolean {
+  const addr = parseDeliveryAddressJson(deliveryAddress);
+  const stored = addr?.contact_person_number;
+  if (typeof stored !== 'string' || !stored.trim()) return false;
+  const a = normalizePhoneDigits(stored);
+  const b = normalizePhoneDigits(contactNumber);
+  return a.length > 0 && a === b;
+}
+
+export const CUSTOMER_CANCELABLE_STATUSES = ['pending', 'failed', 'canceled'] as const;
+
+type TrackRestaurantRow = {
+  id: bigint;
+  name: string;
+  logo: string | null;
+  phone: string | null;
+  address: string | null;
+  latitude: unknown;
+  longitude: unknown;
+};
+
+type TrackDeliveryManRow = {
+  id: bigint;
+  f_name: string | null;
+  l_name: string | null;
+  phone: string;
+  email: string | null;
+  image: string | null;
+};
+
+export function formatTrackRestaurant(restaurant: TrackRestaurantRow | null | undefined) {
+  if (!restaurant) return null;
+  const logoUrl = publicRestaurantMediaUrl(restaurant.logo, 'logo');
+  return {
+    id: restaurant.id.toString(),
+    name: restaurant.name,
+    logo: logoUrl,
+    logo_url: logoUrl,
+    phone: restaurant.phone,
+    address: restaurant.address,
+    latitude: restaurant.latitude != null ? Number(restaurant.latitude) : null,
+    longitude: restaurant.longitude != null ? Number(restaurant.longitude) : null,
+  };
+}
+
+export function formatTrackDeliveryMan(dm: TrackDeliveryManRow | null | undefined) {
+  if (!dm) return null;
+  return {
+    id: dm.id.toString(),
+    f_name: dm.f_name,
+    l_name: dm.l_name,
+    phone: dm.phone,
+    email: dm.email,
+    image: dm.image,
+    image_url: publicMediaUrl(dm.image),
+  };
 }

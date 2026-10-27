@@ -6,17 +6,34 @@ services:
     env_file:
       - .env
     ports:
-      - "3002:3000"   # 3001 may be in use by other local containers
+      # nginx on host → 127.0.0.1:3002 only (not public)
+      - "127.0.0.1:3002:3000"
     environment:
       - PORT=3000
-      # Loaded from project .env (Compose substitutes ${DATABASE_URL}). Host MUST be `postgres`, port 5432 — not localhost.
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - NODE_ENV=production
+      # Overrides DATABASE_URL from .env (167.x is for host tools only). Password + postgres:5432 from prepare-compose-env.js
+      - GIZRA_DATABASE_URL_INTERNAL=${GIZRA_DATABASE_URL_INTERNAL:?Run npm run deploy:server}
+      - DATABASE_URL=${GIZRA_DATABASE_URL_INTERNAL}
+      - REDIS_URL=redis://redis:6379
       - JWT_SECRET=${JWT_SECRET:-your_jwt_secret_here}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3000/api/health/db',(r)=>{let b='';r.on('data',()=>{});r.on('end',()=>process.exit(r.statusCode===200?0:1));}).on('error',()=>process.exit(1));",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   postgres:
     image: postgis/postgis:16-3.4
@@ -24,24 +41,21 @@ services:
     restart: always
     environment:
       POSTGRES_USER: postgres
-      # Only applied on first volume init; existing pgdata keeps the original password.
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mysecretpassword}
+      # First volume init only; live password synced from DATABASE_URL via deploy (ensure-postgres-password)
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run node scripts/prepare-compose-env.js — password comes from DATABASE_URL}
       POSTGRES_DB: gizra_db
     ports:
-      - "5434:5432"   # host tools: localhost:5434
+      # Never 0.0.0.0 — use SSH tunnel (scripts/mac-db-tunnel.sh) for remote admin
+      - "127.0.0.1:5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./docker/postgis-init.sql:/docker-entrypoint-initdb.d/01-postgis.sql:ro
-
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: gizra-cloudflared
-    restart: always
-    command: tunnel run
-    environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
-    depends_on:
-      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d gizra_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
 
   redis:
     image: redis:7
@@ -49,7 +63,7 @@ services:
     restart: always
     command: redis-server --appendonly yes
     ports:
-      - "6380:6379"   # 6379 may be in use by other local containers
+      - "127.0.0.1:6380:6379"
     volumes:
       - redisdata:/data
 

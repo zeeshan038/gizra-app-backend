@@ -1,32 +1,86 @@
 //NPM Packages
 import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
+
+/** Login/session only — avoids 503 when prod DB is missing optional columns (e.g. is_notification_on). */
+const CONSUMER_LOGIN_USER_SELECT = {
+  id: true,
+  f_name: true,
+  l_name: true,
+  email: true,
+  phone: true,
+  password: true,
+  status: true,
+  is_phone_verified: true,
+  ref_code: true,
+} as const;
+
+type ConsumerLoginUser = Prisma.usersGetPayload<{ select: typeof CONSUMER_LOGIN_USER_SELECT }>;
 import { safeApiErrorMessage } from '../../utils/safeApiError';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { verifyPassword } from '../../utils/passwordHash';
 
 //Schema
 import {
   consumerApplyDeliveryManSchema,
   consumerApplyRestaurantSchema,
+  consumerGoogleSignInSchema,
   consumerLoginSchema,
+  consumerLoginSendOtpSchema,
+  consumerLoginVerifyOtpSchema,
   consumerRegisterSchema,
 } from '../../schemas/consumer/User';
+import { generateResetOtp } from '../../utils/consumer/passwordResetDb';
+import { sendConsumerOtpSms } from '../../utils/consumer/sendConsumerOtpSms';
+import { maskPhoneForClient } from '../../utils/deliveryman/authHelpers';
+import {
+  deleteLoginOtp,
+  findLoginOtp,
+  secondsUntilOtpResend as loginOtpResendSeconds,
+  upsertLoginOtp,
+  verifyLoginOtpToken,
+} from '../../utils/partner/loginOtpDb';
+import {
+  isGoogleAccessTokenFlag,
+  processConsumerSocialLogin,
+  verifyGoogleToken,
+} from '../../utils/consumer/socialLogin';
 import { parseZoneIdsFromRequest } from '../../utils/consumer/favouriteHelpers';
 import { verifyResetToken } from '../../utils/consumer/passwordResetDb';
 import { provisionAccountStorage } from '../../utils/accountStorage';
 import { normalizeStoredMedia } from '../../utils/mediaStorage';
+import { issueGuestJwt } from '../../utils/consumer/guestAuth';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_here';
+
+async function verifyStoredPassword(plain: string, stored: string | null | undefined): Promise<boolean> {
+  return verifyPassword(plain, stored);
+}
+
+function manualLoginUserWhere(field_type: string, email_or_phone: string) {
+  const raw = String(email_or_phone).trim();
+  if (field_type === 'email') {
+    return { email: { equals: raw, mode: 'insensitive' as const } };
+  }
+  return { phone: raw };
+}
 
 // Helper to generate unique referral code
 const generateReferralCode = async (f_name: string, id: number): Promise<string> => {
     let code = `${f_name.substring(0, 3).toUpperCase()}${crypto.randomBytes(2).toString('hex').toUpperCase()}${id}`;
-    let exists = await prisma.users.findFirst({ where: { ref_code: code } });
+    let exists = await prisma.users.findFirst({
+      where: { ref_code: code },
+      select: { id: true },
+    });
     while (exists) {
         code = `${f_name.substring(0, 3).toUpperCase()}${crypto.randomBytes(2).toString('hex').toUpperCase()}${id}`;
-        exists = await prisma.users.findFirst({ where: { ref_code: code } });
+        exists = await prisma.users.findFirst({
+          where: { ref_code: code },
+          select: { id: true },
+        });
     }
     return code;
 };
@@ -115,64 +169,254 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     }
 };
 
-/**
- * Helper to check and merge guest cart to user cart
- */
-const checkGuestCart = async (userId: number, guestId: number) => {
-    if (!guestId || !userId) return;
+function cartUserId(value: number): Prisma.Decimal {
+  return new Prisma.Decimal(String(value));
+}
 
-    // Get all guest cart items
+/**
+ * Merge guest cart (guests.id → carts.user_id + is_guest) into the logged-in customer.
+ * Never throws — login must succeed even if merge fails.
+ */
+const checkGuestCart = async (userId: number, guestId: number): Promise<void> => {
+  if (!guestId || !userId || guestId === userId) return;
+
+  try {
+    const guestUserId = cartUserId(guestId);
+    const customerUserId = cartUserId(userId);
+
     const guestCartItems = await prisma.carts.findMany({
-        where: { user_id: guestId }
+      where: { user_id: guestUserId, is_guest: true },
     });
 
     if (guestCartItems.length === 0) return;
 
-    const itemIds = guestCartItems.map(c => Number(c.item_id));
+    const itemIds = guestCartItems
+      .map((c) => Number(c.item_id))
+      .filter((id) => Number.isFinite(id));
 
-    // Get the corresponding food items to find the restaurant_ids
-    const foodItems = await prisma.food.findMany({
-        where: { id: { in: itemIds.map(id => BigInt(id)) } },
-        select: { id: true, restaurant_id: true }
-    });
+    if (itemIds.length > 0) {
+      const foodItems = await prisma.food.findMany({
+        where: { id: { in: itemIds.map((id) => BigInt(id)) } },
+        select: { id: true, restaurant_id: true },
+      });
 
-    const guestStoreIds = foodItems.map(f => Number(f.restaurant_id)).filter(id => !isNaN(id));
+      const guestStoreIds = [
+        ...new Set(
+          foodItems
+            .map((f) => (f.restaurant_id != null ? Number(f.restaurant_id) : NaN))
+            .filter((id) => Number.isFinite(id))
+        ),
+      ];
 
-    if (guestStoreIds.length > 0) {
-        // Delete user's existing cart items from these restaurants to avoid collision
-        // We have to find carts matching the user and those store IDs
-        // Since carts don't have a direct relation in Prisma, we do it in two steps:
+      if (guestStoreIds.length > 0) {
         const userCarts = await prisma.carts.findMany({
-            where: { user_id: userId }
+          where: { user_id: customerUserId, is_guest: false },
         });
-        
-        const userCartItemIds = userCarts.map(c => Number(c.item_id));
-        
-        const userFoods = await prisma.food.findMany({
+
+        const userCartItemIds = userCarts
+          .map((c) => Number(c.item_id))
+          .filter((id) => Number.isFinite(id));
+
+        if (userCartItemIds.length > 0) {
+          const userFoods = await prisma.food.findMany({
             where: {
-                id: { in: userCartItemIds.map(id => BigInt(id)) },
-                restaurant_id: { in: guestStoreIds }
+              id: { in: userCartItemIds.map((id) => BigInt(id)) },
+              restaurant_id: { in: guestStoreIds.map((id) => new Prisma.Decimal(String(id))) },
             },
-            select: { id: true }
-        });
+            select: { id: true },
+          });
 
-        const foodIdsToDelete = userFoods.map(f => Number(f.id));
+          const foodIdsToDelete = userFoods.map((f) => cartUserId(Number(f.id)));
 
-        if (foodIdsToDelete.length > 0) {
+          if (foodIdsToDelete.length > 0) {
             await prisma.carts.deleteMany({
-                where: {
-                    user_id: userId,
-                    item_id: { in: foodIdsToDelete }
-                }
+              where: {
+                user_id: customerUserId,
+                is_guest: false,
+                item_id: { in: foodIdsToDelete },
+              },
             });
+          }
         }
-
-        // Update guest cart to belong to the logged-in user
-        await prisma.carts.updateMany({
-            where: { user_id: guestId },
-            data: { user_id: userId, is_guest: false }
-        });
+      }
     }
+
+    await prisma.carts.updateMany({
+      where: { user_id: guestUserId, is_guest: true },
+      data: { user_id: customerUserId, is_guest: false },
+    });
+  } catch (err) {
+    console.error('[consumer/login] guest cart merge failed', { userId, guestId, err });
+  }
+};
+
+async function issueConsumerLoginSession(
+  user: ConsumerLoginUser,
+  res: Response,
+  options?: { guest_id?: number; login_type?: 'manual' | 'otp' }
+): Promise<any> {
+  if (!user.status) {
+    return res.status(403).json({
+      status: false,
+      msg: 'Your account is blocked',
+    });
+  }
+
+  if (!user.ref_code) {
+    const refCode = await generateReferralCode(user.f_name || 'USR', Number(user.id));
+    await prisma.users.update({
+      where: { id: user.id },
+      data: { ref_code: refCode },
+    });
+  }
+
+  const guestId = options?.guest_id;
+  if (guestId) {
+    await checkGuestCart(Number(user.id), guestId);
+  }
+
+  const token = jwt.sign(
+    {
+      id: user.id.toString(),
+      email: user.email,
+      phone: user.phone,
+      role: 'customer',
+    },
+    JWT_SECRET,
+    { expiresIn: '30d' }
+  );
+
+  return res.status(200).json({
+    status: true,
+    msg: 'Login success',
+    data: {
+      token,
+      is_phone_verified: user.is_phone_verified ? 1 : 0,
+      is_email_verified: 1,
+      login_type: options?.login_type ?? 'manual',
+    },
+  });
+}
+
+/**
+ * @Description Send login OTP (customer app — phone sign-in)
+ * @Route POST /api/consumer/login/send-otp
+ * @Access Public
+ */
+export const sendLoginOtp = async (req: Request, res: Response): Promise<any> => {
+  const validated = consumerLoginSendOtpSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(','),
+    });
+  }
+
+  const phone = String(validated.value.phone).trim();
+
+  try {
+    const user = await prisma.users.findFirst({
+      where: { phone },
+      select: CONSUMER_LOGIN_USER_SELECT,
+    });
+    if (!user) {
+      return res.status(401).json({
+        status: false,
+        msg: 'Credential do not match, please try again.',
+      });
+    }
+
+    if (!user.status) {
+      return res.status(403).json({
+        status: false,
+        msg: 'Your account is blocked',
+      });
+    }
+
+    const existing = await findLoginOtp(phone, 'login_consumer');
+    const waitSec = loginOtpResendSeconds(existing?.created_at ?? null);
+    if (waitSec > 0) {
+      return res.status(405).json({
+        status: false,
+        msg: `Please try again after ${waitSec} seconds`,
+        data: { resend_after_seconds: waitSec },
+      });
+    }
+
+    const otp = generateResetOtp();
+    await upsertLoginOtp(phone, 'login_consumer', otp);
+
+    try {
+      await sendConsumerOtpSms(phone, otp);
+    } catch {
+      // SMS optional while OTP is returned in the response for development.
+    }
+
+    return res.status(200).json({
+      status: true,
+      msg: 'OTP successfully sent',
+      data: {
+        phone_mask: maskPhoneForClient(phone),
+        otp,
+        resend_after_seconds: 60,
+      },
+    });
+  } catch (error: unknown) {
+    console.error('[consumer/send-login-otp]', error);
+    return res.status(503).json({
+      status: false,
+      msg: safeApiErrorMessage(error, 'Could not send OTP. Please try again.'),
+    });
+  }
+};
+
+/**
+ * @Description Verify login OTP and issue JWT (customer app)
+ * @Route POST /api/consumer/login/verify-otp
+ * @Access Public
+ */
+export const verifyLoginOtp = async (req: Request, res: Response): Promise<any> => {
+  const validated = consumerLoginVerifyOtpSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(','),
+    });
+  }
+
+  const { phone: rawPhone, otp, guest_id: guestId } = validated.value as {
+    phone: string;
+    otp: string;
+    guest_id?: number;
+  };
+  const phone = rawPhone.trim();
+
+  try {
+    const user = await prisma.users.findFirst({
+      where: { phone },
+      select: CONSUMER_LOGIN_USER_SELECT,
+    });
+    if (!user) {
+      return res.status(401).json({
+        status: false,
+        msg: 'Credential do not match, please try again.',
+      });
+    }
+
+    const valid = await verifyLoginOtpToken(phone, 'login_consumer', otp);
+    if (!valid) {
+      return res.status(400).json({ status: false, msg: 'Invalid OTP' });
+    }
+
+    await deleteLoginOtp(phone, 'login_consumer');
+    return issueConsumerLoginSession(user, res, { guest_id: guestId, login_type: 'otp' });
+  } catch (error: unknown) {
+    console.error('[consumer/verify-login-otp]', error);
+    return res.status(503).json({
+      status: false,
+      msg: safeApiErrorMessage(error, 'Login failed. Please try again.'),
+    });
+  }
 };
 
 /**
@@ -195,9 +439,8 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     try {
         if (payload.login_type === 'manual') {
             const user = await prisma.users.findFirst({
-                where: payload.field_type === 'email' 
-                    ? { email: payload.email_or_phone } 
-                    : { phone: payload.email_or_phone }
+                where: manualLoginUserWhere(payload.field_type, payload.email_or_phone),
+                select: CONSUMER_LOGIN_USER_SELECT,
             });
 
             if (!user) {
@@ -207,8 +450,14 @@ export const login = async (req: Request, res: Response): Promise<any> => {
                 });
             }
 
-            // Verify password
-            const isPasswordValid = await bcrypt.compare(payload.password, user.password || '');
+            if (!user.password) {
+                return res.status(401).json({
+                    status: false,
+                    msg: 'Credential do not match, please try again.',
+                });
+            }
+
+            const isPasswordValid = await verifyStoredPassword(payload.password, user.password);
             if (!isPasswordValid) {
                 return res.status(401).json({
                     status: false,
@@ -216,63 +465,84 @@ export const login = async (req: Request, res: Response): Promise<any> => {
                 });
             }
 
-            // Check status
-            if (!user.status) {
-                return res.status(403).json({
-                    status: false,
-                    msg: 'Your account is blocked'
-                });
-            }
-
-            // Ensure ref code exists (PHP refer_code_check)
-            if (!user.ref_code) {
-                const refCode = await generateReferralCode(user.f_name || 'USR', Number(user.id));
-                await prisma.users.update({
-                    where: { id: user.id },
-                    data: { ref_code: refCode }
-                });
-            }
-
-            // Merge guest cart if guest_id is provided
-            if (payload.guest_id) {
-                await checkGuestCart(Number(user.id), payload.guest_id);
-            }
-
-            // Generate Token
-            const token = jwt.sign(
-                { 
-                    id: user.id.toString(), 
-                    email: user.email, 
-                    phone: user.phone,
-                    role: 'customer'
-                },
-                JWT_SECRET,
-                { expiresIn: '30d' }
-            );
-
-            return res.status(200).json({
-                status: true,
-                msg: 'Login success',
-                data: {
-                    token,
-                    is_phone_verified: user.is_phone_verified ? 1 : 0,
-                    is_email_verified: 1, 
-                    login_type: 'manual'
-                }
+            return await issueConsumerLoginSession(user, res, {
+                guest_id: payload.guest_id,
+                login_type: 'manual',
             });
 
         } else if (payload.login_type === 'otp') {
-            // OTP login implementation stub
-            return res.status(501).json({
+            return res.status(400).json({
                 status: false,
-                msg: 'OTP Login not yet fully migrated.'
+                msg: 'Use POST /consumer/login/send-otp and POST /consumer/login/verify-otp for OTP login.',
             });
         } else if (payload.login_type === 'social') {
-            // Social login implementation stub
-            return res.status(501).json({
-                status: false,
-                msg: 'Social Login not yet fully migrated.'
-            });
+            if (payload.medium !== 'google') {
+                return res.status(501).json({
+                    status: false,
+                    msg: 'Only Google social login is migrated; use medium=google or POST /sign-in-with-google.',
+                });
+            }
+
+            const useAccessToken = isGoogleAccessTokenFlag(payload.access_token);
+
+            let profile;
+            try {
+                profile = await verifyGoogleToken(payload.token, useAccessToken);
+            } catch (err: unknown) {
+                const statusCode =
+                    err && typeof err === 'object' && 'statusCode' in err
+                        ? Number((err as { statusCode: number }).statusCode)
+                        : 403;
+                const msg = err instanceof Error ? err.message : 'Invalid Google credentials.';
+                return res.status(statusCode).json({ status: false, msg });
+            }
+
+            if (
+                payload.email !== profile.email &&
+                !profile.id &&
+                !profile.kid &&
+                !profile.sub
+            ) {
+                return res.status(403).json({ status: false, msg: 'Email does not match Google account.' });
+            }
+
+            const pk = profile.id ?? profile.kid ?? profile.sub;
+            const unique_id =
+              payload.unique_id?.trim() || (pk != null ? String(pk) : '');
+
+            if (!unique_id) {
+                return res.status(403).json({ status: false, msg: 'Invalid Google credentials.' });
+            }
+
+            try {
+                const data = await processConsumerSocialLogin(profile, {
+                    token: payload.token,
+                    email: payload.email,
+                    unique_id,
+                    medium: 'google',
+                    verified: payload.verified,
+                    guest_id: payload.guest_id,
+                });
+
+                const msg = data.token
+                    ? 'Login success'
+                    : data.is_exist_user
+                      ? 'An account with this email already exists. Confirm to link Google sign-in.'
+                      : 'Complete your profile to continue.';
+
+                return res.status(200).json({
+                    status: true,
+                    msg,
+                    data,
+                });
+            } catch (err: unknown) {
+                const statusCode =
+                    err && typeof err === 'object' && 'statusCode' in err
+                        ? Number((err as { statusCode: number }).statusCode)
+                        : 403;
+                const msg = err instanceof Error ? err.message : 'Social login failed.';
+                return res.status(statusCode).json({ status: false, msg });
+            }
         }
 
     } catch (error: unknown) {
@@ -303,10 +573,16 @@ export const guestRequest = async (req: Request, res: Response): Promise<any> =>
         });
 
         if (guest) {
+            const guestId = guest.id.toString();
+            const token = issueGuestJwt(guest.id);
             return res.status(200).json({
                 status: true,
                 msg: 'Guest verified successfully',
-                data: guest.id.toString(),
+                guest_id: guestId,
+                data: {
+                    guest_id: guestId,
+                    token,
+                },
             });
         }
 
@@ -519,5 +795,76 @@ export const applyForDeliveryMan = async (req: Request, res: Response): Promise<
     });
   } catch (error: any) {
     return res.status(500).json({ status: false, msg: error.message });
+  }
+};
+
+
+/**
+ * @Description Sign in with Google
+ * @Route POST api/consumer/sign-in-with-google
+ * @Access Public
+ */
+export const signInWithGoogle = async (req: Request, res: Response): Promise<any> => {
+  const result = consumerGoogleSignInSchema.validate(req.body, { stripUnknown: true });
+  if (result.error) {
+    const errors = result.error.details.map((d) => d.message).join(', ');
+    return res.status(403).json({ status: false, msg: errors });
+  }
+
+  const payload = result.value as {
+    token: string;
+    email: string;
+    unique_id: string;
+    access_token?: number | boolean;
+    guest_id?: number;
+    verified?: 'default' | 'no';
+  };
+
+  const useAccessToken = isGoogleAccessTokenFlag(payload.access_token);
+
+  try {
+    const profile = await verifyGoogleToken(payload.token, useAccessToken);
+
+    const email = (payload.email?.trim() || profile.email).toLowerCase();
+    const unique_id =
+      payload.unique_id?.trim() || profile.sub || profile.id || profile.kid || '';
+
+    if (!unique_id) {
+      return res.status(403).json({ status: false, msg: 'Invalid Google credentials.' });
+    }
+
+    if (payload.email && payload.email.trim().toLowerCase() !== profile.email.toLowerCase()) {
+      return res.status(403).json({ status: false, msg: 'Email does not match Google account.' });
+    }
+
+    const data = await processConsumerSocialLogin(profile, {
+      token: payload.token,
+      email,
+      unique_id,
+      medium: 'google',
+      verified: payload.verified ?? 'default',
+      guest_id: payload.guest_id,
+    });
+
+    const msg = data.token
+      ? 'Login success'
+      : data.is_exist_user
+        ? 'An account with this email already exists. Confirm to link Google sign-in.'
+        : 'Complete your profile to continue.';
+
+    return res.status(200).json({
+      status: true,
+      msg,
+      data,
+    });
+  } catch (err: unknown) {
+    console.error('[consumer/sign-in-with-google]', err);
+    const statusCode =
+      err && typeof err === 'object' && 'statusCode' in err
+        ? Number((err as { statusCode: number }).statusCode)
+        : 403;
+    const msg =
+      err instanceof Error ? err.message : safeApiErrorMessage(err, 'Google sign-in failed.');
+    return res.status(statusCode).json({ status: false, msg });
   }
 };

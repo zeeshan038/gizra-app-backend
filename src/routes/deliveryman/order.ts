@@ -6,6 +6,7 @@ import {
   getActiveOrders,
   getLatestOrders,
   getMyOrders,
+  getOrderDetails,
   updateOrderStatus,
 } from '../../controllers/deliveryman/Order';
 import { verifyDeliveryMan } from '../../middlewares/verifyDeliveryMan';
@@ -15,6 +16,7 @@ router.use(verifyDeliveryMan);
 router.get('/active', getActiveOrders);
 router.get('/latest', getLatestOrders);
 router.get('/history', getMyOrders);
+router.get('/:id', getOrderDetails);
 router.put('/:id/accept', acceptOrder);
 router.put('/:id/status', updateOrderStatus);
 

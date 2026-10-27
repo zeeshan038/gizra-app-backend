@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 
+import prisma from '../../config/database';
 import {
   restaurantActiveSchema,
   restaurantMetaSchema,
@@ -7,6 +8,7 @@ import {
   restaurantSetupSchema,
   restaurantToggleSchema,
 } from '../../schemas/vendor/RestaurantSetup';
+import { posAppSettingsSchema } from '../../schemas/vendor/PosAppSettings';
 import { getVendorContext } from '../../utils/vendor/context';
 import { buildRestaurantSetupPayload } from '../../utils/vendor/restaurantSetup/buildSetup';
 import { loadVendorRestaurant } from '../../utils/vendor/restaurantSetup/loadRestaurant';
@@ -18,6 +20,11 @@ import { applyRestaurantToggleSetting } from '../../utils/vendor/restaurantSetup
 import { setRestaurantActive } from '../../utils/vendor/restaurantSetup/updateActive';
 import { applyRestaurantMetaFields } from '../../utils/vendor/restaurantSetup/updateMetaFields';
 import { applyRestaurantSetupFields } from '../../utils/vendor/restaurantSetup/updateSetupFields';
+import {
+  mergePosAppSettingsIntoAdditionalData,
+  normalizePosAppSettings,
+  readPosAppSettingsFromAdditionalData,
+} from '../../utils/vendor/posAppSettings';
 
 function validationMsg(error: { details: Array<{ message: string }> }) {
   return error.details.map((d) => d.message).join(', ');
@@ -267,6 +274,50 @@ export const removeRestaurantSchedule = async (req: Request, res: Response): Pro
 
     const data = await buildRestaurantSetupPayload(loaded.restaurant.id);
     return res.status(200).json({ status: true, msg: 'Schedule removed successfully', data });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message });
+  }
+};
+
+/**
+ * @Description Toggle POS app settings (partial). Body: autoAcceptOrder, autoPrintOnAccept, use58mmPaper. Read values from GET /vendor/whoami — no separate GET.
+ * @Route PUT /api/vendor/restaurant/pos-settings
+ * @Access Vendor
+ */
+export const updatePosAppSettings = async (req: Request, res: Response): Promise<any> => {
+  const ctx = getVendorContext(req);
+  if (!ctx) {
+    return res.status(403).json({ status: false, msg: 'Restaurant context not found for vendor' });
+  }
+
+  const validated = posAppSettingsSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({ status: false, msg: validationMsg(validated.error) });
+  }
+
+  try {
+    const loaded = await loadVendorRestaurant(req);
+    if (!loaded) {
+      return res.status(404).json({ status: false, msg: 'Restaurant not found for this vendor' });
+    }
+
+    const current = readPosAppSettingsFromAdditionalData(loaded.restaurant.additional_data);
+    const next = normalizePosAppSettings({ ...current, ...validated.value });
+    const additional_data = mergePosAppSettingsIntoAdditionalData(
+      loaded.restaurant.additional_data,
+      next
+    );
+
+    await prisma.restaurants.update({
+      where: { id: loaded.restaurant.id },
+      data: { additional_data, updated_at: new Date() },
+    });
+
+    return res.status(200).json({
+      status: true,
+      msg: 'POS settings updated successfully',
+      data: next,
+    });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });
   }

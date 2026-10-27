@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../../config/database';
 import { adminLoginSchema } from '../../schemas/admin/User';
+import { verifyPassword } from '../../utils/passwordHash';
 
 /**
  * @Description Admin Login
@@ -36,7 +37,7 @@ export const login = async (req: Request, res: Response): Promise<any> => {
         }
 
         // 3. Verify password
-        const isPasswordValid = await bcrypt.compare(payload.password, admin.password);
+        const isPasswordValid = await verifyPassword(payload.password, admin.password);
         
         if (!isPasswordValid) {
             return res.status(401).json({

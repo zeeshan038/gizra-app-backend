@@ -5,6 +5,8 @@ import {
   resolveOrderDeliveryAddress,
 } from '../vendor/order/detailMapper';
 import { publicMediaUrl } from '../mediaStorage';
+import { mapOrderCookingTimeForApi } from '../vendor/order/cookingTime';
+import { mapOrderIdentityFields } from '../order/orderIdentity';
 
 export const DM_ACTIVE_ORDER_STATUSES = [
   'accepted',
@@ -15,7 +17,7 @@ export const DM_ACTIVE_ORDER_STATUSES = [
   'handover',
 ] as const;
 
-export const DM_LATEST_BASE_STATUSES = ['confirmed', 'processing', 'handover'] as const;
+export const DM_LATEST_BASE_STATUSES = ['confirmed', 'accepted', 'processing', 'handover'] as const;
 
 export function requireDmIdFromRequest(req: {
   user?: { id?: string };
@@ -61,10 +63,29 @@ export type DmOrderListItem = {
   customer_name: string | null;
   item_title: string | null;
   delivery_address_snippet: string | null;
+  delivery_address: any;
   latitude: string | number | null;
   longitude: string | number | null;
+  restaurant_address: string | null;
+  restaurant_lat: string | number | null;
+  restaurant_lng: string | number | null;
+  restaurant_latitude: string | number | null;
+  restaurant_longitude: string | number | null;
   restaurant_image_url: string | null;
   customer_image_url: string | null;
+  restaurant?: any;
+  delivery_address_data?: any;
+  processing_time: string | null;
+  cooking_time_minutes: number | null;
+  processing_started_at: string | null;
+  cooking_ready_by: string | null;
+  cooking_minutes_remaining: number | null;
+  is_manual_dispatch: boolean;
+  order_source: string;
+  order_source_label: string;
+  gizra_order_id: string;
+  restaurant_order_ref: string | null;
+  display_order_number: string;
 };
 
 const DEFAULT_RESTAURANT_IMAGE = 'default_logo.png';
@@ -131,7 +152,15 @@ export async function mapOrdersForDeliveryManList(
   const [restaurants, users, itemTitles] = await Promise.all([
     prisma.restaurants.findMany({
       where: { id: { in: restaurantIds.map((id) => BigInt(id)) } },
-      select: { id: true, name: true, logo: true, cover_photo: true },
+      select: {
+        id: true,
+        name: true,
+        logo: true,
+        cover_photo: true,
+        address: true,
+        latitude: true,
+        longitude: true,
+      },
     }),
     userIds.length
       ? prisma.users.findMany({
@@ -145,7 +174,14 @@ export async function mapOrdersForDeliveryManList(
   const restaurantById = new Map(
     restaurants.map((r) => [
       Number(r.id),
-      { name: r.name, logo: r.logo, cover_photo: r.cover_photo },
+      {
+        name: r.name,
+        logo: r.logo,
+        cover_photo: r.cover_photo,
+        address: r.address,
+        latitude: r.latitude,
+        longitude: r.longitude,
+      },
     ])
   );
   const userById = new Map(users.map((u) => [Number(u.id), u]));
@@ -170,6 +206,9 @@ export async function mapOrdersForDeliveryManList(
       restaurant?.logo?.trim() || restaurant?.cover_photo?.trim() || DEFAULT_RESTAURANT_IMAGE;
     const customerImageStored = user?.image?.trim() || DEFAULT_CUSTOMER_IMAGE;
 
+    const cookingTime = mapOrderCookingTimeForApi(order);
+    const identity = mapOrderIdentityFields(order);
+
     return {
       id,
       order_status: order.order_status,
@@ -182,10 +221,31 @@ export async function mapOrdersForDeliveryManList(
       customer_name: customerName,
       item_title: itemTitles.get(id) ?? null,
       delivery_address_snippet: formatAddressSnippet(addressRaw),
+      delivery_address: parsed ?? addressRaw,
+      delivery_address_data: parsed,
       latitude: parsed?.latitude ?? null,
       longitude: parsed?.longitude ?? null,
+      restaurant_address: restaurant?.address ?? null,
+      restaurant_lat: restaurant?.latitude ?? null,
+      restaurant_lng: restaurant?.longitude ?? null,
+      restaurant_latitude: restaurant?.latitude ?? null,
+      restaurant_longitude: restaurant?.longitude ?? null,
+      restaurant: restaurant
+        ? {
+            id: String(order.restaurant_id),
+            name: restaurant.name,
+            address: restaurant.address,
+            latitude: restaurant.latitude,
+            longitude: restaurant.longitude,
+            logo: restaurant.logo,
+            cover_photo: restaurant.cover_photo,
+          }
+        : null,
       restaurant_image_url: driverMediaUrl(restaurantImageStored, DEFAULT_RESTAURANT_IMAGE),
       customer_image_url: driverMediaUrl(customerImageStored, DEFAULT_CUSTOMER_IMAGE),
+      is_manual_dispatch: Boolean(order.is_manual_dispatch),
+      ...identity,
+      ...cookingTime,
     };
   });
 }
@@ -204,18 +264,20 @@ export async function getEligibleRestaurantIdsForDm(dm: {
   const zoneId = dm.zone_id != null ? Number(dm.zone_id) : NaN;
   if (!Number.isFinite(zoneId)) return [];
 
+  const zoneDecimal = new Prisma.Decimal(String(zoneId));
+
   const [commissionRestaurants, subscriptionRestaurants] = await Promise.all([
     prisma.restaurants.findMany({
       where: {
-        zone_id: zoneId,
-        restaurant_model: 'commission',
+        zone_id: zoneDecimal,
         self_delivery_system: false,
+        restaurant_model: { in: ['commission', 'none', 'unsubscribed'] },
       },
       select: { id: true },
     }),
     prisma.restaurants.findMany({
       where: {
-        zone_id: zoneId,
+        zone_id: zoneDecimal,
         restaurant_model: 'subscription',
       },
       select: { id: true },
@@ -250,7 +312,7 @@ export function buildLatestOrderStatusFilter(
 ): Prisma.ordersWhereInput {
   if (orderConfirmationModel === 'deliveryman' && dmType === 'zone_wise') {
     return {
-      order_status: { in: ['pending', 'confirmed', 'processing', 'handover'] },
+      order_status: { in: ['pending', 'confirmed', 'accepted', 'processing', 'handover'] },
     };
   }
 
@@ -261,7 +323,7 @@ export function buildLatestOrderStatusFilter(
         subscription_id: { not: null },
       },
       {
-        order_status: { in: ['confirmed', 'processing', 'handover'] },
+        order_status: { in: ['confirmed', 'accepted', 'processing', 'handover'] },
       },
     ],
   };
@@ -283,12 +345,47 @@ export function passesScheduleWindow(order: orders, intervalMinutes: number): bo
 
 export function passesVehicleFilter(
   order: orders,
-  dmVehicleId: number | null
+  dmVehicleId: number | null,
+  dmType?: string
 ): boolean {
+  // Socket/FCM `order_request` is broadcast on zone topics — all zone-wise DMs may be pinged.
+  if (dmType === 'zone_wise') return true;
   if (dmVehicleId == null) return true;
   if (order.is_manual_dispatch) return true;
   if (order.vehicle_id == null) return true;
   return Number(order.vehicle_id) === dmVehicleId;
+}
+
+/** Pool orders a zone-wise DM may claim (restaurant allow-list or same zone on the order row). */
+export function buildLatestOrdersAreaFilter(
+  dm: {
+    type: string;
+    zone_id: Prisma.Decimal | null;
+    restaurant_id: Prisma.Decimal | null;
+  },
+  restaurantIds: number[]
+): Prisma.ordersWhereInput {
+  if (dm.type === 'restaurant_wise') {
+    const rid = dm.restaurant_id != null ? Number(dm.restaurant_id) : NaN;
+    if (!Number.isFinite(rid)) return { id: BigInt(-1) };
+    return { restaurant_id: new Prisma.Decimal(String(rid)) };
+  }
+
+  const zoneId = dm.zone_id != null ? Number(dm.zone_id) : NaN;
+  const scopes: Prisma.ordersWhereInput[] = [];
+
+  if (restaurantIds.length > 0) {
+    scopes.push({
+      restaurant_id: { in: restaurantIds.map((id) => new Prisma.Decimal(String(id))) },
+    });
+  }
+  if (Number.isFinite(zoneId)) {
+    scopes.push({ zone_id: new Prisma.Decimal(String(zoneId)) });
+  }
+
+  if (scopes.length === 0) return { id: BigInt(-1) };
+  if (scopes.length === 1) return scopes[0]!;
+  return { OR: scopes };
 }
 
 export function passesNotDigitalPending(order: orders): boolean {

@@ -12,7 +12,7 @@ export const updateProfileSchema = Joi.object({
 }).min(1);
 
 export const firebaseTokenSchema = Joi.object({
-  cm_firebase_token: Joi.string().required(),
+  cm_firebase_token: Joi.string().trim().min(1).max(191).required(),
 });
 
 export const updateInterestSchema = Joi.object({

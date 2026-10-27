@@ -1,5 +1,6 @@
 import prisma from '../../config/database';
 import { ProfileUserInfoRow, ProfileUserRow } from '../../types/consumer/profile';
+import { publicConsumerProfileMediaUrl } from '../mediaStorage';
 
 export const ONGOING_ORDER_STATUSES = [
   'pending',
@@ -17,7 +18,7 @@ export function formatProfileUser(user: ProfileUserRow) {
     l_name: user.l_name,
     phone: user.phone,
     email: user.email,
-    image: user.image,
+    image: publicConsumerProfileMediaUrl(user.image),
     is_phone_verified: user.is_phone_verified ? 1 : 0,
     is_email_verified: user.is_email_verified ? 1 : 0,
     ref_code: user.ref_code,
@@ -29,6 +30,7 @@ export function formatProfileUser(user: ProfileUserRow) {
     current_language_key: user.current_language_key ?? 'en',
     created_at: user.created_at,
     order_count: Number(user.order_count),
+    is_notification_on: user.is_notification_on !== false,
   };
 }
 
@@ -40,7 +42,7 @@ export function formatUserinfo(row: ProfileUserInfoRow | null) {
     l_name: row.l_name,
     phone: row.phone,
     email: row.email,
-    image: row.image,
+    image: publicConsumerProfileMediaUrl(row.image),
   };
 }
 

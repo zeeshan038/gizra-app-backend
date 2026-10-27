@@ -1,16 +1,16 @@
+import './loadEnv';
+import { swaggerUiCustomerOptions } from './utils/swaggerUiCustomerOptions';
 import http from 'http';
-import express, { Request, Response } from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import { initSocketServer } from './sockets';
-import dotenv from 'dotenv';
 import cors from 'cors';
-import apiRouter from './routes/index'
+import apiRouter from './routes/index';
+import hyperPayRoutes from './routes/payment/hyperpay';
 import './config/firebase';
-import { connectDB } from './config/database';
+import { connectDB, startKeepalive } from './config/database';
 import swaggerUi from 'swagger-ui-express';
 import fs from 'fs';
 import path from 'path';
-
-dotenv.config();
 
 const app = express();
 const origins =[
@@ -19,7 +19,8 @@ const origins =[
   "https://vendor.gizra.app",
   "https://gizra-restaurant-pannel.vercel.app",
   'https://restaurant.gizra.app',
-  'https://restaurant.gizra.app'
+  'https://admin.gizra.app',
+  'https://driver.gizra.app'
 ]
 app.use(cors({
   origin: origins,
@@ -33,9 +34,22 @@ app.use(cors({
 
 // Middleware to parse JSON bodies
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Mount our routes
-app.use('/api', apiRouter)
+app.use('/api', apiRouter);
+/** PHP parity: /payment/hyperpay/* (not under /api) — register notify URL with HYP as-is */
+app.use('/payment/hyperpay', hyperPayRoutes);
+
+/** Always JSON for API failures (avoid HTML "<!DOCTYPE" parse errors in clients). */
+app.use('/api', (err: unknown, _req: Request, res: Response, next: NextFunction) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+  console.error('[api]', err);
+  const msg = err instanceof Error ? err.message : 'Internal Server Error';
+  return res.status(500).json({ status: false, msg });
+});
 
 // Swagger Setup (role specs at repo root — same pattern as Jikanzo)
 const openApiDir = path.join(__dirname, '..');
@@ -66,6 +80,7 @@ app.get('/swagger.json', sendJson(swaggerCombined));
 // serveFiles embeds each spec in its own swagger-ui-init.js (shared swaggerUi.serve breaks multi-spec)
 const swaggerExplorerOpts = {
   swaggerOptions: {
+    ...swaggerUiCustomerOptions.swaggerOptions,
     urls: [
       { url: '/swagger-customer.json', name: 'Customer' },
       { url: '/swagger-vendor.json', name: 'Vendor' },
@@ -78,7 +93,7 @@ const swaggerExplorerOpts = {
 app.use(
   '/swagger/customer',
   ...swaggerUi.serveFiles(swaggerCustomer),
-  swaggerUi.setup(swaggerCustomer, { customSiteTitle: 'Gizra Customer API' })
+  swaggerUi.setup(swaggerCustomer, swaggerUiCustomerOptions)
 );
 app.use(
   '/swagger/vendor',
@@ -105,6 +120,7 @@ const port = process.env.PORT || 3000;
 
 connectDB()
   .then(async () => {
+    startKeepalive();
     const httpServer = http.createServer(app);
     await initSocketServer(httpServer);
     httpServer.listen(port, () => {

@@ -8,6 +8,7 @@ import {
 } from './publish';
 import { publishNewOrderToRestaurant } from '../utils/vendor/order/sseHub';
 import {
+  getManualDispatchBroadcastTopics,
   getOrderRequestBroadcastTopics,
   shouldEmitDriverOrderRequest,
 } from '../utils/deliveryman/pushTopics';
@@ -15,7 +16,16 @@ import {
   passesNotDigitalPending,
   passesScheduleWindow,
 } from '../utils/deliveryman/orderHelpers';
-import { notifyDeliveryMenForOrder } from '../utils/notifications/sendDriverOrderNotification';
+import { sendOrderNotification } from '../utils/notifications/sendOrderNotification';
+import { customerTrackingCopy } from '../utils/notifications/orderStatusMessage';
+import { mapOrderCookingTimeForApi } from '../utils/vendor/order/cookingTime';
+import { mapOrderIdentityFields } from '../utils/order/orderIdentity';
+
+function plainId(value: { toString(): string } | null | undefined): string | null {
+  if (value == null) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? String(n) : null;
+}
 
 export function emitNewOrderRealtime(payload: {
   order_id: string;
@@ -23,6 +33,7 @@ export function emitNewOrderRealtime(payload: {
   order_amount: number;
   order_type: string;
   payment_method: string | null;
+  vendor_id?: number;
 }): void {
   publishNewOrderToRestaurant(payload.restaurant_id, {
     order_id: payload.order_id,
@@ -31,16 +42,20 @@ export function emitNewOrderRealtime(payload: {
     payment_method: payload.payment_method,
   });
 
-  publishOrderNew({
-    order_id: payload.order_id,
-    restaurant_id: payload.restaurant_id,
-    order_amount: payload.order_amount,
-    order_type: payload.order_type,
-    payment_method: payload.payment_method,
-  });
+  publishOrderNew(
+    {
+      order_id: payload.order_id,
+      restaurant_id: payload.restaurant_id,
+      order_amount: payload.order_amount,
+      order_type: payload.order_type,
+      payment_method: payload.payment_method,
+    },
+    payload.vendor_id
+  );
 }
 
-function buildOrderRequestPayload(order: orders): OrderRequestPayload {
+export function buildOrderRequestPayload(order: orders): OrderRequestPayload {
+  const identity = mapOrderIdentityFields(order);
   return {
     order_id: order.id.toString(),
     restaurant_id: Number(order.restaurant_id),
@@ -50,10 +65,28 @@ function buildOrderRequestPayload(order: orders): OrderRequestPayload {
     order_status: order.order_status,
     zone_id: order.zone_id != null ? Number(order.zone_id) : null,
     vehicle_id: order.vehicle_id != null ? Number(order.vehicle_id) : null,
+    is_manual_dispatch: Boolean(order.is_manual_dispatch),
+    ...identity,
   };
 }
 
-async function maybeEmitDriverOrderRequest(order: orders): Promise<void> {
+/**
+ * Realtime `order_request` for POS manual dispatch — same FCM topic rooms drivers join on connect.
+ * Driver app on the request tab should refetch GET /delivery-man/orders/latest on this event.
+ */
+export async function emitManualDispatchOrderRequest(order: orders): Promise<void> {
+  if (order.zone_id == null) return;
+  const zoneId = Number(order.zone_id);
+  if (!Number.isFinite(zoneId)) return;
+
+  const topics = await getManualDispatchBroadcastTopics(zoneId);
+  if (topics.length === 0) return;
+
+  publishOrderRequest(topics, buildOrderRequestPayload(order));
+}
+
+/** `order_request` for drivers when a delivery job is in the unassigned pool. */
+export async function emitDriverOrderRequestIfEligible(order: orders): Promise<void> {
   if (
     !passesScheduleWindow(order, 30) ||
     !passesNotDigitalPending(order)
@@ -64,33 +97,47 @@ async function maybeEmitDriverOrderRequest(order: orders): Promise<void> {
   if (!eligible) return;
 
   const topics = await getOrderRequestBroadcastTopics(order);
+  if (topics.length === 0) {
+    console.warn(`[socket] order_request skipped — no topics order=${order.id}`);
+    return;
+  }
   publishOrderRequest(topics, buildOrderRequestPayload(order));
 }
 
 export function emitOrderStatusRealtime(order: orders): void {
+  const tracking = customerTrackingCopy(order.order_status);
+  const cooking = mapOrderCookingTimeForApi(order);
   const payload: OrderUpdatedPayload = {
     order_id: order.id.toString(),
     restaurant_id: Number(order.restaurant_id),
-    user_id: order.user_id?.toString() ?? null,
-    delivery_man_id: order.delivery_man_id?.toString() ?? null,
+    user_id: plainId(order.user_id),
+    delivery_man_id: plainId(order.delivery_man_id),
     order_status: order.order_status,
+    status_label: tracking.status_label,
+    message: tracking.message,
+    tracking_step: tracking.tracking_step,
     order_amount: Number(order.order_amount) || 0,
     order_type: order.order_type,
     payment_method: order.payment_method,
     updated_at: (order.updated_at ?? new Date()).toISOString(),
+    processing_time: cooking.processing_time,
+    cooking_time_minutes: cooking.cooking_time_minutes,
+    processing_started_at: cooking.processing_started_at,
+    cooking_ready_by: cooking.cooking_ready_by,
+    cooking_minutes_remaining: cooking.cooking_minutes_remaining,
   };
   publishOrderUpdated(payload);
 
   void (async () => {
     try {
-      await maybeEmitDriverOrderRequest(order);
+      await emitDriverOrderRequestIfEligible(order);
 
       if (order.order_type === 'delivery' && order.delivery_man_id != null) {
         const topics = await getOrderRequestBroadcastTopics(order);
         publishOrderUpdatedToTopics(topics, payload);
       }
 
-      await notifyDeliveryMenForOrder(order);
+      await sendOrderNotification(order);
     } catch (err) {
       console.error('[socket] driver pool realtime failed', err);
     }

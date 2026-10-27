@@ -1,0 +1,18 @@
+USE `gizra_db`;
+SET NAMES binary;
+DELETE FROM `zones`;
+LOCK TABLES `zones` WRITE;
+/*!40000 ALTER TABLE `zones` DISABLE KEYS */;
+INSERT INTO `zones` VALUES
+(1,'Demo Zone','\0\0\0\0\0\0\0\0\0\0	\0\0\0ÒïÂöÚ	V@ˆéÀ¡¥R:@ÒïÂöÊ‚V@ƒŞkÎf:@ÒïÂöš…V@:ê­ª_9@ÒïÂö²!W@1è~Ü…9@ÒïÂöb5W@HÜô(c\\5@ÒïÂöBW@®ª†uz4@ÒïÂö²@V@Oš£C‹5@ÒïÂöbúU@sØ…>[„8@ÒïÂöÚ	V@ˆéÀ¡¥R:@',0,'2023-09-08 16:23:28','2025-03-31 12:25:12','zone_1_restaurant','zone_1_customer','zone_1_delivery_man',10.000,5.000,NULL,NULL,0.00,0,NULL,NULL),
+(2,'USA','\0\0\0\0\0\0\0\0\0\0\0\0\0OB[ìC‹`À­c8S\rNG@OB[ìÃt`À0²FP@„¶Ø‡`SÀ AQ%§N@„¶Ø‡	PÀğl»G­B@„¶Ø‡ŠVÀõ€,¿[5@„¶Ø‡•ZÀ\rÒğ¹Y\"@OB[ìÃG`ÀşdÏµˆü<@OB[ìC‹`À­c8S\rNG@',0,'2025-01-18 12:50:34','2025-03-31 12:25:09','zone_2_restaurant','zone_2_customer','zone_2_delivery_man',10.000,10.000,100.000,1000.000,0.00,0,NULL,'USA'),
+(3,'usa zones','\0\0\0\0\0\0\0\0\0\0\0\0\0Û£%†_À(bâbUH@õ¤¥,WÀ	×w*(TH@W0\\.ëTÀ¸ì¼W½F@W0\\nSÀ-òFĞÌE@W0\\.:QÀµ¨;	,xG@W0\\î§PÀ¬“ğ¬^F@W0\\nrQÀl“ˆ@ó¡D@¶#œ_Ó!TÀ \ZAÙú8@¶#œ_8XÀHˆö4:@¶#œ_ÓgYÀãgü…Ç>@¶#œ_ÓÏZÀäGWá@@¶#œ_5[Àq}ëFÇ?@¶#œ_C\\À¸m÷ı ?@¶#œ_Ó¾\\Àá ÅâB@@¶#œ_“K[À¹\\­G3ä6@¶#œ_“Y\\À8SL9@¶#œ_@_ÀÆåíİD@Û£%†_À(bâbUH@',0,'2025-01-18 15:54:24','2025-03-31 12:25:00','zone_3_restaurant','zone_3_customer','zone_3_delivery_man',10.000,10.000,100.000,1000.000,0.00,0,NULL,'usa zones'),
+(4,'Osseo','\0\0\0\0\0\0\0\0\0\0\0\0\0gmdxÎVÀ‘ã¤BÄLF@Ïó†ËÍVÀÊÙlÖLF@£ şÃÌVÀ2aHòLF@5Äyì†ËVÀ§»JñLF@\ZÄyË ËVÀK€.ÿLF@Äy3ÈÊVÀV\0MF@Ó ºé”ÊVÀ°·áLF@´ º!™ÊVÀ„7ŒKF@¥ ºËVÀá©xÔbIF@ëpï>ÌVÀ¡sÆBHF@ëêpílÍVÀB‡zÅ\ZHF@ÛêpU©ÎVÀ†ÃäÉ#HF@ûêpÁ¥ÏVÀDI2IF@¿äalLÑVÀ»ææ]IF@ş¡¤ÑVÀö™æJF@Gş‘.ĞVÀÛy…ÅLF@gmdxÎVÀ‘ã¤BÄLF@',1,'2025-02-04 12:04:12','2026-06-09 11:53:18','zone_4_restaurant','zone_4_customer','zone_4_delivery_man',0.001,0.001,NULL,NULL,0.00,0,NULL,'Osseo, WI'),
+(5,'demo','\0\0\0\0\0\0\0\0\0\0\0\0\0y,ñ	\rWU@9LØû[7@{,ñùVU@œŞ“ÊÃY7@],ñ©lWU@à<×K;X7@y,ñ	\rWU@9LØû[7@',0,'2025-03-30 00:59:22','2025-03-30 01:45:52','zone_5_restaurant','zone_5_customer','zone_5_delivery_man',0.000,0.000,NULL,NULL,0.00,0,NULL,'demo'),
+(6,'sds','\0\0\0\0\0\0\0\0\0\0\0\0\0|,ñÿËVU@aOÅì`[7@O,ñÑWU@ü-š÷0X7@T,ñO1VU@Ã¢íX7@|,ñÿËVU@aOÅì`[7@',0,'2025-03-30 01:36:15','2025-03-30 01:45:59','zone_6_restaurant','zone_6_customer','zone_6_delivery_man',0.000,0.000,NULL,NULL,0.00,0,NULL,'dsd'),
+(7,'Nahal','\0\0\0\0\0\0\0\0\0\0	\0\0\0Fìrw{„A@İ|é,˜?@5ìrw¼A@<OÏ}?@ìrw6œA@ÒèzĞq?@5ìrw´¥A@‚$jÍ†?@ìrw¦A@ËpBGİ?@ìrwO¡A@/»+ø¿?@FìrwëŒA@Ş) ²dÓ?@{ìrw¨„A@ºg±là½?@Fìrw{„A@İ|é,˜?@',0,'2026-02-28 20:21:11','2026-07-26 21:58:38','zone_7_restaurant','zone_7_customer','zone_7_delivery_man',5.000,3.000,1000.000,5.000,0.00,0,NULL,'Nahal'),
+(8,'hebron','\0\0\0\0\0\0\0\0\0\0\0\0\0ş¤(å©˜A@†O&üº_?@¥(åvA@8,KÓ`?@D¥(åmzA@ÈEìÁa?@ì¤(å2¦A@Pÿ®\Z˜?@ş¤(å©˜A@†O&üº_?@',1,'2026-04-14 21:50:25','2026-08-03 18:19:46','zone_8_restaurant','zone_8_customer','zone_8_delivery_man',25.000,4.500,100.000,150.000,0.00,0,NULL,'hebron'),
+(9,'gush','\0\0\0\0\0\0\0\0\0\0\0\0\0GUNsx§A@X»âğ»?@ŞTNs.ˆA@ÎòÊ«\"½?@ŞTNsÆ†A@6ŠÁKj ?@ÌTNs/¥A@ğ¯İˆ–?@GUNsx§A@X»âğ»?@',1,'2026-07-26 22:03:48','2026-08-03 17:13:10','zone_9_restaurant','zone_9_customer','zone_9_delivery_man',20.000,3.500,1500.000,100.000,0.00,0,NULL,'gush etzion'),
+(10,'phagwara','\0\0\0\0\0\0\0\0\0\0\0\0\0šÿêTïR@îwR%<?@ÆÿêÔïR@õŸÓÁ5?@½ÿêTñR@ëtRì1?@¡ÿêô	ôR@Zß™s\Z4?@œÿê4BôR@æüíŒ>?@¬ÿêTñR@Ñ\\X\0??@šÿêTïR@îwR%<?@',0,'2026-07-27 08:40:55','2026-08-02 21:40:56','zone_10_restaurant','zone_10_customer','zone_10_delivery_man',50.000,10.000,1000.000,1000.000,0.00,0,NULL,'phagwara');
+/*!40000 ALTER TABLE `zones` ENABLE KEYS */;
+UNLOCK TABLES;

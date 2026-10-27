@@ -1,5 +1,8 @@
 import { RestaurantSetupLanguageOption } from '../../../types/vendor/restaurantSetup';
+import { businessSettingFlagOn } from '../../consumer/businessSettings';
 import { LANGUAGE_NAMES } from './constants';
+
+export { businessSettingFlagOn };
 
 export function languageLabel(code: string) {
   if (code === 'en') return 'English(EN)';
@@ -100,6 +103,3 @@ export function storeMetaImage(incoming: string | null | undefined, current: str
   }
 }
 
-export function businessSettingFlagOn(raw: string | null) {
-  return raw == null || raw === '1' || raw === 'true';
-}

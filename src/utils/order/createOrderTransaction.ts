@@ -5,6 +5,7 @@ import {
   restaurant_subscriptions,
   restaurants,
 } from '@prisma/client';
+import { roundMoney } from '../vendor/walletHelpers';
 
 export class OrderSettlementError extends Error {
   constructor(message = 'Failed to create order transaction') {
@@ -184,14 +185,28 @@ export async function createOrderTransactionIfNeeded(
   }
 
   const order = await tx.orders.findUnique({ where: { id: orderId } });
-  if (!order?.delivery_man_id) return false;
+  if (!order) return false;
 
   const restaurantId = BigInt(n(order.restaurant_id));
-  const dmId = BigInt(n(order.delivery_man_id));
+  const restaurant = await tx.restaurants.findUnique({ where: { id: restaurantId } });
+  if (!restaurant) return false;
 
-  const [restaurant, dm, unpaid, settingsMap] = await Promise.all([
-    tx.restaurants.findUnique({ where: { id: restaurantId } }),
-    tx.delivery_men.findUnique({ where: { id: dmId } }),
+  const restSubEarly =
+    restaurant.restaurant_model === 'subscription'
+      ? await tx.restaurant_subscriptions.findFirst({
+          where: { restaurant_id: dec(restaurant.id), status: true },
+        })
+      : null;
+
+  const selfDelivery = isSelfDelivery(restaurant, restSubEarly);
+  if (!order.delivery_man_id && !selfDelivery && !receivedByOverride) return false;
+
+  const dm = order.delivery_man_id
+    ? await tx.delivery_men.findUnique({ where: { id: BigInt(n(order.delivery_man_id)) } })
+    : null;
+  if (order.delivery_man_id && !dm) return false;
+
+  const [unpaid, settingsMap] = await Promise.all([
     tx.order_payments.findFirst({
       where: { order_id: orderIdDec, payment_status: 'unpaid' },
     }),
@@ -202,18 +217,8 @@ export async function createOrderTransactionIfNeeded(
     ]),
   ]);
 
-  if (!restaurant || !dm) return false;
-
   const vendorId = n(restaurant.vendor_id);
-  const restSub =
-    restaurant.restaurant_model === 'subscription'
-      ? await tx.restaurant_subscriptions.findFirst({
-          where: {
-            restaurant_id: dec(restaurant.id),
-            status: true,
-          },
-        })
-      : null;
+  const restSub = restSubEarly;
 
   const adminCommissionSetting = settingFrom(settingsMap, 'admin_commission');
   const commissionRate =
@@ -246,7 +251,7 @@ export async function createOrderTransactionIfNeeded(
       restaurant_d_amount = n(order.restaurant_discount_amount);
     } else {
       amount_admin = commissionRate
-        ? (n(order.restaurant_discount_amount) / 100) * commissionRate
+        ? roundMoney((n(order.restaurant_discount_amount) / 100) * commissionRate)
         : 0;
       restaurant_d_amount = n(order.restaurant_discount_amount) - amount_admin;
     }
@@ -255,16 +260,17 @@ export async function createOrderTransactionIfNeeded(
     restaurant_discount_amount = n(order.restaurant_discount_amount);
   }
 
-  const order_amount =
+  const order_amount = roundMoney(
     n(order.order_amount) -
-    n(order.additional_charge) -
-    n(order.extra_packaging_amount) -
-    n(order.delivery_charge) -
-    n(order.total_tax_amount) -
-    n(order.dm_tips) +
-    n(order.coupon_discount_amount) +
-    restaurant_discount_amount +
-    ref_bonus_amount;
+      n(order.additional_charge) -
+      n(order.extra_packaging_amount) -
+      n(order.delivery_charge) -
+      n(order.total_tax_amount) -
+      n(order.dm_tips) +
+      n(order.coupon_discount_amount) +
+      restaurant_discount_amount +
+      ref_bonus_amount
+  );
 
   let comission_amount = 0;
   let subscription_mode = 0;
@@ -278,16 +284,19 @@ export async function createOrderTransactionIfNeeded(
 
   if (order.is_manual_dispatch) {
     const rate = n(settingFrom(settingsMap, 'manual_dispatch_commission')) || 10;
-    comission_amount = Math.round(order_amount * (rate / 100) * 100) / 100;
+    comission_amount = roundMoney(order_amount * (rate / 100));
     commission_percentage = rate;
-    received_by = order.payment_status === 'paid' ? 'restaurant' : 'deliveryman';
+    comission_on_delivery = 0;
+    comission_on_actual_delivery_fee = 0;
+    // Restaurant collected full payment at the store (prepaid manual dispatch).
+    received_by = 'restaurant';
   } else {
     if (restaurant.restaurant_model === 'subscription' && restSub) {
       comission_amount = 0;
       subscription_mode = 1;
       commission_percentage = 0;
     } else {
-      comission_amount = commissionRate ? (order_amount / 100) * commissionRate : 0;
+      comission_amount = commissionRate ? roundMoney((order_amount / 100) * commissionRate) : 0;
       subscription_mode = 0;
       commission_percentage = commissionRate;
     }
@@ -297,27 +306,45 @@ export async function createOrderTransactionIfNeeded(
       comission_on_actual_delivery_fee = 0;
     } else {
       const deliveryCommissionPct = n(settingFrom(settingsMap, 'delivery_charge_comission'));
-      comission_on_delivery = deliveryCommissionPct * (original_delivery_charge / 100);
+      comission_on_delivery = roundMoney(deliveryCommissionPct * (original_delivery_charge / 100));
       comission_on_actual_delivery_fee =
         n(order.delivery_charge) > 0 ? comission_on_delivery : 0;
     }
 
-    received_by = resolveReceivedBy(order, dm, unpaid?.payment_method);
+    if (dm) {
+      received_by = resolveReceivedBy(order, dm, unpaid?.payment_method);
+    } else {
+      // Vendor / self-delivery without DM — PHP credits restaurant; COD cash stays with restaurant.
+      const isCod =
+        order.payment_method === 'cash_on_delivery' ||
+        unpaid?.payment_method === 'cash_on_delivery';
+      received_by = isCod ? 'restaurant' : 'admin';
+    }
   }
 
   if (receivedByOverride) {
     received_by = receivedByOverride;
   }
 
-  const restaurant_amount =
+  const restaurant_amount = roundMoney(
     order_amount +
-    n(order.total_tax_amount) +
-    n(order.extra_packaging_amount) -
-    comission_amount -
-    restaurant_coupon_discount_subsidy;
+      n(order.total_tax_amount) +
+      n(order.extra_packaging_amount) -
+      comission_amount -
+      restaurant_coupon_discount_subsidy
+  );
+
+  const admin_commission_total = roundMoney(
+    comission_amount +
+      n(order.additional_charge) -
+      admin_subsidy -
+      admin_coupon_discount_subsidy -
+      ref_bonus_amount -
+      restaurant_discount_amount
+  );
 
   const now = new Date();
-  const collectAmount = n(order.order_amount) - n(order.partially_paid_amount);
+  const collectAmount = roundMoney(n(order.order_amount) - n(order.partially_paid_amount));
 
   await tx.order_transactions.create({
     data: {
@@ -326,14 +353,7 @@ export async function createOrderTransactionIfNeeded(
       order_id: orderIdDec,
       order_amount: dec(n(order.order_amount)),
       restaurant_amount: dec(restaurant_amount),
-      admin_commission: dec(
-        comission_amount +
-          n(order.additional_charge) -
-          admin_subsidy -
-          admin_coupon_discount_subsidy -
-          ref_bonus_amount -
-          restaurant_discount_amount
-      ),
+      admin_commission: dec(admin_commission_total),
       delivery_charge: dec(n(order.delivery_charge) - comission_on_actual_delivery_fee),
       original_delivery_charge: dec(original_delivery_charge - comission_on_delivery),
       tax: dec(n(order.total_tax_amount)),
@@ -373,28 +393,31 @@ export async function createOrderTransactionIfNeeded(
   const dmEarningIncrement =
     n(order.dm_tips) + original_delivery_charge - comission_on_delivery;
 
-  let adminCommissionIncrement =
+  let adminCommissionIncrement = roundMoney(
     comission_amount +
-    comission_on_actual_delivery_fee -
-    admin_subsidy -
-    admin_coupon_discount_subsidy -
-    restaurant_discount_amount +
-    n(order.additional_charge) -
-    ref_bonus_amount;
+      comission_on_actual_delivery_fee -
+      admin_subsidy -
+      admin_coupon_discount_subsidy -
+      restaurant_discount_amount +
+      n(order.additional_charge) -
+      ref_bonus_amount
+  );
 
-  if (platformDelivery && !dm.earning) {
+  if (platformDelivery && dm && !dm.earning) {
     adminCommissionIncrement += dmEarningIncrement;
   }
 
   let adminDeliveryChargeIncrement = 0;
   if (!isSelfDelivery(restaurant, restSub)) {
-    adminDeliveryChargeIncrement =
-      n(order.delivery_charge) - comission_on_actual_delivery_fee;
+    adminDeliveryChargeIncrement = roundMoney(
+      n(order.delivery_charge) - comission_on_actual_delivery_fee
+    );
   }
 
-  const adminDigitalIncrement = adminWallet && received_by === 'admin' ? collectAmount : 0;
+  const adminDigitalIncrement =
+    adminWallet && received_by === 'admin' ? collectAmount : 0;
 
-  if (platformDelivery && dm.earning) {
+  if (platformDelivery && dm?.earning && order.delivery_man_id) {
     dmWallet = await getOrCreateDmWallet(tx, n(order.delivery_man_id));
     await tx.delivery_man_wallets.update({
       where: { id: dmWallet.id },
@@ -417,9 +440,11 @@ export async function createOrderTransactionIfNeeded(
     });
   }
 
-  const vendorEarningIncrement = isSelfDelivery(restaurant, restSub)
-    ? n(order.delivery_charge) + n(order.dm_tips) + restaurant_amount
-    : restaurant_amount;
+  const vendorEarningIncrement = roundMoney(
+    isSelfDelivery(restaurant, restSub)
+      ? n(order.delivery_charge) + n(order.dm_tips) + restaurant_amount
+      : restaurant_amount
+  );
 
   if (
     received_by === 'restaurant' &&
@@ -437,7 +462,8 @@ export async function createOrderTransactionIfNeeded(
     await recordCashCollection(tx, 'restaurant', vendorId, collectAmount, orderId, before);
   } else if (
     received_by === 'deliveryman' &&
-    dm.type === 'zone_wise' &&
+    dm?.type === 'zone_wise' &&
+    order.delivery_man_id &&
     (order.payment_method === 'cash_on_delivery' || unpaidPayMethod === 'cash_on_delivery')
   ) {
     if (!dmWallet) {

@@ -2,6 +2,11 @@ const fs = require('fs');
 const path = require('path');
 
 const OVERLAY_FILE = path.join(__dirname, 'swagger.openapi-overlay.json');
+const CHAT_OVERLAY_FILE = path.join(__dirname, 'swagger.chat.overlay.json');
+const REVIEWS_OVERLAY_FILE = path.join(__dirname, 'swagger.reviews.overlay.json');
+const PAYMENT_OVERLAY_FILE = path.join(__dirname, 'swagger.payment.overlay.json');
+const COUPON_OVERLAY_FILE = path.join(__dirname, 'swagger.coupon.overlay.json');
+const CATALOG_OVERLAY_FILE = path.join(__dirname, 'swagger.catalog.overlay.json');
 
 function normalizePathKey(routePath) {
   if (!routePath) return routePath;
@@ -11,12 +16,75 @@ function normalizePathKey(routePath) {
   return p;
 }
 
-function loadOverlay() {
-  if (!fs.existsSync(OVERLAY_FILE)) {
-    console.warn('swagger.openapi-overlay.json not found — skip overlay merge');
+/** Match autogen path keys that differ only by a trailing slash. */
+function resolveExistingPathKey(paths, rawPath) {
+  if (paths[rawPath]) return rawPath;
+  const normalized = normalizePathKey(rawPath);
+  if (paths[normalized]) return normalized;
+  for (const key of Object.keys(paths)) {
+    if (normalizePathKey(key) === normalized) return key;
+  }
+  return rawPath;
+}
+
+function loadOverlayFile(filePath, label) {
+  if (!fs.existsSync(filePath)) {
+    console.warn(`${label} not found — skip`);
     return null;
   }
-  return JSON.parse(fs.readFileSync(OVERLAY_FILE, 'utf-8'));
+  return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+}
+
+function loadOverlay() {
+  const main = loadOverlayFile(OVERLAY_FILE, 'swagger.openapi-overlay.json');
+  if (!main) return null;
+
+  const chat = loadOverlayFile(CHAT_OVERLAY_FILE, 'swagger.chat.overlay.json');
+  if (chat) {
+    main.paths = { ...(main.paths || {}), ...(chat.paths || {}) };
+    mergeComponents(main, chat.components);
+    if (Array.isArray(chat.tags) && chat.tags.length) {
+      main.tags = [...(main.tags || []), ...chat.tags];
+    }
+  }
+
+  const reviews = loadOverlayFile(REVIEWS_OVERLAY_FILE, 'swagger.reviews.overlay.json');
+  if (reviews) {
+    main.paths = { ...(main.paths || {}), ...(reviews.paths || {}) };
+    mergeComponents(main, reviews.components);
+    if (Array.isArray(reviews.tags) && reviews.tags.length) {
+      main.tags = [...(main.tags || []), ...reviews.tags];
+    }
+  }
+
+  const payment = loadOverlayFile(PAYMENT_OVERLAY_FILE, 'swagger.payment.overlay.json');
+  if (payment) {
+    main.paths = { ...(main.paths || {}), ...(payment.paths || {}) };
+    mergeComponents(main, payment.components);
+    if (Array.isArray(payment.tags) && payment.tags.length) {
+      main.tags = [...(main.tags || []), ...payment.tags];
+    }
+  }
+
+  const coupon = loadOverlayFile(COUPON_OVERLAY_FILE, 'swagger.coupon.overlay.json');
+  if (coupon) {
+    main.paths = { ...(main.paths || {}), ...(coupon.paths || {}) };
+    mergeComponents(main, coupon.components);
+    if (Array.isArray(coupon.tags) && coupon.tags.length) {
+      main.tags = [...(main.tags || []), ...coupon.tags];
+    }
+  }
+
+  const catalog = loadOverlayFile(CATALOG_OVERLAY_FILE, 'swagger.catalog.overlay.json');
+  if (catalog) {
+    main.paths = { ...(main.paths || {}), ...(catalog.paths || {}) };
+    mergeComponents(main, catalog.components);
+    if (Array.isArray(catalog.tags) && catalog.tags.length) {
+      main.tags = [...(main.tags || []), ...catalog.tags];
+    }
+  }
+
+  return main;
 }
 
 function indexOverlayPaths(overlay) {
@@ -131,6 +199,24 @@ function applyOpenApiOverlay(swaggerDoc, paths) {
       const overlayOp = overlayMethods[method.toLowerCase()];
       if (!overlayOp) continue;
       paths[routePath][method] = mergeOperation(endpoint, overlayOp);
+      mergedOps++;
+    }
+  }
+
+  // Routes documented only in overlay (e.g. new consumer endpoints before autogen picks them up)
+  for (const [rawPath, overlayMethods] of Object.entries(overlay.paths || {})) {
+    if (rawPath.startsWith('/swagger')) continue;
+    const routePath = resolveExistingPathKey(paths, rawPath);
+    if (!paths[routePath]) paths[routePath] = {};
+    for (const [method, overlayOp] of Object.entries(overlayMethods)) {
+      if (method === 'parameters' || !overlayOp || typeof overlayOp !== 'object') continue;
+      const m = method.toLowerCase();
+      if (!paths[routePath][m]) {
+        paths[routePath][m] = JSON.parse(JSON.stringify(overlayOp));
+        mergedOps++;
+        continue;
+      }
+      paths[routePath][m] = mergeOperation(paths[routePath][m], overlayOp);
       mergedOps++;
     }
   }

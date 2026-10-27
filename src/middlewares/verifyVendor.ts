@@ -32,7 +32,6 @@ export const verifyVendor = async (req: Request, res: Response, next: NextFuncti
           email: true,
           image: true,
           status: true,
-          auth_token: true
         },
       });
 
@@ -43,10 +42,10 @@ export const verifyVendor = async (req: Request, res: Response, next: NextFuncti
         });
       }
 
-      if (vendor.auth_token !== token) {
+      if (vendor.status === false) {
         return res.status(401).json({
           status: false,
-          msg: "Session expired. Logged in from another device."
+          msg: "Not authorized, account disabled"
         });
       }
 

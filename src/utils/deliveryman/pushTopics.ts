@@ -18,13 +18,14 @@ export async function getDeliveryManFcmTopics(dm: DeliveryManTopicSource): Promi
     if (dm.vehicle_id) {
       topics.push(`delivery_man_${zoneId}_${Number(dm.vehicle_id)}`);
     }
-    if (dm.type === 'zone_wise') {
+    if (dm.type === 'zone_wise' || !dm.type) {
       const zone = await prisma.zones.findUnique({
         where: { id: BigInt(zoneId) },
         select: { deliveryman_wise_topic: true },
       });
       topics.push(zone?.deliveryman_wise_topic || `zone_${zoneId}_delivery_man`);
-    } else if (dm.restaurant_id != null) {
+    }
+    if (dm.type === 'restaurant_wise' && dm.restaurant_id != null) {
       topics.push(`restaurant_dm_${Number(dm.restaurant_id)}`);
     }
   } else if (dm.type === 'restaurant_wise' && dm.restaurant_id != null) {
@@ -44,7 +45,11 @@ async function isPlatformDeliveryRestaurant(restaurantId: number): Promise<boole
   });
   if (!restaurant) return false;
 
-  if (restaurant.restaurant_model === 'commission') {
+  if (
+    restaurant.restaurant_model === 'commission' ||
+    restaurant.restaurant_model === 'none' ||
+    restaurant.restaurant_model === 'unsubscribed'
+  ) {
     return !restaurant.self_delivery_system;
   }
 
@@ -63,16 +68,31 @@ async function isPlatformDeliveryRestaurant(restaurantId: number): Promise<boole
   return false;
 }
 
+/** Unassigned delivery jobs drivers may claim (must stay in sync with `buildLatestOrderStatusFilter`). */
 function isStatusEligibleForDriverPool(
   order: orders,
   orderConfirmationModel: string
 ): boolean {
-  if (['confirmed', 'processing', 'handover'].includes(order.order_status)) {
+  if (order.delivery_man_id != null) {
+    return false;
+  }
+
+  if (
+    order.order_status === 'confirmed' ||
+    order.order_status === 'processing' ||
+    order.order_status === 'handover'
+  ) {
     return true;
   }
-  if (order.order_status === 'pending') {
+
+  // Some POS builds send `accepted` before a driver is assigned — still broadcast to the zone pool.
+  if (order.order_status === 'accepted') {
+    return true;
+  }
+
+  if (order.order_status === 'pending' && orderConfirmationModel === 'deliveryman') {
     if (order.subscription_id != null) return true;
-    if (orderConfirmationModel === 'deliveryman') return true;
+    if (order.payment_method === 'cash_on_delivery') return true;
   }
   return false;
 }
@@ -91,7 +111,23 @@ export async function getOrderRequestBroadcastTopics(order: orders): Promise<str
 
   if (!platformDelivery) {
     topics.push(`restaurant_dm_${restaurantId}`);
-    return topics;
+    const restaurant = await prisma.restaurants.findUnique({
+      where: { id: BigInt(restaurantId) },
+      select: { zone_id: true },
+    });
+    const zid =
+      restaurant?.zone_id != null ? Number(restaurant.zone_id) : Number.NaN;
+    if (Number.isFinite(zid)) {
+      if (order.vehicle_id != null) {
+        topics.push(`delivery_man_${zid}_${Number(order.vehicle_id)}`);
+      }
+      const zone = await prisma.zones.findUnique({
+        where: { id: BigInt(zid) },
+        select: { deliveryman_wise_topic: true },
+      });
+      topics.push(zone?.deliveryman_wise_topic || `zone_${zid}_delivery_man`);
+    }
+    return [...new Set(topics)];
   }
 
   const zoneId =
@@ -135,4 +171,35 @@ export async function shouldEmitDriverOrderRequest(order: orders): Promise<boole
 
   const topics = await getOrderRequestBroadcastTopics(order);
   return topics.length > 0;
+}
+
+/** Manual POS dispatch — notify every vehicle topic in the zone plus zone-wide (matches PHP). */
+export async function getManualDispatchBroadcastTopics(zoneId: number): Promise<string[]> {
+  if (!Number.isFinite(zoneId)) return [];
+
+  const vehicleRows = await prisma.delivery_men.findMany({
+    where: {
+      zone_id: zoneId,
+      application_status: 'approved',
+      status: true,
+      vehicle_id: { not: null },
+    },
+    distinct: ['vehicle_id'],
+    select: { vehicle_id: true },
+  });
+
+  const topics = new Set<string>();
+  for (const row of vehicleRows) {
+    if (row.vehicle_id != null) {
+      topics.add(`delivery_man_${zoneId}_${Number(row.vehicle_id)}`);
+    }
+  }
+
+  const zone = await prisma.zones.findUnique({
+    where: { id: BigInt(zoneId) },
+    select: { deliveryman_wise_topic: true },
+  });
+  topics.add(zone?.deliveryman_wise_topic || `zone_${zoneId}_delivery_man`);
+
+  return [...topics];
 }

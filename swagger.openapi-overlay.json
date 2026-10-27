@@ -192,6 +192,105 @@
         ]
       }
     },
+    "/vendor/login/send-otp": {
+      "post": {
+        "summary": "Send login OTP (vendor / POS app)",
+        "description": "Phone sign-in step 1. Returns **`data.otp`** in the response until SMS is enabled in production. 60s resend cooldown in `data.resend_after_seconds`. Dev OTP often **`123456`**. Same approval rules as POST `/vendor/login`.",
+        "tags": [
+          "Vendor Auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phone"
+                ],
+                "properties": {
+                  "phone": {
+                    "type": "string",
+                    "example": "+972501234567"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP sent",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "OTP successfully sent",
+                  "data": {
+                    "phone_mask": "+97********4567",
+                    "otp": "123456",
+                    "resend_after_seconds": 60
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "405": {
+            "$ref": "#/components/responses/ApiError405"
+          }
+        }
+      }
+    },
+    "/vendor/login/verify-otp": {
+      "post": {
+        "summary": "Verify login OTP (vendor / POS app)",
+        "description": "Phone sign-in step 2. Returns the same JWT payload as POST `/vendor/login` on success.",
+        "tags": [
+          "Vendor Auth"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phone",
+                  "otp"
+                ],
+                "properties": {
+                  "phone": {
+                    "type": "string",
+                    "example": "+972501234567"
+                  },
+                  "otp": {
+                    "type": "string",
+                    "example": "123456"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login success (same shape as /vendor/login)"
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError403"
+          }
+        }
+      }
+    },
     "/vendor/register": {
       "post": {
         "summary": "Restaurant / vendor registration",
@@ -297,7 +396,7 @@
     "/vendor/password/forgot": {
       "post": {
         "summary": "Forgot password — send OTP",
-        "description": "Vendor app / web panel. Default `field_type` is **phone** (Figma). Email supported too. Dev/test OTP `123456`. Vendor must exist with that phone/email.",
+        "description": "Vendor app / web panel. Default `field_type` is **phone** (Figma). Email supported too. Vendor must exist with that phone/email.\n\n**Testing:** `data.otp` in success response while `OTP_IN_RESPONSE` is not `false`.",
         "requestBody": {
           "required": true,
           "content": {
@@ -314,7 +413,22 @@
         },
         "responses": {
           "200": {
-            "description": "OTP sent"
+            "description": "OTP sent (may include data.otp during testing)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordForgotOtpSuccessResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "OTP generated (testing — see data.otp)",
+                  "data": {
+                    "field_type": "phone",
+                    "otp": "482913"
+                  }
+                }
+              }
+            }
           },
           "404": {
             "description": "Phone or email not registered"
@@ -380,6 +494,110 @@
                 }
               }
             }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
+    "/vendor/whoami": {
+      "get": {
+        "summary": "Current vendor account",
+        "description": "Returns vendor profile (password/auth_token stripped) and linked restaurant(s). Primary `restaurant` is the first row for this vendor (same as login). Includes POS toggles `autoAcceptOrder`, `autoPrintOnAccept`, `use58mmPaper` on `data`, `data.posSettings`, and `data.restaurant`. Bearer from POST /vendor/login. For POS/mobile use **GET /vendor/whoami-mobile** instead.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/VendorAuthorizationHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Vendor session profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorWhoamiResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Success",
+                  "data": {
+                    "vendor": {
+                      "id": "12",
+                      "f_name": "John",
+                      "l_name": "Doe",
+                      "phone": "+972501234567",
+                      "email": "vendor@restaurant.com",
+                      "email_verified_at": null,
+                      "image": null,
+                      "status": true,
+                      "firebase_token": null,
+                      "fcm_token_web": null,
+                      "bank_name": null,
+                      "branch": null,
+                      "holder_name": null,
+                      "account_no": null,
+                      "cloudflareId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                      "created_at": "2026-01-10T08:00:00.000Z",
+                      "updated_at": "2026-09-01T12:00:00.000Z"
+                    },
+                    "restaurant": {
+                      "id": "6",
+                      "name": "My Restaurant",
+                      "phone": "+972501234567",
+                      "email": "vendor@restaurant.com",
+                      "logo": "2026-06-01-logo.png",
+                      "cover_photo": "2026-06-01-cover.png",
+                      "address": "123 Main St",
+                      "latitude": "32.0853",
+                      "longitude": "34.7818",
+                      "vendor_id": "12",
+                      "zone_id": "2",
+                      "status": true,
+                      "active": true,
+                      "delivery": true,
+                      "take_away": true,
+                      "schedule_order": false,
+                      "restaurant_model": "commission",
+                      "package_id": null,
+                      "autoAcceptOrder": false,
+                      "autoPrintOnAccept": true,
+                      "use58mmPaper": false
+                    },
+                    "restaurants": [
+                      {
+                        "id": "6",
+                        "name": "My Restaurant",
+                        "vendor_id": "12",
+                        "zone_id": "2",
+                        "status": true,
+                        "active": true,
+                        "autoAcceptOrder": false,
+                        "autoPrintOnAccept": true,
+                        "use58mmPaper": false
+                      }
+                    ],
+                    "autoAcceptOrder": false,
+                    "autoPrintOnAccept": true,
+                    "use58mmPaper": false,
+                    "posSettings": {
+                      "autoAcceptOrder": false,
+                      "autoPrintOnAccept": true,
+                      "use58mmPaper": false
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "404": {
+            "description": "Vendor not found"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError500"
           }
         },
         "tags": [
@@ -2483,6 +2701,101 @@
         ]
       }
     },
+    "/vendor/dispatch/request-driver": {
+      "post": {
+        "summary": "Request driver (POS manual dispatch)",
+        "description": "Creates a **manual dispatch** delivery order (`is_manual_dispatch=true`, `order_status=confirmed`) for phone/walk-in orders from the **Vendor POS** app. Requires **`manual_dispatch`** enabled on the restaurant (Business Setup toggle) or restaurant id listed in admin `manual_dispatch_restaurants`.\n\n**Order ID:** Same shared `orders.id` sequence as consumer app orders (database autoincrement). Response `data.order_id` is that id as a string — not a separate 100000+ range (legacy PHP behavior).\n\n**Idempotency:** repeat calls with the same `idempotency_key` return the existing order summary (no duplicate jobs).\n\n**Side effects (drivers):**\n1. **FCM** — `order_request` push to all vehicle topics in the restaurant zone + zone-wide topic.\n2. **Socket.IO** — event **`order_request`** on the same FCM topic rooms (drivers connected with delivery-man JWT). Request-tab clients should refetch `GET /delivery-man/orders/latest` on this event.\n3. **`user_notifications`** — inbox row for each approved driver in the zone.\n\nMirrors legacy PHP `POST /vendor/dispatch/request-driver` except order id assignment.",
+        "tags": [
+          "Vendor Orders (Web Panel & POS)"
+        ],
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Bearer JWT from POST /vendor/login or /vendor/login/verify-otp"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VendorRequestDriverBody"
+              },
+              "example": {
+                "customer_name": "Yossi Cohen",
+                "customer_phone": "+972501234567",
+                "address": "12 Herzl St, Tel Aviv",
+                "order_amount": 120,
+                "delivery_fee": 18,
+                "payment_method": "cash_on_delivery",
+                "idempotency_key": "pos-dispatch-2026-04-05-001",
+                "latitude": 32.0853,
+                "longitude": 34.7818,
+                "tax": 10
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Driver requested (new or idempotent replay)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorRequestDriverResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Driver requested successfully",
+                  "data": {
+                    "order_id": "2847",
+                    "commission_rate": 10,
+                    "commission": 13.8,
+                    "delivery_fee": 18,
+                    "gizra_charge": 31.8,
+                    "restaurant_net": 106.2,
+                    "payment_status": "unpaid",
+                    "message": "Driver requested successfully"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation error, manual dispatch disabled, or create failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "disabled": {
+                    "value": {
+                      "status": false,
+                      "msg": "Manual driver dispatch is not enabled for this restaurant."
+                    }
+                  },
+                  "failed": {
+                    "value": {
+                      "status": false,
+                      "msg": "Could not create the dispatch order."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError404"
+          }
+        }
+      }
+    },
     "/vendor/orders/counts": {
       "get": {
         "description": "Sidebar order counts by status. **Clients:** Restaurant Web Panel + Vendor POS app (same vendor JWT).",
@@ -3071,6 +3384,97 @@
         ]
       }
     },
+    "/vendor/orders/{id}/invoice": {
+      "get": {
+        "summary": "Order invoice for thermal / browser print",
+        "description": "Print-ready receipt JSON (legacy PHP generate-invoice). Returns restaurant, customer, items, and pricing. Frontend renders and prints locally — backend does not print.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Bearer token from POST /vendor/login"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Order ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Invoice payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderInvoiceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid order id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Restaurant context not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Orders (Web Panel & POS)"
+        ]
+      }
+    },
     "/vendor/orders/{id}/status": {
       "put": {
         "description": "Update workflow status (confirm, cooking, handover, delivered, cancel). **Clients:** Web Panel actions + POS status buttons.",
@@ -3193,19 +3597,52 @@
     },
     "/consumer/guest/request": {
       "post": {
-        "description": "",
+        "summary": "Create guest session",
+        "description": "Call once on app launch when the user is not logged in.\n\n**Returns:** `guest_id` + **guest JWT** (`data.token`, JWT claim `role: guest`). Persist both locally.\n\n**No auth required** for home/discover: GET `/consumer/categories`, `/consumer/home-slider`, `/consumer/restaurants/*`, `/consumer/foods/search`, `/consumer/config/*`.\n\n**Cart:** send `Authorization: Bearer <guest token>` on `/consumer/cart/*`, **or** legacy query/body `is_guest=true` + `guest_id` (no Bearer).\n\n**After login / Google sign-in:** include `guest_id` in the auth body so the server merges the guest cart into the customer account.\n\n**Guest JWT cannot access:** `/consumer/whoami`, profile, favourites, saved addresses.",
+        "security": [],
         "parameters": [
           {
             "name": "x-forwarded-for",
             "in": "header",
+            "required": false,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Optional client IP (also taken from connection)"
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumerGuestRequestBody"
+              },
+              "example": {
+                "fcm_token": "optional_firebase_device_token"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Guest session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerGuestSessionResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Guest verified successfully",
+                  "guest_id": "42",
+                  "data": {
+                    "guest_id": "42",
+                    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -3273,20 +3710,6 @@
                 "example": {
                   "status": false,
                   "msg": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "fcm_token": {
-                    "example": "any"
-                  }
                 }
               }
             }
@@ -3497,13 +3920,37 @@
     "/consumer/login": {
       "post": {
         "summary": "Login customer",
-        "description": "Manual login with phone or email. Use returned `data.token` as Bearer on profile and order APIs.",
+        "description": "Unified login. **manual** — phone or email + password. **social** — Google only (`medium=google`; verifies token server-side; same flow as `/consumer/sign-in-with-google`). **otp** — use POST `/consumer/login/send-otp` then `/consumer/login/verify-otp` (not this endpoint). JWT in `data.token` when `data.is_personal_info === 1`; otherwise complete profile via `PUT /consumer/update-profile`. Optional `guest_id` merges guest cart.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ConsumerLoginBody"
+              },
+              "examples": {
+                "manual_phone": {
+                  "summary": "Manual (phone)",
+                  "value": {
+                    "login_type": "manual",
+                    "field_type": "phone",
+                    "email_or_phone": "+923001234567",
+                    "password": "password123",
+                    "guest_id": 42
+                  }
+                },
+                "social_google": {
+                  "summary": "Social (Google)",
+                  "value": {
+                    "login_type": "social",
+                    "medium": "google",
+                    "token": "eyJhbGciOiJSUzI1NiIs...",
+                    "email": "user@gmail.com",
+                    "unique_id": "104823456789012345678",
+                    "guest_id": 42,
+                    "verified": "default"
+                  }
+                }
               }
             }
           }
@@ -3595,10 +4042,208 @@
         ]
       }
     },
+    "/consumer/login/send-otp": {
+      "post": {
+        "summary": "Send login OTP (customer app)",
+        "description": "Phone sign-in step 1. Returns **`data.otp`** in the response until SMS is enabled in production. 60s resend cooldown in `data.resend_after_seconds`. Dev OTP often **`123456`**. Phone must match an existing customer account.",
+        "tags": [
+          "Consumer Auth"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phone"
+                ],
+                "properties": {
+                  "phone": {
+                    "type": "string",
+                    "example": "+972501234567"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP sent",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "OTP successfully sent",
+                  "data": {
+                    "phone_mask": "+97********4567",
+                    "otp": "123456",
+                    "resend_after_seconds": 60
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError403"
+          },
+          "405": {
+            "$ref": "#/components/responses/ApiError405"
+          }
+        }
+      }
+    },
+    "/consumer/login/verify-otp": {
+      "post": {
+        "summary": "Verify login OTP (customer app)",
+        "description": "Phone sign-in step 2. Returns the same JWT payload as manual login (`data.token`, `login_type: otp`). Optional `guest_id` merges guest cart.",
+        "tags": [
+          "Consumer Auth"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "phone",
+                  "otp"
+                ],
+                "properties": {
+                  "phone": {
+                    "type": "string",
+                    "example": "+972501234567"
+                  },
+                  "otp": {
+                    "type": "string",
+                    "example": "123456"
+                  },
+                  "guest_id": {
+                    "type": "integer",
+                    "example": 42
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerLoginResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError401"
+          }
+        }
+      }
+    },
+    "/consumer/sign-in-with-google": {
+      "post": {
+        "summary": "Sign in with Google",
+        "description": "Customer Google sign-in (legacy PHP: `POST /auth/login` with `login_type=social`, `medium=google`). App sends Google **id token** (default) or **access token** when `access_token` is `1`. Backend verifies with Google, creates/links user, returns JWT only if profile has name (`is_personal_info`).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumerGoogleSignInBody"
+              },
+              "example": {
+                "token": "eyJhbGciOiJSUzI1NiIs...",
+                "email": "user@gmail.com",
+                "unique_id": "104823456789012345678",
+                "guest_id": 42,
+                "verified": "default"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Google sign-in processed (token may be null until profile complete)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerSocialLoginResponse"
+                },
+                "examples": {
+                  "with_jwt": {
+                    "summary": "Existing user with name",
+                    "value": {
+                      "status": true,
+                      "msg": "Login success",
+                      "data": {
+                        "token": "eyJhbGciOiJIUzI1NiIs...",
+                        "is_phone_verified": 1,
+                        "is_email_verified": 1,
+                        "is_personal_info": 1,
+                        "is_exist_user": null,
+                        "login_type": "social",
+                        "email": "user@gmail.com"
+                      }
+                    }
+                  },
+                  "profile_required": {
+                    "summary": "New user — complete profile",
+                    "value": {
+                      "status": true,
+                      "msg": "Complete your profile to continue.",
+                      "data": {
+                        "token": null,
+                        "is_phone_verified": 1,
+                        "is_email_verified": 1,
+                        "is_personal_info": 0,
+                        "is_exist_user": null,
+                        "login_type": "social",
+                        "email": "user@gmail.com"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Invalid Google token, email mismatch, or blocked account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Invalid Google token."
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Auth"
+        ]
+      }
+    },
     "/consumer/password/forgot": {
       "post": {
         "summary": "Forgot password — send OTP",
-        "description": "Consumer app: email OTP (default). Set `field_type: phone` for SMS. Dev/test OTP is `123456` (server log). User must exist with that email/phone.",
+        "description": "Consumer app: email OTP (default). Set `field_type: phone` for SMS. User must exist with that email/phone.\n\n**Testing:** while `OTP_IN_RESPONSE` is not `false`, success responses include **`data.otp`** (email/SMS may still be attempted). Set `OTP_IN_RESPONSE=false` before production go-live.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3614,15 +4259,35 @@
         },
         "responses": {
           "200": {
-            "description": "OTP sent",
+            "description": "OTP sent (or returned in body during testing)",
             "content": {
               "application/json": {
-                "example": {
-                  "status": true,
-                  "msg": "OTP successfully sent to your email",
-                  "data": {
-                    "field_type": "email",
-                    "email_mask": "te***@example.com"
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordForgotOtpSuccessResponse"
+                },
+                "examples": {
+                  "emailTesting": {
+                    "summary": "Email (testing — OTP in response)",
+                    "value": {
+                      "status": true,
+                      "msg": "OTP generated (testing — see data.otp)",
+                      "data": {
+                        "field_type": "email",
+                        "email_mask": "te***@example.com",
+                        "otp": "482913"
+                      }
+                    }
+                  },
+                  "phoneTesting": {
+                    "summary": "Phone (testing)",
+                    "value": {
+                      "status": true,
+                      "msg": "OTP generated (testing — see data.otp)",
+                      "data": {
+                        "field_type": "phone",
+                        "otp": "482913"
+                      }
+                    }
                   }
                 }
               }
@@ -3640,7 +4305,7 @@
             }
           },
           "405": {
-            "description": "Resend cooldown or send failure",
+            "description": "Resend cooldown or send failure (when OTP_IN_RESPONSE=false and delivery failed)",
             "content": {
               "application/json": {
                 "examples": {
@@ -3653,7 +4318,7 @@
                   "emailFail": {
                     "value": {
                       "status": false,
-                      "msg": "Failed to send email"
+                      "msg": "Failed to send email. Check admin mail settings or contact support."
                     }
                   }
                 }
@@ -3958,6 +4623,570 @@
         ]
       }
     },
+    "/consumer/home-slider": {
+      "get": {
+        "summary": "Home banners (slider)",
+        "description": "Home banners for the customer zone(s). Same query **zone_id** as discover restaurant lists (e.g. ?zone_id=2).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ConsumerZoneIdQuery"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Banner list"
+          },
+          "403": {
+            "description": "Missing zone_id query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Discover"
+        ]
+      }
+    },
+    "/consumer/categories": {
+      "get": {
+        "summary": "What's on your mind (home categories)",
+        "description": "**What's on your mind** — top-level marketplace food categories for the customer home screen (legacy PHP `GET /api/v1/categories/`). Uses admin categories with `position=0` (not vendor menu categories). Requires **zone_id** query (same as home slider / discover). Optional **name** filter. Each tile includes zone-scoped **products_count** and **order_count**; parent categories may include **childes**.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ConsumerZoneIdQuery"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by category name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Marketplace category tiles",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Categories fetched successfully",
+                  "data": {
+                    "categories": [
+                      {
+                        "id": "1",
+                        "name": "Pizza",
+                        "image": "pizza.png",
+                        "image_full_url": "https://cdn.example.com/category/pizza.png",
+                        "slug": "pizza",
+                        "priority": 10,
+                        "parent_id": "0",
+                        "products_count": 24,
+                        "order_count": 120
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing zone_id query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Discover"
+        ]
+      }
+    },
+    "/consumer/restaurants/popular": {
+      "get": {
+        "description": "Popular restaurants for the home screen horizontal list. Same zone flow as GET /consumer/restaurants/all. Sorted **open first**, then **order_count** (legacy PHP `restaurants/popular`). Optional **latitude** / **longitude** (query or headers) for distance on cards.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ConsumerZoneIdQuery"
+          },
+          {
+            "name": "latitude",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Customer latitude (or send header latitude)"
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Customer longitude (or send header longitude)"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Max 50"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "veg",
+                "non_veg",
+                "home_delivery",
+                "take_away"
+              ]
+            }
+          },
+          {
+            "name": "veg",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "non_veg",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "top_rated",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "discounted",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "When set (1 or true), filter restaurants having active discounts or items on discount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Popular restaurants in zone(s)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerRestaurantListResponse"
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "total_size": 3,
+                    "limit": 20,
+                    "offset": 1,
+                    "restaurants": [
+                      {
+                        "id": "12",
+                        "name": "Nickel Barn & Coffee",
+                        "logo": "https://cdn.example.com/logo.png",
+                        "cover_photo": "https://cdn.example.com/cover.jpg",
+                        "delivery_time": "30-45 min",
+                        "minimum_order": 25,
+                        "tax": 17,
+                        "rating": 4.9,
+                        "address": "1631 W 2nd St, Example City",
+                        "latitude": "32.0853",
+                        "longitude": "34.7818",
+                        "order_count": 240,
+                        "open": true,
+                        "distance": 0.93,
+                        "distance_text": "0.93 km"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing zone_id query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Zone id is required!"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Discover"
+        ]
+      }
+    },
+    "/consumer/restaurants/discover/map": {
+      "get": {
+        "summary": "Map discover — restaurant pins",
+        "description": "**Find Nearby / See Location** map screen. Returns **all** active restaurants in the customer zone that have coordinates (not paginated). Optional **latitude** / **longitude** set map center and distance on each pin. Optional **min_lat**, **max_lat**, **min_lng**, **max_lng** filter to the visible map viewport. Optional **radius_km** (requires lat/lng) limits pins to a circle around the user. Public; no Bearer token.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ConsumerZoneIdQuery"
+          },
+          {
+            "name": "latitude",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            },
+            "description": "User / map center latitude (or header `latitude`)"
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "double"
+            },
+            "description": "User / map center longitude (or header `longitude`)"
+          },
+          {
+            "name": "min_lat",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "max_lat",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "min_lng",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "max_lng",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double"
+            }
+          },
+          {
+            "name": "radius_km",
+            "in": "query",
+            "schema": {
+              "type": "number",
+              "format": "double",
+              "minimum": 0.1
+            },
+            "description": "Requires latitude & longitude"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "veg",
+                "non_veg",
+                "home_delivery",
+                "take_away"
+              ]
+            }
+          },
+          {
+            "name": "veg",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "non_veg",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Map pin list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerRestaurantMapResponse"
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "total_size": 2,
+                    "center": {
+                      "latitude": 32.0853,
+                      "longitude": 34.7818
+                    },
+                    "bounds": null,
+                    "restaurants": [
+                      {
+                        "id": "12",
+                        "name": "Nickel Barn & Coffee",
+                        "logo": "restaurant/logo.png",
+                        "rating": 4.9,
+                        "address": "1631 W 2nd St",
+                        "latitude": 32.086,
+                        "longitude": 34.782,
+                        "open": true,
+                        "distance": 0.42,
+                        "distance_text": "0.42 km"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError500"
+          }
+        },
+        "tags": [
+          "Consumer Discover"
+        ]
+      }
+    },
+    "/consumer/restaurants/nearby": {
+      "get": {
+        "description": "**All Restaurants near you** / list flow (paginated). Requires customer **latitude** and **longitude** (query or headers) plus **zone_id**. Returns active restaurants in the zone with valid coordinates, sorted **open first**, then **nearest** (legacy PHP `get-restaurants` + `nearest_first`). For **map pins** use GET `/consumer/restaurants/discover/map` instead.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ConsumerZoneIdQuery"
+          },
+          {
+            "name": "latitude",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Customer latitude (or header latitude)"
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Customer longitude (or header longitude)"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Max 50"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by restaurant name"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "veg",
+                "non_veg",
+                "home_delivery",
+                "take_away"
+              ]
+            }
+          },
+          {
+            "name": "veg",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "non_veg",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "top_rated",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "When set, sort by rating then distance"
+          },
+          {
+            "name": "discounted",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "When set (1 or true), filter restaurants having active discounts or items on discount"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Nearby restaurants in zone(s)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerRestaurantListResponse"
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "total_size": 1,
+                    "limit": 20,
+                    "offset": 1,
+                    "restaurants": [
+                      {
+                        "id": "12",
+                        "name": "Nickel Barn & Coffee",
+                        "logo": "https://cdn.example.com/logo.png",
+                        "cover_photo": "https://cdn.example.com/cover.jpg",
+                        "delivery_time": "30-45 min",
+                        "minimum_order": 25,
+                        "tax": 17,
+                        "rating": 4.9,
+                        "address": "1631 W 2nd St, Example City",
+                        "latitude": "32.0853",
+                        "longitude": "34.7818",
+                        "order_count": 18,
+                        "open": true,
+                        "distance": 0.93,
+                        "distance_text": "0.93 km"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing latitude/longitude",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "latitude and longitude are required (query or headers)."
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing zone_id query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Discover"
+        ]
+      }
+    },
     "/consumer/restaurants/{id}/foods": {
       "get": {
         "description": "",
@@ -4160,33 +5389,106 @@
     },
     "/consumer/foods/search": {
       "get": {
-        "description": "",
+        "summary": "Search foods and restaurants",
+        "description": "App search bar: returns **foods** whose name matches and **restaurants** that sell those items (or whose name matches). Case-insensitive. Public — no auth. **name** is required. Optional **zone_id** (same as discover), **page** / **limit** (default 1 / 20, shared pagination), **latitude** / **longitude** for distance on restaurant cards.",
         "parameters": [
           {
             "name": "name",
             "in": "query",
+            "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Search term (food or restaurant name)"
+          },
+          {
+            "name": "zone_id",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Optional — limit to customer zone from GET /consumer/config/zone-id"
           },
           {
             "name": "page",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "default": 1
             }
           },
           {
             "name": "limit",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "latitude",
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "schema": {
+              "type": "number"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Food and restaurant matches",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "data": {
+                    "total_size": 8,
+                    "restaurants_total_size": 3,
+                    "limit": 20,
+                    "offset": 1,
+                    "foods": [
+                      {
+                        "id": "101",
+                        "name": "Classic Burger",
+                        "description": "Beef patty with cheese",
+                        "image": "burger.png",
+                        "category_id": "1",
+                        "restaurant_id": "12",
+                        "price": 45,
+                        "discount": 0,
+                        "veg": false,
+                        "status": true,
+                        "variations": [],
+                        "add_ons": []
+                      }
+                    ],
+                    "restaurants": [
+                      {
+                        "id": "12",
+                        "name": "Demo Kitchen",
+                        "logo": "logo.png",
+                        "cover_photo": "cover.png",
+                        "delivery_time": "30-40 min",
+                        "minimum_order": 10,
+                        "tax": 5,
+                        "rating": 4.5,
+                        "address": "123 Main Street",
+                        "order_count": 240,
+                        "open": true,
+                        "distance": 0.93,
+                        "distance_text": "0.93 km"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -4266,33 +5568,30 @@
     },
     "/consumer/cart/": {
       "get": {
-        "description": "",
+        "summary": "Get cart",
+        "description": "**Customer:** `Authorization: Bearer <customer JWT>` from login.\n\n**Guest (preferred):** `Authorization: Bearer <guest JWT>` from POST `/consumer/guest/request` — no extra query params.\n\n**Guest (legacy):** `is_guest=true` and `guest_id=<id>` with optional Bearer bypass via middleware.",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/ConsumerCartAuthHeader"
           },
           {
-            "name": "is_guest",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/ConsumerCartIsGuest"
           },
           {
-            "name": "guest_id",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/ConsumerCartGuestId"
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Cart line items",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "data": []
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -4372,19 +5671,25 @@
     },
     "/consumer/cart/add": {
       "post": {
-        "description": "",
+        "summary": "Add to cart",
+        "description": "Same auth as GET `/consumer/cart/`. With **guest Bearer token**, set `is_guest: true` in body or omit — server infers guest from JWT. Legacy: `is_guest: true` and `guest_id` without Bearer.",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
+            "$ref": "#/components/parameters/ConsumerCartAuthHeader"
           }
         ],
         "responses": {
           "201": {
-            "description": "Created"
+            "description": "Item added",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Added to cart successfully",
+                  "data": {}
+                }
+              }
+            }
           },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
@@ -4819,20 +6124,32 @@
         ]
       }
     },
-    "/consumer/home-slider": {
-      "get": {
-        "description": "Home banners for the customer zone(s). Same query **zone_id** as GET /consumer/restaurants/all (e.g. ?zone_id=2).",
+    "/consumer/order/quote": {
+      "post": {
+        "summary": "Quote order totals (checkout preview)",
+        "description": "Preview the same pricing as **POST /consumer/order/place** without creating an order row. Use on checkout before pay/place so the app shows **pricing_breakdown.order_amount** (VAT, delivery, fees). Request body is identical to place order (`PlaceOrderRequest` / `ConsumerPlaceOrderBody`). Send **`delivery_fee`** from **GET /consumer/config/delivery-fee** when available so delivery matches place. Client `price`, `order_amount`, and `total_tax_amount` fields are ignored for calculation. Bearer JWT required (registered customer or guest session).",
         "parameters": [
           {
-            "$ref": "#/components/parameters/ConsumerZoneIdQuery"
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Pricing quote",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerQuoteOrderResponse"
+                }
+              }
+            }
           },
-          "403": {
-            "description": "Missing zone_id query",
+          "400": {
+            "description": "Validation failed",
             "content": {
               "application/json": {
                 "schema": {
@@ -4840,13 +6157,41 @@
                 },
                 "example": {
                   "status": false,
-                  "msg": "Zone id is required! Pass query zone_id (e.g. ?zone_id=2) from GET /consumer/config/zone-id."
+                  "msg": "\"distance\" is required"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - consumer JWT required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Business rule failed (empty cart, coupon, restaurant closed, etc.)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Product unavailable"
                 }
               }
             }
           },
           "500": {
-            "description": "Internal Server Error - Something went wrong on the server",
+            "description": "Internal Server Error",
             "content": {
               "application/json": {
                 "schema": {
@@ -4860,14 +6205,24 @@
             }
           }
         },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumerPlaceOrderBody"
+              }
+            }
+          }
+        },
         "tags": [
-          "Consumer Auth"
+          "Consumer Orders"
         ]
       }
     },
     "/consumer/order/place": {
       "post": {
-        "description": "Place a marketplace order (Figma checkout / legacy PHP parity). Default: line items loaded from server `carts` for the authenticated user or guest (`guest_id`). Buy-now: set `is_buy_now` true and send `cart` or `items`. Delivery requires `distance` plus either `delivery_address_id` (from GET /consumer/addresses) or inline `address`, `latitude`, `longitude`. Totals (tax, delivery, platform fee, tips) are calculated server-side. Triggers vendor FCM for Web Panel & POS.",
+        "description": "Place a marketplace order (Figma checkout / legacy PHP parity). Default: line items loaded from server `carts` for the authenticated user or guest (`guest_id`). Buy-now: set `is_buy_now` true and send `cart` or `items`. Delivery requires `distance` plus either `delivery_address_id` (from GET /consumer/addresses) or inline `address`, `latitude`, `longitude`. Totals (tax, delivery, platform fee, tips) are calculated server-side. Prefer **POST /consumer/order/quote** for checkout UI. Triggers vendor FCM for Web Panel & POS.",
         "parameters": [
           {
             "name": "authorization",
@@ -4921,17 +6276,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ConsumerPlaceOrderError"
+                  "$ref": "#/components/schemas/ApiError"
                 },
                 "example": {
                   "status": false,
-                  "msg": "You cannot place an empty order",
-                  "errors": [
-                    {
-                      "code": "empty_order",
-                      "message": "You cannot place an empty order"
-                    }
-                  ]
+                  "msg": "You cannot place an empty order"
                 }
               }
             }
@@ -4980,6 +6329,9 @@
             "$ref": "#/components/parameters/ConsumerOrderListOffset"
           },
           {
+            "$ref": "#/components/parameters/ConsumerOrderListPage"
+          },
+          {
             "$ref": "#/components/parameters/ConsumerOrderListGuestId"
           },
           {
@@ -4998,7 +6350,7 @@
             }
           },
           "400": {
-            "description": "Validation error (limit/offset required)",
+            "description": "Validation error",
             "content": {
               "application/json": {
                 "schema": {
@@ -5049,6 +6401,9 @@
           },
           {
             "$ref": "#/components/parameters/ConsumerOrderListOffset"
+          },
+          {
+            "$ref": "#/components/parameters/ConsumerOrderListPage"
           },
           {
             "$ref": "#/components/parameters/ConsumerOrderListGuestId"
@@ -5126,6 +6481,9 @@
             "$ref": "#/components/parameters/ConsumerOrderListOffset"
           },
           {
+            "$ref": "#/components/parameters/ConsumerOrderListPage"
+          },
+          {
             "$ref": "#/components/parameters/ConsumerOrderListGuestId"
           },
           {
@@ -5176,6 +6534,194 @@
         },
         "tags": [
           "Consumer Orders"
+        ]
+      }
+    },
+    "/consumer/order/track": {
+      "get": {
+        "description": "Track order screen — single order with restaurant, driver, status timestamps, and delivery address. Legacy PHP: GET customer/order/track. Guest: query is_guest=true, guest_id, contact_number (must match delivery_address.contact_person_number).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ConsumerOrderListAuthHeader"
+          },
+          {
+            "$ref": "#/components/parameters/ConsumerOrderTrackIsGuest"
+          },
+          {
+            "$ref": "#/components/parameters/ConsumerOrderTrackOrderId"
+          },
+          {
+            "$ref": "#/components/parameters/ConsumerOrderListGuestId"
+          },
+          {
+            "$ref": "#/components/parameters/ConsumerOrderTrackContactNumber"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order tracking payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerOrderTrackResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order not found (or guest contact mismatch)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Order not found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Orders"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/consumer/order/cancel": {
+      "put": {
+        "description": "Cancel order while status is pending, failed, or already canceled. Sets canceled_by=customer and emits realtime order_status_changed. Legacy PHP: PUT customer/order/cancel.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ConsumerOrderListAuthHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order canceled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerOrderCancelResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Cannot cancel after confirm/processing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "You cannot cancel after the order is confirmed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumerOrderCancelBody"
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Orders"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
         ]
       }
     },
@@ -6374,6 +7920,208 @@
         ]
       }
     },
+    "/pages/legal": {
+      "get": {
+        "summary": "All legal pages (terms, privacy, policies)",
+        "description": "Returns every admin **Pages** document in one call. Keys: `terms_and_conditions`, `privacy_policy`, `about_us`, `refund_policy`, `shipping_policy`, `cancellation_policy`. Each has `title`, `content` (HTML), `active` (policy pages use `*_policy_status` in DB). Header **X-localization** for translations.",
+        "parameters": [
+          {
+            "name": "X-localization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "en"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All pages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalPagesBundleResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Legal Pages (All Apps)"
+        ]
+      }
+    },
+    "/pages/{slug}": {
+      "get": {
+        "summary": "Single legal page by slug",
+        "description": "Slugs: `terms-and-conditions`, `privacy-policy`, `about-us`, `refund-policy`, `shipping-policy`, `cancellation-policy` (same as PHP web routes). Default JSON: `{ status, data: { key, title, content, active } }`. **PHP parity:** `?format=legacy` → body is JSON string of HTML only.",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "terms-and-conditions",
+                "privacy-policy",
+                "about-us",
+                "refund-policy",
+                "shipping-policy",
+                "cancellation-policy"
+              ]
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "legacy",
+                "php"
+              ]
+            },
+            "description": "legacy/php = raw HTML string JSON (PHP HomeController expectsJson)"
+          },
+          {
+            "name": "X-localization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/LegalPageResponse"
+                    },
+                    {
+                      "type": "string",
+                      "description": "When format=legacy"
+                    }
+                  ]
+                },
+                "examples": {
+                  "structured": {
+                    "value": {
+                      "status": true,
+                      "msg": "Success",
+                      "data": {
+                        "key": "terms_and_conditions",
+                        "title": "Terms and conditions",
+                        "content": "<p>Terms HTML…</p>",
+                        "active": true
+                      }
+                    }
+                  },
+                  "legacy": {
+                    "value": "<p>Terms HTML…</p>"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown slug",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Legal Pages (All Apps)"
+        ]
+      }
+    },
+    "/config": {
+      "get": {
+        "summary": "App configuration (all apps)",
+        "description": "Legacy PHP **GET /api/v1/config** — flat JSON (no `status`/`data` wrapper). Customer, vendor, and driver apps call this on launch for **terms_and_conditions**, **privacy_policy**, **about_us**, refund/cancellation/shipping policies (+ `*_status` flags), **cookies_text**, payment/wallet/loyalty toggles, map keys, and **app_minimum_version_*** / store URLs per app.\n\nOptional header **`X-localization`** (e.g. `en`, `he`) returns translated legal HTML from `data_settings` + `translations`.\n\nSame body as **GET /consumer/config**.",
+        "parameters": [
+          {
+            "name": "X-localization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "en"
+            },
+            "description": "Locale for terms/privacy/about/policy HTML (legacy PHP localization)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Configuration object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppConfigurationResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "App Config (All Apps)"
+        ]
+      }
+    },
+    "/consumer/config": {
+      "get": {
+        "summary": "App configuration (consumer path alias)",
+        "description": "Identical to **GET /config**. Use **GET /consumer/config/zone-id** for lat/lng zone resolve.",
+        "parameters": [
+          {
+            "name": "X-localization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "en"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Configuration object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppConfigurationResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "App Config (All Apps)"
+        ]
+      }
+    },
     "/consumer/config/zone-id": {
       "get": {
         "description": "Resolve active zone(s) at lat/lng (legacy PHP GET /config/get-zone-id). Call on app open and when the user changes location. **Query:** WGS84 `lat` (e.g. 31.75 Israel), `lng` (e.g. 34.75). No auth.",
@@ -6461,6 +8209,115 @@
         },
         "tags": [
           "Consumer Zones"
+        ]
+      }
+    },
+    "/consumer/config/delivery-fee": {
+      "get": {
+        "summary": "Quote delivery fee (tiered)",
+        "operationId": "getConsumerConfigDeliveryFee",
+        "description": "Quote tiered delivery fee for checkout: **base fee** covers the first **base distance (km)**; each additional km uses **extra per km**. Server loads restaurant origin from DB, computes route distance (Google Distance Matrix walking, haversine fallback), applies zone pricing (restaurant overrides when self-delivery). Public; no Bearer.",
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "example": 1
+            }
+          },
+          {
+            "name": "destination_lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 31.768
+            },
+            "description": "Customer delivery latitude"
+          },
+          {
+            "name": "destination_lng",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 35.214
+            },
+            "description": "Customer delivery longitude"
+          },
+          {
+            "name": "distance_km",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "example": 4.2
+            },
+            "description": "Optional — skip Google/haversine when client already computed route distance (e.g. from GET /consumer/config/distance)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Delivery fee quote",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerDeliveryFeeQuoteResponse"
+                },
+                "example": {
+                  "restaurant_id": 1,
+                  "distance_km": 4.2,
+                  "distance_source": "google",
+                  "delivery_fee": 9.4,
+                  "original_delivery_fee": 9.4,
+                  "pricing": {
+                    "base_fee": 5,
+                    "base_distance_km": 2,
+                    "extra_per_km": 2,
+                    "extra_km": 2.2,
+                    "subtotal_before_surge": 9.4,
+                    "surge_percent": 0
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation, restaurant not delivering, or missing restaurant location",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Restaurant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Config"
         ]
       }
     },
@@ -7052,6 +8909,325 @@
         ]
       }
     },
+    "/vendor/restaurant/pos-settings": {
+      "put": {
+        "summary": "Update POS app toggles",
+        "description": "Partial update of POS toggles (`autoAcceptOrder`, `autoPrintOnAccept`, `use58mmPaper`). **Read** these from `GET /vendor/whoami` (no separate GET). Stored in `restaurants.additional_data` — no DB migration.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/VendorAuthorizationHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VendorPosAppSettingsBody"
+              },
+              "example": {
+                "autoAcceptOrder": true,
+                "autoPrintOnAccept": true,
+                "use58mmPaper": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorPosAppSettingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Restaurant context not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Restaurant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Restaurant Setup"
+        ]
+      }
+    },
+    "/vendor/whoami-mobile": {
+      "get": {
+        "summary": "Current vendor (POS / mobile lean profile)",
+        "description": "Compact profile for the vendor **mobile/POS** app. Use `GET /vendor/whoami` for the web panel (full restaurant row). Returns name, email, phone, image, notification flag, slim restaurant, and POS toggles.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/VendorAuthorizationHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lean mobile profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorWhoamiMobileResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Success",
+                  "data": {
+                    "id": "39",
+                    "f_name": "Zeeshan",
+                    "l_name": "kha",
+                    "name": "Zeeshan kha",
+                    "phone": "+9723359902691",
+                    "email": "zeeshandev038@gmail.com",
+                    "image": null,
+                    "status": true,
+                    "is_notification_on": true,
+                    "restaurant": {
+                      "id": "39",
+                      "name": "Zeeshan restaurant",
+                      "phone": "+9723359902691",
+                      "email": "zeeshandev038@gmail.com",
+                      "logo": "https://cdn.example.com/logo.jpg",
+                      "address": "Hebron",
+                      "zone_id": "1",
+                      "active": true,
+                      "status": true
+                    },
+                    "autoAcceptOrder": false,
+                    "autoPrintOnAccept": false,
+                    "use58mmPaper": true,
+                    "posSettings": {
+                      "autoAcceptOrder": false,
+                      "autoPrintOnAccept": false,
+                      "use58mmPaper": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "404": {
+            "description": "Vendor not found"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError500"
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
+    "/vendor/orders/{id}/kitchen-note": {
+      "post": {
+        "summary": "POS kitchen note — save & notify customer",
+        "description": "Kitchen note from POS (chips: Item out of stock, Running 10 min late, No Cutlery, Item Swapped). Sends chat message + FCM to the customer. No DB schema change (same idea as legacy Flutter message/send).",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Bearer vendor JWT"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Order ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VendorKitchenNoteBody"
+              },
+              "example": {
+                "note": "Item out of stock • Running 10 min late"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Note notified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorKitchenNoteResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Kitchen note sent to customer",
+                  "data": {
+                    "order_id": "101",
+                    "note": "Item out of stock • Running 10 min late",
+                    "presets": [
+                      "Item out of stock",
+                      "Running 10 min late",
+                      "No Cutlery",
+                      "Item Swapped"
+                    ],
+                    "chat_sent": true,
+                    "push_sent": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Restaurant context missing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Orders (Web Panel & POS)"
+        ]
+      }
+    },
+    "/delivery-man/zones": {
+      "get": {
+        "summary": "List active zones for driver signup",
+        "description": "Public zone/city list for register step 2 (legacy PHP `GET /api/v1/zone/list`). Driver selects a city and sends its `id` as `zone_id` on `POST /delivery-man/register`. No auth required.",
+        "responses": {
+          "200": {
+            "description": "Active zones",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManZonesResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Zones fetched successfully",
+                  "data": {
+                    "zones": [
+                      {
+                        "id": "1",
+                        "name": "Tel Aviv",
+                        "display_name": "Tel Aviv"
+                      },
+                      {
+                        "id": "2",
+                        "name": "Jerusalem",
+                        "display_name": "Jerusalem"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Auth"
+        ]
+      }
+    },
     "/delivery-man/login": {
       "post": {
         "summary": "Login (driver app)",
@@ -7127,7 +9303,7 @@
     "/delivery-man/register": {
       "post": {
         "summary": "Register delivery man (driver app)",
-        "description": "Figma 2-step registration. **Media:** `POST /storage/registration-init` `{ \"role\": \"deliveryman\" }` → `POST /upload` (category `profile` / `identity`) → pass `cloudflare_id` + R2 paths. Requires **`delivery_type` or `earning`**. Admin approval (`npm run approve-riders` or admin panel) before login.",
+        "description": "Figma 2-step registration. **Zones:** `GET /delivery-man/zones` for city picker → send `zone_id`. **Media:** `POST /storage/registration-init` `{ \"role\": \"deliveryman\" }` → `POST /upload` (category `profile` / `identity`) → pass `cloudflare_id` + R2 paths. Requires **`delivery_type` or `earning`**. Admin approval (`npm run approve-riders` or admin panel) before login.",
         "requestBody": {
           "required": true,
           "content": {
@@ -7485,6 +9661,133 @@
         ]
       }
     },
+    "/delivery-man/wallet": {
+      "get": {
+        "summary": "Wallet, withdraw history, payment history",
+        "description": "Balance, withdrawable amount (minus collected COD cash), pending/approved withdraw requests, and collected-cash payment rows (`account_transactions`).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 25
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Wallet payload"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Delivery Man Wallet"
+        ]
+      }
+    },
+    "/delivery-man/wallet/withdraw-method-options": {
+      "get": {
+        "summary": "Active withdrawal methods",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Method templates with field defs"
+          }
+        },
+        "tags": [
+          "Delivery Man Wallet"
+        ]
+      }
+    },
+    "/delivery-man/wallet/withdraw-request": {
+      "post": {
+        "summary": "Request withdraw",
+        "description": "Creates `withdraw_requests` with `delivery_man_id` and increases `pending_withdraw` on `delivery_man_wallets`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "amount",
+                  "id"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": "number"
+                  },
+                  "id": {
+                    "type": "integer",
+                    "description": "withdrawal_methods.id"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Request placed"
+          },
+          "403": {
+            "description": "Insufficient balance"
+          }
+        },
+        "tags": [
+          "Delivery Man Wallet"
+        ]
+      }
+    },
+    "/delivery-man/wallet/withdraw-request/{id}": {
+      "delete": {
+        "summary": "Cancel pending withdraw",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Canceled"
+          }
+        },
+        "tags": [
+          "Delivery Man Wallet"
+        ]
+      }
+    },
     "/delivery-man/home": {
       "get": {
         "summary": "Home dashboard stats",
@@ -7588,6 +9891,66 @@
       }
     },
     "/delivery-man/profile": {
+      "put": {
+        "summary": "Update profile",
+        "description": "Edit driver name, email, optional password, profile image path, and vehicle. Legacy PHP path: **PUT /delivery-man/update-profile** (same handler).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryManUpdateProfileBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManUpdateProfileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "403": {
+            "description": "Email already taken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Email is already taken"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError404"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError500"
+          }
+        },
+        "tags": [
+          "Delivery Man Profile"
+        ]
+      },
       "get": {
         "summary": "Get profile",
         "description": "Delivery man row without password. Prefer **GET /delivery-man/whoami** for app session; this endpoint also accepts legacy `dm_id` query when testing without JWT.",
@@ -7635,6 +9998,57 @@
           },
           "404": {
             "description": "Driver not found"
+          }
+        },
+        "tags": [
+          "Delivery Man Profile"
+        ]
+      }
+    },
+    "/delivery-man/update-profile": {
+      "put": {
+        "summary": "Update profile (legacy path)",
+        "description": "Same handler as **PUT /delivery-man/profile** (PHP parity).",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryManUpdateProfileBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManUpdateProfileResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError404"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError500"
           }
         },
         "tags": [
@@ -7804,7 +10218,19 @@
                       "item_title": "Chicken Biryani",
                       "delivery_address_snippet": "block B, Soan Garden",
                       "latitude": "33.123456",
-                      "longitude": "73.654321"
+                      "longitude": "73.654321",
+                      "restaurant_address": "Main Commercial, Sector F, Islamabad",
+                      "restaurant_lat": "33.729388",
+                      "restaurant_lng": "73.093146",
+                      "restaurant": {
+                        "id": "5",
+                        "name": "Quatta Cafe",
+                        "address": "Main Commercial, Sector F, Islamabad",
+                        "latitude": "33.729388",
+                        "longitude": "73.093146",
+                        "logo": "logo.png",
+                        "cover_photo": "cover.png"
+                      }
                     }
                   ]
                 }
@@ -7856,7 +10282,19 @@
                       "item_title": "Beef Burger",
                       "delivery_address_snippet": "block B, Soan Garden",
                       "latitude": "33.123456",
-                      "longitude": "73.654321"
+                      "longitude": "73.654321",
+                      "restaurant_address": "Main Commercial, Sector F, Islamabad",
+                      "restaurant_lat": "33.729388",
+                      "restaurant_lng": "73.093146",
+                      "restaurant": {
+                        "id": "5",
+                        "name": "Quatta Cafe",
+                        "address": "Main Commercial, Sector F, Islamabad",
+                        "latitude": "33.729388",
+                        "longitude": "73.093146",
+                        "logo": "logo.png",
+                        "cover_photo": "cover.png"
+                      }
                     }
                   ]
                 }
@@ -7868,6 +10306,112 @@
           },
           "404": {
             "description": "Driver not found"
+          }
+        },
+        "tags": [
+          "Delivery Man Orders"
+        ]
+      }
+    },
+    "/delivery-man/orders/{id}": {
+      "get": {
+        "operationId": "getDeliveryManOrderDetails",
+        "summary": "Order detail (request / active trip)",
+        "description": "Full order for **Order Request** tap-through or **active delivery** screen: restaurant + customer contact/location, line items, pricing breakdown, manual-dispatch summary, and flags **`can_accept`** / **`can_update_status`** / **`assigned_to_me`**. Allowed when the order is in the driver's pool (same rules as GET /orders/latest) or assigned to this driver. Response includes **`user_id`** (customer) and **`vendor_id`** (restaurant) for chat (`GET /delivery-man/message/details`). **Clients:** Driver app order detail + chat entry.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d+$"
+            },
+            "description": "Numeric order id (from GET /delivery-man/orders/latest or /active)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManOrderDetailResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Success",
+                  "data": {
+                    "id": "100178",
+                    "user_id": "7",
+                    "vendor_id": "3",
+                    "order_status": "handover",
+                    "status_label": "Handover",
+                    "payment_status": "unpaid",
+                    "payment_method": "cash_on_delivery",
+                    "order_type": "delivery",
+                    "order_amount": 60,
+                    "delivery_charge": 30,
+                    "is_manual_dispatch": true,
+                    "dispatch_summary": {
+                      "title": "Manual Dispatch delivery request",
+                      "delivery_fee": 30
+                    },
+                    "restaurant": {
+                      "id": "5",
+                      "name": "Quatta Cafe",
+                      "phone": "+923001234567",
+                      "address_snippet": "block D, Saon Garden",
+                      "image_url": "https://cdn.example.com/restaurant/logo.png"
+                    },
+                    "customer": {
+                      "name": "Mudasir Khan",
+                      "phone": "+923009876543",
+                      "address_snippet": "block B, Saon Garden",
+                      "image_url": "https://cdn.example.com/profile/user.jpg"
+                    },
+                    "items": [
+                      {
+                        "food_name": "Chicken Biryani",
+                        "quantity": 1,
+                        "unit_label": "Plate",
+                        "price": 30,
+                        "line_total": 30,
+                        "food_image_url": "https://cdn.example.com/food/biryani.png"
+                      }
+                    ],
+                    "pricing": {
+                      "items_price": 160.06,
+                      "discount": 0,
+                      "vat_tax": 16,
+                      "tax_percent": 10,
+                      "delivery_man_tips": 0,
+                      "addons": 0,
+                      "delivery_charge": 30,
+                      "subtotal": 60
+                    },
+                    "can_accept": false,
+                    "can_update_status": true,
+                    "assigned_to_me": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid order id"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "You cannot view this order (outside pool / zone / vehicle)"
+          },
+          "404": {
+            "description": "Order or driver not found"
           }
         },
         "tags": [
@@ -8061,6 +10605,92 @@
           },
           "401": {
             "$ref": "#/components/responses/ApiError401"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError500"
+          }
+        },
+        "tags": [
+          "Delivery Man Notifications"
+        ]
+      }
+    },
+    "/delivery-man/notifications/toggle": {
+      "put": {
+        "summary": "Toggle push notifications (on/off)",
+        "description": "Updates `is_notification_on` on the driver row. When **false**, direct FCM device pushes are skipped (inbox rows may still be stored). Send `{ \"enabled\": true|false }` to set explicitly; send `{}` or omit body to **flip** the current value.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushNotificationToggleBody"
+              },
+              "examples": {
+                "setOn": {
+                  "summary": "Turn on",
+                  "value": {
+                    "enabled": true
+                  }
+                },
+                "setOff": {
+                  "summary": "Turn off",
+                  "value": {
+                    "enabled": false
+                  }
+                },
+                "flip": {
+                  "summary": "Flip current",
+                  "value": {}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preference updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushNotificationToggleResponse"
+                },
+                "examples": {
+                  "enabled": {
+                    "value": {
+                      "status": true,
+                      "msg": "Push notifications enabled",
+                      "data": {
+                        "is_notification_on": true
+                      }
+                    }
+                  },
+                  "disabled": {
+                    "value": {
+                      "status": true,
+                      "msg": "Push notifications disabled",
+                      "data": {
+                        "is_notification_on": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError404"
           },
           "500": {
             "$ref": "#/components/responses/ApiError500"
@@ -8276,6 +10906,72 @@
         ]
       }
     },
+    "/vendor/notifications/toggle": {
+      "put": {
+        "summary": "Toggle push notifications (on/off)",
+        "description": "Updates `is_notification_on` on the vendor row (POS mobile `firebase_token` and web `fcm_token_web`). When **false**, direct FCM pushes are skipped. Optional body `{ \"enabled\": boolean }`; empty body **flips** current value.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/VendorAuthorizationHeader"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushNotificationToggleBody"
+              },
+              "examples": {
+                "setOn": {
+                  "value": {
+                    "enabled": true
+                  }
+                },
+                "setOff": {
+                  "value": {
+                    "enabled": false
+                  }
+                },
+                "flip": {
+                  "value": {}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preference updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushNotificationToggleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError404"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError500"
+          }
+        },
+        "tags": [
+          "Vendor Notifications"
+        ]
+      }
+    },
     "/vendor/notifications/{id}": {
       "delete": {
         "summary": "Delete one inbox item",
@@ -8395,6 +11091,69 @@
         ]
       }
     },
+    "/consumer/notifications/toggle": {
+      "put": {
+        "summary": "Toggle push notifications (on/off)",
+        "description": "Updates `is_notification_on` on the customer user row. When **false**, direct FCM pushes (`cm_firebase_token`) are skipped. Optional `{ \"enabled\": boolean }`; empty body **flips** current value. Read current state from **GET /consumer/whoami** → `data.is_notification_on`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ConsumerAuthorizationHeader"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PushNotificationToggleBody"
+              },
+              "examples": {
+                "setOn": {
+                  "value": {
+                    "enabled": true
+                  }
+                },
+                "setOff": {
+                  "value": {
+                    "enabled": false
+                  }
+                },
+                "flip": {
+                  "value": {}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preference updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PushNotificationToggleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError404"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError500"
+          }
+        },
+        "tags": [
+          "Consumer Notifications"
+        ]
+      }
+    },
     "/consumer/notifications/{id}": {
       "delete": {
         "summary": "Delete one inbox item",
@@ -8444,10 +11203,42 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "bearerFormat": "JWT"
+        "bearerFormat": "JWT",
+        "description": "**Customer JWT** — from POST `/consumer/login` or `/consumer/sign-in-with-google` (`data.token`). **Guest JWT** — from POST `/consumer/guest/request` (`data.token`, claim `role: guest`); valid for cart (and guest checkout flows), not for profile/favourites/addresses."
       }
     },
     "parameters": {
+      "ConsumerCartAuthHeader": {
+        "name": "authorization",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string"
+        },
+        "description": "`Bearer <token>` — customer JWT or guest JWT from POST `/consumer/guest/request`"
+      },
+      "ConsumerCartIsGuest": {
+        "name": "is_guest",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "true",
+            "false"
+          ]
+        },
+        "description": "Legacy guest mode when not using guest Bearer JWT"
+      },
+      "ConsumerCartGuestId": {
+        "name": "guest_id",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "integer"
+        },
+        "description": "Guest id from POST `/consumer/guest/request` — required with `is_guest=true` when no guest JWT"
+      },
       "ConsumerOrderListAuthHeader": {
         "name": "authorization",
         "in": "header",
@@ -8455,29 +11246,72 @@
         "schema": {
           "type": "string"
         },
-        "description": "Bearer token from POST /consumer/login. For guest orders use query is_guest=true and guest_id instead."
+        "description": "Bearer **customer** JWT from login/social. For guest orders use query `is_guest=true` and `guest_id` instead of customer JWT."
       },
       "ConsumerOrderListLimit": {
         "name": "limit",
         "in": "query",
-        "required": true,
+        "required": false,
         "schema": {
           "type": "integer",
           "minimum": 1,
           "maximum": 100,
+          "default": 10,
           "example": 10
-        }
+        },
+        "description": "Page size (default 10)"
       },
       "ConsumerOrderListOffset": {
         "name": "offset",
         "in": "query",
-        "required": true,
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1,
+          "example": 1
+        },
+        "description": "Page number (1-based), not row skip (default 1)"
+      },
+      "ConsumerOrderListPage": {
+        "name": "page",
+        "in": "query",
+        "required": false,
         "schema": {
           "type": "integer",
           "minimum": 1,
           "example": 1
         },
-        "description": "Page number (1-based), not row skip"
+        "description": "Alias for offset (page number)"
+      },
+      "ConsumerOrderTrackOrderId": {
+        "name": "order_id",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "example": "100072"
+        }
+      },
+      "ConsumerOrderTrackContactNumber": {
+        "name": "contact_number",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "example": "03001234567"
+        },
+        "description": "Required for guest track — must match order delivery_address.contact_person_number"
+      },
+      "ConsumerOrderTrackIsGuest": {
+        "name": "is_guest",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "type": "boolean",
+          "example": true
+        },
+        "description": "Pass true with guest_id when not using Bearer JWT"
       },
       "ConsumerOrderListGuestId": {
         "name": "guest_id",
@@ -8609,6 +11443,10 @@
     "schemas": {
       "ApiError": {
         "type": "object",
+        "required": [
+          "status",
+          "msg"
+        ],
         "properties": {
           "status": {
             "type": "boolean",
@@ -8618,6 +11456,10 @@
             "type": "string",
             "example": "Something went wrong"
           }
+        },
+        "example": {
+          "status": false,
+          "msg": "Something went wrong"
         }
       },
       "ApiResponse": {
@@ -8911,6 +11753,102 @@
           }
         }
       },
+      "ConsumerOrderPricingBreakdown": {
+        "type": "object",
+        "description": "Server-side order pricing (placeOrderLogic). VAT rate from restaurant.tax; included vs excluded from business_settings.tax_included (GET /config → tax_included).",
+        "properties": {
+          "subtotal": {
+            "type": "number",
+            "description": "Food + add-ons − product and coupon discounts (tax base before VAT add-on)",
+            "example": 40
+          },
+          "total_tax_amount": {
+            "type": "number",
+            "description": "VAT amount (reporting line; included in order_amount when tax_status is excluded)",
+            "example": 2
+          },
+          "tax_added_to_total": {
+            "type": "number",
+            "description": "VAT added on top of subtotal when tax_status is excluded; 0 when included",
+            "example": 2
+          },
+          "tax_status": {
+            "type": "string",
+            "enum": [
+              "included",
+              "excluded"
+            ],
+            "example": "excluded"
+          },
+          "tax_percentage": {
+            "type": "number",
+            "description": "Restaurant VAT/GST rate in percent (`restaurants.tax` for restaurant_id)",
+            "example": 5
+          },
+          "tax_included": {
+            "type": "boolean",
+            "description": "Global business setting (GET /config → tax_included): menu prices already include VAT when true",
+            "example": false
+          },
+          "delivery_charge": {
+            "type": "number",
+            "example": 1
+          },
+          "additional_charge": {
+            "type": "number",
+            "description": "Platform service fee when enabled in business settings",
+            "example": 0
+          },
+          "extra_packaging_amount": {
+            "type": "number",
+            "example": 0
+          },
+          "dm_tips": {
+            "type": "number",
+            "example": 0
+          },
+          "order_amount": {
+            "type": "number",
+            "description": "Full amount the customer pays — use for checkout label and HyperPay",
+            "example": 43
+          }
+        },
+        "required": [
+          "subtotal",
+          "total_tax_amount",
+          "tax_added_to_total",
+          "tax_status",
+          "tax_percentage",
+          "tax_included",
+          "delivery_charge",
+          "additional_charge",
+          "extra_packaging_amount",
+          "dm_tips",
+          "order_amount"
+        ]
+      },
+      "ConsumerQuoteOrderResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "total_ammount": {
+            "type": "number",
+            "description": "Legacy PHP field name; equals pricing_breakdown.order_amount",
+            "example": 43
+          },
+          "pricing_breakdown": {
+            "$ref": "#/components/schemas/ConsumerOrderPricingBreakdown"
+          }
+        },
+        "required": [
+          "status",
+          "total_ammount",
+          "pricing_breakdown"
+        ]
+      },
       "ConsumerPlaceOrderResponse": {
         "type": "object",
         "properties": {
@@ -8932,7 +11870,11 @@
           },
           "total_ammount": {
             "type": "number",
-            "description": "Legacy PHP field name (subtotal + tax + delivery before tips in response helper)"
+            "description": "Legacy PHP field name; equals pricing_breakdown.order_amount (full pay amount)",
+            "example": 43
+          },
+          "pricing_breakdown": {
+            "$ref": "#/components/schemas/ConsumerOrderPricingBreakdown"
           },
           "data": {
             "$ref": "#/components/schemas/ConsumerPlaceOrderData"
@@ -8940,30 +11882,12 @@
         }
       },
       "ConsumerPlaceOrderError": {
-        "type": "object",
-        "properties": {
-          "status": {
-            "type": "boolean",
-            "example": false
-          },
-          "msg": {
-            "type": "string"
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "code": {
-                  "type": "string"
-                },
-                "message": {
-                  "type": "string"
-                }
-              }
-            }
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiError"
           }
-        }
+        ],
+        "description": "Deprecated alias — same shape as ApiError ({ status: false, msg })."
       },
       "ConsumerAddress": {
         "type": "object",
@@ -9425,7 +12349,7 @@
           "zone_id": {
             "type": "integer",
             "example": 2,
-            "description": "Step 2 — city / service zone (GET /consumer/zone/list)"
+            "description": "Step 2 — city / service zone (GET /delivery-man/zones)"
           },
           "city_id": {
             "type": "integer",
@@ -10282,16 +13206,15 @@
       "ConsumerLoginBody": {
         "type": "object",
         "required": [
-          "login_type",
-          "field_type",
-          "email_or_phone",
-          "password"
+          "login_type"
         ],
         "properties": {
           "login_type": {
             "type": "string",
             "enum": [
-              "manual"
+              "manual",
+              "otp",
+              "social"
             ],
             "example": "manual"
           },
@@ -10301,19 +13224,229 @@
               "phone",
               "email"
             ],
-            "example": "phone"
+            "description": "Required when login_type=manual"
           },
           "email_or_phone": {
             "type": "string",
-            "example": "+923001234567"
+            "description": "Required when login_type=manual"
           },
           "password": {
             "type": "string",
-            "example": "password123"
+            "minLength": 6,
+            "description": "Required when login_type=manual"
+          },
+          "token": {
+            "type": "string",
+            "description": "Google id token or access token when login_type=social"
+          },
+          "unique_id": {
+            "type": "string",
+            "description": "Google user id (sub) when login_type=social"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Required when login_type=social"
+          },
+          "medium": {
+            "type": "string",
+            "enum": [
+              "google",
+              "facebook",
+              "apple"
+            ],
+            "description": "Required when login_type=social (only google implemented)"
+          },
+          "access_token": {
+            "description": "Set to 1 or true if token is OAuth access token (not id token)",
+            "oneOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  1
+                ]
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "verified": {
+            "type": "string",
+            "enum": [
+              "default",
+              "no"
+            ],
+            "default": "default",
+            "description": "Social account linking mode (legacy PHP)"
           },
           "guest_id": {
             "type": "integer",
-            "description": "Optional guest id to merge cart on login"
+            "description": "From POST `/consumer/guest/request` — merges guest cart after successful login"
+          }
+        }
+      },
+      "ConsumerGuestRequestBody": {
+        "type": "object",
+        "properties": {
+          "fcm_token": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional Firebase device token (stored on guest record for push)"
+          }
+        }
+      },
+      "ConsumerGuestSessionData": {
+        "type": "object",
+        "required": [
+          "guest_id",
+          "token"
+        ],
+        "properties": {
+          "guest_id": {
+            "type": "string",
+            "description": "Guest primary key — save locally; send on login/social sign-in to merge cart"
+          },
+          "token": {
+            "type": "string",
+            "description": "Guest session JWT (`role: guest`). Use as Bearer on cart APIs until customer logs in"
+          }
+        }
+      },
+      "ConsumerGuestSessionResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Guest verified successfully"
+          },
+          "guest_id": {
+            "type": "string",
+            "description": "Duplicate of `data.guest_id` for legacy PHP-style clients"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConsumerGuestSessionData"
+          }
+        }
+      },
+      "ConsumerGoogleSignInBody": {
+        "type": "object",
+        "required": [
+          "token",
+          "email",
+          "unique_id"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Google id token from mobile/web SDK (default)"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "unique_id": {
+            "type": "string",
+            "description": "Stable Google user id (sub)"
+          },
+          "access_token": {
+            "description": "Set to 1 or true when token is an OAuth access token",
+            "oneOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  1
+                ]
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "guest_id": {
+            "type": "integer",
+            "description": "From POST `/consumer/guest/request` (`guest_id` or `data.guest_id`). Merges guest cart when customer JWT is issued"
+          },
+          "verified": {
+            "type": "string",
+            "enum": [
+              "default",
+              "no"
+            ],
+            "default": "default"
+          }
+        }
+      },
+      "ConsumerSocialLoginExistUser": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerSocialLoginData": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "nullable": true,
+            "description": "JWT when is_personal_info=1; null until profile has name"
+          },
+          "is_phone_verified": {
+            "type": "integer",
+            "example": 1
+          },
+          "is_email_verified": {
+            "type": "integer",
+            "example": 1
+          },
+          "is_personal_info": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "description": "1 if user has f_name (full JWT issued)"
+          },
+          "is_exist_user": {
+            "$ref": "#/components/schemas/ConsumerSocialLoginExistUser"
+          },
+          "login_type": {
+            "type": "string",
+            "example": "social"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerSocialLoginResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConsumerSocialLoginData"
           }
         }
       },
@@ -10329,24 +13462,32 @@
             "example": "Login success"
           },
           "data": {
-            "type": "object",
-            "properties": {
-              "token": {
-                "type": "string"
+            "oneOf": [
+              {
+                "type": "object",
+                "description": "manual login",
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  },
+                  "is_phone_verified": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "is_email_verified": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "login_type": {
+                    "type": "string",
+                    "example": "manual"
+                  }
+                }
               },
-              "is_phone_verified": {
-                "type": "integer",
-                "example": 1
-              },
-              "is_email_verified": {
-                "type": "integer",
-                "example": 0
-              },
-              "login_type": {
-                "type": "string",
-                "example": "manual"
+              {
+                "$ref": "#/components/schemas/ConsumerSocialLoginData"
               }
-            }
+            ]
           }
         }
       },
@@ -10369,6 +13510,93 @@
           "phone": {
             "type": "string",
             "example": "+923001234567"
+          }
+        }
+      },
+      "PasswordForgotOtpData": {
+        "type": "object",
+        "properties": {
+          "field_type": {
+            "type": "string",
+            "enum": [
+              "email",
+              "phone"
+            ]
+          },
+          "email_mask": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone_mask": {
+            "type": "string",
+            "nullable": true
+          },
+          "resend_after_seconds": {
+            "type": "integer",
+            "nullable": true
+          },
+          "otp": {
+            "type": "string",
+            "description": "Reset OTP while OTP_IN_RESPONSE is enabled (testing). Hidden when OTP_IN_RESPONSE=false."
+          }
+        }
+      },
+      "PasswordForgotOtpSuccessResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PasswordForgotOtpData"
+          }
+        }
+      },
+      "DeliveryManForgotPasswordSuccessResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PasswordForgotOtpData"
+              },
+              {
+                "type": "object",
+                "required": [
+                  "field_type",
+                  "resend_after_seconds"
+                ],
+                "properties": {
+                  "field_type": {
+                    "type": "string",
+                    "enum": [
+                      "phone"
+                    ]
+                  }
+                }
+              }
+            ]
           }
         }
       },
@@ -11102,6 +14330,11 @@
             "example": 1,
             "description": "Page number (1-based), legacy PHP semantics"
           },
+          "page": {
+            "type": "integer",
+            "example": 1,
+            "description": "Same as offset when provided"
+          },
           "orders": {
             "type": "array",
             "items": {
@@ -11143,6 +14376,281 @@
             "$ref": "#/components/schemas/ConsumerOrderListResponse"
           }
         ]
+      },
+      "ConsumerOrderTrackRestaurant": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "3"
+          },
+          "name": {
+            "type": "string",
+            "example": "Pizza House"
+          },
+          "logo": {
+            "type": "string",
+            "nullable": true
+          },
+          "logo_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerOrderTrackDeliveryMan": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "8"
+          },
+          "f_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "l_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "image_url": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerOrderTrackData": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "100072"
+          },
+          "user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "order_amount": {
+            "type": "number",
+            "example": 45.5
+          },
+          "delivery_charge": {
+            "type": "number",
+            "example": 3
+          },
+          "total_tax_amount": {
+            "type": "number",
+            "example": 2.5
+          },
+          "payment_status": {
+            "type": "string",
+            "example": "unpaid"
+          },
+          "order_status": {
+            "type": "string",
+            "example": "confirmed"
+          },
+          "status_label": {
+            "type": "string",
+            "example": "Confirmed"
+          },
+          "payment_method": {
+            "type": "string",
+            "example": "cash_on_delivery"
+          },
+          "order_type": {
+            "type": "string",
+            "example": "delivery"
+          },
+          "schedule_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "scheduled": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "pending": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "accepted": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "confirmed": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "processing": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "handover": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "picked_up": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "delivered": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "canceled": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "delivery_address": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "restaurant": {
+            "$ref": "#/components/schemas/ConsumerOrderTrackRestaurant"
+          },
+          "delivery_man": {
+            "$ref": "#/components/schemas/ConsumerOrderTrackDeliveryMan"
+          },
+          "details_count": {
+            "type": "integer",
+            "example": 2
+          },
+          "dm_tips": {
+            "type": "number",
+            "example": 0
+          },
+          "delivery_man_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "cancellation_reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "canceled_by": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerOrderTrackResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConsumerOrderTrackData"
+          }
+        }
+      },
+      "ConsumerOrderCancelBody": {
+        "type": "object",
+        "required": [
+          "order_id",
+          "reason"
+        ],
+        "properties": {
+          "order_id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "example": "100072"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 255,
+            "example": "Changed my mind"
+          },
+          "guest_id": {
+            "type": "integer",
+            "description": "Guest user id when not using JWT"
+          },
+          "is_guest": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "ConsumerOrderCancelResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Order canceled successfully"
+          },
+          "message": {
+            "type": "string",
+            "example": "Order canceled successfully"
+          }
+        }
       },
       "AdminCreateZoneBody": {
         "type": "object",
@@ -11254,6 +14762,269 @@
           }
         }
       },
+      "LegalPageDocument": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "terms_and_conditions"
+          },
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string",
+            "description": "HTML from admin Pages"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Policy pages: from refund_policy_status etc."
+          }
+        }
+      },
+      "LegalPageResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/LegalPageDocument"
+          }
+        }
+      },
+      "LegalPagesBundleResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "title": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                },
+                "active": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      },
+      "AppConfigurationResponse": {
+        "type": "object",
+        "description": "Flat bootstrap payload (legacy StackFood config). Additional keys may be present.",
+        "properties": {
+          "business_name": {
+            "type": "string"
+          },
+          "logo_full_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "terms_and_conditions": {
+            "type": "string",
+            "description": "HTML or plain text from admin Pages"
+          },
+          "privacy_policy": {
+            "type": "string"
+          },
+          "about_us": {
+            "type": "string"
+          },
+          "refund_policy_data": {
+            "type": "string"
+          },
+          "cancellation_policy_data": {
+            "type": "string"
+          },
+          "shipping_policy_data": {
+            "type": "string"
+          },
+          "refund_policy_status": {
+            "type": "integer",
+            "description": "1 = show refund policy in app"
+          },
+          "cancellation_policy_status": {
+            "type": "integer"
+          },
+          "shipping_policy_status": {
+            "type": "integer"
+          },
+          "cookies_text": {
+            "type": "string"
+          },
+          "footer_text": {
+            "type": "string"
+          },
+          "cash_on_delivery": {
+            "type": "boolean"
+          },
+          "digital_payment": {
+            "type": "boolean"
+          },
+          "home_delivery": {
+            "type": "boolean"
+          },
+          "take_away": {
+            "type": "boolean"
+          },
+          "maintenance_mode": {
+            "type": "boolean"
+          },
+          "order_confirmation_model": {
+            "type": "string",
+            "example": "restaurant"
+          },
+          "app_minimum_version_android": {
+            "type": "number"
+          },
+          "app_minimum_version_android_restaurant": {
+            "type": "number"
+          },
+          "app_minimum_version_android_deliveryman": {
+            "type": "number"
+          },
+          "app_url_android": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_url_android_restaurant": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_url_android_deliveryman": {
+            "type": "string",
+            "nullable": true
+          },
+          "centralize_login": {
+            "type": "object",
+            "properties": {
+              "manual_login_status": {
+                "type": "integer"
+              },
+              "otp_login_status": {
+                "type": "integer"
+              },
+              "social_login_status": {
+                "type": "integer"
+              }
+            }
+          },
+          "deliveryman_additional_join_us_page_data": {
+            "type": "object",
+            "nullable": true
+          },
+          "restaurant_additional_join_us_page_data": {
+            "type": "object",
+            "nullable": true
+          },
+          "language": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "example": {
+          "business_name": "Gizra",
+          "terms_and_conditions": "<p>Terms and conditions HTML…</p>",
+          "privacy_policy": "<p>Privacy policy HTML…</p>",
+          "about_us": "<p>About us…</p>",
+          "refund_policy_status": 1,
+          "refund_policy_data": "<p>Refund policy…</p>",
+          "cancellation_policy_status": 0,
+          "shipping_policy_status": 0,
+          "cookies_text": "We use cookies…",
+          "cash_on_delivery": true,
+          "digital_payment": false,
+          "home_delivery": true,
+          "app_minimum_version_android_deliveryman": 1,
+          "app_url_android_deliveryman": "https://play.google.com/store/apps/details?id=app.gizra.driver"
+        }
+      },
+      "ConsumerDeliveryFeePricingBreakdown": {
+        "type": "object",
+        "properties": {
+          "base_fee": {
+            "type": "number",
+            "example": 5
+          },
+          "base_distance_km": {
+            "type": "number",
+            "example": 2
+          },
+          "extra_per_km": {
+            "type": "number",
+            "example": 2
+          },
+          "extra_km": {
+            "type": "number",
+            "example": 2.2
+          },
+          "subtotal_before_surge": {
+            "type": "number",
+            "example": 9.4
+          },
+          "surge_percent": {
+            "type": "number",
+            "example": 0
+          }
+        }
+      },
+      "ConsumerDeliveryFeeQuoteResponse": {
+        "type": "object",
+        "properties": {
+          "restaurant_id": {
+            "type": "integer",
+            "example": 1
+          },
+          "distance_km": {
+            "type": "number",
+            "example": 4.2
+          },
+          "distance_source": {
+            "type": "string",
+            "enum": [
+              "google",
+              "haversine",
+              "client"
+            ]
+          },
+          "delivery_fee": {
+            "type": "number",
+            "description": "Amount charged to customer (0 when restaurant free_delivery)"
+          },
+          "original_delivery_fee": {
+            "type": "number",
+            "description": "Fee before free-delivery promo"
+          },
+          "pricing": {
+            "$ref": "#/components/schemas/ConsumerDeliveryFeePricingBreakdown"
+          }
+        }
+      },
       "ConsumerGetZoneIdResponse": {
         "type": "object",
         "properties": {
@@ -11290,11 +15061,18 @@
           },
           "minimum_shipping_charge": {
             "type": "number",
-            "nullable": true
+            "nullable": true,
+            "description": "Base delivery fee (tiered model)"
+          },
+          "base_distance_km": {
+            "type": "number",
+            "nullable": true,
+            "description": "Km included in base fee"
           },
           "per_km_shipping_charge": {
             "type": "number",
-            "nullable": true
+            "nullable": true,
+            "description": "Extra charge per km after base_distance_km"
           },
           "maximum_shipping_charge": {
             "type": "number",
@@ -11342,6 +15120,119 @@
                 },
                 "lng": {
                   "type": "number"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ConsumerRestaurantMapPin": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "latitude",
+          "longitude"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "logo": {
+            "type": "string",
+            "nullable": true
+          },
+          "rating": {
+            "type": "number"
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "open": {
+            "type": "boolean"
+          },
+          "distance": {
+            "type": "number",
+            "nullable": true,
+            "description": "km from center when lat/lng sent"
+          },
+          "distance_text": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerRestaurantMapResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "total_size",
+              "restaurants"
+            ],
+            "properties": {
+              "total_size": {
+                "type": "integer"
+              },
+              "center": {
+                "type": "object",
+                "nullable": true,
+                "properties": {
+                  "latitude": {
+                    "type": "number",
+                    "format": "double"
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "format": "double"
+                  }
+                }
+              },
+              "bounds": {
+                "type": "object",
+                "nullable": true,
+                "properties": {
+                  "min_lat": {
+                    "type": "number"
+                  },
+                  "max_lat": {
+                    "type": "number"
+                  },
+                  "min_lng": {
+                    "type": "number"
+                  },
+                  "max_lng": {
+                    "type": "number"
+                  }
+                }
+              },
+              "restaurants": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ConsumerRestaurantMapPin"
                 }
               }
             }
@@ -11566,6 +15457,131 @@
           }
         ]
       },
+      "VendorRequestDriverBody": {
+        "type": "object",
+        "required": [
+          "customer_name",
+          "customer_phone",
+          "address",
+          "order_amount",
+          "delivery_fee",
+          "payment_method",
+          "idempotency_key"
+        ],
+        "properties": {
+          "customer_name": {
+            "type": "string",
+            "maxLength": 100,
+            "example": "Yossi Cohen"
+          },
+          "customer_phone": {
+            "type": "string",
+            "maxLength": 30,
+            "example": "+972501234567"
+          },
+          "address": {
+            "type": "string",
+            "maxLength": 1000,
+            "example": "12 Herzl St, Tel Aviv"
+          },
+          "order_amount": {
+            "type": "number",
+            "minimum": 0.01,
+            "description": "Item subtotal (before delivery fee and tax)"
+          },
+          "delivery_fee": {
+            "type": "number",
+            "minimum": 0
+          },
+          "payment_method": {
+            "type": "string",
+            "enum": [
+              "prepaid",
+              "cash_on_delivery"
+            ],
+            "description": "`prepaid` sets payment_status=paid; order still uses COD method for commission logic"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Unique per dispatch attempt; stored as orders.manual_dispatch_key"
+          },
+          "restaurant_order_ref": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Optional restaurant/POS ticket or receipt number (stored on orders.restaurant_order_ref). Aliases: restaurant_order_number, pos_order_number, pos_order_id, external_order_id. Shown to drivers as order_source=manual_dispatch."
+          },
+          "zone_id": {
+            "type": "integer",
+            "description": "Optional reporting only; drivers match restaurant zone_id"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "tax": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Tax percentage on item price (default 10)"
+          }
+        }
+      },
+      "VendorRequestDriverResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Driver requested successfully"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "order_id": {
+                "type": "string",
+                "description": "Same orders.id as consumer checkout (shared autoincrement)",
+                "example": "2847"
+              },
+              "commission_rate": {
+                "type": "number",
+                "example": 10
+              },
+              "commission": {
+                "type": "number",
+                "example": 13.8
+              },
+              "delivery_fee": {
+                "type": "number",
+                "example": 18
+              },
+              "gizra_charge": {
+                "type": "number",
+                "description": "commission + delivery_fee"
+              },
+              "restaurant_net": {
+                "type": "number",
+                "description": "Estimated net to restaurant after GIZRA charge"
+              },
+              "payment_status": {
+                "type": "string",
+                "enum": [
+                  "paid",
+                  "unpaid"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "example": "Driver requested successfully"
+              }
+            }
+          }
+        }
+      },
       "VendorOrderCountsResponse": {
         "type": "object",
         "properties": {
@@ -11662,6 +15678,195 @@
           },
           "data": {
             "$ref": "#/components/schemas/VendorOrderDetail"
+          }
+        }
+      },
+      "OrderInvoiceResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Invoice fetched successfully"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "order_id": {
+                "type": "string",
+                "example": "101"
+              },
+              "created_at": {
+                "type": "string",
+                "nullable": true,
+                "example": "2026-04-20T12:00:00.000Z"
+              },
+              "order_type": {
+                "type": "string",
+                "nullable": true,
+                "example": "delivery"
+              },
+              "order_status": {
+                "type": "string",
+                "nullable": true,
+                "example": "confirmed"
+              },
+              "payment_method": {
+                "type": "string",
+                "nullable": true,
+                "example": "cash_on_delivery"
+              },
+              "payment_status": {
+                "type": "string",
+                "nullable": true,
+                "example": "unpaid"
+              },
+              "order_note": {
+                "type": "string",
+                "nullable": true
+              },
+              "delivery_instruction": {
+                "type": "string",
+                "nullable": true
+              },
+              "cutlery": {
+                "type": "boolean",
+                "example": false
+              },
+              "table_number": {
+                "type": "string",
+                "nullable": true
+              },
+              "token_number": {
+                "type": "string",
+                "nullable": true
+              },
+              "restaurant": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "example": "1"
+                  },
+                  "name": {
+                    "type": "string",
+                    "example": "Demo Kitchen"
+                  },
+                  "address": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "phone": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "logo": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "gst_status": {
+                    "type": "boolean",
+                    "example": false
+                  },
+                  "gst_code": {
+                    "type": "string",
+                    "example": ""
+                  },
+                  "footer_text": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                }
+              },
+              "customer": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "John Doe"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "email": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "address": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "road": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "house": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "floor": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                }
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string",
+                      "example": "Burger"
+                    },
+                    "quantity": {
+                      "type": "number",
+                      "example": 2
+                    },
+                    "unit_price": {
+                      "type": "number",
+                      "example": 25
+                    },
+                    "line_total": {
+                      "type": "number",
+                      "example": 50
+                    },
+                    "variation": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "addons": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "quantity": {
+                            "type": "number"
+                          },
+                          "price": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "pricing": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
           }
         }
       },
@@ -11928,6 +16133,219 @@
           }
         }
       },
+      "VendorWhoamiResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/VendorWhoamiData"
+          }
+        }
+      },
+      "VendorWhoamiData": {
+        "type": "object",
+        "properties": {
+          "vendor": {
+            "$ref": "#/components/schemas/VendorProfileData"
+          },
+          "restaurant": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VendorWhoamiRestaurant"
+              }
+            ],
+            "nullable": true
+          },
+          "restaurants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VendorWhoamiRestaurant"
+            }
+          },
+          "autoAcceptOrder": {
+            "type": "boolean",
+            "example": false,
+            "description": "POS — auto-confirm new marketplace orders (primary restaurant)"
+          },
+          "autoPrintOnAccept": {
+            "type": "boolean",
+            "example": true,
+            "description": "POS — print invoice when order is accepted"
+          },
+          "use58mmPaper": {
+            "type": "boolean",
+            "example": false,
+            "description": "POS — true = 58mm paper; false = 80mm"
+          },
+          "posSettings": {
+            "$ref": "#/components/schemas/VendorPosAppSettings"
+          }
+        }
+      },
+      "VendorProfileData": {
+        "type": "object",
+        "description": "Vendor row without password, auth_token, or remember_token",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "12"
+          },
+          "f_name": {
+            "type": "string"
+          },
+          "l_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "email_verified_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "firebase_token": {
+            "type": "string",
+            "nullable": true,
+            "description": "FCM token for mobile POS / vendor app"
+          },
+          "fcm_token_web": {
+            "type": "string",
+            "nullable": true,
+            "description": "FCM token for Restaurant Web Panel"
+          },
+          "bank_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "branch": {
+            "type": "string",
+            "nullable": true
+          },
+          "holder_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "account_no": {
+            "type": "string",
+            "nullable": true
+          },
+          "cloudflareId": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "VendorWhoamiRestaurant": {
+        "type": "object",
+        "description": "Restaurant linked to the vendor (full row; ids as strings)",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "logo": {
+            "type": "string",
+            "nullable": true
+          },
+          "cover_photo": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "string",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "string",
+            "nullable": true
+          },
+          "vendor_id": {
+            "type": "string"
+          },
+          "zone_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "boolean"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "delivery": {
+            "type": "boolean"
+          },
+          "take_away": {
+            "type": "boolean"
+          },
+          "schedule_order": {
+            "type": "boolean"
+          },
+          "restaurant_model": {
+            "type": "string",
+            "nullable": true
+          },
+          "package_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "autoAcceptOrder": {
+            "type": "boolean",
+            "example": false
+          },
+          "autoPrintOnAccept": {
+            "type": "boolean",
+            "example": true
+          },
+          "use58mmPaper": {
+            "type": "boolean",
+            "example": false
+          }
+        }
+      },
       "DeliveryManOrderListResponse": {
         "type": "object",
         "properties": {
@@ -12016,6 +16434,59 @@
           "longitude": {
             "type": "string",
             "nullable": true
+          },
+          "processing_time": {
+            "type": "string",
+            "nullable": true,
+            "description": "Minutes from POS — only when order_status is processing"
+          },
+          "cooking_time_minutes": {
+            "type": "integer",
+            "nullable": true
+          },
+          "processing_started_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cooking_ready_by": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cooking_minutes_remaining": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Live countdown; null unless order_status is processing"
+          },
+          "is_manual_dispatch": {
+            "type": "boolean"
+          },
+          "order_source": {
+            "type": "string",
+            "enum": [
+              "gizra_consumer",
+              "manual_dispatch",
+              "pos_instore"
+            ],
+            "description": "manual_dispatch = Request Gizra ride / phone order from POS"
+          },
+          "order_source_label": {
+            "type": "string",
+            "example": "Gizra customer app"
+          },
+          "gizra_order_id": {
+            "type": "string",
+            "description": "Platform order id (orders.id)"
+          },
+          "restaurant_order_ref": {
+            "type": "string",
+            "nullable": true,
+            "description": "Restaurant's own POS/receipt number when provided on manual dispatch"
+          },
+          "display_order_number": {
+            "type": "string",
+            "description": "restaurant_order_ref if set, else gizra_order_id — use for list card title"
           }
         },
         "example": {
@@ -12034,6 +16505,330 @@
           "delivery_address_snippet": "block B, Soan Garden",
           "latitude": "33.123456",
           "longitude": "73.654321"
+        }
+      },
+      "DeliveryManOrderDetailResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DeliveryManOrderDetail"
+          }
+        }
+      },
+      "DeliveryManOrderDetail": {
+        "type": "object",
+        "description": "GET /delivery-man/orders/{id} — Order Request / active delivery screen",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Customer users.id — for GET /delivery-man/message/details?user_id="
+          },
+          "vendor_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Restaurant vendor id — for GET /delivery-man/message/details?vendor_id="
+          },
+          "order_status": {
+            "type": "string"
+          },
+          "status_label": {
+            "type": "string",
+            "example": "Handover"
+          },
+          "payment_status": {
+            "type": "string",
+            "nullable": true
+          },
+          "payment_method": {
+            "type": "string",
+            "nullable": true
+          },
+          "order_type": {
+            "type": "string"
+          },
+          "order_amount": {
+            "type": "number"
+          },
+          "delivery_charge": {
+            "type": "number"
+          },
+          "scheduled": {
+            "type": "boolean"
+          },
+          "schedule_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "is_manual_dispatch": {
+            "type": "boolean"
+          },
+          "order_source": {
+            "type": "string",
+            "enum": [
+              "gizra_consumer",
+              "manual_dispatch",
+              "pos_instore"
+            ]
+          },
+          "order_source_label": {
+            "type": "string"
+          },
+          "gizra_order_id": {
+            "type": "string"
+          },
+          "restaurant_order_ref": {
+            "type": "string",
+            "nullable": true
+          },
+          "display_order_number": {
+            "type": "string"
+          },
+          "order_note": {
+            "type": "string",
+            "nullable": true
+          },
+          "processing_time": {
+            "type": "string",
+            "nullable": true,
+            "description": "Minutes from POS — only when order_status is processing"
+          },
+          "cooking_time_minutes": {
+            "type": "integer",
+            "nullable": true
+          },
+          "processing_started_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cooking_ready_by": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cooking_minutes_remaining": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Use for driver UI countdown; null when not processing"
+          },
+          "dispatch_summary": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "delivery_fee": {
+                "type": "number"
+              },
+              "restaurant_order_ref": {
+                "type": "string",
+                "nullable": true
+              },
+              "gizra_order_id": {
+                "type": "string"
+              }
+            }
+          },
+          "restaurant": {
+            "$ref": "#/components/schemas/DeliveryManOrderDetailRestaurant"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/DeliveryManOrderDetailParty"
+          },
+          "delivery_address": {
+            "type": "string",
+            "nullable": true
+          },
+          "delivery_address_parsed": {
+            "type": "object",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeliveryManOrderDetailItem"
+            }
+          },
+          "pricing": {
+            "$ref": "#/components/schemas/DeliveryManOrderDetailPricing"
+          },
+          "assigned_to_me": {
+            "type": "boolean"
+          },
+          "can_accept": {
+            "type": "boolean"
+          },
+          "can_update_status": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DeliveryManOrderDetailRestaurant": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_snippet": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "string",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "string",
+            "nullable": true
+          },
+          "image_url": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "DeliveryManOrderDetailParty": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_snippet": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "string",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "string",
+            "nullable": true
+          },
+          "image_url": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "DeliveryManOrderDetailItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "food_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "food_name": {
+            "type": "string"
+          },
+          "food_image_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit_label": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number"
+          },
+          "line_total": {
+            "type": "number"
+          },
+          "addon_lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "number"
+                },
+                "price": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "tax_amount": {
+            "type": "number"
+          }
+        }
+      },
+      "DeliveryManOrderDetailPricing": {
+        "type": "object",
+        "properties": {
+          "items_price": {
+            "type": "number"
+          },
+          "discount": {
+            "type": "number"
+          },
+          "vat_tax": {
+            "type": "number"
+          },
+          "tax_percent": {
+            "type": "number"
+          },
+          "delivery_man_tips": {
+            "type": "number"
+          },
+          "addons": {
+            "type": "number"
+          },
+          "delivery_charge": {
+            "type": "number"
+          },
+          "subtotal": {
+            "type": "number"
+          }
         }
       },
       "DeliveryManUpdateOrderStatusBody": {
@@ -12443,6 +17238,10 @@
           "fcm_token": {
             "type": "string",
             "nullable": true
+          },
+          "is_notification_on": {
+            "type": "boolean",
+            "description": "When false, direct FCM device pushes are skipped. Toggle via PUT /delivery-man/notifications/toggle."
           },
           "zone_id": {
             "type": "string",
@@ -12882,6 +17681,363 @@
             "example": "push_notification"
           }
         }
+      },
+      "DeliveryManUpdateProfileBody": {
+        "type": "object",
+        "required": [
+          "f_name",
+          "l_name",
+          "email"
+        ],
+        "properties": {
+          "f_name": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Ahmed"
+          },
+          "l_name": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Khan"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "ahmed@example.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6,
+            "description": "Optional — updates login password when provided"
+          },
+          "image": {
+            "type": "string",
+            "description": "Stored media path from upload flow (category=profile)"
+          },
+          "vehicle_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Set null to clear vehicle assignment"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeliveryManUpdateProfileResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Profile updated successfully"
+          },
+          "message": {
+            "type": "string",
+            "example": "successfully updated!"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DeliveryManProfileData"
+          }
+        }
+      },
+      "PushNotificationToggleBody": {
+        "type": "object",
+        "description": "All properties optional. Omit `enabled` to flip the stored boolean.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "true = enable push, false = disable push"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PushNotificationToggleData": {
+        "type": "object",
+        "required": [
+          "is_notification_on"
+        ],
+        "properties": {
+          "is_notification_on": {
+            "type": "boolean",
+            "description": "Master switch for FCM device pushes for this account"
+          }
+        }
+      },
+      "PushNotificationToggleResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Push notifications enabled",
+            "description": "Human-readable confirmation"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PushNotificationToggleData"
+          }
+        }
+      },
+      "DeliveryManZonesResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Zones fetched successfully"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "zones": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "example": "1"
+                    },
+                    "name": {
+                      "type": "string",
+                      "example": "Tel Aviv"
+                    },
+                    "display_name": {
+                      "type": "string",
+                      "nullable": true,
+                      "example": "Tel Aviv"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "VendorPosAppSettings": {
+        "type": "object",
+        "properties": {
+          "autoAcceptOrder": {
+            "type": "boolean",
+            "example": false,
+            "description": "Auto-confirm new marketplace orders"
+          },
+          "autoPrintOnAccept": {
+            "type": "boolean",
+            "example": true,
+            "description": "Print invoice when order is accepted"
+          },
+          "use58mmPaper": {
+            "type": "boolean",
+            "example": false,
+            "description": "true = 58mm POS paper; false = 80mm"
+          }
+        }
+      },
+      "VendorPosAppSettingsBody": {
+        "type": "object",
+        "minProperties": 1,
+        "properties": {
+          "autoAcceptOrder": {
+            "type": "boolean"
+          },
+          "autoPrintOnAccept": {
+            "type": "boolean"
+          },
+          "use58mmPaper": {
+            "type": "boolean"
+          }
+        }
+      },
+      "VendorPosAppSettingsResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/VendorPosAppSettings"
+          }
+        }
+      },
+      "VendorWhoamiMobileResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/VendorWhoamiMobileData"
+          }
+        }
+      },
+      "VendorWhoamiMobileData": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "39"
+          },
+          "f_name": {
+            "type": "string"
+          },
+          "l_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "example": "Zeeshan kha"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "is_notification_on": {
+            "type": "boolean"
+          },
+          "restaurant": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string",
+                "nullable": true
+              },
+              "logo": {
+                "type": "string",
+                "nullable": true
+              },
+              "address": {
+                "type": "string",
+                "nullable": true
+              },
+              "zone_id": {
+                "type": "string",
+                "nullable": true
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "status": {
+                "type": "boolean"
+              }
+            }
+          },
+          "autoAcceptOrder": {
+            "type": "boolean"
+          },
+          "autoPrintOnAccept": {
+            "type": "boolean"
+          },
+          "use58mmPaper": {
+            "type": "boolean"
+          },
+          "posSettings": {
+            "$ref": "#/components/schemas/VendorPosAppSettings"
+          }
+        }
+      },
+      "VendorKitchenNoteBody": {
+        "type": "object",
+        "properties": {
+          "note": {
+            "type": "string",
+            "example": "Item out of stock • Running 10 min late",
+            "description": "Full note text (app can join selected chips with \" • \")"
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Item out of stock",
+              "Running 10 min late"
+            ],
+            "description": "Optional chip list; server joins with \" • \" if note omitted"
+          }
+        }
+      },
+      "VendorKitchenNoteResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "order_id": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              },
+              "presets": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "chat_sent": {
+                "type": "boolean"
+              },
+              "push_sent": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
       }
     },
     "responses": {
@@ -12960,13 +18116,15 @@
   "tags": [
     {
       "name": "Consumer Auth",
-      "description": "Guest, register, login. Password: POST /consumer/password/forgot → POST /consumer/password/verify-otp (optional) → PUT /consumer/password/reset; logged-in change: PUT /consumer/password/change."
+      "description": "**Guest:** POST `/consumer/guest/request` → save `data.guest_id` + guest JWT (`data.token`). Browse home without auth; use guest Bearer on cart. **Register / login / Google** — pass `guest_id` to merge cart. Password: POST `/consumer/password/forgot` → verify-otp → PUT `/consumer/password/reset`; change: PUT `/consumer/password/change`."
     },
     {
-      "name": "Consumer Discover"
+      "name": "Consumer Discover",
+      "description": "Customer home & browse. **Home:** GET /consumer/home-slider (banners), GET /consumer/categories (**What's on your mind**). **Restaurants:** GET /consumer/restaurants/popular, /nearby, /all, /{id}/foods, /specfic/{id}. All require **zone_id** (from GET /consumer/config/zone-id)."
     },
     {
-      "name": "Consumer Cart"
+      "name": "Consumer Cart",
+      "description": "Cart for customers (login JWT) or guests (guest JWT from POST `/consumer/guest/request`, or legacy `is_guest` + `guest_id`)."
     },
     {
       "name": "Consumer Orders"
@@ -12995,11 +18153,11 @@
     },
     {
       "name": "Vendor Orders (Web Panel & POS)",
-      "description": "Marketplace orders from consumer app (POST /consumer/order/place). Shared by Restaurant Web Panel and Vendor POS/kitchen app — same Bearer JWT from POST /vendor/login. Web Panel: SSE GET /vendor/orders/events for instant new-order alerts (no polling). Does not include in-store POS sales (order_type=pos). POS also receives FCM push type=new_order when configured."
+      "description": "Marketplace orders from consumer app (POST /consumer/order/place). Shared by Restaurant Web Panel and Vendor POS/kitchen app — same Bearer JWT from POST /vendor/login. Web Panel: SSE GET /vendor/orders/events for instant new-order alerts (no polling). Does not include in-store POS sales (order_type=pos). POS also receives FCM push type=new_order when configured. **Manual dispatch:** POST /vendor/dispatch/request-driver (phone order → zone drivers via FCM + Socket `order_request`)."
     },
     {
       "name": "Delivery Man Auth",
-      "description": "POST /delivery-man/login, /register, /password/forgot, /password/verify-otp, PUT /password/reset, PUT /password/change. Approve pending drivers: `npm run approve-riders`."
+      "description": "GET /delivery-man/zones (signup city list). POST /delivery-man/login, /register, /password/forgot, /password/verify-otp, PUT /password/reset, PUT /password/change. Approve pending drivers: `npm run approve-riders`."
     },
     {
       "name": "Delivery Man Profile",
@@ -13007,7 +18165,7 @@
     },
     {
       "name": "Delivery Man Orders",
-      "description": "GET /orders/active, GET /orders/latest (pool), GET /orders/history (My Orders), PUT /orders/{id}/accept, PUT /orders/{id}/status. E2E: consumer place → vendor confirm → latest → accept → delivered (records earnings)."
+      "description": "GET /orders/active, GET /orders/latest (pool), GET /orders/{id} (detail), GET /orders/history (My Orders), PUT /orders/{id}/accept, PUT /orders/{id}/status. E2E: consumer place → vendor confirm → latest → detail → accept → delivered (records earnings)."
     },
     {
       "name": "Admin Auth"
@@ -13021,7 +18179,11 @@
     },
     {
       "name": "Consumer Zones",
-      "description": "Zone resolve and map. **Frontend flow:** GET /consumer/config/zone-id → parse zone_id → query zone_id on GET /consumer/restaurants/all, GET /consumer/home-slider, favourites."
+      "description": "Zone resolve and map. **Frontend flow:** GET /consumer/config/zone-id → parse zone_id → query zone_id on GET /consumer/restaurants/nearby (with lat/lng), /popular, /all, GET /consumer/home-slider, GET /consumer/categories (What's on your mind), favourites."
+    },
+    {
+      "name": "Consumer Config",
+      "description": "Google Places, distance, and checkout helpers (public, no Bearer). Includes **GET /consumer/config/delivery-fee** (tiered delivery quote), GET /consumer/config/distance, place-autocomplete, place-details, geocode, payment-methods, vehicles."
     },
     {
       "name": "Delivery Man Home",
@@ -13033,15 +18195,15 @@
     },
     {
       "name": "Delivery Man Notifications",
-      "description": "GET /delivery-man/notifications, DELETE /notifications/{id}, PUT /fcm-token. Paginated inbox + FCM device token."
+      "description": "GET /delivery-man/notifications, PUT /notifications/toggle, DELETE /notifications/{id}, PUT /fcm-token. Paginated inbox + push on/off + FCM device token."
     },
     {
       "name": "Vendor Notifications",
-      "description": "GET /vendor/notifications, DELETE /notifications/{id}. New-order and admin broadcasts."
+      "description": "GET /vendor/notifications, PUT /notifications/toggle, DELETE /notifications/{id}. New-order and admin broadcasts."
     },
     {
       "name": "Consumer Notifications",
-      "description": "GET /consumer/notifications, DELETE /notifications/{id}. Use zoneId header or zone_id query."
+      "description": "GET /consumer/notifications, PUT /notifications/toggle, DELETE /notifications/{id}. Use zoneId header or zone_id query."
     }
   ]
 }

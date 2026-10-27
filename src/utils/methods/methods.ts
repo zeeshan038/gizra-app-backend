@@ -1,11 +1,7 @@
 
 //NPM Packages
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
-
-//Constants
-const prisma = new PrismaClient();
-
+import prisma from '../../config/database';
 
 //Generate Token
 export const genrateToken = async (vendor: any, restaurant: any, JWT_SECRET: string) => {
@@ -21,12 +17,6 @@ export const genrateToken = async (vendor: any, restaurant: any, JWT_SECRET: str
       JWT_SECRET,
       { expiresIn: '30d' }
     );
-
-    // Save token in database
-    await prisma.vendors.update({
-      where: { id: vendor.id },
-      data: { auth_token: token }
-    });
 
     let topic = 'No_topic_found';
     if (restaurant?.zone_id) {
