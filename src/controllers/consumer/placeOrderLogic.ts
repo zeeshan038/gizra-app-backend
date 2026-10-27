@@ -769,6 +769,8 @@ export async function executePlaceOrder(params: {
         id: Number(food.id),
         name: food.name,
         price: Number(food.price),
+        /** Food + variations per unit at checkout (vendor/POS reads this; not live menu). */
+        unit_food_price: roundMoney(unitBase),
         image: food.image,
         restaurant_id: Number(food.restaurant_id),
       }),

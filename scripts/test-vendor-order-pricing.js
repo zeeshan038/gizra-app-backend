@@ -3,6 +3,7 @@
  */
 const {
   buildOrderPricing,
+  mapOrderDetailLineItem,
   unitFoodPriceFromDetail,
 } = require('../dist/utils/vendor/order/detailMapper');
 
@@ -13,7 +14,40 @@ function assert(name, ok, detail) {
   if (!ok) failed = 1;
 }
 
-console.log('unitFoodPriceFromDetail (stored 23, catalog 19, addons 4)\n');
+const partyVariations =
+  '[{"type":"Sizes","values":[{"label":"Party","optionPrice":4}]}]';
+
+console.log('unitFoodPriceFromDetail (stored 19, catalog 19, Party +4, addons 4)\n');
+const unitFood100602 = unitFoodPriceFromDetail(
+  {
+    price: 19,
+    food_details: JSON.stringify({ price: 19, name: 'Pizza' }),
+    variation: '[{"type":"Sizes","value":"Party"},{"type":"Extras","value":"Mashroom"}]',
+    add_ons: '[{"name":"Double Cheese","price":2,"quantity":1}]',
+  },
+  4,
+  { variations: partyVariations }
+);
+assert(
+  'order 100602 unit food stays 19 (variation fixed at order level via VAT)',
+  unitFood100602 === 19,
+  `got ${unitFood100602}`
+);
+
+console.log('\nunitFoodPriceFromDetail (stored 19, live menu Party +20 — must not use today menu)\n');
+const unitFoodStaleMenu = unitFoodPriceFromDetail(
+  {
+    price: 19,
+    food_details: JSON.stringify({ price: 19, name: 'Pizza' }),
+    variation: '[{"type":"Sizes","value":"Party"}]',
+    add_ons: '[]',
+  },
+  0,
+  { variations: '[{"type":"Sizes","values":[{"label":"Party","optionPrice":20}]}]' }
+);
+assert('stored 19 ignores stale +20 menu variation', unitFoodStaleMenu === 19, `got ${unitFoodStaleMenu}`);
+
+console.log('\nunitFoodPriceFromDetail (stored 23, catalog 19, addons 4)\n');
 const unitFood = unitFoodPriceFromDetail(
   {
     price: 23,
@@ -22,7 +56,7 @@ const unitFood = unitFoodPriceFromDetail(
   },
   4
 );
-assert('unit food is 23 (not 19)', unitFood === 23, `got ${unitFood}`);
+assert('stored 23 unit food is 23', unitFood === 23, `got ${unitFood}`);
 
 const order = {
   order_amount: 27,
@@ -38,7 +72,15 @@ const order = {
   tax_percentage: 5,
 };
 
-const items = [{ line_food_total: 23, line_addon_total: 4 }];
+const items = [
+  {
+    line_food_total: 19,
+    line_addon_total: 4,
+    quantity: 1,
+    unit_food_price: 19,
+    line_subtotal: 23,
+  },
+];
 const pricing = buildOrderPricing(order, items);
 
 console.log('\nVendor detail pricing (100602 scenario)\n');
@@ -54,6 +96,23 @@ assert('rider gets full delivery 8.87', pricing.delivery_rider_amount === 8.87, 
 assert('customer food+delivery 35.87', pricing.customer_paid_food_delivery === 35.87, `got ${pricing.customer_paid_food_delivery}`);
 assert('customer checkout total uses stored order_amount 27', pricing.customer_order_total === 27, `got ${pricing.customer_order_total}`);
 assert('customer_tax separate from gizra fee', pricing.customer_tax_amount === 1.35, `got ${pricing.customer_tax_amount}`);
+
+console.log('\nplace-order snapshot on food_details (order 100603+)\n');
+const snapItem = mapOrderDetailLineItem({
+  id: BigInt(1),
+  price: 23,
+  quantity: BigInt(1),
+  food_details: JSON.stringify({
+    price: 19,
+    unit_food_price: 23,
+    name: 'Pizza',
+  }),
+  add_ons: '[{"name":"A","price":2,"quantity":1},{"name":"B","price":2,"quantity":1}]',
+  variation: '[]',
+  food_id: 1415,
+});
+assert('snapshot unit_food_price → line food 23', snapItem.unit_food_price === 23, `got ${snapItem.unit_food_price}`);
+assert('snapshot → pricing items_price 23 without tax hack', snapItem.line_food_total === 23, `got ${snapItem.line_food_total}`);
 
 console.log(failed ? '\nFAILED' : '\nPASSED');
 process.exit(failed);

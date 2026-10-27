@@ -4827,23 +4827,34 @@
                 "example": {
                   "status": true,
                   "data": {
-                    "id": "1001",
-                    "order_status": "confirmed",
-                    "payment_status": "paid",
-                    "order_amount": 45.5,
+                    "id": "100603",
+                    "order_status": "pending",
+                    "payment_status": "unpaid",
                     "customer_name": "John Doe",
-                    "customer_phone": "+1234567890",
+                    "customer_phone": "+923234372432",
                     "customer_email": "john@example.com",
                     "customer_orders_count": 3,
-                    "delivery_address": "{\"address\":\"123 Main St\"}",
+                    "delivery_address": "{\"address\":\"Rawalpindi\"}",
                     "items": [
                       {
-                        "id": "1",
-                        "food_id": "101",
-                        "food_name": "Margherita Pizza",
-                        "quantity": 2,
-                        "price": 12.99,
-                        "image": "https://cdn.example.com/food.png"
+                        "id": "501",
+                        "food_id": "1415",
+                        "food_name": "Pizza",
+                        "food_image": "https://cdn.example.com/food.png",
+                        "quantity": 1,
+                        "unit_food_price": 23,
+                        "addon_per_unit": 4,
+                        "addon_lines": [
+                          {
+                            "name": "Double Cheese",
+                            "price": 2,
+                            "quantity": 1
+                          }
+                        ],
+                        "line_food_total": 23,
+                        "line_addon_total": 4,
+                        "line_subtotal": 27,
+                        "variation": "[{\"type\":\"Sizes\",\"value\":\"Party\"}]"
                       }
                     ],
                     "restaurant": {
@@ -4852,10 +4863,24 @@
                       "logo": "https://cdn.example.com/logo.png"
                     },
                     "pricing": {
-                      "subtotal": 25.98,
-                      "tax": 2.6,
-                      "delivery_charge": 3,
-                      "total": 31.58
+                      "items_price": 23,
+                      "addon_cost": 4,
+                      "subtotal": 27,
+                      "order_value": 27,
+                      "restaurant_discount_amount": 0,
+                      "coupon_discount_amount": 0,
+                      "ref_bonus_amount": 0,
+                      "tax_amount": 1.35,
+                      "tax_percent": 5,
+                      "tax_status": "excluded",
+                      "delivery_charge": 8.87,
+                      "dm_tips": 0,
+                      "additional_charge": 0,
+                      "extra_packaging_amount": 0,
+                      "customer_total": 37.22,
+                      "gizra_commission_percent": 10,
+                      "gizra_commission_amount": 2.7,
+                      "gizra_pays_you": 24.3
                     }
                   }
                 }
@@ -10129,6 +10154,149 @@
           "Legal Pages (All Apps)"
         ],
         "summary": "Single legal page by slug"
+      }
+    },
+    "/public/merchant-inquiry": {
+      "post": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Thank you. We received your details and will contact you soon."
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Thank you. We received your details and will contact you soon."
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Thank you. We received your details and will contact you soon."
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "business_name": {
+                    "example": "any"
+                  },
+                  "businessName": {
+                    "example": "any"
+                  },
+                  "contact_person": {
+                    "example": "any"
+                  },
+                  "contactPerson": {
+                    "example": "any"
+                  },
+                  "phone": {
+                    "example": "any"
+                  },
+                  "email": {
+                    "example": "any"
+                  },
+                  "business_type": {
+                    "example": "any"
+                  },
+                  "businessType": {
+                    "example": "any"
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/consumer/config/": {
@@ -51055,6 +51223,154 @@
           }
         }
       },
+      "VendorOrderDetailLineItem": {
+        "type": "object",
+        "description": "GET /vendor/orders/{id} line item (food + add-ons split for POS).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "501"
+          },
+          "food_id": {
+            "type": "string",
+            "nullable": true,
+            "example": "1415"
+          },
+          "food_name": {
+            "type": "string",
+            "example": "Margherita"
+          },
+          "food_image": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "integer",
+            "example": 1
+          },
+          "unit_food_price": {
+            "type": "number",
+            "description": "Food + variations per unit (excludes add-ons)",
+            "example": 23
+          },
+          "addon_per_unit": {
+            "type": "number",
+            "example": 4
+          },
+          "addon_lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "price": {
+                  "type": "number"
+                },
+                "quantity": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "line_food_total": {
+            "type": "number",
+            "example": 23
+          },
+          "line_addon_total": {
+            "type": "number",
+            "example": 4
+          },
+          "line_subtotal": {
+            "type": "number",
+            "example": 27
+          },
+          "variation": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "VendorOrderPricing": {
+        "type": "object",
+        "description": "Checkout-aligned totals (data.pricing). Gizra commission is restaurant-side only.",
+        "properties": {
+          "items_price": {
+            "type": "number",
+            "example": 23
+          },
+          "addon_cost": {
+            "type": "number",
+            "example": 4
+          },
+          "subtotal": {
+            "type": "number",
+            "example": 27
+          },
+          "order_value": {
+            "type": "number",
+            "example": 27
+          },
+          "restaurant_discount_amount": {
+            "type": "number",
+            "example": 0
+          },
+          "coupon_discount_amount": {
+            "type": "number",
+            "example": 0
+          },
+          "ref_bonus_amount": {
+            "type": "number",
+            "example": 0
+          },
+          "tax_amount": {
+            "type": "number",
+            "example": 1.35
+          },
+          "tax_percent": {
+            "type": "number",
+            "example": 5
+          },
+          "tax_status": {
+            "type": "string",
+            "nullable": true,
+            "example": "excluded"
+          },
+          "delivery_charge": {
+            "type": "number",
+            "example": 8.87
+          },
+          "dm_tips": {
+            "type": "number",
+            "example": 0
+          },
+          "additional_charge": {
+            "type": "number",
+            "example": 0
+          },
+          "extra_packaging_amount": {
+            "type": "number",
+            "example": 0
+          },
+          "customer_total": {
+            "type": "number",
+            "example": 37.22
+          },
+          "gizra_commission_percent": {
+            "type": "number",
+            "example": 10
+          },
+          "gizra_commission_amount": {
+            "type": "number",
+            "example": 2.7
+          },
+          "gizra_pays_you": {
+            "type": "number",
+            "example": 24.3
+          }
+        }
+      },
       "VendorOrderDetail": {
         "allOf": [
           {
@@ -51071,18 +51387,17 @@
                 "type": "string",
                 "nullable": true
               },
-              "delivery_charge": {
-                "type": "number",
-                "example": 5
+              "delivery_address_parsed": {
+                "type": "object",
+                "nullable": true
               },
-              "total_tax_amount": {
-                "type": "number",
-                "example": 2.5
+              "pricing": {
+                "$ref": "#/components/schemas/VendorOrderPricing"
               },
               "items": {
                 "type": "array",
                 "items": {
-                  "$ref": "#/components/schemas/VendorOrderLineItem"
+                  "$ref": "#/components/schemas/VendorOrderDetailLineItem"
                 }
               }
             }

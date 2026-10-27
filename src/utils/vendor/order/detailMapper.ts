@@ -1,6 +1,7 @@
 import { delivery_men, order_details, orders, food } from '@prisma/client';
 import prisma from '../../../config/database';
 import { ORDER_PRICE_TOLERANCE, resolveUnitFoodPrice } from '../../consumer/orderLinePricing';
+import { computeVariationExtra } from '../../consumer/variationPricing';
 import { mapOrderSummary, mapOrderLineItem, OrderCustomerBrief } from './mapper';
 import {
   deriveOrderValueFromOrder,
@@ -136,16 +137,113 @@ function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-function catalogFoodBaseFromDetails(row: order_details): number | null {
+/** VAT on food+addons at checkout implies the taxed subtotal when tax is excluded. */
+function foodSubtotalImpliedByTax(order: orders): number | null {
+  const tax = Number(order.total_tax_amount) || 0;
+  const pct = Number(order.tax_percentage) || 0;
+  if (tax <= 0 || pct <= 0) return null;
+  if (order.tax_status === 'included') return null;
+  return roundMoney(tax / (pct / 100));
+}
+
+function reconcileLineItemsToPricing(
+  items: ReturnType<typeof mapOrderDetailLineItem>[],
+  itemsPrice: number
+): ReturnType<typeof mapOrderDetailLineItem>[] {
+  if (!items.length || itemsPrice <= 0) return items;
+  const currentFood = roundMoney(items.reduce((s, i) => s + i.line_food_total, 0));
+  const gap = roundMoney(itemsPrice - currentFood);
+  if (gap <= 0.02) return items;
+
+  if (items.length === 1) {
+    const row = items[0];
+    const qty = row.quantity || 1;
+    const unit = roundMoney(itemsPrice / qty);
+    return [
+      {
+        ...row,
+        price: unit,
+        unit_food_price: unit,
+        line_food_total: roundMoney(unit * qty),
+        line_subtotal: roundMoney(roundMoney(unit * qty) + row.line_addon_total),
+      },
+    ];
+  }
+
+  return items.map((row, idx) => {
+    if (idx !== 0 || gap <= 0) return row;
+    const unit = roundMoney(Number(row.unit_food_price) + gap / (row.quantity || 1));
+    return {
+      ...row,
+      price: unit,
+      unit_food_price: unit,
+      line_food_total: roundMoney(unit * row.quantity),
+      line_subtotal: roundMoney(roundMoney(unit * row.quantity) + row.line_addon_total),
+    };
+  });
+}
+
+function parseSelectedVariationsFromDetail(row: order_details): unknown[] {
+  if (!row.variation?.trim()) return [];
+  try {
+    const parsed = JSON.parse(row.variation);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function parseFoodDetailsSnapshot(row: order_details): Record<string, unknown> | null {
   if (!row.food_details?.trim()) return null;
   try {
     const parsed = JSON.parse(row.food_details);
-    if (!parsed || typeof parsed !== 'object') return null;
-    const base = Number((parsed as { price?: unknown }).price);
-    return Number.isFinite(base) ? base : null;
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null;
   } catch {
     return null;
   }
+}
+
+function catalogFoodBaseFromDetails(row: order_details): number | null {
+  const parsed = parseFoodDetailsSnapshot(row);
+  if (!parsed) return null;
+  const base = Number(parsed.price);
+  return Number.isFinite(base) ? base : null;
+}
+
+/** Unit food+variations frozen at place-order (same as checkout / pricing_breakdown). */
+function checkoutUnitFoodFromDetails(row: order_details): number | null {
+  const parsed = parseFoodDetailsSnapshot(row);
+  if (!parsed) return null;
+  const unit = Number(parsed.unit_food_price);
+  return Number.isFinite(unit) && unit > 0 ? roundMoney(unit) : null;
+}
+
+/**
+ * When line rows under-count food, infer checkout food+addons from stored order totals
+ * (same math as place-order `pricing_breakdown`, not live menu).
+ */
+function checkoutFoodSubtotalTarget(order: orders, lineSubtotalBeforeDiscounts: number): number | null {
+  const impliedByTax = foodSubtotalImpliedByTax(order);
+  const fromHeader = deriveOrderValueFromOrder(order);
+  const delivery = Number(order.delivery_charge) || 0;
+  const orderAmount = Number(order.order_amount) || 0;
+  const headerLooksLikeGrandTotal =
+    orderAmount > 0 &&
+    delivery > 0 &&
+    orderAmount + 0.05 >= fromHeader + delivery;
+
+  let target = lineSubtotalBeforeDiscounts;
+  if (impliedByTax != null && impliedByTax > target + 0.02) {
+    target = impliedByTax;
+  }
+  if (
+    headerLooksLikeGrandTotal &&
+    fromHeader > target + 0.02 &&
+    (impliedByTax == null || fromHeader <= impliedByTax + 0.05)
+  ) {
+    target = fromHeader;
+  }
+  return target > lineSubtotalBeforeDiscounts + 0.02 ? target : null;
 }
 
 /** Per-unit add-on total (sum of add-on line prices for one food unit). */
@@ -163,13 +261,40 @@ export function addonPerUnitFromDetail(
  * Food + variation unit price stored on order_details.price.
  * Some legacy rows bundle add-ons into `price`; subtract them so add-ons are not counted twice.
  */
-export function unitFoodPriceFromDetail(row: order_details, addonPerUnit: number): number {
+export function unitFoodPriceFromDetail(
+  row: order_details,
+  addonPerUnit: number,
+  foodRow?: { variations?: string | null } | null
+): number {
+  const checkoutUnit = checkoutUnitFoodFromDetails(row);
+  if (checkoutUnit != null) {
+    return checkoutUnit;
+  }
+
   const stored = roundMoney(Number(row.price) || 0);
   const catalogBase = catalogFoodBaseFromDetails(row);
+  const selectedVariations = parseSelectedVariationsFromDetail(row);
+  const variationExtra =
+    foodRow?.variations != null
+      ? computeVariationExtra(foodRow.variations, selectedVariations)
+      : 0;
+  const catalogWithVariations =
+    catalogBase != null && variationExtra > 0
+      ? roundMoney(catalogBase + variationExtra)
+      : null;
+
   let serverUnitBase =
     catalogBase != null && Number.isFinite(catalogBase)
       ? roundMoney(catalogBase)
       : stored;
+  if (
+    catalogWithVariations != null &&
+    catalogWithVariations > serverUnitBase &&
+    catalogBase != null &&
+    stored > catalogBase + ORDER_PRICE_TOLERANCE
+  ) {
+    serverUnitBase = catalogWithVariations;
+  }
   if (
     addonPerUnit > 0 &&
     stored > serverUnitBase + addonPerUnit - ORDER_PRICE_TOLERANCE
@@ -181,7 +306,7 @@ export function unitFoodPriceFromDetail(row: order_details, addonPerUnit: number
   if (
     addonPerUnit > 0 &&
     catalogBase != null &&
-    Math.abs(stored - catalogBase) <= ORDER_PRICE_TOLERANCE &&
+    stored > catalogBase + ORDER_PRICE_TOLERANCE &&
     Math.abs(stored - catalogBase - addonPerUnit) > ORDER_PRICE_TOLERANCE &&
     Math.abs(stored - asFoodFromStored - addonPerUnit) <= ORDER_PRICE_TOLERANCE
   ) {
@@ -202,21 +327,36 @@ export function unitFoodPriceFromDetail(row: order_details, addonPerUnit: number
     return stored;
   }
 
-  return resolveUnitFoodPrice({
+  let resolved = resolveUnitFoodPrice({
     linePrice: stored,
     serverUnitBase,
     addonPerUnit,
   });
+
+  /**
+   * Apply live-menu variation only when `price` already reflects food+var (not base-only snapshots).
+   * Base-only rows (stored ≈ catalog) are corrected in `buildOrderPricing` via checkout VAT.
+   */
+  if (
+    catalogWithVariations != null &&
+    catalogBase != null &&
+    stored > catalogBase + ORDER_PRICE_TOLERANCE &&
+    resolved < catalogWithVariations - ORDER_PRICE_TOLERANCE
+  ) {
+    resolved = catalogWithVariations;
+  }
+
+  return resolved;
 }
 
 export function mapOrderDetailLineItem(
   row: order_details,
-  foodRow?: Pick<food, 'id' | 'name' | 'image'> | null
+  foodRow?: Pick<food, 'id' | 'name' | 'image'> & { variations?: string | null } | null
 ) {
   const base = mapOrderLineItem(row, foodRow);
   const addon_lines = parseAddonLines(row.add_ons);
   const addon_per_unit = addonPerUnitFromDetail(row, addon_lines);
-  const unit_food_price = unitFoodPriceFromDetail(row, addon_per_unit);
+  const unit_food_price = unitFoodPriceFromDetail(row, addon_per_unit, foodRow);
   const quantity = base.quantity;
   const line_food_total = roundMoney(unit_food_price * quantity);
   const line_addon_total = roundMoney(addon_per_unit * quantity);
@@ -271,6 +411,16 @@ export function buildOrderPricing(order: orders, items: ReturnType<typeof mapOrd
     ) {
       productPrice = roundMoney(Math.max(0, productPrice - totalAddonPrice));
       subtotal = roundMoney(productPrice + totalAddonPrice);
+      order_value = roundMoney(subtotal - discountTotal);
+    }
+  }
+
+  const checkoutSubtotalTarget = checkoutFoodSubtotalTarget(order, subtotal);
+  if (checkoutSubtotalTarget != null) {
+    const gap = roundMoney(checkoutSubtotalTarget - subtotal);
+    if (gap > 0) {
+      productPrice = roundMoney(productPrice + gap);
+      subtotal = checkoutSubtotalTarget;
       order_value = roundMoney(subtotal - discountTotal);
     }
   }
@@ -346,6 +496,70 @@ export function buildOrderPricing(order: orders, items: ReturnType<typeof mapOrd
   };
 }
 
+export type OrderPricingBreakdown = ReturnType<typeof buildOrderPricing>;
+
+/** Public vendor/POS pricing — no deprecated or duplicate fields. */
+export type VendorOrderPricing = {
+  items_price: number;
+  addon_cost: number;
+  subtotal: number;
+  order_value: number;
+  restaurant_discount_amount: number;
+  coupon_discount_amount: number;
+  ref_bonus_amount: number;
+  tax_amount: number;
+  tax_percent: number;
+  tax_status: string | null;
+  delivery_charge: number;
+  dm_tips: number;
+  additional_charge: number;
+  extra_packaging_amount: number;
+  customer_total: number;
+  gizra_commission_percent: number;
+  gizra_commission_amount: number;
+  gizra_pays_you: number;
+};
+
+export function toVendorOrderPricing(p: OrderPricingBreakdown): VendorOrderPricing {
+  return {
+    items_price: p.items_price,
+    addon_cost: p.addon_cost,
+    subtotal: p.subtotal,
+    order_value: p.order_value,
+    restaurant_discount_amount: p.restaurant_discount_amount,
+    coupon_discount_amount: p.coupon_discount_amount,
+    ref_bonus_amount: p.ref_bonus_amount,
+    tax_amount: p.customer_tax_amount,
+    tax_percent: p.customer_tax_percent,
+    tax_status: p.tax_status ?? null,
+    delivery_charge: p.delivery_charge,
+    dm_tips: p.dm_tips,
+    additional_charge: p.additional_charge,
+    extra_packaging_amount: p.extra_packaging_amount,
+    customer_total: p.customer_order_total,
+    gizra_commission_percent: p.gizra_commission_percent,
+    gizra_commission_amount: p.gizra_commission_amount,
+    gizra_pays_you: p.gizra_pays_you,
+  };
+}
+
+export function toVendorOrderLineItem(item: ReturnType<typeof mapOrderDetailLineItem>) {
+  return {
+    id: item.id,
+    food_id: item.food_id,
+    food_name: item.food_name,
+    food_image: item.food_image,
+    quantity: item.quantity,
+    unit_food_price: item.unit_food_price,
+    addon_per_unit: item.addon_per_unit,
+    addon_lines: item.addon_lines,
+    line_food_total: item.line_food_total,
+    line_addon_total: item.line_addon_total,
+    line_subtotal: item.line_subtotal,
+    variation: item.variation,
+  };
+}
+
 export type MapLocationPoint = {
   latitude: number;
   longitude: number;
@@ -397,11 +611,13 @@ export function mapVendorOrderDetail(
   }
 ) {
   const deliveryParsed = parseDeliveryAddress(order.delivery_address);
-  const displayItems =
+  let displayItems =
     items.length === 0 && order.is_manual_dispatch
       ? [manualDispatchPlaceholderItem(order, restaurant)]
       : items;
-  const pricing = buildOrderPricing(order, displayItems);
+  let pricing = buildOrderPricing(order, displayItems);
+  displayItems = reconcileLineItemsToPricing(displayItems, pricing.items_price);
+  pricing = buildOrderPricing(order, displayItems);
 
   const map_locations: MapLocationPoint[] = [];
 
@@ -438,12 +654,18 @@ export function mapVendorOrderDetail(
   const assignedDriver = formatOrderAssignedDeliveryMan(order, extras?.deliveryMan);
   const cookingTime = mapOrderCookingTimeForApi(order);
 
+  const {
+    order_amount: _summaryOrderAmount,
+    order_value: _summaryOrderValue,
+    restaurant_list_total: _summaryListTotal,
+    gizra_pays_you: _summaryGizraPays,
+    delivery_charge: _summaryDelivery,
+    total_tax_amount: _summaryTax,
+    ...orderHeader
+  } = mapOrderSummary(order, customer);
+
   return {
-    ...mapOrderSummary(order, customer),
-    order_value: pricing.order_value,
-    restaurant_list_total: pricing.restaurant_list_total,
-    gizra_pays_you: pricing.gizra_pays_you,
-    order_amount: pricing.customer_order_total,
+    ...orderHeader,
     ...assignedDriver,
     ...cookingTime,
     notified_delivery_men: extras?.notified_delivery_men ?? [],
@@ -460,16 +682,14 @@ export function mapVendorOrderDetail(
     schedule_at: order.schedule_at,
     delivery_address: order.delivery_address,
     delivery_address_parsed: deliveryParsed,
-    delivery_charge: pricing.delivery_charge,
-    total_tax_amount: pricing.total_tax_amount,
     order_proof: order.order_proof,
     cancellation_reason: order.cancellation_reason,
     cancellation_note: order.cancellation_note,
     canceled_by: order.canceled_by,
-    pricing,
+    pricing: toVendorOrderPricing(pricing),
     is_manual_dispatch: Boolean(order.is_manual_dispatch),
     ...mapOrderIdentityFields(order),
-    items: displayItems,
+    items: displayItems.map(toVendorOrderLineItem),
     restaurant: restaurant
       ? {
           name: restaurant.name,
