@@ -32,6 +32,8 @@
     "test:deliver-latest-order": "node ./node_modules/ts-node/dist/bin.js scripts/deliverLatestOrderForTesting.ts",
     "db:patch-tiered-delivery": "node scripts/run-tiered-delivery-patch.js",
     "deploy:server": "bash scripts/deploy-server.sh",
+    "deploy:dev": "bash scripts/deploy-dev.sh",
+    "db:clone-prod-to-dev": "bash scripts/clone-prod-db-to-dev.sh",
     "fix:prod-db": "bash scripts/fix-prod-now.sh",
     "repair:prod-stack": "npm run deploy:server",
     "reset:prod-docker": "bash scripts/reset-prod-docker.sh",
