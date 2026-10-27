@@ -25,7 +25,7 @@ function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-/** Client-quoted delivery fee (prefer `delivery_fee` from GET /consumer/config/delivery-fee). */
+
 function clientQuotedDeliveryFee(payload: PlaceOrderInput): number | null {
   const raw = payload.delivery_fee ?? payload.delivery_charge;
   if (raw == null || !Number.isFinite(Number(raw))) return null;
@@ -109,6 +109,8 @@ export type PlaceOrderPricing = {
   addon_cost: number;
   /** Food + add-ons after product/coupon discounts (before tax & delivery). */
   subtotal: number;
+  /** Amount VAT is calculated on (same as subtotal when discounts are applied). */
+  taxable_base: number;
   total_tax_amount: number;
   tax_added_to_total: number;
   tax_status: 'included' | 'excluded';
@@ -139,6 +141,7 @@ function buildPlaceOrderPricing(params: {
     items_price: params.itemsPrice,
     addon_cost: params.addonCost,
     subtotal: params.totalPrice,
+    taxable_base: params.totalPrice,
     total_tax_amount: params.taxResult.total_tax_amount,
     tax_added_to_total: params.taxResult.tax_to_add,
     tax_status: params.taxResult.tax_status,
@@ -178,6 +181,44 @@ function orderLevelTax(
   }
   const total_tax_amount = roundMoney((taxableAmount * taxPercent) / 100);
   return { total_tax_amount, tax_to_add: total_tax_amount, tax_status: 'excluded' };
+}
+
+/** VAT on food + add-ons after discounts (PHP `product_tax` on order subtotal). */
+function computeOrderTax(params: {
+  itemsPrice: number;
+  addonCost: number;
+  restaurantDiscount: number;
+  couponDiscount: number;
+  taxPercent: number;
+  taxIncluded: boolean;
+}): { taxableBase: number; taxResult: ReturnType<typeof orderLevelTax> } {
+  const taxableBase = roundMoney(
+    Math.max(
+      0,
+      params.itemsPrice + params.addonCost - params.restaurantDiscount - params.couponDiscount
+    )
+  );
+  return {
+    taxableBase,
+    taxResult: orderLevelTax(taxableBase, params.taxPercent, params.taxIncluded),
+  };
+}
+
+function lineTaxAmount(params: {
+  unitFood: number;
+  discountOnFood: number;
+  addonPerUnit: number;
+  taxPercent: number;
+  taxIncluded: boolean;
+}): number {
+  const taxablePerUnit = roundMoney(
+    Math.max(0, params.unitFood - params.discountOnFood + params.addonPerUnit)
+  );
+  if (params.taxPercent <= 0) return 0;
+  if (params.taxIncluded) {
+    return roundMoney((taxablePerUnit * params.taxPercent) / (100 + params.taxPercent));
+  }
+  return roundMoney((taxablePerUnit * params.taxPercent) / 100);
 }
 
 async function getCouponDiscount(params: {
@@ -647,6 +688,8 @@ export async function executePlaceOrder(params: {
   let totalAddonPrice = 0;
   let restaurantDiscountAmount = 0;
   const orderDetailsRows: Prisma.order_detailsCreateManyInput[] = [];
+  const taxIncluded = await isTaxIncluded();
+  const taxPercent = Number(restaurant.tax) || 0;
 
   for (const line of cartLines) {
     const food = await prisma.food.findFirst({
@@ -674,8 +717,13 @@ export async function executePlaceOrder(params: {
       addonPerUnit: addonData.total_add_on_price,
     });
     const discountOnFood = productDiscountAmount(food, unitBase);
-    const taxPercent = Number(restaurant.tax) || 0;
-    const lineTax = roundMoney(((unitBase - discountOnFood) * taxPercent) / 100);
+    const lineTax = lineTaxAmount({
+      unitFood: unitBase,
+      discountOnFood,
+      addonPerUnit: addonData.total_add_on_price,
+      taxPercent,
+      taxIncluded,
+    });
 
     productPrice += unitBase * line.quantity;
     totalAddonPrice += addonData.total_add_on_price * line.quantity;
@@ -727,16 +775,24 @@ export async function executePlaceOrder(params: {
   }
 
   const totalPrice = roundMoney(subtotalBeforeCoupon - couponResult.discount);
-  const taxIncluded = await isTaxIncluded();
-  const taxPercent = Number(restaurant.tax) || 0;
-  let taxResult = orderLevelTax(totalPrice, taxPercent, taxIncluded);
-  const quotedTax = clientQuotedTax(payload);
-  if (quotedTax != null) {
-    taxResult = {
-      total_tax_amount: quotedTax,
-      tax_to_add: taxIncluded ? 0 : quotedTax,
-      tax_status: taxIncluded ? 'included' : 'excluded',
-    };
+  let { taxResult } = computeOrderTax({
+    itemsPrice: productPrice,
+    addonCost: totalAddonPrice,
+    restaurantDiscount: restaurantDiscountAmount,
+    couponDiscount: couponResult.discount,
+    taxPercent,
+    taxIncluded,
+  });
+
+  if (!dryRun) {
+    const quotedTax = clientQuotedTax(payload);
+    if (
+      quotedTax != null &&
+      Math.abs(quotedTax - taxResult.total_tax_amount) <= PRICE_TOLERANCE
+    ) {
+      taxResult.total_tax_amount = quotedTax;
+      taxResult.tax_to_add = taxIncluded ? 0 : quotedTax;
+    }
   }
 
   let deliveryFee = await calculateDeliveryFee({
@@ -798,9 +854,11 @@ export async function executePlaceOrder(params: {
       extraPackaging +
       dmTips
   );
-  const quotedGrandTotal = clientQuotedGrandTotal(payload);
-  if (quotedGrandTotal != null) {
-    orderAmount = quotedGrandTotal;
+  if (!dryRun) {
+    const quotedGrandTotal = clientQuotedGrandTotal(payload);
+    if (quotedGrandTotal != null) {
+      orderAmount = quotedGrandTotal;
+    }
   }
 
   if (
