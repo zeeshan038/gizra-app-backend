@@ -28,18 +28,32 @@ export type AdminOrderListRow = {
   order_type: string;
   is_manual_dispatch: boolean;
   delivery_man_id: string | null;
+  delivery_man_name: string | null;
+  delivery_man_phone: string | null;
   zone_id: string | null;
   checked: boolean;
+};
+
+export type DeliveryManBrief = {
+  id: bigint | number;
+  f_name?: string | null;
+  l_name?: string | null;
+  phone?: string | null;
 };
 
 export function mapAdminOrderListRow(
   order: orders,
   restaurantName: string,
-  customer: OrderCustomerBrief | null
+  customer: OrderCustomerBrief | null,
+  deliveryMan: DeliveryManBrief | null = null
 ): AdminOrderListRow {
   const guestCustomer =
     !customer || formatCustomerName(customer) === 'Guest' ? customerFromDeliveryAddress(order) : null;
   const resolvedCustomer = guestCustomer ?? customer;
+
+  const dmName = deliveryMan
+    ? [deliveryMan.f_name, deliveryMan.l_name].filter(Boolean).join(' ') || null
+    : null;
 
   return {
     id: order.id.toString(),
@@ -54,6 +68,8 @@ export function mapAdminOrderListRow(
     order_type: order.order_type,
     is_manual_dispatch: order.is_manual_dispatch,
     delivery_man_id: order.delivery_man_id?.toString() ?? null,
+    delivery_man_name: dmName,
+    delivery_man_phone: deliveryMan?.phone ?? null,
     zone_id: order.zone_id?.toString() ?? null,
     checked: order.checked,
   };
