@@ -11897,7 +11897,7 @@
           },
           "tax_added_to_total": {
             "type": "number",
-            "description": "VAT added on top of subtotal when tax_status is excluded; 0 when included",
+            "description": "When tax_status is `excluded`, menu prices do not include VAT — this is the VAT amount **added at checkout** (same as total_tax_amount in that mode). When `included`, this is 0 and total_tax_amount is informational only. Grand total = subtotal + tax_added_to_total + delivery_charge + fees.",
             "example": 2
           },
           "tax_status": {

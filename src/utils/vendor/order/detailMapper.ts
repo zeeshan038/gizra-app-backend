@@ -1,5 +1,6 @@
 import { delivery_men, order_details, orders, food } from '@prisma/client';
 import prisma from '../../../config/database';
+import { ORDER_PRICE_TOLERANCE, resolveUnitFoodPrice } from '../../consumer/orderLinePricing';
 import { mapOrderSummary, mapOrderLineItem, OrderCustomerBrief } from './mapper';
 import { deriveOrderValueFromOrder, gizraPaysRestaurant, taxOnOrderValue } from './orderSettlement';
 import { publicMediaUrl } from '../../mediaStorage';
@@ -159,28 +160,34 @@ export function addonPerUnitFromDetail(
  */
 export function unitFoodPriceFromDetail(row: order_details, addonPerUnit: number): number {
   const stored = roundMoney(Number(row.price) || 0);
-  if (addonPerUnit <= 0) return stored;
-
-  const withoutAddons = roundMoney(stored - addonPerUnit);
-  if (withoutAddons < 0) return stored;
-
   const catalogBase = catalogFoodBaseFromDetails(row);
-
-  // Catalog base matches stored price → add-ons are stored separately.
-  if (catalogBase != null && Math.abs(stored - catalogBase) <= 0.02) {
-    return stored;
+  let serverUnitBase =
+    catalogBase != null && Number.isFinite(catalogBase)
+      ? roundMoney(catalogBase)
+      : stored;
+  if (
+    addonPerUnit > 0 &&
+    stored > serverUnitBase + addonPerUnit - ORDER_PRICE_TOLERANCE
+  ) {
+    serverUnitBase = roundMoney(stored - addonPerUnit);
   }
 
-  // Stored unit price = food/variation + add-ons (double-count if we also sum add_ons).
-  if (Math.abs(stored - (withoutAddons + addonPerUnit)) <= 0.02) {
-    return withoutAddons;
+  const asFoodFromStored = roundMoney(stored - addonPerUnit);
+  if (
+    addonPerUnit > 0 &&
+    catalogBase != null &&
+    Math.abs(stored - catalogBase) <= ORDER_PRICE_TOLERANCE &&
+    Math.abs(stored - catalogBase - addonPerUnit) > ORDER_PRICE_TOLERANCE &&
+    Math.abs(stored - asFoodFromStored - addonPerUnit) <= ORDER_PRICE_TOLERANCE
+  ) {
+    serverUnitBase = asFoodFromStored;
   }
 
-  if (catalogBase != null && stored > catalogBase + 0.02 && withoutAddons >= catalogBase - 0.02) {
-    return withoutAddons;
-  }
-
-  return stored;
+  return resolveUnitFoodPrice({
+    linePrice: stored,
+    serverUnitBase,
+    addonPerUnit,
+  });
 }
 
 export function mapOrderDetailLineItem(

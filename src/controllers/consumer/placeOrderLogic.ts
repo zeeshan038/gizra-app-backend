@@ -19,6 +19,7 @@ import {
 } from '../../utils/payment/checkoutPayment';
 import { computeVariationExtra } from '../../utils/consumer/variationPricing';
 import { computeAvailabilityForRestaurant } from '../../utils/consumer/restaurantAvailability';
+import { resolveUnitFoodPrice } from '../../utils/consumer/orderLinePricing';
 
 
 function roundMoney(value: number): number {
@@ -47,25 +48,6 @@ function clientQuotedTax(payload: PlaceOrderInput): number | null {
 }
 
 const PRICE_TOLERANCE = 0.05;
-
-function resolveUnitFoodPrice(params: {
-  linePrice: number | undefined;
-  serverUnitBase: number;
-  addonPerUnit: number;
-}): number {
-  const { linePrice, serverUnitBase, addonPerUnit } = params;
-  if (linePrice == null || !Number.isFinite(linePrice) || linePrice <= 0) {
-    return serverUnitBase;
-  }
-  const clientUnit = roundMoney(linePrice);
-  if (addonPerUnit <= 0) return clientUnit;
-
-  const withoutAddons = roundMoney(clientUnit - addonPerUnit);
-  if (withoutAddons >= 0 && Math.abs(clientUnit - (serverUnitBase + addonPerUnit)) <= PRICE_TOLERANCE) {
-    return roundMoney(Math.max(withoutAddons, serverUnitBase));
-  }
-  return clientUnit;
-}
 
 function parseJson<T>(value: string | null | undefined, fallback: T): T {
   if (!value) return fallback;
@@ -124,6 +106,25 @@ export type PlaceOrderPricing = {
   tax_included: boolean;
 };
 
+/** Customer pay total from pricing lines (subtotal + VAT added + delivery + fees). */
+export function computeGrandOrderTotal(params: {
+  subtotal: number;
+  taxAddedToTotal: number;
+  deliveryCharge: number;
+  additionalCharge: number;
+  extraPackaging: number;
+  dmTips: number;
+}): number {
+  return roundMoney(
+    params.subtotal +
+      params.taxAddedToTotal +
+      params.deliveryCharge +
+      params.additionalCharge +
+      params.extraPackaging +
+      params.dmTips
+  );
+}
+
 function buildPlaceOrderPricing(params: {
   itemsPrice: number;
   addonCost: number;
@@ -143,6 +144,7 @@ function buildPlaceOrderPricing(params: {
     subtotal: params.totalPrice,
     taxable_base: params.totalPrice,
     total_tax_amount: params.taxResult.total_tax_amount,
+    /** VAT added on checkout when tax_status is excluded; 0 when prices already include VAT. */
     tax_added_to_total: params.taxResult.tax_to_add,
     tax_status: params.taxResult.tax_status,
     tax_percentage: params.taxPercent,
@@ -846,15 +848,18 @@ export async function executePlaceOrder(params: {
 
   const dmTips = await resolveDmTips(payload.dm_tips);
 
-  let orderAmount = roundMoney(
-    totalPrice +
-      taxResult.tax_to_add +
-      deliveryFee.delivery_charge +
-      additionalCharge +
-      extraPackaging +
-      dmTips
-  );
-  if (!dryRun) {
+  let orderAmount = computeGrandOrderTotal({
+    subtotal: totalPrice,
+    taxAddedToTotal: taxResult.tax_to_add,
+    deliveryCharge: deliveryFee.delivery_charge,
+    additionalCharge,
+    extraPackaging,
+    dmTips,
+  });
+
+  if (dryRun) {
+    // Quote must never use client `order_amount` (often food-only); total is always from breakdown.
+  } else {
     const quotedGrandTotal = clientQuotedGrandTotal(payload);
     if (quotedGrandTotal != null) {
       orderAmount = quotedGrandTotal;
