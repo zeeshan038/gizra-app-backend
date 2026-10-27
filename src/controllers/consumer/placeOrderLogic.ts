@@ -885,7 +885,10 @@ export async function executePlaceOrder(params: {
     // Quote must never use client `order_amount` (often food-only); total is always from breakdown.
   } else {
     const quotedGrandTotal = clientQuotedGrandTotal(payload);
-    if (quotedGrandTotal != null) {
+    if (
+      quotedGrandTotal != null &&
+      Math.abs(quotedGrandTotal - orderAmount) <= PRICE_TOLERANCE
+    ) {
       orderAmount = quotedGrandTotal;
     }
   }

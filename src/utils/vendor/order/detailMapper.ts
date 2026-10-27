@@ -2,7 +2,12 @@ import { delivery_men, order_details, orders, food } from '@prisma/client';
 import prisma from '../../../config/database';
 import { ORDER_PRICE_TOLERANCE, resolveUnitFoodPrice } from '../../consumer/orderLinePricing';
 import { mapOrderSummary, mapOrderLineItem, OrderCustomerBrief } from './mapper';
-import { deriveOrderValueFromOrder, gizraPaysRestaurant, taxOnOrderValue } from './orderSettlement';
+import {
+  deriveOrderValueFromOrder,
+  GIZRA_COMMISSION_PERCENT,
+  gizraCommissionOnFood,
+  gizraPaysRestaurant,
+} from './orderSettlement';
 import { publicMediaUrl } from '../../mediaStorage';
 import { mapOrderCookingTimeForApi } from './cookingTime';
 import { mapOrderIdentityFields } from '../../order/orderIdentity';
@@ -183,6 +188,20 @@ export function unitFoodPriceFromDetail(row: order_details, addonPerUnit: number
     serverUnitBase = asFoodFromStored;
   }
 
+  /**
+   * Checkout stores food+variations in `price` with add-ons in `add_ons`.
+   * When stored equals catalog+addon by coincidence (e.g. 23 = 19+4) but stored > catalog,
+   * do not strip add-ons from the unit food price.
+   */
+  if (
+    addonPerUnit > 0 &&
+    catalogBase != null &&
+    stored > catalogBase + ORDER_PRICE_TOLERANCE &&
+    Math.abs(stored - catalogBase - addonPerUnit) <= ORDER_PRICE_TOLERANCE
+  ) {
+    return stored;
+  }
+
   return resolveUnitFoodPrice({
     linePrice: stored,
     serverUnitBase,
@@ -236,16 +255,17 @@ export function buildOrderPricing(order: orders, items: ReturnType<typeof mapOrd
     restaurant_discount_amount + coupon_discount_amount + ref_bonus_amount
   );
 
+  /** Gross food + add-ons from line items (POS breakdown: Items + Add-ons). */
   let subtotal = roundMoney(productPrice + totalAddonPrice);
 
-  /** Items + addons after order-level discounts (tax base — delivery excluded). */
+  /** Items + addons after order-level discounts (restaurant order value — delivery excluded). */
   let order_value = roundMoney(subtotal - discountTotal);
 
-  const foodValueFromOrder = deriveOrderValueFromOrder(order);
-  if (foodValueFromOrder > 0 && Math.abs(order_value - foodValueFromOrder) > 0.02) {
-    const overshoot = roundMoney(order_value - foodValueFromOrder);
+  /** Legacy rows: add-ons were counted in both `price` and `add_ons`. */
+  const derivedFromStoredTotals = deriveOrderValueFromOrder(order);
+  if (derivedFromStoredTotals > 0 && order_value > derivedFromStoredTotals + 0.02) {
+    const overshoot = roundMoney(order_value - derivedFromStoredTotals);
     if (
-      overshoot > 0.01 &&
       totalAddonPrice > 0 &&
       Math.abs(overshoot - totalAddonPrice) <= 0.05
     ) {
@@ -253,20 +273,41 @@ export function buildOrderPricing(order: orders, items: ReturnType<typeof mapOrd
       subtotal = roundMoney(productPrice + totalAddonPrice);
       order_value = roundMoney(subtotal - discountTotal);
     }
-    if (Math.abs(order_value - foodValueFromOrder) > 0.02) {
-      order_value = foodValueFromOrder;
-      subtotal = roundMoney(order_value + discountTotal);
-    }
   }
 
   const total_tax_amount = Number(order.total_tax_amount) || 0;
   const delivery_charge = Number(order.delivery_charge) || 0;
+  const dm_tips = Number(order.dm_tips) || 0;
+  const additional_charge = Number(order.additional_charge) || 0;
+  const extra_packaging_amount = Number(order.extra_packaging_amount) || 0;
   const order_amount = Number(order.order_amount) || 0;
 
-  const tax_on_order_value = taxOnOrderValue(order_value);
+  const gizra_commission_amount = gizraCommissionOnFood(order_value);
   const gizra_pays_you = gizraPaysRestaurant(order_value);
-  const restaurant_list_total = roundMoney(order_value + delivery_charge);
-  const customer_paid_food_delivery = roundMoney(order_amount - total_tax_amount);
+
+  /** Customer → restaurant (food) + rider (delivery). Gizra fee is not on this total. */
+  const customer_pays_food = order_value;
+  const delivery_rider_amount = delivery_charge;
+  const customer_tax_amount = total_tax_amount;
+  const customer_tax_percent = Number(order.tax_percentage) || 0;
+
+  const customer_tax_added =
+    order.tax_status === 'included' ? 0 : customer_tax_amount;
+  const customer_order_total_computed = roundMoney(
+    order_value +
+      customer_tax_added +
+      delivery_charge +
+      dm_tips +
+      additional_charge +
+      extra_packaging_amount
+  );
+  /** Amount charged at checkout (`orders.order_amount`). */
+  const customer_order_total =
+    order_amount > 0 ? order_amount : customer_order_total_computed;
+
+  /** Food + delivery the customer pays (excludes Gizra commission; VAT may be in order_amount). */
+  const customer_paid_food_delivery = roundMoney(order_value + delivery_charge);
+  const restaurant_list_total = customer_paid_food_delivery;
 
   return {
     items_price: productPrice,
@@ -278,17 +319,28 @@ export function buildOrderPricing(order: orders, items: ReturnType<typeof mapOrd
     restaurant_discount_amount,
     coupon_discount_amount,
     ref_bonus_amount,
-    total_tax_amount,
-    tax_on_order_value,
-    tax_percent_on_order: 10,
+    customer_tax_amount,
+    customer_tax_percent,
+    total_tax_amount: customer_tax_amount,
+    gizra_commission_amount,
+    gizra_commission_percent: GIZRA_COMMISSION_PERCENT,
+    /** @deprecated use gizra_commission_amount — not customer VAT */
+    tax_on_order_value: gizra_commission_amount,
+    gizra_commission: gizra_commission_amount,
+    /** @deprecated use customer_tax_percent — was mislabeled as 10% platform fee */
+    tax_percent_on_order: customer_tax_percent,
+    customer_pays_food,
+    delivery_rider_amount,
     restaurant_list_total,
     customer_paid_food_delivery,
-    customer_order_total: order_amount,
-    dm_tips: Number(order.dm_tips) || 0,
+    customer_order_total,
+    /** @deprecated use customer_order_total */
+    order_amount: customer_order_total,
+    stored_order_amount: order_amount,
+    dm_tips,
     delivery_charge,
-    additional_charge: Number(order.additional_charge) || 0,
-    extra_packaging_amount: Number(order.extra_packaging_amount) || 0,
-    order_amount,
+    additional_charge,
+    extra_packaging_amount,
     gizra_pays_you,
     tax_status: order.tax_status,
   };
@@ -388,6 +440,10 @@ export function mapVendorOrderDetail(
 
   return {
     ...mapOrderSummary(order, customer),
+    order_value: pricing.order_value,
+    restaurant_list_total: pricing.restaurant_list_total,
+    gizra_pays_you: pricing.gizra_pays_you,
+    order_amount: pricing.customer_order_total,
     ...assignedDriver,
     ...cookingTime,
     notified_delivery_men: extras?.notified_delivery_men ?? [],

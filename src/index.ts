@@ -20,7 +20,9 @@ const origins =[
   "https://gizra-restaurant-pannel.vercel.app",
   'https://restaurant.gizra.app',
   'https://admin.gizra.app',
-  'https://driver.gizra.app'
+  'https://driver.gizra.app',
+  'https://gizra.app',
+  'https://www.gizra.app',
 ]
 app.use(cors({
   origin: origins,

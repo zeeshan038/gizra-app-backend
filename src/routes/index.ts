@@ -86,10 +86,12 @@ import consumerCuisineRoutes from './consumer/cuisine';
 import consumerAdvertisementRoutes from './consumer/advertisement';
 import sharedConfigRoutes from './config';
 import legalPagesRoutes from './pages';
+import publicLandingRoutes from './public/landing';
 
 //consumer — public discover/config first; `/consumer` user router last (auth is per-route, not a catch-all)
 router.use('/config', sharedConfigRoutes);
 router.use('/pages', legalPagesRoutes);
+router.use('/public', publicLandingRoutes);
 router.use('/consumer/config', consumerConfigRoutes);
 router.use('/consumer/zone', consumerZoneRoutes);
 router.use('/consumer/restaurants', consumerRestaurantRoutes);

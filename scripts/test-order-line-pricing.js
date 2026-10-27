@@ -1,6 +1,3 @@
-/**
- * Same checks as test-order-line-pricing.ts — runs on server after `npm run build` (no ts-node).
- */
 const {
   applyBuyNowLineSubtotalPriceRule,
   resolveCartLineUnitFoodPrice,
