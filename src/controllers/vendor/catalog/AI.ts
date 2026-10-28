@@ -3,24 +3,10 @@ import { aiPdfSchema, aiTextSchema } from '../../../schemas/vendor/Catalog';
 import { uploadToCloudflare } from '../../../utils/cloudflare';
 import {
     isGeminiBillingOrQuotaError,
-    isGeminiModelUnavailableError,
     listGeminiGenerationModelIds,
     listGeminiImageModelIds,
 } from '../../../utils/gemini/geminiModels';
-
-function extractJsonObject(text: string): unknown {
-    const trimmed = text.trim();
-    try {
-        return JSON.parse(trimmed);
-    } catch {
-        const start = trimmed.indexOf('{');
-        const end = trimmed.lastIndexOf('}');
-        if (start >= 0 && end > start) {
-            return JSON.parse(trimmed.slice(start, end + 1));
-        }
-        throw new Error('Model returned non-JSON menu output');
-    }
-}
+import { parseMenuFromUpload } from '../../../utils/vendor/menuAiParse';
 
 function isHebrewText(text: string) {
     return /[\u0590-\u05FF]/.test(text);
@@ -140,152 +126,8 @@ export const parsePdf = async (req: Request, res: Response): Promise<any> => {
     const mimeType = req.file.mimetype;
     const fileBase64 = req.file.buffer.toString('base64');
 
-    const prompt = `You are an expert restaurant menu OCR and structuring engine. Your job is to produce POS-ready JSON from poster-style menus (multi-column tops + footer blocks for sizes/toppings).
-
-=== NON-NEGOTIABLE RULES ===
-1. NEVER skip variations when the menu defines sizes anywhere on the page (same row OR a separate footer section).
-2. NEVER create duplicate items for sizes (e.g. "Margherita Large" as its own item). ONE dish = ONE item + variations.
-3. Option "price" is the FULL item price for that choice (absolute), NOT a delta mark-up.
-4. item "price" MUST equal the cheapest option in the first required variation group (usually smallest size).
-5. Output ONLY valid JSON: { "categories": [ ... ] }. No markdown, no comments.
-
-=== LAYOUT: ITEMS ON TOP, SIZES ON BOTTOM (VERY COMMON) ===
-Many menus list dish names + one price in category columns at the TOP, then a separate footer band such as:
-  "Choose Your Size" / "Size" / Personal · Regular · Large with prices on another row.
-You MUST link that footer size block to every applicable item in the category above (e.g. all PIZZA items get the same Size group).
-
-Algorithm:
-A) Read the footer (or side) size block: labels (include inch/cm if shown, e.g. Personal 7 inch) and numeric prices.
-B) Read each dish in the category and its listed price (often the smallest/default size).
-C) If footer prices are GLOBAL (one set for the whole category):
-   - Let S0 = smallest footer size price, Sk = price for each footer size k.
-   - For each dish with listed price P (from the top list):
-     - Smallest size option price = P (use the dish's own top price, not necessarily S0).
-     - Each larger size k: option price = P + (Sk - S0). Round to 2 decimals if needed.
-   - Example: footer Personal 149, Regular 249, Large 399; Margherita 149 → 149, 249, 399; Farmhouse 179 → 179, 279, 429.
-D) If each dish row already shows multiple size columns, use those column prices directly (no delta math).
-E) Attach one variation group per item:
-   { "name": "Size", "type": "single", "required": true, "options": [ { "name": "<label>", "price": <number> }, ... ] }
-
-If a category has NO size footer and only one price per dish → "variations": [].
-
-=== OTHER VARIATION PATTERNS ===
-- Sauce/type rows (White Sauce / Red Sauce / Mixed) for pasta: one group "Sauce" or "Type", required true if customer must pick.
-- Burger single price only: variations [] unless sizes appear elsewhere.
-
-=== ADD-ONS (optional extras) ===
-Sections like "Customize It", "Extra Toppings", "Add-ons" with +₹ prices:
-- Put in "add_ons": [ { "name", "price" } ] on each item in categories that section applies to (typically all pizzas if under pizza footer).
-- Do NOT put sizes in add_ons.
-- Shared topping list → copy the same add_ons array to each relevant item (do not omit).
-
-=== CATEGORIES ===
-- Use visible headers: PIZZA, BURGERS, PASTA, WRAPS, SIDES, etc.
-- Fries / sides listed in "Add Something Extra" can be their own category if priced as standalone items.
-
-=== MULTI-LANGUAGE ===
-Hebrew + English sections: extract BOTH; do not merge translations.
-Slash names "X / Y" → two items unless clearly one bilingual label for the same dish (then pick primary language shown larger).
-
-=== JSON SHAPE (strict) ===
-{
-  "categories": [
-    {
-      "name": "PIZZA",
-      "items": [
-        {
-          "name": "Margherita",
-          "description": "Classic cheese & herbs",
-          "price": 149,
-          "variations": [
-            {
-              "name": "Size",
-              "type": "single",
-              "required": true,
-              "options": [
-                { "name": "Personal 7 inch", "price": 149 },
-                { "name": "Regular 10 inch", "price": 249 },
-                { "name": "Large 12 inch", "price": 399 }
-              ]
-            }
-          ],
-          "add_ons": [
-            { "name": "Extra Cheese", "price": 70 }
-          ]
-        }
-      ]
-    }
-  ]
-}
-
-Before you finish: for every PIZZA (and similar) item, confirm "variations" is non-empty when a size footer exists. Re-scan the bottom of the image if any item is missing Size options.`;
-
     try {
-        const models = await listGeminiGenerationModelIds(apiKey);
-        console.info(`[menu-import] Gemini models (top 5): ${models.slice(0, 5).join(', ')}`);
-
-        let lastError = 'Failed to parse menu with Gemini';
-        let parsedMenu: unknown = null;
-
-        outer: for (const model of models) {
-            for (const jsonMode of [true, false] as const) {
-                try {
-                    const response = await fetch(
-                        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-                        {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                contents: [{
-                                    parts: [
-                                        { text: prompt },
-                                        { inlineData: { mimeType, data: fileBase64 } },
-                                    ],
-                                }],
-                                ...(jsonMode
-                                    ? { generationConfig: { responseMimeType: 'application/json' } }
-                                    : {}),
-                            }),
-                        }
-                    );
-
-                    const data = await response.json();
-                    if (!response.ok) {
-                        const msg = data.error?.message || `HTTP ${response.status} for ${model}`;
-                        console.warn(`[menu-import] Gemini ${model} json=${jsonMode}: ${msg}`);
-                        if (isGeminiBillingOrQuotaError(msg)) {
-                            throw new Error(
-                                'Gemini API credits or quota exhausted. Open Google AI Studio → Billing / credits for this API key, then retry menu import.'
-                            );
-                        }
-                        if (!isGeminiModelUnavailableError(msg)) {
-                            lastError = msg;
-                        }
-                        continue;
-                    }
-
-                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (!text?.trim()) {
-                        lastError = `Empty response from ${model}`;
-                        continue;
-                    }
-                    parsedMenu = extractJsonObject(text);
-                    break outer;
-                } catch (err: unknown) {
-                    if (err instanceof Error && isGeminiBillingOrQuotaError(err.message)) {
-                        throw err;
-                    }
-                    const msg = err instanceof Error ? err.message : 'Parse failed';
-                    console.warn(`[menu-import] Gemini ${model} json=${jsonMode}: ${msg}`);
-                    lastError = msg;
-                }
-            }
-        }
-
-        if (!parsedMenu) {
-            throw new Error(lastError);
-        }
-
+        const parsedMenu = await parseMenuFromUpload({ apiKey, mimeType, fileBase64 });
         return res.status(200).json({ status: true, data: parsedMenu });
     } catch (error: any) {
         return res.status(500).json({ status: false, msg: error.message });

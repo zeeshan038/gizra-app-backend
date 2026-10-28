@@ -30,7 +30,16 @@ router.post('/food/bulk-delete', bulkDeleteFoods);
 import multer from 'multer';
 const upload = multer({ storage: multer.memoryStorage() });
 
-router.post('/ai/parse-pdf', upload.single('file'), parsePdf);
+router.post(
+    '/ai/parse-pdf',
+    (req, res, next) => {
+        req.setTimeout(600_000);
+        res.setTimeout(600_000);
+        next();
+    },
+    upload.single('file'),
+    parsePdf
+);
 router.post('/ai/description', generateDescription);
 router.post('/ai/generate-image', generateFoodImage);
 router.post('/ai/generate-category-image', generateCategoryImage);
