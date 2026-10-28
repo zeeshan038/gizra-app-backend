@@ -1,6 +1,6 @@
 import { normalizeStoredMedia } from '../mediaStorage';
 
-/** Map Figma / client aliases before Joi validation. */
+
 export function normalizeDriverRegisterBody(body: Record<string, unknown>): Record<string, unknown> {
   const normalized = { ...body };
 
