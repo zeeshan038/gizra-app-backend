@@ -3,6 +3,7 @@ import {
     isGeminiModelUnavailableError,
     listGeminiGenerationModelIds,
 } from '../gemini/geminiModels';
+import { normalizeParsedMenu } from './variationCatalogNormalize';
 
 export type ParsedMenuItem = {
     name: string;
@@ -34,7 +35,7 @@ export const MENU_PARSE_PROMPT = `You are an expert restaurant menu OCR and stru
 === NON-NEGOTIABLE RULES ===
 1. NEVER skip variations when the menu defines sizes anywhere on the page (same row OR a separate footer section).
 2. NEVER create duplicate items for sizes (e.g. "Margherita Large" as its own item). ONE dish = ONE item + variations.
-3. Option "price" is the FULL item price for that choice (absolute), NOT a delta mark-up.
+3. Option "price" in JSON may be the FULL menu price for that choice (e.g. Personal 45, Medium 55). The server converts these to up-charges; still output readable menu numbers from the PDF.
 4. item "price" MUST equal the cheapest option in the first required variation group (usually smallest size).
 5. Output ONLY valid JSON: { "categories": [ ... ] }. No markdown, no comments.
 
@@ -350,7 +351,7 @@ export async function parseMenuFromUpload(params: {
 
     for (const model of models) {
         try {
-            const menu = await parseWithModel({ ...params, model });
+            const menu = normalizeParsedMenu(await parseWithModel({ ...params, model }));
             console.info(`[menu-import] Parsed ${countMenuItems(menu)} items with ${model}`);
             return menu;
         } catch (err: unknown) {

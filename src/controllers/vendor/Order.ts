@@ -103,11 +103,12 @@ export const listOrders = async (req: Request, res: Response): Promise<any> => {
     });
   }
 
-  const { status, limit, offset, search } = validated.value as {
+  const { status, limit, offset, search, manual_only } = validated.value as {
     status: OrderListStatus;
     limit: number;
     offset: number;
     search?: string;
+    manual_only?: string;
   };
 
   try {
@@ -116,10 +117,20 @@ export const listOrders = async (req: Request, res: Response): Promise<any> => {
       ...buildStatusFilter(status),
     };
 
+    if (manual_only === 'true') {
+      where.is_manual_dispatch = true;
+    }
+
     if (search?.trim()) {
-      const idSearch = Number(search.trim());
+      const q = search.trim();
+      const idSearch = Number(q);
       if (!Number.isNaN(idSearch)) {
         where.id = BigInt(idSearch);
+      } else {
+        where.OR = [
+          { restaurant_order_ref: { contains: q, mode: 'insensitive' } },
+          { order_status: { contains: q, mode: 'insensitive' } },
+        ];
       }
     }
 

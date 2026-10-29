@@ -49,6 +49,8 @@ import adminCouponRoutes from './admin/coupons';
 import adminDisbursementRoutes from './admin/disbursement';
 import adminTransactionsRoutes from './admin/transactions';
 import adminBusinessSetupRoutes from './admin/business-setup';
+import adminPushNotificationRoutes from './admin/push-notifications';
+import adminDispatchRoutes from './admin/dispatch';
 
 //vendor
 router.use('/vendor',vendorUserRoutes);
@@ -137,6 +139,8 @@ router.use('/admin/coupons', adminCouponRoutes);
 router.use('/admin/disbursement', adminDisbursementRoutes);
 router.use('/admin/transactions', adminTransactionsRoutes);
 router.use('/admin/business-setup', adminBusinessSetupRoutes);
+router.use('/admin/push-notifications', adminPushNotificationRoutes);
+router.use('/admin/dispatch', adminDispatchRoutes);
 
 
 router.use('/upload', uploadRouter);

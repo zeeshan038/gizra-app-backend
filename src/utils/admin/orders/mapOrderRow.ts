@@ -1,6 +1,7 @@
 import { orders } from '@prisma/client';
 import { parseDeliveryAddress } from '../../vendor/order/detailMapper';
 import { formatCustomerName, OrderCustomerBrief } from '../../vendor/order/mapper';
+import { mapOrderIdentityFields } from '../../order/orderIdentity';
 
 function customerFromDeliveryAddress(order: orders): OrderCustomerBrief | null {
   const raw = order.delivery_address?.trim();
@@ -27,6 +28,11 @@ export type AdminOrderListRow = {
   order_status: string;
   order_type: string;
   is_manual_dispatch: boolean;
+  restaurant_order_ref: string | null;
+  gizra_order_id: string;
+  display_order_number: string;
+  order_source: string;
+  order_source_label: string;
   delivery_man_id: string | null;
   delivery_man_name: string | null;
   delivery_man_phone: string | null;
@@ -67,6 +73,7 @@ export function mapAdminOrderListRow(
     order_status: order.order_status,
     order_type: order.order_type,
     is_manual_dispatch: order.is_manual_dispatch,
+    ...mapOrderIdentityFields(order),
     delivery_man_id: order.delivery_man_id?.toString() ?? null,
     delivery_man_name: dmName,
     delivery_man_phone: deliveryMan?.phone ?? null,

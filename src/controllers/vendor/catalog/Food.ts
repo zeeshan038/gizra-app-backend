@@ -8,6 +8,21 @@ import {
     resolveAddOnIdsForSave,
 } from '../../../utils/vendor/catalog/foodAddonHelpers';
 import { publicFoodMediaUrl } from '../../../utils/mediaStorage';
+import { normalizeItemVariationsToAdditive } from '../../../utils/vendor/variationCatalogNormalize';
+
+function applyAdditiveVariationPricing(payload: {
+    price?: number;
+    variations?: unknown;
+}): { price?: number; variations?: unknown } {
+    if (!payload.variations || !Array.isArray(payload.variations) || !payload.variations.length) {
+        return payload;
+    }
+    const { basePrice, variations } = normalizeItemVariationsToAdditive(
+        Number(payload.price ?? 0),
+        payload.variations
+    );
+    return { ...payload, price: basePrice, variations };
+}
 
 async function getVendorRestaurant(req: Request) {
     return prisma.restaurants.findFirst({
@@ -74,6 +89,7 @@ export const createFood = async (req: Request, res: Response): Promise<any> => {
     }
 
     try {
+        const priced = applyAdditiveVariationPricing(payload);
         const addonIds = await resolveAddOnIdsForSave(
             payload.restaurant_id,
             payload.add_ons
@@ -85,9 +101,9 @@ export const createFood = async (req: Request, res: Response): Promise<any> => {
                 description: payload.description || '',
                 image: payload.image || 'def.png',
                 category_id: payload.category_id,
-                price: payload.price,
+                price: priced.price ?? payload.price,
                 restaurant_id: payload.restaurant_id,
-                variations: JSON.stringify(payload.variations),
+                variations: JSON.stringify(priced.variations ?? payload.variations),
                 add_ons: JSON.stringify(addonIds),
                 status: payload.status !== undefined ? payload.status : true,
                 is_draft:
@@ -130,8 +146,25 @@ export const updateFood = async (req: Request, res: Response): Promise<any> => {
         if (payload.description !== undefined) dataToUpdate.description = payload.description;
         if (payload.image !== undefined) dataToUpdate.image = payload.image;
         if (payload.category_id !== undefined) dataToUpdate.category_id = payload.category_id;
-        if (payload.price !== undefined) dataToUpdate.price = payload.price;
-        if (payload.variations !== undefined) dataToUpdate.variations = JSON.stringify(payload.variations);
+        const priced = applyAdditiveVariationPricing({
+            price: payload.price !== undefined ? payload.price : Number(existing.price),
+            variations:
+                payload.variations !== undefined
+                    ? payload.variations
+                    : (() => {
+                          try {
+                              return JSON.parse(existing.variations || '[]');
+                          } catch {
+                              return [];
+                          }
+                      })(),
+        });
+        if (payload.price !== undefined || payload.variations !== undefined) {
+            dataToUpdate.price = priced.price;
+        }
+        if (payload.variations !== undefined) {
+            dataToUpdate.variations = JSON.stringify(priced.variations);
+        }
         if (payload.add_ons !== undefined) {
             const addonIds = await resolveAddOnIdsForSave(
                 Number(existing.restaurant_id),
