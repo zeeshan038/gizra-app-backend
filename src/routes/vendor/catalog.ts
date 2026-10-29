@@ -1,7 +1,7 @@
 import express from 'express';
 const router = express.Router();
 
-import { createCategory, getCategories } from '../../controllers/vendor/catalog/Category';
+import { createCategory, getCategories, updateCategory } from '../../controllers/vendor/catalog/Category';
 import { createFood, getFoods, deleteFood, bulkPublishFoods, bulkDeleteFoods, updateFood } from '../../controllers/vendor/catalog/Food';
 import { parsePdf, generateDescription, generateFoodImage, generateCategoryImage } from '../../controllers/vendor/catalog/AI';
 import { createAddon, getAddons } from '../../controllers/vendor/catalog/Addon';
@@ -13,6 +13,7 @@ router.use(verifyVendor);
 // Categories
 router.post('/category', createCategory);
 router.get('/category', getCategories);
+router.patch('/category/:id', updateCategory);
 
 
 router.post('/addon', createAddon);

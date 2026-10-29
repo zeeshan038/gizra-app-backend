@@ -6,6 +6,11 @@ export const createCategorySchema = Joi.object({
   parent_id: Joi.number().optional().allow(null),
 });
 
+export const updateCategorySchema = Joi.object({
+  name: Joi.string().optional(),
+  image: Joi.string().allow('').optional(),
+});
+
 export const createFoodSchema = Joi.object({
   name: Joi.string().required(),
   description: Joi.string().allow('').optional().default(''),

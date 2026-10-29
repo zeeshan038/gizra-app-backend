@@ -13,5 +13,6 @@ Mac dev:
   env.mac.example, mac-db-tunnel.sh, mac-redis-local.sh
 
 Seeds / ops: createAdmin.ts, enablePostgis.ts, seed*.ts, approve*.ts, socket/*
+Category images (prod): backfill-category-images-server.sh (--apply), after git pull + deploy
 MySQL → Postgres: docs/MYSQL_TO_POSTGRES_MIGRATION.md, migrate-on-server.sh (VPS),
   migrateMysqlToPostgres.ts, mac-mysql-tunnel.sh, mysql-docker-import.sh

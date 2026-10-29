@@ -7,6 +7,7 @@ import {
     listGeminiImageModelIds,
 } from '../../../utils/gemini/geminiModels';
 import { parseMenuFromUpload } from '../../../utils/vendor/menuAiParse';
+import { generateCategoryImageForName } from '../../../utils/vendor/categoryImageGeneration';
 
 function isHebrewText(text: string) {
     return /[\u0590-\u05FF]/.test(text);
@@ -259,38 +260,13 @@ export const generateCategoryImage = async (req: Request, res: Response): Promis
     const name = String(payload.name || '').trim();
     if (!name) return res.status(400).json({ status: false, msg: 'Item name is required' });
 
-    const apiKey = process.env.GEMINI_API_KEY || '';
-    const prompt = `Generate a professional food category banner photo for a restaurant menu category called "${name}". Clean, appetizing, high quality, suitable as a menu category header image.`;
-
-    if (apiKey) {
-        const geminiImage = await generateGeminiFoodImageBuffer(prompt, apiKey);
-        if (geminiImage) {
-            const hosted = await persistGeneratedImage(
-                geminiImage.buffer,
-                geminiImage.mimeType,
-                'vendor/ai/categories'
-            );
-            if (hosted) {
-                return res.status(200).json({ status: true, data: { image: hosted, source: 'gemini' } });
-            }
-        }
+    const generated = await generateCategoryImageForName(name);
+    if (!generated) {
+        return res.status(500).json({ status: false, msg: 'Category image generation failed' });
     }
 
-    try {
-        const bannerPrompt = `Professional food category banner for ${name}, restaurant menu header`;
-        const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(bannerPrompt)}?width=1200&height=400&nologo=true`;
-        const response = await fetch(imageUrl);
-        if (response.ok) {
-            const buffer = Buffer.from(await response.arrayBuffer());
-            const hosted = await persistGeneratedImage(buffer, 'image/jpeg', 'vendor/ai/categories');
-            if (hosted) {
-                return res.status(200).json({ status: true, data: { image: hosted, source: 'pollinations' } });
-            }
-            return res.status(200).json({ status: true, data: { image: imageUrl, source: 'pollinations-direct' } });
-        }
-    } catch (error: any) {
-        return res.status(500).json({ status: false, msg: error.message });
-    }
-
-    return res.status(500).json({ status: false, msg: 'Category image generation failed' });
+    return res.status(200).json({
+        status: true,
+        data: { image: generated.image, source: generated.source },
+    });
 };
