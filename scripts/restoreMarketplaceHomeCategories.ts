@@ -3,10 +3,13 @@
  * - Demote vendor menu sections off home (position=1, restaurant_id from foods)
  * - Ensure marketplace tiles: חלבי, בשרי, סושי, גלידות ומתוקים (position=0, no restaurant)
  *
- * Usage:
+ * Usage (local / Mac with DATABASE_URL tunnel):
  *   npx ts-node scripts/restoreMarketplaceHomeCategories.ts
  *   npx ts-node scripts/restoreMarketplaceHomeCategories.ts --apply
- *   npx ts-node scripts/restoreMarketplaceHomeCategories.ts --apply --generate-images
+ *
+ * Production server (host cannot reach postgres:5432 — use Docker one-off):
+ *   ./scripts/restore-marketplace-home-server.sh --apply
+ *   npm run db:restore-marketplace-home:server:apply
  */
 import dotenv from 'dotenv';
 import path from 'path';
