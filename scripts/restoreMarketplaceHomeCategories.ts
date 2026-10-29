@@ -43,6 +43,13 @@ function storedImage(incoming: string): string {
   return fitDbString(normalizeStoredMedia(incoming, 'def.png'), 191) || 'def.png';
 }
 
+/** Marketplace home rows have no restaurant (null or 0 in DB). */
+function isGlobalMarketplaceRestaurantId(restaurantId: unknown): boolean {
+  if (restaurantId == null) return true;
+  const n = Number(restaurantId);
+  return Number.isFinite(n) && n === 0;
+}
+
 async function inferRestaurantIdFromFoods(categoryId: bigint): Promise<number | null> {
   const rows = await prisma.food.groupBy({
     by: ['restaurant_id'],
@@ -132,11 +139,11 @@ async function main() {
       sameName.find(
         (c) =>
           c.position === BigInt(0) &&
-          (c.restaurant_id == null || c.restaurant_id === 0) &&
+          isGlobalMarketplaceRestaurantId(c.restaurant_id) &&
           !isStoredCategoryImagePlaceholder(String(c.image))
       ) ??
       sameName.find(
-        (c) => c.position === BigInt(0) && (c.restaurant_id == null || c.restaurant_id === 0)
+        (c) => c.position === BigInt(0) && isGlobalMarketplaceRestaurantId(c.restaurant_id)
       ) ??
       sameName[0];
 
@@ -160,7 +167,7 @@ async function main() {
       for (const dup of sameName) {
         if (dup.id === existing.id) continue;
         const onHome =
-          dup.position === BigInt(0) && (dup.restaurant_id == null || dup.restaurant_id === 0);
+          dup.position === BigInt(0) && isGlobalMarketplaceRestaurantId(dup.restaurant_id);
         if (!onHome) continue;
         const inferred = await inferRestaurantIdFromFoods(dup.id);
         await prisma.categories.update({
