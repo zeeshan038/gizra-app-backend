@@ -105,7 +105,7 @@ export const createCategory = async (req: Request, res: Response): Promise<any> 
         name: payload.name.trim(),
         image: storedCategoryImage(payload.image),
         parent_id: payload.parent_id || 0,
-        position: payload.parent_id ? 1 : 0,
+        position: BigInt(1),
         status: true,
         restaurant_id: restaurantId,
         slug: payload.name.toLowerCase().replace(/[^a-zA-Z0-9]/g, '-'),
