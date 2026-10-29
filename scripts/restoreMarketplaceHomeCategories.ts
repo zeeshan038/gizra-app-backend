@@ -123,9 +123,22 @@ async function main() {
       }
     }
 
-    const existing = await prisma.categories.findFirst({
+    const sameName = await prisma.categories.findMany({
       where: { name: { equals: tile.name, mode: 'insensitive' } },
+      orderBy: [{ priority: 'desc' }, { id: 'asc' }],
     });
+
+    const existing =
+      sameName.find(
+        (c) =>
+          c.position === BigInt(0) &&
+          (c.restaurant_id == null || c.restaurant_id === 0) &&
+          !isStoredCategoryImagePlaceholder(String(c.image))
+      ) ??
+      sameName.find(
+        (c) => c.position === BigInt(0) && (c.restaurant_id == null || c.restaurant_id === 0)
+      ) ??
+      sameName[0];
 
     if (existing) {
       const data: Record<string, unknown> = {
@@ -143,6 +156,24 @@ async function main() {
         data,
       });
       console.log(`Updated marketplace category id=${existing.id} "${tile.name}"`);
+
+      for (const dup of sameName) {
+        if (dup.id === existing.id) continue;
+        const onHome =
+          dup.position === BigInt(0) && (dup.restaurant_id == null || dup.restaurant_id === 0);
+        if (!onHome) continue;
+        const inferred = await inferRestaurantIdFromFoods(dup.id);
+        await prisma.categories.update({
+          where: { id: dup.id },
+          data: {
+            position: BigInt(1),
+            ...(inferred != null ? { restaurant_id: inferred } : {}),
+          },
+        });
+        console.log(
+          `Demoted duplicate home "${tile.name}" id=${dup.id} → position=1${inferred != null ? ` restaurant_id=${inferred}` : ''}`
+        );
+      }
     } else {
       const created = await prisma.categories.create({
         data: {
