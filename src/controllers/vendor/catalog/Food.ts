@@ -9,6 +9,51 @@ import {
 } from '../../../utils/vendor/catalog/foodAddonHelpers';
 import { publicFoodMediaUrl } from '../../../utils/mediaStorage';
 import { normalizeItemVariationsToAdditive } from '../../../utils/vendor/variationCatalogNormalize';
+import { getFoodPublishQuota } from '../../../utils/vendor/catalog/foodPublishLimits';
+
+const FOOD_LIST_MAX_LIMIT = 5000;
+
+function parseFoodListLimit(raw: unknown): number {
+    const n = parseInt(String(raw ?? ''), 10);
+    const limit = Number.isFinite(n) && n > 0 ? n : 500;
+    return Math.min(limit, FOOD_LIST_MAX_LIMIT);
+}
+
+async function publishDraftFoodIds(
+    restaurantId: number,
+    candidateIds: number[]
+): Promise<{ publishedIds: number[]; quota: Awaited<ReturnType<typeof getFoodPublishQuota>> }> {
+    const uniqueIds = [...new Set(candidateIds.filter((id) => Number.isFinite(id) && id > 0))];
+    if (!uniqueIds.length) {
+        return { publishedIds: [], quota: await getFoodPublishQuota(restaurantId) };
+    }
+
+    const draftRows = await prisma.food.findMany({
+        where: {
+            id: { in: uniqueIds },
+            restaurant_id: restaurantId,
+            is_draft: 1,
+        },
+        select: { id: true },
+        orderBy: { id: 'asc' },
+    });
+
+    const toPublish = draftRows.map((r) => Number(r.id));
+    const quota = await getFoodPublishQuota(restaurantId);
+
+    if (toPublish.length) {
+        await prisma.food.updateMany({
+            where: {
+                id: { in: toPublish },
+                restaurant_id: restaurantId,
+                is_draft: 1,
+            },
+            data: { is_draft: 0, status: true },
+        });
+    }
+
+    return { publishedIds: toPublish, quota };
+}
 
 function applyAdditiveVariationPricing(payload: {
     price?: number;
@@ -198,8 +243,8 @@ export const updateFood = async (req: Request, res: Response): Promise<any> => {
  * @Access Private (Vendor)
  */
 export const getFoods = async (req: Request, res: Response): Promise<any> => {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 500;
+    const page = parseInt(req.query.page as string, 10) || 1;
+    const limit = parseFoodListLimit(req.query.limit);
     const skip = (page - 1) * limit;
 
     try {
@@ -297,16 +342,116 @@ export const bulkPublishFoods = async (req: Request, res: Response): Promise<any
         if (!ids || !Array.isArray(ids)) {
             return res.status(400).json({ status: false, msg: 'Array of ids is required' });
         }
+        if (ids.length > FOOD_LIST_MAX_LIMIT) {
+            return res.status(400).json({
+                status: false,
+                msg: `Too many ids in one request (max ${FOOD_LIST_MAX_LIMIT}). Publish in batches or use publish-all-drafts.`,
+            });
+        }
 
-        await prisma.food.updateMany({
-            where: {
-                id: { in: ids.map((id: any) => Number(id)) },
-                restaurant_id: Number(restaurant.id),
+        const restaurantId = Number(restaurant.id);
+        const numericIds = ids.map((id: unknown) => Number(id));
+        const { publishedIds, quota } = await publishDraftFoodIds(restaurantId, numericIds);
+
+        if (!publishedIds.length) {
+            return res.status(400).json({
+                status: false,
+                msg: 'No draft items were published (check selected ids).',
+                data: { quota, published_count: 0 },
+            });
+        }
+
+        const requestedDrafts = numericIds.filter((id) => Number.isFinite(id) && id > 0).length;
+        const skipped = Math.max(0, requestedDrafts - publishedIds.length);
+        const msg =
+            skipped > 0
+                ? `Published ${publishedIds.length} draft item(s). ${skipped} skipped (not drafts or wrong restaurant).`
+                : 'Foods published successfully';
+
+        return res.status(200).json({
+            status: true,
+            msg,
+            data: {
+                published_count: publishedIds.length,
+                published_ids: publishedIds.map(String),
+                skipped_count: skipped,
+                quota,
             },
-            data: { is_draft: 0, status: true },
+        });
+    } catch (error: any) {
+        return res.status(500).json({ status: false, msg: error.message });
+    }
+};
+
+/**
+ * @Description Publish every draft food for the vendor restaurant (no id list required)
+ * @Route POST /api/vendor/catalog/food/publish-all-drafts
+ */
+export const publishAllDraftFoods = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const restaurant = await getVendorRestaurant(req);
+        if (!restaurant) {
+            return res.status(404).json({ status: false, msg: 'Restaurant not found for this vendor' });
+        }
+
+        const restaurantId = Number(restaurant.id);
+        const drafts = await prisma.food.findMany({
+            where: { restaurant_id: restaurantId, is_draft: 1 },
+            select: { id: true },
+            orderBy: { id: 'asc' },
         });
 
-        return res.status(200).json({ status: true, msg: 'Foods published successfully' });
+        const { publishedIds, quota } = await publishDraftFoodIds(
+            restaurantId,
+            drafts.map((d) => Number(d.id))
+        );
+
+        if (!publishedIds.length) {
+            const msg = drafts.length === 0 ? 'No draft items to publish' : 'No draft items were published';
+            return res.status(400).json({
+                status: false,
+                msg,
+                data: { draft_count: drafts.length, published_count: 0, quota },
+            });
+        }
+
+        const skipped = drafts.length - publishedIds.length;
+        return res.status(200).json({
+            status: true,
+            msg:
+                skipped > 0
+                    ? `Published ${publishedIds.length} of ${drafts.length} draft(s).`
+                    : `Published ${publishedIds.length} draft item(s).`,
+            data: {
+                draft_count: drafts.length,
+                published_count: publishedIds.length,
+                skipped_count: skipped,
+                quota,
+            },
+        });
+    } catch (error: any) {
+        return res.status(500).json({ status: false, msg: error.message });
+    }
+};
+
+/**
+ * @Description Live menu slot usage (drafts do not count)
+ * @Route GET /api/vendor/catalog/food/publish-quota
+ */
+export const getFoodPublishQuotaHandler = async (req: Request, res: Response): Promise<any> => {
+    try {
+        const restaurant = await getVendorRestaurant(req);
+        if (!restaurant) {
+            return res.status(404).json({ status: false, msg: 'Restaurant not found for this vendor' });
+        }
+        const quota = await getFoodPublishQuota(Number(restaurant.id));
+        const draftCount = await prisma.food.count({
+            where: { restaurant_id: Number(restaurant.id), is_draft: 1 },
+        });
+        return res.status(200).json({
+            status: true,
+            data: { ...quota, draft_count: draftCount },
+        });
     } catch (error: any) {
         return res.status(500).json({ status: false, msg: error.message });
     }
