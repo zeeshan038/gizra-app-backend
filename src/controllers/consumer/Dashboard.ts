@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
 import prisma from '../../config/database';
 import { requireZoneIds } from '../../utils/consumer/zoneHeaders';
-import { getBusinessSetting } from '../../utils/consumer/businessSettings';
 import {
   countZoneFoodForCategories,
+  expandHomeCategoryIdsForCount,
   formatHomeCategory,
   marketplaceTopLevelCategoryFilter,
+  resolveCategoryListSortSettings,
   resolveCategorySortOrder,
 } from '../../utils/consumer/categoryDiscoverHelpers';
 
@@ -113,8 +114,14 @@ export const getHomeCategories = async (req: Request, res: Response): Promise<an
     let categories = await Promise.all(
       parents.map(async (parent) => {
         const childes = childesByParent.get(parent.id.toString()) ?? [];
-        const categoryIds = [parent.id, ...childes.map((c) => c.id)];
-        const counts = await countZoneFoodForCategories(categoryIds, zoneIds);
+        const categoryIds = await expandHomeCategoryIdsForCount(
+          parent.id,
+          childes.map((c) => c.id)
+        );
+        const counts = await countZoneFoodForCategories(
+          categoryIds.map((id) => BigInt(id)),
+          zoneIds
+        );
 
         const formattedChildes = await Promise.all(
           childes.map(async (child) => {
@@ -134,9 +141,8 @@ export const getHomeCategories = async (req: Request, res: Response): Promise<an
       })
     );
 
-    const defaultStatus = await getBusinessSetting('category_list_default_status');
-    const sortBy = await getBusinessSetting('category_list_sort_by_general');
-    if (defaultStatus === '0' && sortBy === 'order_count') {
+    const { useDefaultSort, sortByGeneral } = await resolveCategoryListSortSettings();
+    if (!useDefaultSort && sortByGeneral === 'order_count') {
       categories = [...categories].sort((a, b) => b.order_count - a.order_count);
     }
 

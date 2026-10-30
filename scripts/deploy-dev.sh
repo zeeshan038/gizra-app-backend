@@ -35,8 +35,16 @@ if ! grep -qE '^GIZRA_DATABASE_URL_INTERNAL=postgresql://[^:]+:[^@]+@postgres:54
   exit 1
 fi
 
+# Export compose variables into shell environment
+set -a
+# shellcheck disable=SC1091
+source .env.compose
+set +a
+
+COMPOSE="docker compose --env-file .env --env-file .env.compose -f docker-compose.dev.yml"
+
 echo "Starting Dev Postgres + Redis…"
-docker compose -f docker-compose.dev.yml up -d postgres redis
+$COMPOSE up -d postgres redis
 
 echo "Sync Postgres role password with .env for $POSTGRES_CONTAINER…"
 ./scripts/ensure-postgres-password.sh
@@ -44,7 +52,7 @@ echo "Ensure public schema grants for $POSTGRES_CONTAINER…"
 ./scripts/fix-postgres-grants.sh
 
 echo "Building and starting Dev Backend…"
-docker compose -f docker-compose.dev.yml up -d --build --force-recreate --remove-orphans backend
+$COMPOSE up -d --build --force-recreate --remove-orphans backend
 
 backend_container_id() {
   docker inspect -f '{{.Id}}' "$BACKEND_CONTAINER" 2>/dev/null || true
@@ -63,7 +71,7 @@ for i in $(seq 1 120); do
   if [[ -n "$CID" ]] && docker logs "$CID" 2>&1 | tail -30 | grep -qE 'P1010|denied access on the database'; then
     echo "Detected Prisma P1010 on Dev — repairing…"
     ./scripts/fix-postgres-grants.sh
-    docker compose -f docker-compose.dev.yml up -d --force-recreate backend
+    $COMPOSE up -d --force-recreate backend
     BACKEND_CID="$(backend_container_id)"
     sleep 5
   fi

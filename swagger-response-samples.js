@@ -1,5 +1,23 @@
 /** Realistic OpenAPI examples aligned with API formatters (not generic placeholders). */
 
+const SAMPLE_RESTAURANT_AVAILABILITY_OPEN = {
+  status: 'OPEN',
+  can_order: true,
+  next_open_at: null,
+  next_close_at: '2026-10-27T23:00:00+02:00',
+  is_temporarily_closed: false,
+  open: true
+};
+
+const SAMPLE_RESTAURANT_AVAILABILITY_CLOSED = {
+  status: 'CLOSED',
+  can_order: false,
+  next_open_at: '2026-10-28T10:00:00+02:00',
+  next_close_at: null,
+  is_temporarily_closed: false,
+  open: false
+};
+
 const SAMPLE_CONSUMER_RESTAURANT = {
   id: '12',
   name: 'Demo Kitchen',
@@ -9,7 +27,8 @@ const SAMPLE_CONSUMER_RESTAURANT = {
   minimum_order: 10,
   tax: 5,
   rating: 4.5,
-  address: '123 Main Street'
+  address: '123 Main Street',
+  ...SAMPLE_RESTAURANT_AVAILABILITY_OPEN
 };
 
 const SAMPLE_CONSUMER_FOOD = {
@@ -158,23 +177,28 @@ const SAMPLE_ORDER_TRACK_DATA = {
 };
 
 const SAMPLE_VENDOR_ORDER_DETAIL = {
-  id: '1001',
-  order_status: 'confirmed',
-  payment_status: 'paid',
-  order_amount: 45.5,
+  id: '100603',
+  order_status: 'pending',
+  payment_status: 'unpaid',
   customer_name: 'John Doe',
-  customer_phone: '+1234567890',
+  customer_phone: '+923234372432',
   customer_email: 'john@example.com',
   customer_orders_count: 3,
-  delivery_address: '{"address":"123 Main St"}',
+  delivery_address: '{"address":"Rawalpindi"}',
   items: [
     {
-      id: '1',
-      food_id: '101',
-      food_name: 'Margherita Pizza',
-      quantity: 2,
-      price: 12.99,
-      image: 'https://cdn.example.com/food.png'
+      id: '501',
+      food_id: '1415',
+      food_name: 'Pizza',
+      food_image: 'https://cdn.example.com/food.png',
+      quantity: 1,
+      unit_food_price: 23,
+      addon_per_unit: 4,
+      addon_lines: [{ name: 'Double Cheese', price: 2, quantity: 1 }],
+      line_food_total: 23,
+      line_addon_total: 4,
+      line_subtotal: 27,
+      variation: '[{"type":"Sizes","value":"Party"}]'
     }
   ],
   restaurant: {
@@ -183,10 +207,24 @@ const SAMPLE_VENDOR_ORDER_DETAIL = {
     logo: 'https://cdn.example.com/logo.png'
   },
   pricing: {
-    subtotal: 25.98,
-    tax: 2.6,
-    delivery_charge: 3,
-    total: 31.58
+    items_price: 23,
+    addon_cost: 4,
+    subtotal: 27,
+    order_value: 27,
+    restaurant_discount_amount: 0,
+    coupon_discount_amount: 0,
+    ref_bonus_amount: 0,
+    tax_amount: 1.35,
+    tax_percent: 5,
+    tax_status: 'excluded',
+    delivery_charge: 8.87,
+    dm_tips: 0,
+    additional_charge: 0,
+    extra_packaging_amount: 0,
+    customer_total: 37.22,
+    gizra_commission_percent: 10,
+    gizra_commission_amount: 2.7,
+    gizra_pays_you: 24.3
   }
 };
 
@@ -387,7 +425,6 @@ const ROUTE_RESPONSE_OVERRIDES = {
         {
           ...SAMPLE_CONSUMER_RESTAURANT,
           order_count: 240,
-          open: true,
           distance: 0.93,
           distance_text: '0.93 km'
         }
@@ -404,7 +441,6 @@ const ROUTE_RESPONSE_OVERRIDES = {
         {
           ...SAMPLE_CONSUMER_RESTAURANT,
           order_count: 18,
-          open: true,
           distance: 0.93,
           distance_text: '0.93 km'
         }
@@ -432,7 +468,6 @@ const ROUTE_RESPONSE_OVERRIDES = {
         {
           ...SAMPLE_CONSUMER_RESTAURANT,
           order_count: 240,
-          open: true,
           distance: 0.93,
           distance_text: '0.93 km'
         }
@@ -447,7 +482,22 @@ const ROUTE_RESPONSE_OVERRIDES = {
       non_veg: true,
       active: true,
       latitude: '40.7128',
-      longitude: '-74.0060'
+      longitude: '-74.0060',
+      categories: [],
+      category_ids: []
+    }
+  },
+  'get /consumer/restaurants/specific/{id}': {
+    status: true,
+    data: {
+      ...SAMPLE_CONSUMER_RESTAURANT,
+      veg: true,
+      non_veg: true,
+      active: true,
+      latitude: '40.7128',
+      longitude: '-74.0060',
+      categories: [],
+      category_ids: []
     }
   },
   'get /vendor/orders': {
@@ -836,6 +886,8 @@ function inferValueFromExpression(expr, key) {
 module.exports = {
   ROUTE_RESPONSE_OVERRIDES,
   SAMPLE_CONSUMER_RESTAURANT,
+  SAMPLE_RESTAURANT_AVAILABILITY_OPEN,
+  SAMPLE_RESTAURANT_AVAILABILITY_CLOSED,
   SAMPLE_CONSUMER_FOOD,
   inferValueFromExpression
 };

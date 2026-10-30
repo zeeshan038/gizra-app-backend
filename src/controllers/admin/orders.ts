@@ -4,8 +4,10 @@ import {
   adminOrdersListQuerySchema,
   adminSubscriptionsListQuerySchema,
   assignAdminOrderDeliveryManSchema,
+  updateAdminOrderStatusSchema,
 } from '../../schemas/admin/Orders';
 import { assignAdminOrderDeliveryMan } from '../../utils/admin/orders/assignDeliveryMan';
+import { updateAdminOrderStatus } from '../../utils/admin/orders/updateStatus';
 import { getAdminOrderCounts } from '../../utils/admin/orders/counts';
 import { getAdminOrderDetail } from '../../utils/admin/orders/orderDetail';
 import { listAdminOrders } from '../../utils/admin/orders/listOrders';
@@ -152,6 +154,49 @@ export const assignAdminOrderDeliveryManHandler = async (
       return res.status(result.status).json({ status: false, msg: result.msg });
     }
     return res.status(200).json({ status: true, msg: 'Delivery man assigned successfully' });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message });
+  }
+};
+
+/**
+ * @Description Admin override/update order status
+ * @Route PUT /api/admin/orders/:orderId/status
+ */
+export const updateAdminOrderStatusHandler = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const orderId = Number(req.params.orderId);
+  if (!Number.isFinite(orderId) || orderId <= 0) {
+    return res.status(400).json({ status: false, msg: 'Invalid order id' });
+  }
+
+  const validated = updateAdminOrderStatusSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(', '),
+    });
+  }
+
+  try {
+    const result = await updateAdminOrderStatus(
+      orderId,
+      validated.value.status,
+      validated.value.cancellation_reason
+    );
+    if (!result.ok) {
+      return res.status(result.status).json({ status: false, msg: result.msg });
+    }
+    return res.status(200).json({
+      status: true,
+      msg: 'Order status updated successfully',
+      data: {
+        id: result.order.id.toString(),
+        order_status: result.order.order_status,
+      },
+    });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });
   }

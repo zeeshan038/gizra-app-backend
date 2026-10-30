@@ -12,12 +12,13 @@ import {
     applyDiscoverTypeFilter,
     DISCOVER_RESTAURANT_SELECT,
     distanceKmForRestaurant,
+    availabilityMapForRestaurants,
+    computeAvailabilityForRestaurant,
     formatDiscoverRestaurant,
     formatMapRestaurant,
-    isOpenFromSchedules,
     isRestaurantInsideBounds,
     loadActiveDiscountRestaurantIds,
-    loadTodaySchedulesByRestaurantId,
+    restaurantAvailabilityResponseFields,
     parseDiscoverType,
     parseMapBoundsFromQuery,
     parseRestaurantCoordinates,
@@ -29,6 +30,7 @@ import {
     parseMenuFoodType,
     parseOptionalCategoryId,
 } from '../../utils/consumer/restaurantMenuHelpers';
+import { variationsForMobileClient } from '../../utils/consumer/variationsForMobileClient';
 import { consumerFoodMediaFields, consumerRestaurantMediaFields } from '../../utils/mediaStorage';
 import { recordRestaurantVisit } from '../../utils/consumer/visitorLog';
 
@@ -90,6 +92,7 @@ export const getRestaurants = async (req: Request, res: Response): Promise<any> 
                     tax: true,
                     rating: true,
                     address: true,
+                    active: true,
                 },
                 skip,
                 take: limit,
@@ -97,17 +100,31 @@ export const getRestaurants = async (req: Request, res: Response): Promise<any> 
             })
         ]);
 
-        const formattedRestaurants = restaurants.map((r) => ({
-            ...r,
-            id: r.id.toString(),
-            minimum_order: r.minimum_order ? Number(r.minimum_order) : 0,
-            tax: r.tax ? Number(r.tax) : 0,
-            rating: r.rating ? Number(r.rating) : 0,
-            ...consumerRestaurantMediaFields({
-                logo: r.logo,
-                cover_photo: r.cover_photo,
-            }),
-        }));
+        const availabilityMap = await availabilityMapForRestaurants(restaurants);
+
+        const formattedRestaurants = restaurants.map((r) => {
+            const availability = restaurantAvailabilityResponseFields(
+                availabilityMap.get(r.id.toString()) ?? {
+                    status: 'CLOSED',
+                    can_order: false,
+                    next_open_at: null,
+                    next_close_at: null,
+                    is_temporarily_closed: r.active === false,
+                }
+            );
+            return {
+                ...r,
+                id: r.id.toString(),
+                minimum_order: r.minimum_order ? Number(r.minimum_order) : 0,
+                tax: r.tax ? Number(r.tax) : 0,
+                rating: r.rating ? Number(r.rating) : 0,
+                ...consumerRestaurantMediaFields({
+                    logo: r.logo,
+                    cover_photo: r.cover_photo,
+                }),
+                ...availability,
+            };
+        });
 
         return res.status(200).json({
             status: true,
@@ -177,24 +194,24 @@ export const getPopularRestaurants = async (req: Request, res: Response): Promis
             take: candidateCap,
         });
 
-        const scheduleMap = await loadTodaySchedulesByRestaurantId(candidates.map((r) => r.id));
+        const availabilityMap = await availabilityMapForRestaurants(candidates);
 
         const ranked = candidates
             .map((r) => {
-                const schedules = scheduleMap.get(r.id.toString()) ?? [];
-                const open = isOpenFromSchedules(schedules);
-                return { row: r, open, orderCount: Number(r.order_count) };
+                const availability = availabilityMap.get(r.id.toString());
+                const canOrder = availability?.can_order ?? false;
+                return { row: r, canOrder, orderCount: Number(r.order_count), availability };
             })
             .sort((a, b) => {
-                if (a.open !== b.open) return a.open ? -1 : 1;
+                if (a.canOrder !== b.canOrder) return a.canOrder ? -1 : 1;
                 if (b.orderCount !== a.orderCount) return b.orderCount - a.orderCount;
                 return Number(b.row.id) - Number(a.row.id);
             });
 
         const pageSlice = ranked.slice(skip, skip + limit);
-        const restaurants = pageSlice.map(({ row, open }) =>
+        const restaurants = pageSlice.map(({ row, availability }) =>
             formatDiscoverRestaurant(row, {
-                open,
+                availability: availability ?? undefined,
                 distanceKm: distanceKmForRestaurant(coords, row.latitude, row.longitude),
             })
         );
@@ -265,22 +282,23 @@ export const getNearbyRestaurants = async (req: Request, res: Response): Promise
             select: DISCOVER_RESTAURANT_SELECT,
         });
 
-        const scheduleMap = await loadTodaySchedulesByRestaurantId(rows.map((r) => r.id));
+        const availabilityMap = await availabilityMapForRestaurants(rows);
 
         const ranked = rows
             .map((row) => {
                 const distKm = distanceKmForRestaurant(coords, row.latitude, row.longitude);
-                const schedules = scheduleMap.get(row.id.toString()) ?? [];
-                const open = isOpenFromSchedules(schedules);
+                const availability = availabilityMap.get(row.id.toString());
+                const canOrder = availability?.can_order ?? false;
                 return {
                     row,
-                    open,
+                    canOrder,
+                    availability,
                     distKm: distKm ?? Number.POSITIVE_INFINITY,
                 };
             })
             .filter((item) => Number.isFinite(item.distKm))
             .sort((a, b) => {
-                if (a.open !== b.open) return a.open ? -1 : 1;
+                if (a.canOrder !== b.canOrder) return a.canOrder ? -1 : 1;
                 if (a.distKm !== b.distKm) return a.distKm - b.distKm;
                 return Number(b.row.order_count) - Number(a.row.order_count);
             });
@@ -295,9 +313,9 @@ export const getNearbyRestaurants = async (req: Request, res: Response): Promise
         }
 
         const pageSlice = ranked.slice(skip, skip + limit);
-        const restaurants = pageSlice.map(({ row, open, distKm }) =>
+        const restaurants = pageSlice.map(({ row, availability, distKm }) =>
             formatDiscoverRestaurant(row, {
-                open,
+                availability: availability ?? undefined,
                 distanceKm: Number.isFinite(distKm) ? distKm : null,
             })
         );
@@ -373,18 +391,18 @@ export const getDiscoverMapRestaurants = async (req: Request, res: Response): Pr
             orderBy: [{ order_count: 'desc' }, { id: 'desc' }],
         });
 
-        const scheduleMap = await loadTodaySchedulesByRestaurantId(rows.map((r) => r.id));
+        const availabilityMap = await availabilityMapForRestaurants(rows);
 
         let filtered = rows
             .map((row) => {
                 const position = parseRestaurantCoordinates(row.latitude, row.longitude);
                 if (!position) return null;
 
-                const schedules = scheduleMap.get(row.id.toString()) ?? [];
-                const open = isOpenFromSchedules(schedules);
+                const availability = availabilityMap.get(row.id.toString());
+                const canOrder = availability?.can_order ?? false;
                 const distKm = distanceKmForRestaurant(coords, row.latitude, row.longitude);
 
-                return { row, open, position, distKm };
+                return { row, canOrder, availability, position, distKm };
             })
             .filter((item): item is NonNullable<typeof item> => item != null);
 
@@ -401,16 +419,16 @@ export const getDiscoverMapRestaurants = async (req: Request, res: Response): Pr
         }
 
         filtered.sort((a, b) => {
-            if (a.open !== b.open) return a.open ? -1 : 1;
+            if (a.canOrder !== b.canOrder) return a.canOrder ? -1 : 1;
             const distA = a.distKm ?? Number.POSITIVE_INFINITY;
             const distB = b.distKm ?? Number.POSITIVE_INFINITY;
             if (distA !== distB) return distA - distB;
             return Number(b.row.order_count) - Number(a.row.order_count);
         });
 
-        const restaurants = filtered.map(({ row, open, distKm }) =>
+        const restaurants = filtered.map(({ row, availability, distKm }) =>
             formatMapRestaurant(row, {
-                open,
+                availability: availability ?? undefined,
                 distanceKm: distKm,
             })
         );
@@ -629,16 +647,19 @@ export const searchFoods = async (req: Request, res: Response): Promise<any> => 
             }),
         ]);
 
-        const scheduleMap = await loadTodaySchedulesByRestaurantId(
-            restaurantRows.map((r) => r.id)
-        );
+        const availabilityMap = await availabilityMapForRestaurants(restaurantRows);
 
         const formattedFoods = foods.map((f) => {
-            let parsedVariations = [];
-            let parsedAddOns = [];
+            let parsedVariations: unknown[] = [];
+            let parsedAddOns: unknown[] = [];
 
             try {
-                if (f.variations) parsedVariations = JSON.parse(f.variations);
+                if (f.variations) {
+                    parsedVariations = variationsForMobileClient(
+                        Number(f.price),
+                        JSON.parse(f.variations)
+                    );
+                }
             } catch (e) { }
             try {
                 if (f.add_ons) parsedAddOns = JSON.parse(f.add_ons);
@@ -661,10 +682,9 @@ export const searchFoods = async (req: Request, res: Response): Promise<any> => 
         });
 
         const formattedRestaurants = restaurantRows.map((r) => {
-            const schedules = scheduleMap.get(r.id.toString()) ?? [];
-            const open = isOpenFromSchedules(schedules);
+            const availability = availabilityMap.get(r.id.toString());
             const distKm = distanceKmForRestaurant(coords, r.latitude, r.longitude);
-            return formatDiscoverRestaurant(r, { open, distanceKm: distKm });
+            return formatDiscoverRestaurant(r, { availability: availability ?? undefined, distanceKm: distKm });
         });
 
         return res.status(200).json({
@@ -722,12 +742,11 @@ export const getRestaurantDetails = async (req: Request, res: Response): Promise
             void recordRestaurantVisit(Number(req.user.id), id);
         }
 
-        const [scheduleMap, categories] = await Promise.all([
-            loadTodaySchedulesByRestaurantId([restaurant.id]),
+        const [availability, categories] = await Promise.all([
+            computeAvailabilityForRestaurant(restaurant.id, restaurant.active),
             loadRestaurantMenuCategories(id),
         ]);
-        const schedules = scheduleMap.get(restaurant.id.toString()) ?? [];
-        const open = isOpenFromSchedules(schedules);
+        const availabilityFields = restaurantAvailabilityResponseFields(availability);
 
         const media = consumerRestaurantMediaFields({
             logo: restaurant.logo,
@@ -742,7 +761,7 @@ export const getRestaurantDetails = async (req: Request, res: Response): Promise
                 minimum_order: restaurant.minimum_order ? Number(restaurant.minimum_order) : 0,
                 rating: restaurant.rating ? Number(restaurant.rating) : 0,
                 ...media,
-                open,
+                ...availabilityFields,
                 categories,
                 category_ids: categories.map((c) => Number(c.id)),
             }

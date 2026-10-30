@@ -4,6 +4,7 @@ import {
   deriveRestaurantListTotal,
   gizraPaysRestaurant,
 } from './orderSettlement';
+import { mapOrderIdentityFields } from '../../order/orderIdentity';
 
 export type OrderCustomerBrief = {
   f_name: string | null;
@@ -39,6 +40,8 @@ export function mapOrderSummary(order: orders, customer?: OrderCustomerBrief | n
     created_at: order.created_at,
     customer_name: formatCustomerName(customer),
     customer_phone: customer?.phone ?? null,
+    is_manual_dispatch: Boolean(order.is_manual_dispatch),
+    ...mapOrderIdentityFields(order),
   };
 }
 

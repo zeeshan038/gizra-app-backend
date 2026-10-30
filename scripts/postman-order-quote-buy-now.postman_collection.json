@@ -1,0 +1,28 @@
+{
+  "info": {
+    "name": "Gizra — Order Quote (buy-now pricing test)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Tests buy-now quote: price 27 + add-ons 4 → subtotal 27 (after backend fix + deploy)."
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://backend-prod.gizra.app/api" },
+    { "key": "consumerToken", "value": "PASTE_BEARER_TOKEN_HERE" }
+  ],
+  "item": [
+    {
+      "name": "POST Order Quote — buy now (item 1415)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{consumerToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"restaurant_id\": 3,\n  \"is_buy_now\": true,\n  \"cart\": [\n    {\n      \"item_id\": 1415,\n      \"quantity\": 1,\n      \"item_type\": \"Food\",\n      \"price\": 27,\n      \"add_on_ids\": [214, 215],\n      \"add_on_qtys\": [1, 1],\n      \"variations\": [\n        { \"type\": \"Sizes\", \"value\": \"Party\" },\n        { \"type\": \"Extras\", \"value\": \"Mashroom\" }\n      ],\n      \"variation_options\": [\n        { \"name\": \"Sizes\", \"type\": \"single\", \"values\": [\"Party\"] },\n        { \"name\": \"Extras\", \"type\": \"multi\", \"values\": [\"Mashroom\"] }\n      ]\n    }\n  ],\n  \"payment_method\": \"digital_payment\",\n  \"order_type\": \"delivery\",\n  \"order_amount\": 27,\n  \"delivery_fee\": 8.87,\n  \"distance\": 5.871,\n  \"address\": \"H3QJ+QGG, Rawalpindi, Punjab, 46000, Pakistan\",\n  \"latitude\": 33.58924949658548,\n  \"longitude\": 73.08057893067598,\n  \"contact_person_number\": \"+923234372432\",\n  \"order_note\": \"Postman buy-now pricing test\"\n}"
+        },
+        "url": "{{baseUrl}}/consumer/order/quote"
+      }
+    }
+  ]
+}

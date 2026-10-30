@@ -1,14 +1,13 @@
 import { Request, Response } from 'express';
 import { aiPdfSchema, aiTextSchema } from '../../../schemas/vendor/Catalog';
 import { uploadToCloudflare } from '../../../utils/cloudflare';
-
-const GEMINI_IMAGE_MODELS = [
-    'gemini-2.5-flash-image',
-    'gemini-3.1-flash-image',
-    'gemini-3-pro-image',
-];
-
-const GEMINI_TEXT_MODELS = ['gemini-3.6-flash', 'gemini-2.0-flash-001', 'gemini-flash-latest'];
+import {
+    isGeminiBillingOrQuotaError,
+    listGeminiGenerationModelIds,
+    listGeminiImageModelIds,
+} from '../../../utils/gemini/geminiModels';
+import { parseMenuFromUpload } from '../../../utils/vendor/menuAiParse';
+import { generateCategoryImageForName } from '../../../utils/vendor/categoryImageGeneration';
 
 function isHebrewText(text: string) {
     return /[\u0590-\u05FF]/.test(text);
@@ -17,7 +16,8 @@ function isHebrewText(text: string) {
 async function translateFoodNameToEnglish(name: string, apiKey: string): Promise<string> {
     if (!isHebrewText(name)) return name;
 
-    for (const model of GEMINI_TEXT_MODELS) {
+    const textModels = await listGeminiGenerationModelIds(apiKey);
+    for (const model of textModels) {
         try {
             const response = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -48,7 +48,8 @@ async function generateGeminiFoodImageBuffer(
     prompt: string,
     apiKey: string
 ): Promise<{ buffer: Buffer; mimeType: string } | null> {
-    for (const model of GEMINI_IMAGE_MODELS) {
+    const imageModels = await listGeminiImageModelIds(apiKey);
+    for (const model of imageModels) {
         try {
             const response = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -126,120 +127,8 @@ export const parsePdf = async (req: Request, res: Response): Promise<any> => {
     const mimeType = req.file.mimetype;
     const fileBase64 = req.file.buffer.toString('base64');
 
-    const prompt = `You are an expert restaurant menu OCR and structuring engine. Your job is to produce POS-ready JSON from poster-style menus (multi-column tops + footer blocks for sizes/toppings).
-
-=== NON-NEGOTIABLE RULES ===
-1. NEVER skip variations when the menu defines sizes anywhere on the page (same row OR a separate footer section).
-2. NEVER create duplicate items for sizes (e.g. "Margherita Large" as its own item). ONE dish = ONE item + variations.
-3. Option "price" is the FULL item price for that choice (absolute), NOT a delta mark-up.
-4. item "price" MUST equal the cheapest option in the first required variation group (usually smallest size).
-5. Output ONLY valid JSON: { "categories": [ ... ] }. No markdown, no comments.
-
-=== LAYOUT: ITEMS ON TOP, SIZES ON BOTTOM (VERY COMMON) ===
-Many menus list dish names + one price in category columns at the TOP, then a separate footer band such as:
-  "Choose Your Size" / "Size" / Personal · Regular · Large with prices on another row.
-You MUST link that footer size block to every applicable item in the category above (e.g. all PIZZA items get the same Size group).
-
-Algorithm:
-A) Read the footer (or side) size block: labels (include inch/cm if shown, e.g. Personal 7 inch) and numeric prices.
-B) Read each dish in the category and its listed price (often the smallest/default size).
-C) If footer prices are GLOBAL (one set for the whole category):
-   - Let S0 = smallest footer size price, Sk = price for each footer size k.
-   - For each dish with listed price P (from the top list):
-     - Smallest size option price = P (use the dish's own top price, not necessarily S0).
-     - Each larger size k: option price = P + (Sk - S0). Round to 2 decimals if needed.
-   - Example: footer Personal 149, Regular 249, Large 399; Margherita 149 → 149, 249, 399; Farmhouse 179 → 179, 279, 429.
-D) If each dish row already shows multiple size columns, use those column prices directly (no delta math).
-E) Attach one variation group per item:
-   { "name": "Size", "type": "single", "required": true, "options": [ { "name": "<label>", "price": <number> }, ... ] }
-
-If a category has NO size footer and only one price per dish → "variations": [].
-
-=== OTHER VARIATION PATTERNS ===
-- Sauce/type rows (White Sauce / Red Sauce / Mixed) for pasta: one group "Sauce" or "Type", required true if customer must pick.
-- Burger single price only: variations [] unless sizes appear elsewhere.
-
-=== ADD-ONS (optional extras) ===
-Sections like "Customize It", "Extra Toppings", "Add-ons" with +₹ prices:
-- Put in "add_ons": [ { "name", "price" } ] on each item in categories that section applies to (typically all pizzas if under pizza footer).
-- Do NOT put sizes in add_ons.
-- Shared topping list → copy the same add_ons array to each relevant item (do not omit).
-
-=== CATEGORIES ===
-- Use visible headers: PIZZA, BURGERS, PASTA, WRAPS, SIDES, etc.
-- Fries / sides listed in "Add Something Extra" can be their own category if priced as standalone items.
-
-=== MULTI-LANGUAGE ===
-Hebrew + English sections: extract BOTH; do not merge translations.
-Slash names "X / Y" → two items unless clearly one bilingual label for the same dish (then pick primary language shown larger).
-
-=== JSON SHAPE (strict) ===
-{
-  "categories": [
-    {
-      "name": "PIZZA",
-      "items": [
-        {
-          "name": "Margherita",
-          "description": "Classic cheese & herbs",
-          "price": 149,
-          "variations": [
-            {
-              "name": "Size",
-              "type": "single",
-              "required": true,
-              "options": [
-                { "name": "Personal 7 inch", "price": 149 },
-                { "name": "Regular 10 inch", "price": 249 },
-                { "name": "Large 12 inch", "price": 399 }
-              ]
-            }
-          ],
-          "add_ons": [
-            { "name": "Extra Cheese", "price": 70 }
-          ]
-        }
-      ]
-    }
-  ]
-}
-
-Before you finish: for every PIZZA (and similar) item, confirm "variations" is non-empty when a size footer exists. Re-scan the bottom of the image if any item is missing Size options.`;
-
     try {
-        const models = ['gemini-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro', 'gemini-1.0-pro-vision-latest', 'gemini-pro-vision'];
-        let lastError = 'Failed to generate content';
-        let parsedMenu = null;
-
-        for (const model of models) {
-            try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: mimeType, data: fileBase64 } }] }],
-                        generationConfig: { responseMimeType: 'application/json' }
-                    })
-                });
-                
-                const data = await response.json();
-                if (!response.ok) {
-                    lastError = data.error?.message || `Error with model ${model}`;
-                    continue;
-                }
-                
-                const text = data.candidates[0].content.parts[0].text;
-                parsedMenu = JSON.parse(text);
-                break;
-            } catch (err: any) {
-                lastError = err.message;
-            }
-        }
-        
-        if (!parsedMenu) {
-            throw new Error(lastError);
-        }
-
+        const parsedMenu = await parseMenuFromUpload({ apiKey, mimeType, fileBase64 });
         return res.status(200).json({ status: true, data: parsedMenu });
     } catch (error: any) {
         return res.status(500).json({ status: false, msg: error.message });
@@ -263,11 +152,11 @@ export const generateDescription = async (req: Request, res: Response): Promise<
     const prompt = `Write a short, appetizing menu description for a food item called "${payload.name}". 1-2 sentences only, focus on taste and appeal. Plain text, no markdown.`;
 
     try {
-        const models = ['gemini-flash-latest', 'gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-pro', 'gemini-pro'];
         let lastError = 'Failed to generate content';
         let text = null;
 
-        for (const model of models) {
+        const textModels = await listGeminiGenerationModelIds(apiKey);
+        for (const model of textModels) {
             try {
                 const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
                     method: 'POST',
@@ -277,7 +166,13 @@ export const generateDescription = async (req: Request, res: Response): Promise<
                 
                 const data = await response.json();
                 if (!response.ok) {
-                    lastError = data.error?.message || `Error with model ${model}`;
+                    const msg = data.error?.message || `Error with model ${model}`;
+                    if (isGeminiBillingOrQuotaError(msg)) {
+                        throw new Error(
+                            'Gemini API credits or quota exhausted. Check Google AI Studio billing for this API key.'
+                        );
+                    }
+                    lastError = msg;
                     continue;
                 }
                 
@@ -365,38 +260,13 @@ export const generateCategoryImage = async (req: Request, res: Response): Promis
     const name = String(payload.name || '').trim();
     if (!name) return res.status(400).json({ status: false, msg: 'Item name is required' });
 
-    const apiKey = process.env.GEMINI_API_KEY || '';
-    const prompt = `Generate a professional food category banner photo for a restaurant menu category called "${name}". Clean, appetizing, high quality, suitable as a menu category header image.`;
-
-    if (apiKey) {
-        const geminiImage = await generateGeminiFoodImageBuffer(prompt, apiKey);
-        if (geminiImage) {
-            const hosted = await persistGeneratedImage(
-                geminiImage.buffer,
-                geminiImage.mimeType,
-                'vendor/ai/categories'
-            );
-            if (hosted) {
-                return res.status(200).json({ status: true, data: { image: hosted, source: 'gemini' } });
-            }
-        }
+    const generated = await generateCategoryImageForName(name);
+    if (!generated) {
+        return res.status(500).json({ status: false, msg: 'Category image generation failed' });
     }
 
-    try {
-        const bannerPrompt = `Professional food category banner for ${name}, restaurant menu header`;
-        const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(bannerPrompt)}?width=1200&height=400&nologo=true`;
-        const response = await fetch(imageUrl);
-        if (response.ok) {
-            const buffer = Buffer.from(await response.arrayBuffer());
-            const hosted = await persistGeneratedImage(buffer, 'image/jpeg', 'vendor/ai/categories');
-            if (hosted) {
-                return res.status(200).json({ status: true, data: { image: hosted, source: 'pollinations' } });
-            }
-            return res.status(200).json({ status: true, data: { image: imageUrl, source: 'pollinations-direct' } });
-        }
-    } catch (error: any) {
-        return res.status(500).json({ status: false, msg: error.message });
-    }
-
-    return res.status(500).json({ status: false, msg: 'Category image generation failed' });
+    return res.status(200).json({
+        status: true,
+        data: { image: generated.image, source: generated.source },
+    });
 };

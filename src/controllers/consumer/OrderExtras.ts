@@ -19,9 +19,8 @@ import { notPosWhere } from '../../utils/vendor/order/query';
 import { formatRestaurantMenuFood } from '../../utils/consumer/restaurantMenuHelpers';
 import {
   DISCOVER_RESTAURANT_SELECT,
+  availabilityMapForRestaurants,
   formatDiscoverRestaurant,
-  isOpenFromSchedules,
-  loadTodaySchedulesByRestaurantId,
 } from '../../utils/consumer/restaurantDiscoverHelpers';
 import { requireZoneIds } from '../../utils/consumer/zoneHeaders';
 import { parseCoordinatesFromRequest } from '../../utils/consumer/favouriteHelpers';
@@ -637,7 +636,7 @@ export const orderAgain = async (req: Request, res: Response): Promise<any> => {
       select: DISCOVER_RESTAURANT_SELECT,
       take: 20,
     });
-    const scheduleMap = await loadTodaySchedulesByRestaurantId(restaurants.map((r) => r.id));
+    const availabilityMap = await availabilityMapForRestaurants(restaurants);
     const foods = await prisma.food.findMany({
       where: { restaurant_id: { in: restaurantIds }, status: true },
       orderBy: { order_count: 'desc' },
@@ -651,10 +650,9 @@ export const orderAgain = async (req: Request, res: Response): Promise<any> => {
     }
 
     const data = restaurants.map((row) => {
-      const open = isOpenFromSchedules(scheduleMap.get(row.id.toString()) ?? []);
       return {
         ...formatDiscoverRestaurant(row, {
-          open,
+          availability: availabilityMap.get(row.id.toString()) ?? undefined,
           distanceKm: distanceKmForRestaurant(coords, row.latitude, row.longitude),
         }),
         foods: foodsByRestaurant.get(Number(row.id)) ?? [],

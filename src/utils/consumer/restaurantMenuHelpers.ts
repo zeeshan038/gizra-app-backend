@@ -5,6 +5,7 @@ import {
   expandAddOnsFromStored,
   type FoodAddonExpanded,
 } from '../vendor/catalog/foodAddonHelpers';
+import { variationsForMobileClient } from './variationsForMobileClient';
 
 type FoodRow = {
   id: bigint;
@@ -189,7 +190,10 @@ export function formatRestaurantMenuFood(
   let parsedVariations: unknown[] = [];
 
   try {
-    if (f.variations) parsedVariations = JSON.parse(f.variations);
+    if (f.variations) {
+      const raw = JSON.parse(f.variations);
+      parsedVariations = variationsForMobileClient(Number(f.price), raw);
+    }
   } catch {
     /* ignore */
   }

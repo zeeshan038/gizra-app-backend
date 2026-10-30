@@ -53,8 +53,13 @@ export async function listAdminOrders(params: AdminListOrdersParams) {
   const userIds = [
     ...new Set(rows.map((r) => (r.user_id != null ? Number(r.user_id) : null)).filter(Boolean)),
   ] as number[];
+  const deliveryManIds = [
+    ...new Set(
+      rows.map((r) => (r.delivery_man_id != null ? Number(r.delivery_man_id) : null)).filter(Boolean)
+    ),
+  ] as number[];
 
-  const [restaurants, users] = await Promise.all([
+  const [restaurants, users, deliveryMen] = await Promise.all([
     restaurantIds.length
       ? prisma.restaurants.findMany({
           where: { id: { in: restaurantIds.map((id) => BigInt(id)) } },
@@ -67,16 +72,25 @@ export async function listAdminOrders(params: AdminListOrdersParams) {
           select: { id: true, f_name: true, l_name: true, phone: true },
         })
       : [],
+    deliveryManIds.length
+      ? prisma.delivery_men.findMany({
+          where: { id: { in: deliveryManIds.map((id) => BigInt(id)) } },
+          select: { id: true, f_name: true, l_name: true, phone: true },
+        })
+      : [],
   ]);
 
   const restaurantById = new Map(restaurants.map((r) => [Number(r.id), r.name]));
   const userById = new Map(users.map((u) => [Number(u.id), u]));
+  const deliveryManById = new Map(deliveryMen.map((d) => [Number(d.id), d]));
 
   const orders = rows.map((order) => {
     const uid = order.user_id != null ? Number(order.user_id) : null;
     const customer = uid != null ? userById.get(uid) ?? null : null;
     const restaurantName = restaurantById.get(Number(order.restaurant_id)) ?? '—';
-    return mapAdminOrderListRow(order, restaurantName, customer);
+    const dmId = order.delivery_man_id != null ? Number(order.delivery_man_id) : null;
+    const deliveryMan = dmId != null ? deliveryManById.get(dmId) ?? null : null;
+    return mapAdminOrderListRow(order, restaurantName, customer, deliveryMan);
   });
 
   return { orders, total };

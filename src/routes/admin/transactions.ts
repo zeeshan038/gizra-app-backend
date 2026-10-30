@@ -6,6 +6,15 @@ import {
   searchAdminCollectCashAccounts,
 } from '../../controllers/admin/accountTransactions';
 import {
+  createAdminDeliveryManPayment,
+  listAdminDeliveryManPayments,
+} from '../../controllers/admin/deliveryManPayments';
+import {
+  getAdminDeliveryManWithdraw,
+  listAdminDeliveryManWithdraws,
+  patchAdminDeliveryManWithdrawStatus,
+} from '../../controllers/admin/deliveryManWithdraws';
+import {
   getAdminRestaurantWithdraw,
   getAdminRestaurantWithdrawPendingAlert,
   listAdminRestaurantWithdraws,
@@ -30,10 +39,17 @@ router.get('/collect-cash/accounts', searchAdminCollectCashAccounts);
 router.get('/collect-cash/account-data', getAdminCollectCashAccountData);
 router.post('/collect-cash', createAdminCollectCash);
 
+router.get('/delivery-man-payments', listAdminDeliveryManPayments);
+router.post('/delivery-man-payments', createAdminDeliveryManPayment);
+
 router.get('/restaurant-withdraws/pending-alert', getAdminRestaurantWithdrawPendingAlert);
 router.get('/restaurant-withdraws', listAdminRestaurantWithdraws);
 router.get('/restaurant-withdraws/:id', getAdminRestaurantWithdraw);
 router.patch('/restaurant-withdraws/:id/status', patchAdminRestaurantWithdrawStatus);
+
+router.get('/delivery-man-withdraws', listAdminDeliveryManWithdraws);
+router.get('/delivery-man-withdraws/:id', getAdminDeliveryManWithdraw);
+router.patch('/delivery-man-withdraws/:id/status', patchAdminDeliveryManWithdrawStatus);
 
 router.get('/withdraw-methods', listAdminWithdrawMethods);
 router.get('/withdraw-methods/:id', getAdminWithdrawMethod);

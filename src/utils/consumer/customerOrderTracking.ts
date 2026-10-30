@@ -7,6 +7,7 @@ const TRACKING_MESSAGES: Record<string, string> = {
   processing: 'Your order is being prepared.',
   handover: 'Your order is ready for pickup.',
   picked_up: 'Your order is on the way.',
+  food_on_the_way: 'Your order is on the way.',
   delivered: 'Your order has been completed.',
   canceled: 'Your order has been canceled.',
   failed: 'Payment failed for this order.',
@@ -24,6 +25,7 @@ export function customerTrackingStep(orderStatus: string): number {
     case 'handover':
       return 4;
     case 'picked_up':
+    case 'food_on_the_way':
       return 5;
     case 'delivered':
       return 6;
@@ -47,6 +49,7 @@ export function customerTrackingLabel(orderStatus: string): string {
     case 'handover':
       return 'Ready For Pickup';
     case 'picked_up':
+    case 'food_on_the_way':
       return 'On The Way';
     case 'delivered':
       return 'Completed';

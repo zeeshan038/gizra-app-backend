@@ -21,6 +21,7 @@ const STATUS_TO_MESSAGE_KEY: Record<string, string> = {
   confirmed: 'order_confirmation_msg',
   processing: 'order_processing_message',
   picked_up: 'out_for_delivery_message',
+  food_on_the_way: 'out_for_delivery_message',
   handover: 'order_handover_message',
   delivered: 'order_delivered_message',
   delivery_boy_delivered: 'delivery_boy_delivered_message',

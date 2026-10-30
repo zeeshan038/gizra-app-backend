@@ -111,6 +111,8 @@ async function sendPlaceOrderCreatedResponse(
 
   const taxStatus = (orderResult.tax_status as 'included' | 'excluded') ?? 'excluded';
   const pricing = placed.pricing ?? {
+    items_price: placed.subtotal,
+    addon_cost: 0,
     subtotal: placed.subtotal,
     total_tax_amount: Number(orderResult.total_tax_amount) || 0,
     tax_added_to_total: placed.taxAdded,
@@ -166,10 +168,27 @@ export const quoteOrder = async (req: Request, res: Response): Promise<any> => {
       dryRun: true,
     });
 
+    const breakdown = quoted.pricing;
+    const totalFromBreakdown =
+      breakdown != null
+        ? Math.round(
+            (breakdown.subtotal +
+              breakdown.tax_added_to_total +
+              breakdown.delivery_charge +
+              breakdown.additional_charge +
+              breakdown.extra_packaging_amount +
+              breakdown.dm_tips +
+              Number.EPSILON) *
+              100
+          ) / 100
+        : quoted.orderAmount;
+
     return res.status(200).json({
       status: true,
-      total_ammount: quoted.pricing?.order_amount ?? quoted.orderAmount,
-      pricing_breakdown: quoted.pricing,
+      total_ammount: totalFromBreakdown,
+      pricing_breakdown: breakdown
+        ? { ...breakdown, order_amount: totalFromBreakdown }
+        : breakdown,
     });
   } catch (e: unknown) {
     if (e instanceof PlaceOrderError) {
