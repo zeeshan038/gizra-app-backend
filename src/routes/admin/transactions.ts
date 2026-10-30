@@ -6,6 +6,10 @@ import {
   searchAdminCollectCashAccounts,
 } from '../../controllers/admin/accountTransactions';
 import {
+  createAdminDeliveryManPayment,
+  listAdminDeliveryManPayments,
+} from '../../controllers/admin/deliveryManPayments';
+import {
   getAdminRestaurantWithdraw,
   getAdminRestaurantWithdrawPendingAlert,
   listAdminRestaurantWithdraws,
@@ -29,6 +33,9 @@ router.get('/collect-cash', listAdminCollectCash);
 router.get('/collect-cash/accounts', searchAdminCollectCashAccounts);
 router.get('/collect-cash/account-data', getAdminCollectCashAccountData);
 router.post('/collect-cash', createAdminCollectCash);
+
+router.get('/delivery-man-payments', listAdminDeliveryManPayments);
+router.post('/delivery-man-payments', createAdminDeliveryManPayment);
 
 router.get('/restaurant-withdraws/pending-alert', getAdminRestaurantWithdrawPendingAlert);
 router.get('/restaurant-withdraws', listAdminRestaurantWithdraws);

@@ -24,7 +24,7 @@ const origins =[
   'https://gizra.app',
   'https://www.gizra.app',
   "https://dev.admin.gizra.app",
-  "https://dev.restaurant.gizra.app",
+  'https://dev.restaurant.gizra.app',
 ]
 app.use(cors({
   origin: origins,
