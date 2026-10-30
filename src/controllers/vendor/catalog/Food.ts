@@ -8,7 +8,6 @@ import {
     resolveAddOnIdsForSave,
 } from '../../../utils/vendor/catalog/foodAddonHelpers';
 import { publicFoodMediaUrl } from '../../../utils/mediaStorage';
-import { normalizeItemVariationsToAdditive } from '../../../utils/vendor/variationCatalogNormalize';
 import { getFoodPublishQuota } from '../../../utils/vendor/catalog/foodPublishLimits';
 
 const FOOD_LIST_MAX_LIMIT = 5000;
@@ -55,18 +54,12 @@ async function publishDraftFoodIds(
     return { publishedIds: toPublish, quota };
 }
 
+/** Disabled until mobile app uses base + delta; legacy Flutter sums optionPrice only. */
 function applyAdditiveVariationPricing(payload: {
     price?: number;
     variations?: unknown;
 }): { price?: number; variations?: unknown } {
-    if (!payload.variations || !Array.isArray(payload.variations) || !payload.variations.length) {
-        return payload;
-    }
-    const { basePrice, variations } = normalizeItemVariationsToAdditive(
-        Number(payload.price ?? 0),
-        payload.variations
-    );
-    return { ...payload, price: basePrice, variations };
+    return payload;
 }
 
 async function getVendorRestaurant(req: Request) {

@@ -30,6 +30,7 @@ import {
     parseMenuFoodType,
     parseOptionalCategoryId,
 } from '../../utils/consumer/restaurantMenuHelpers';
+import { variationsForMobileClient } from '../../utils/consumer/variationsForMobileClient';
 import { consumerFoodMediaFields, consumerRestaurantMediaFields } from '../../utils/mediaStorage';
 import { recordRestaurantVisit } from '../../utils/consumer/visitorLog';
 
@@ -649,11 +650,16 @@ export const searchFoods = async (req: Request, res: Response): Promise<any> => 
         const availabilityMap = await availabilityMapForRestaurants(restaurantRows);
 
         const formattedFoods = foods.map((f) => {
-            let parsedVariations = [];
-            let parsedAddOns = [];
+            let parsedVariations: unknown[] = [];
+            let parsedAddOns: unknown[] = [];
 
             try {
-                if (f.variations) parsedVariations = JSON.parse(f.variations);
+                if (f.variations) {
+                    parsedVariations = variationsForMobileClient(
+                        Number(f.price),
+                        JSON.parse(f.variations)
+                    );
+                }
             } catch (e) { }
             try {
                 if (f.add_ons) parsedAddOns = JSON.parse(f.add_ons);

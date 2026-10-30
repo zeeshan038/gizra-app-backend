@@ -3,7 +3,6 @@ import {
     isGeminiModelUnavailableError,
     listGeminiGenerationModelIds,
 } from '../gemini/geminiModels';
-import { normalizeParsedMenu } from './variationCatalogNormalize';
 
 export type ParsedMenuItem = {
     name: string;
@@ -351,7 +350,7 @@ export async function parseMenuFromUpload(params: {
 
     for (const model of models) {
         try {
-            const menu = normalizeParsedMenu(await parseWithModel({ ...params, model }));
+            const menu = await parseWithModel({ ...params, model });
             console.info(`[menu-import] Parsed ${countMenuItems(menu)} items with ${model}`);
             return menu;
         } catch (err: unknown) {
