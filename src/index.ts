@@ -23,6 +23,8 @@ const origins =[
   'https://driver.gizra.app',
   'https://gizra.app',
   'https://www.gizra.app',
+  "https://dev.admin.gizra.app",
+  "https://dev.restaurant.gizra.app",
 ]
 app.use(cors({
   origin: origins,

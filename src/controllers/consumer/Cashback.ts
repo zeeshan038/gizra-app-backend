@@ -1,10 +1,14 @@
 import { Request, Response } from 'express';
-import { sendApiError, joiFirstMessage, errorMessageFromUnknown } from '../../utils/apiErrorResponse';
+import {
+   sendApiError,
+    joiFirstMessage,
+     errorMessageFromUnknown } from '../../utils/apiErrorResponse';
 import { cashbackAmountQuerySchema } from '../../schemas/consumer/Wallet';
 import {
   getCalculatedCashBackAmount,
   listActiveCashbacks,
 } from '../../utils/consumer/cashbackHelpers';
+
 
 /**
  * @Description Active cashback offers for this customer 
@@ -20,6 +24,7 @@ export const listCashbacks = async (req: Request, res: Response): Promise<any> =
     return sendApiError(res, 500, errorMessageFromUnknown(e));
   }
 };
+
 
 /**
  * @Description Calculate cashback for a cart amount (PHP GET /api/v1/cashback/getCashback)
