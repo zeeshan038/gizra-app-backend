@@ -244,7 +244,7 @@ export async function updateDeliveryManWithdrawStatus(
     return { ok: false, msg, status: 500 };
   }
 
-  void notifyDeliveryManOfWithdrawDecision({
+  await notifyDeliveryManOfWithdrawDecision({
     deliveryManId,
     withdrawId: id,
     amount,

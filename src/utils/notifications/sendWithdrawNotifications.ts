@@ -1,6 +1,6 @@
 import prisma from '../../config/database';
 import { getSocketServer } from '../../sockets/publish';
-import { vendorRoom } from '../../sockets/rooms';
+import { deliveryManRoom, vendorRoom } from '../../sockets/rooms';
 import { SocketEvents } from '../../types/sockets/realtime';
 import { sendFcmToDevice, sendFcmToTopic, type FcmPushData } from './fcm';
 import {
@@ -9,6 +9,7 @@ import {
 } from './notificationSettings';
 import { persistUserNotification } from './persistUserNotification';
 import { isRecipientPushOn } from './pushNotificationPreference';
+import { roundMoney } from '../vendor/walletHelpers';
 
 async function pushVendorTokens(
   vendorId: number,
@@ -57,6 +58,45 @@ function publishVendorWithdrawSocket(
   const io = getSocketServer();
   if (!io) return;
   io.to(vendorRoom(vendorId)).emit(SocketEvents.WITHDRAW_STATUS, payload);
+}
+
+function publishDeliveryManWithdrawSocket(
+  deliveryManId: number,
+  payload: {
+    withdraw_id: number;
+    amount: number;
+    status: 'pending' | 'approved' | 'denied';
+    title: string;
+    description: string;
+  }
+): void {
+  const io = getSocketServer();
+  if (!io) return;
+  io.to(deliveryManRoom(deliveryManId)).emit(SocketEvents.WITHDRAW_STATUS, payload);
+}
+
+async function pushDeliveryManToken(
+  deliveryManId: number,
+  settingKey: string,
+  payload: FcmPushData
+): Promise<void> {
+  const dm = await prisma.delivery_men.findUnique({
+    where: { id: BigInt(deliveryManId) },
+    select: { fcm_token: true, is_notification_on: true },
+  });
+  if (!dm?.fcm_token?.trim() || !isRecipientPushOn(dm.is_notification_on)) return;
+
+  let enabled = await isPushNotificationEnabled('deliveryman', settingKey);
+  if (!enabled && settingKey === 'deliveryman_withdraw_rejaction') {
+    enabled = await isPushNotificationEnabled('deliveryman', 'deliveryman_withdraw_rejection');
+  }
+  if (!enabled) return;
+
+  try {
+    await sendFcmToDevice(dm.fcm_token, payload);
+  } catch (e) {
+    console.error('[notify] DM withdraw FCM failed', e);
+  }
 }
 
 /**
@@ -133,7 +173,7 @@ export async function notifyRestaurantOfWithdrawDecision(input: {
 }
 
 /**
- * Admin approved or denied delivery man withdraw → inbox + FCM.
+ * Admin approved or denied delivery man withdraw → inbox + FCM + socket (driver app).
  */
 export async function notifyDeliveryManOfWithdrawDecision(input: {
   deliveryManId: number;
@@ -142,11 +182,13 @@ export async function notifyDeliveryManOfWithdrawDecision(input: {
   approved: 1 | 2;
 }): Promise<void> {
   const isApproved = input.approved === 1;
+  const amountLabel = roundMoney(input.amount).toFixed(2);
+  const settingKey = isApproved ? 'deliveryman_withdraw_approve' : 'deliveryman_withdraw_rejaction';
   const payload: FcmPushData = {
     title: isApproved ? 'Withdraw approved' : 'Withdraw rejected',
     description: isApproved
-      ? 'Your withdraw request was approved by admin'
-      : 'Your withdraw request was rejected by admin',
+      ? `Your withdraw request of ${amountLabel} was approved. Payment has been sent.`
+      : `Your withdraw request of ${amountLabel} was rejected by admin.`,
     order_id: String(input.withdrawId),
     image: '',
     type: 'withdraw',
@@ -158,18 +200,13 @@ export async function notifyDeliveryManOfWithdrawDecision(input: {
     console.error('[notify] persist DM withdraw decision failed', e);
   }
 
-  const dm = await prisma.delivery_men.findUnique({
-    where: { id: BigInt(input.deliveryManId) },
-    select: { fcm_token: true, is_notification_on: true },
+  await pushDeliveryManToken(input.deliveryManId, settingKey, payload);
+
+  publishDeliveryManWithdrawSocket(input.deliveryManId, {
+    withdraw_id: input.withdrawId,
+    amount: input.amount,
+    status: isApproved ? 'approved' : 'denied',
+    title: payload.title,
+    description: payload.description,
   });
-  if (!dm?.fcm_token || !isRecipientPushOn(dm.is_notification_on)) return;
-
-  const enabled = await isPushNotificationEnabled('deliveryman', 'withdraw_request');
-  if (!enabled) return;
-
-  try {
-    await sendFcmToDevice(dm.fcm_token, payload);
-  } catch (e) {
-    console.error('[notify] DM withdraw decision FCM failed', e);
-  }
 }
