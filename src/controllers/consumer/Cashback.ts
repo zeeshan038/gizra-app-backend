@@ -7,7 +7,7 @@ import {
 } from '../../utils/consumer/cashbackHelpers';
 
 /**
- * @Description Active cashback offers for this customer (PHP GET /api/v1/cashback/list)
+ * @Description Active cashback offers for this customer 
  * @Route GET /api/consumer/cashback/list
  * @Access Consumer (registered)
  */
