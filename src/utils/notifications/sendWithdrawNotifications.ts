@@ -131,3 +131,45 @@ export async function notifyRestaurantOfWithdrawDecision(input: {
     description: payload.description,
   });
 }
+
+/**
+ * Admin approved or denied delivery man withdraw → inbox + FCM.
+ */
+export async function notifyDeliveryManOfWithdrawDecision(input: {
+  deliveryManId: number;
+  withdrawId: number;
+  amount: number;
+  approved: 1 | 2;
+}): Promise<void> {
+  const isApproved = input.approved === 1;
+  const payload: FcmPushData = {
+    title: isApproved ? 'Withdraw approved' : 'Withdraw rejected',
+    description: isApproved
+      ? 'Your withdraw request was approved by admin'
+      : 'Your withdraw request was rejected by admin',
+    order_id: String(input.withdrawId),
+    image: '',
+    type: 'withdraw',
+  };
+
+  try {
+    await persistUserNotification({ delivery_man_id: input.deliveryManId }, payload);
+  } catch (e) {
+    console.error('[notify] persist DM withdraw decision failed', e);
+  }
+
+  const dm = await prisma.delivery_men.findUnique({
+    where: { id: BigInt(input.deliveryManId) },
+    select: { fcm_token: true, is_notification_on: true },
+  });
+  if (!dm?.fcm_token || !isRecipientPushOn(dm.is_notification_on)) return;
+
+  const enabled = await isPushNotificationEnabled('deliveryman', 'withdraw_request');
+  if (!enabled) return;
+
+  try {
+    await sendFcmToDevice(dm.fcm_token, payload);
+  } catch (e) {
+    console.error('[notify] DM withdraw decision FCM failed', e);
+  }
+}
