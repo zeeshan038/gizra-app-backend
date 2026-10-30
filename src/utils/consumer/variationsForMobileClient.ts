@@ -1,7 +1,8 @@
 /**
  * Legacy Flutter / PHP cart totals sum each selected variation's `optionPrice`
- * (they do not use food.price + additive delta). After catalog normalization,
- * optionPrice in DB is often 0 for the default size — expand for API responses only.
+ * (they do not use food.price + additive delta). Only the **first** variation group
+ * (main dish / sizes) may inherit `food.price` when stored deltas are 0. Side dishes,
+ * salads, bread (+3), etc. keep their stored deltas only — never add base again.
  */
 function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -15,11 +16,6 @@ function optionDelta(opt: Record<string, unknown>): number {
     return Number(opt.price) || 0;
   }
   return 0;
-}
-
-function isRequiredGroup(g: Record<string, unknown>): boolean {
-  const r = g.required;
-  return r === true || r === 1 || r === '1' || String(r).toLowerCase() === 'on';
 }
 
 function listKey(g: Record<string, unknown>): 'values' | 'options' | null {
@@ -50,9 +46,11 @@ export function variationsForMobileClient(basePrice: number, raw: unknown): unkn
     const looksLikeNormalizedSizes =
       base > 0 && minD === 0 && maxD > 0 && maxD < base - 0.001;
 
+    // Only group 0: main item row or size ladder after additive normalize (0/10/20).
     const carryBaseOnGroup =
-      looksLikeNormalizedSizes ||
-      (allZero && (isRequiredGroup(g) || groupIndex === 0 || rawOpts.length === 1));
+      groupIndex === 0 &&
+      base > 0 &&
+      (looksLikeNormalizedSizes || allZero);
 
     const options = rawOpts.map((opt) => {
       if (!opt || typeof opt !== 'object') return opt;
