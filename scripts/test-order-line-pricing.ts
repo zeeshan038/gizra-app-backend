@@ -3,8 +3,10 @@
  * No DB — validates quote line math for the Flutter buy-now payload.
  */
 import {
+  mergeCartLineVariations,
   resolveCheckoutServerUnitBase,
 } from '../src/utils/consumer/checkoutFoodUnitPrice';
+import { computeVariationExtra } from '../src/utils/consumer/variationPricing';
 import {
   applyBundledAddonLinePriceRule,
   resolveCartLineUnitFoodPrice,
@@ -128,6 +130,32 @@ assert(
   multiProductSubtotal === 1511 && multiTax === 75.55,
   `sub ${multiProductSubtotal} tax ${multiTax}`
 );
+
+const dupVarJson = JSON.stringify([
+  {
+    name: 'Extra',
+    type: 'single',
+    values: [{ label: 'Add', optionPrice: 50 }],
+  },
+]);
+const dupSelected = [
+  { type: 'Extra', value: 'Add' },
+  { name: 'Extra', type: 'single', values: ['Add'] },
+];
+const extraOnce = computeVariationExtra(dupVarJson, dupSelected);
+assert('duplicate variation rows → charge once', extraOnce === 50, `got ${extraOnce}`);
+
+const unit555 = resolveCheckoutServerUnitBase({
+  catalogBasePrice: 505.5,
+  productVariationsJson: dupVarJson,
+  selectedVariations: mergeCartLineVariations({
+    variations: dupSelected,
+    variation_options: dupSelected,
+  }),
+});
+assert('505.5 + 50 → 555.5 unit', unit555 === 555.5, `got ${unit555}`);
+const tax1111 = roundOrderMoney(555.5 * 2 * (TAX_PERCENT / 100));
+assert('2×555.5 → tax 55.55 (not 60.55)', tax1111 === 55.55, `got ${tax1111}`);
 
 const underpricedClient = resolveCartLineUnitFoodPrice({
   linePrice: 3,

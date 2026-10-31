@@ -124,15 +124,21 @@ export function computeVariationExtra(
   if (!defs.length || !selectedVariations?.length) return 0;
 
   let extra = 0;
+  const chargedGroups = new Set<string>();
+
   for (const selected of selectedVariations) {
     if (!selected || typeof selected !== 'object') continue;
     const s = selected as Record<string, unknown>;
     const groupKey = variationGroupKey(s);
     if (!groupKey) continue;
 
+    const groupId = groupKey.trim().toLowerCase();
+    if (chargedGroups.has(groupId)) continue;
+
     const def = findVariationDef(defs, groupKey);
     if (!def?.values?.length) continue;
 
+    let groupExtra = 0;
     for (const label of selectedVariationLabels(selected)) {
       const cleanLabel = label.trim().toLowerCase();
       const match = def.values.find((v) => {
@@ -140,8 +146,11 @@ export function computeVariationExtra(
         const optName = v.name ? String(v.name).trim().toLowerCase() : '';
         return optLabel === cleanLabel || optName === cleanLabel;
       });
-      extra += optionPrice(match);
+      groupExtra += optionPrice(match);
     }
+
+    chargedGroups.add(groupId);
+    extra += groupExtra;
   }
 
   return extra;

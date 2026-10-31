@@ -1,6 +1,11 @@
 import { normalizeItemVariationsToAdditive } from '../vendor/variationCatalogNormalize';
-import { computeVariationExtra } from './variationPricing';
+import {
+  inferListPriceFromRawVariations,
+  resolveRawVariations,
+} from './legacyFoodVariations';
 import { roundOrderMoney, ORDER_PRICE_TOLERANCE } from './orderLinePricing';
+import { computeVariationExtra } from './variationPricing';
+import { variationsForMobileClient } from './variationsForMobileClient';
 
 function parseProductVariationsJson(json: string | null | undefined): unknown[] {
   if (!json?.trim()) return [];
@@ -12,19 +17,75 @@ function parseProductVariationsJson(json: string | null | undefined): unknown[] 
   }
 }
 
-/** Food + selected variations per unit (handles absolute option prices in catalog JSON). */
-export function resolveCheckoutServerUnitBase(params: {
+/**
+ * Flutter often sends the same picks in both `variations` and `variation_options`.
+ * Using both doubles variation surcharges (e.g. +₪50 twice → wrong VAT on multi-item carts).
+ */
+export function mergeCartLineVariations(line: {
+  variations?: unknown[];
+  variation_options?: unknown[];
+}): unknown[] {
+  const vars = line.variations ?? [];
+  const opts = line.variation_options ?? [];
+  if (vars.length && opts.length) {
+    return opts;
+  }
+  return opts.length ? opts : vars;
+}
+
+function mobileMenuUnitBase(params: {
   catalogBasePrice: number;
   productVariationsJson: string | null | undefined;
+  legacyVariations?: unknown[];
   selectedVariations: unknown[] | null | undefined;
 }): number {
-  const parsed = parseProductVariationsJson(params.productVariationsJson);
+  const raw = resolveRawVariations(params.productVariationsJson, params.legacyVariations);
+  let basePrice = Number(params.catalogBasePrice) || 0;
+  if (basePrice <= 0 && raw.length) {
+    basePrice = inferListPriceFromRawVariations(0, raw);
+  }
+  const mobileVariations = raw.length ? variationsForMobileClient(basePrice, raw) : [];
+  const extra = computeVariationExtra(
+    JSON.stringify(mobileVariations),
+    params.selectedVariations
+  );
+  return roundOrderMoney(basePrice + extra);
+}
+
+function catalogNormalizedUnitBase(params: {
+  catalogBasePrice: number;
+  productVariationsJson: string | null | undefined;
+  legacyVariations?: unknown[];
+  selectedVariations: unknown[] | null | undefined;
+}): number {
+  const raw = resolveRawVariations(params.productVariationsJson, params.legacyVariations);
+  const parsed = raw.length ? raw : parseProductVariationsJson(params.productVariationsJson);
   const { basePrice, variations } = normalizeItemVariationsToAdditive(
     params.catalogBasePrice,
     parsed
   );
   const extra = computeVariationExtra(JSON.stringify(variations), params.selectedVariations);
   return roundOrderMoney(basePrice + extra);
+}
+
+/** Food + selected variations per unit (aligned with menu + absolute tier catalogs). */
+export function resolveCheckoutServerUnitBase(params: {
+  catalogBasePrice: number;
+  productVariationsJson: string | null | undefined;
+  legacyVariations?: unknown[];
+  selectedVariations: unknown[] | null | undefined;
+}): number {
+  const selected = params.selectedVariations ?? [];
+  const mobileTotal = mobileMenuUnitBase({ ...params, selectedVariations: selected });
+  const catalogTotal = catalogNormalizedUnitBase({ ...params, selectedVariations: selected });
+
+  if (catalogTotal > mobileTotal + ORDER_PRICE_TOLERANCE) {
+    return mobileTotal;
+  }
+  if (mobileTotal > catalogTotal + ORDER_PRICE_TOLERANCE) {
+    return catalogTotal;
+  }
+  return catalogTotal;
 }
 
 /**

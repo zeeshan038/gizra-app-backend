@@ -1,7 +1,11 @@
 /**
  * Same checks as test-order-line-pricing.ts — runs on server after `npm run build`.
  */
-const { resolveCheckoutServerUnitBase } = require('../dist/utils/consumer/checkoutFoodUnitPrice');
+const {
+  mergeCartLineVariations,
+  resolveCheckoutServerUnitBase,
+} = require('../dist/utils/consumer/checkoutFoodUnitPrice');
+const { computeVariationExtra } = require('../dist/utils/consumer/variationPricing');
 const {
   applyBundledAddonLinePriceRule,
   resolveCartLineUnitFoodPrice,
@@ -105,6 +109,28 @@ assert(
   '2×755.5 → tax 75.55',
   multiProductSubtotal === 1511 && multiTax === 75.55,
   `sub ${multiProductSubtotal} tax ${multiTax}`
+);
+
+const dupVarJson = JSON.stringify([
+  { name: 'Extra', type: 'single', values: [{ label: 'Add', optionPrice: 50 }] },
+]);
+const dupSelected = [
+  { type: 'Extra', value: 'Add' },
+  { name: 'Extra', type: 'single', values: ['Add'] },
+];
+assert('duplicate variation rows → charge once', computeVariationExtra(dupVarJson, dupSelected) === 50);
+const unit555 = resolveCheckoutServerUnitBase({
+  catalogBasePrice: 505.5,
+  productVariationsJson: dupVarJson,
+  selectedVariations: mergeCartLineVariations({
+    variations: dupSelected,
+    variation_options: dupSelected,
+  }),
+});
+assert('505.5 + 50 → 555.5', unit555 === 555.5, `got ${unit555}`);
+assert(
+  '2×555.5 → tax 55.55',
+  roundOrderMoney(555.5 * 2 * (TAX_PERCENT / 100)) === 55.55
 );
 
 const foodOnlyPrice = quoteLine({

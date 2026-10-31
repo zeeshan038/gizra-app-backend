@@ -18,9 +18,11 @@ import {
   findPaidUnusedCheckoutPayment,
 } from '../../utils/payment/checkoutPayment';
 import { computeAvailabilityForRestaurant } from '../../utils/consumer/restaurantAvailability';
+import { loadLegacyVariationsForFoodRows } from '../../utils/consumer/legacyFoodVariations';
 import {
   clampResolvedUnitToClientLine,
   coerceCartLinePriceToUnit,
+  mergeCartLineVariations,
   resolveCheckoutServerUnitBase,
 } from '../../utils/consumer/checkoutFoodUnitPrice';
 import {
@@ -753,10 +755,17 @@ export async function executePlaceOrder(params: {
   const taxIncluded = await isTaxIncluded();
   const taxPercent = Number(restaurant.tax) || 0;
 
+  const cartFoodIds = [...new Set(cartLines.map((line) => Number(line.item_id)))];
+  const foodRows = cartFoodIds.length
+    ? await prisma.food.findMany({
+        where: { id: { in: cartFoodIds.map((id) => BigInt(id)) }, status: true },
+      })
+    : [];
+  const foodById = new Map(foodRows.map((row) => [Number(row.id), row]));
+  const legacyVariationsByFoodId = await loadLegacyVariationsForFoodRows(foodRows);
+
   for (const line of cartLines) {
-    const food = await prisma.food.findFirst({
-      where: { id: BigInt(line.item_id), status: true },
-    });
+    const food = foodById.get(Number(line.item_id));
     if (!food) {
       throw new PlaceOrderError('Product unavailable', 404, 'food');
     }
@@ -770,10 +779,12 @@ export async function executePlaceOrder(params: {
       throw new PlaceOrderError('Maximum cart quantity exceeded', 406, 'quantity');
     }
 
+    const selectedVariations = mergeCartLineVariations(line);
     const serverUnitBase = resolveCheckoutServerUnitBase({
       catalogBasePrice: Number(food.price),
       productVariationsJson: food.variations,
-      selectedVariations: line.variations ?? [],
+      legacyVariations: legacyVariationsByFoodId.get(Number(food.id)),
+      selectedVariations,
     });
     const addonData = await calculateAddonPrice(line.add_on_ids ?? [], line.add_on_qtys ?? []);
     const addonPerUnit = addonData.total_add_on_price;
