@@ -1,9 +1,9 @@
 /**
- * Legacy Flutter / PHP cart totals sum each selected variation's `optionPrice`
- * (they do not use food.price + additive delta). One variation group carries
- * `food.price` when options are stored as deltas (0/+10) or an all-zero required
- * single-choice row (e.g. pick a side included in the meal). Optional / multi
- * groups never inherit the base — only additive deltas.
+ * Shape variation groups for mobile clients (labels / levels).
+ * Option amounts are additive up-charges exactly as stored in catalog JSON —
+ * same as legacy PHP `product_data_formatting`, which did not rewrite prices.
+ *
+ * Checkout uses `food.price + computeVariationExtra(...)` on raw DB variations.
  */
 function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -42,7 +42,10 @@ function deltaStats(rawOpts: unknown[]): { minD: number; maxD: number; deltas: n
   return { minD, maxD, deltas };
 }
 
-/** Which group index should embed food.price into optionPrice (legacy Flutter). */
+/**
+ * @deprecated No longer embeds base price into a variation group. Kept for callers/tests
+ * that detect which group would have carried base under the old Flutter-only-sum model.
+ */
 export function indexOfVariationGroupCarryingBase(
   basePrice: number,
   raw: unknown[]
@@ -73,34 +76,28 @@ export function indexOfVariationGroupCarryingBase(
   return -1;
 }
 
-export function variationsForMobileClient(basePrice: number, raw: unknown): unknown[] {
+export function variationsForMobileClient(_basePrice: number, raw: unknown): unknown[] {
   if (!Array.isArray(raw) || !raw.length) return [];
 
-  const base = Number(basePrice) || 0;
-  const carryIndex = indexOfVariationGroupCarryingBase(base, raw);
-
-  return raw.map((group, groupIndex) => {
+  return raw.map((group) => {
     if (!group || typeof group !== 'object') return group;
     const g = group as Record<string, unknown>;
     const key = listKey(g);
     if (!key) return group;
 
     const rawOpts = g[key] as unknown[];
-    const carryBaseOnGroup = groupIndex === carryIndex && base > 0;
 
     const options = rawOpts.map((opt) => {
       if (!opt || typeof opt !== 'object') return opt;
       const o = opt as Record<string, unknown>;
-      const delta = optionDelta(o);
-      const legacy =
-        carryBaseOnGroup && base > 0 ? roundMoney(base + delta) : roundMoney(delta);
+      const delta = roundMoney(optionDelta(o));
       const label = o.label ?? o.name ?? o.level;
 
       return {
         ...o,
         ...(label != null ? { label, level: o.level ?? label, name: o.name ?? label } : {}),
-        optionPrice: legacy,
-        price: legacy,
+        optionPrice: delta,
+        price: delta,
       };
     });
 
