@@ -1,6 +1,9 @@
 import prisma from '../../config/database';
 import { getBusinessSetting } from './businessSettings';
-import { formatTime, toMinutes } from '../vendor/restaurantSetup/helpers';
+import {
+  formatTime,
+  toMinutes
+} from '../vendor/restaurantSetup/helpers';
 
 export const CLOSES_SOON_MINUTES = 30;
 export const OPENS_SOON_MINUTES = 30;
@@ -28,10 +31,10 @@ type Ymd = { year: number; month: number; day: number };
 type OpenState =
   | { open: false }
   | {
-      open: true;
-      closeYmd: Ymd;
-      closeMin: number;
-    };
+    open: true;
+    closeYmd: Ymd;
+    closeMin: number;
+  };
 
 const WEEKDAY_TO_INDEX: Record<string, number> = {
   Sunday: 0,

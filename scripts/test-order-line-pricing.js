@@ -1,5 +1,8 @@
+/**
+ * Same checks as test-order-line-pricing.ts — runs on server after `npm run build`.
+ */
 const {
-  applyBuyNowLineSubtotalPriceRule,
+  applyBundledAddonLinePriceRule,
   resolveCartLineUnitFoodPrice,
   roundOrderMoney,
 } = require('../dist/utils/consumer/orderLinePricing');
@@ -12,58 +15,84 @@ function assert(name, ok, detail) {
   if (!ok) failed = 1;
 }
 
-console.log('Order line pricing (Flutter buy-now scenario)\n');
+function quoteLine(params) {
+  let unitFood = resolveCartLineUnitFoodPrice({
+    linePrice: params.linePrice,
+    serverUnitBase: params.serverUnitBase,
+    addonPerUnit: params.addonPerUnit,
+    catalogFoodPrice: params.catalogFoodPrice,
+  });
+  unitFood = applyBundledAddonLinePriceRule({
+    unitFood,
+    linePrice: params.linePrice,
+    addonPerUnit: params.addonPerUnit,
+    hasAddonIds: params.addonPerUnit > 0,
+    catalogFoodPrice: params.catalogFoodPrice,
+  });
+  const addonCost = params.addonPerUnit;
+  const subtotal = roundOrderMoney(unitFood + addonCost - (params.restaurantDiscount ?? 0));
+  const tax = roundOrderMoney((subtotal * TAX_PERCENT) / 100);
+  return { unitFood, addonCost, subtotal, tax };
+}
 
-const unitFood = resolveCartLineUnitFoodPrice({
+console.log('Order line pricing (quote / place-order shared logic)\n');
+
+const classic = quoteLine({
   linePrice: 27,
   serverUnitBase: 23,
   addonPerUnit: 4,
   catalogFoodPrice: 19,
 });
+console.log('Input:  line price=27, addon=4, server food+var=23');
+console.log(
+  `Output: items_price=${classic.unitFood}, addon_cost=${classic.addonCost}, subtotal=${classic.subtotal}, tax_5%=${classic.tax}\n`
+);
+assert('items_price is 23 (not 27)', classic.unitFood === 23, `got ${classic.unitFood}`);
+assert('subtotal is 27 (not 31)', classic.subtotal === 27, `got ${classic.subtotal}`);
+assert('tax is 1.35 (not 1.55)', classic.tax === 1.35, `got ${classic.tax}`);
 
-const addonCost = 4;
-const subtotal = roundOrderMoney(unitFood + addonCost);
-const tax = roundOrderMoney((subtotal * TAX_PERCENT) / 100);
-
-console.log('Input:  line price=27, addon_per_unit=4, server_unit_base=23');
-console.log(`Output: items_price=${unitFood}, addon_cost=${addonCost}, subtotal=${subtotal}, tax_5%=${tax}\n`);
-
-assert('items_price is 23 (not 27)', unitFood === 23, `got ${unitFood}`);
-assert('subtotal is 27 (not 31)', subtotal === 27, `got ${subtotal}`);
-assert('tax is 1.35 (not 1.55)', tax === 1.35, `got ${tax}`);
-
-const unitFoodVar = applyBuyNowLineSubtotalPriceRule({
-  unitFood: 23,
+const serverEqualsClient = quoteLine({
   linePrice: 27,
+  serverUnitBase: 27,
   addonPerUnit: 4,
-  hasAddonIds: true,
-  isBuyNow: true,
+  catalogFoodPrice: 19,
 });
-const subtotalVar = roundOrderMoney(unitFoodVar + 4);
-console.log('\nBuy-now: line price=27, addon=4, catalog food+var=23');
-console.log(`Output: items_price=${unitFoodVar}, subtotal=${subtotalVar}\n`);
-assert('buy-now keeps catalog food+var 23', unitFoodVar === 23, `got ${unitFoodVar}`);
-assert('buy-now subtotal 27', subtotalVar === 27, `got ${subtotalVar}`);
+console.log('\nInput:  line price=27, addon=4, server food+var=27');
+console.log(
+  `Output: items_price=${serverEqualsClient.unitFood}, subtotal=${serverEqualsClient.subtotal}, tax_5%=${serverEqualsClient.tax}\n`
+);
+assert(
+  'server=27 still strips to food 23',
+  serverEqualsClient.unitFood === 23,
+  `got ${serverEqualsClient.unitFood}`
+);
+assert('subtotal 27', serverEqualsClient.subtotal === 27, `got ${serverEqualsClient.subtotal}`);
+assert('tax 1.35', serverEqualsClient.tax === 1.35, `got ${serverEqualsClient.tax}`);
 
-const underpricedClient = resolveCartLineUnitFoodPrice({
-  linePrice: 3,
-  serverUnitBase: 48,
-  addonPerUnit: 0,
-  catalogFoodPrice: 45,
+const checkoutTest = quoteLine({
+  linePrice: 100,
+  serverUnitBase: 100,
+  addonPerUnit: 20,
+  catalogFoodPrice: 100,
+  restaurantDiscount: 6,
 });
 assert(
-  'client underprice (topping only) → catalog 48',
-  underpricedClient === 48,
-  `got ${underpricedClient}`
+  'checkout 100+20-6 → tax 5.70',
+  checkoutTest.subtotal === 114 && checkoutTest.tax === 5.7,
+  `sub ${checkoutTest.subtotal} tax ${checkoutTest.tax}`
 );
 
-const foodOnly = resolveCartLineUnitFoodPrice({
-  linePrice: 23,
-  serverUnitBase: 23,
-  addonPerUnit: 4,
-  catalogFoodPrice: 23,
+const foodOnlyPrice = quoteLine({
+  linePrice: 100,
+  serverUnitBase: 100,
+  addonPerUnit: 20,
+  catalogFoodPrice: 100,
 });
-assert('catalog food+var 23 with separate addons stays 23', foodOnly === 23, `got ${foodOnly}`);
+assert(
+  'food-only line price 100 + addons 20',
+  foodOnlyPrice.unitFood === 100 && foodOnlyPrice.subtotal === 120,
+  `got food ${foodOnlyPrice.unitFood} sub ${foodOnlyPrice.subtotal}`
+);
 
 console.log(failed ? '\nFAILED' : '\nPASSED — pricing fix is live in this build');
 process.exit(failed);

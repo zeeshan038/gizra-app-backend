@@ -1,13 +1,10 @@
 /**
- * Shape variation groups for mobile clients (labels / levels).
- * Option amounts are additive up-charges exactly as stored in catalog JSON —
- * same as legacy PHP `product_data_formatting`, which did not rewrite prices.
- *
  * Checkout uses `food.price + computeVariationExtra(...)` on raw DB variations.
  */
 function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
+
 
 function optionDelta(opt: Record<string, unknown>): number {
   if (opt.optionPrice != null && opt.optionPrice !== '') {

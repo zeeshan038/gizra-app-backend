@@ -13,17 +13,17 @@ function splitIsClean(clientUnit: number, foodUnit: number, addonPerUnit: number
 }
 
 /**
- * Buy-now checkout sends `price` as the line subtotal (food + variations + add-ons) while
- * also listing `add_on_ids`. Strip add-ons once so tax is not computed on 27 + 4.
+ * Cart / buy-now: `price` may bundle food + add-ons while `add_on_ids` are also sent.
+ * Strip add-ons once so tax is not computed on (27 + 4) when food+var is really 23.
  */
-export function applyBuyNowLineSubtotalPriceRule(params: {
+export function applyBundledAddonLinePriceRule(params: {
   unitFood: number;
   linePrice: number | undefined;
   addonPerUnit: number;
   hasAddonIds: boolean;
-  isBuyNow: boolean;
+  catalogFoodPrice: number;
 }): number {
-  if (!params.isBuyNow || !params.hasAddonIds || params.addonPerUnit <= 0) {
+  if (!params.hasAddonIds || params.addonPerUnit <= 0) {
     return params.unitFood;
   }
   if (params.linePrice == null || !Number.isFinite(params.linePrice) || params.linePrice <= 0) {
@@ -37,10 +37,32 @@ export function applyBuyNowLineSubtotalPriceRule(params: {
   if (Math.abs(foodFromSubtotal - params.unitFood) <= ORDER_PRICE_TOLERANCE) {
     return params.unitFood;
   }
-  if (foodFromSubtotal < params.unitFood - ORDER_PRICE_TOLERANCE) {
+  const catalogBase = roundOrderMoney(params.catalogFoodPrice);
+  if (foodFromSubtotal + ORDER_PRICE_TOLERANCE < catalogBase) {
     return params.unitFood;
   }
+  if (foodFromSubtotal < params.unitFood - ORDER_PRICE_TOLERANCE) {
+    return foodFromSubtotal;
+  }
   return foodFromSubtotal;
+}
+
+/** @deprecated Use applyBundledAddonLinePriceRule — `isBuyNow` is ignored (same rule for cart + buy-now). */
+export function applyBuyNowLineSubtotalPriceRule(params: {
+  unitFood: number;
+  linePrice: number | undefined;
+  addonPerUnit: number;
+  hasAddonIds: boolean;
+  isBuyNow: boolean;
+  catalogFoodPrice?: number;
+}): number {
+  return applyBundledAddonLinePriceRule({
+    unitFood: params.unitFood,
+    linePrice: params.linePrice,
+    addonPerUnit: params.addonPerUnit,
+    hasAddonIds: params.hasAddonIds,
+    catalogFoodPrice: params.catalogFoodPrice ?? params.unitFood,
+  });
 }
 
 /**
@@ -113,13 +135,15 @@ export function unbundleLinePriceWhenAddonsListedSeparately(params: {
   if (addonPerUnit <= 0) return params.resolvedUnit;
 
   const asFoodOnly = roundOrderMoney(clientUnit - addonPerUnit);
+  const catalogBase = roundOrderMoney(params.catalogFoodPrice);
 
   if (
-    Math.abs(params.resolvedUnit - serverUnitBase) <= ORDER_PRICE_TOLERANCE &&
     Math.abs(clientUnit - serverUnitBase) <= ORDER_PRICE_TOLERANCE &&
-    splitIsClean(clientUnit, asFoodOnly, addonPerUnit)
+    splitIsClean(clientUnit, asFoodOnly, addonPerUnit) &&
+    asFoodOnly + ORDER_PRICE_TOLERANCE >= catalogBase &&
+    asFoodOnly < serverUnitBase - ORDER_PRICE_TOLERANCE
   ) {
-    return serverUnitBase;
+    return asFoodOnly;
   }
 
   if (
