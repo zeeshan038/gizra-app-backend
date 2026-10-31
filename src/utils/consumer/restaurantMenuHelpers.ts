@@ -5,6 +5,11 @@ import {
   expandAddOnsFromStored,
   type FoodAddonExpanded,
 } from '../vendor/catalog/foodAddonHelpers';
+import {
+  inferListPriceFromRawVariations,
+  loadLegacyVariationsForFoodRows,
+  resolveRawVariations,
+} from './legacyFoodVariations';
 import { variationsForMobileClient } from './variationsForMobileClient';
 
 type FoodRow = {
@@ -33,6 +38,22 @@ export type RestaurantMenuCategory = {
   slug: string | null;
   products_count: number;
 };
+
+type CategoryChipSource = {
+  id: bigint;
+  parent_id: bigint;
+  position: bigint;
+};
+
+/** Menu filter chip id (legacy PHP + flat vendor sections with parent_id=0). */
+export function menuCategoryChipId(cat: CategoryChipSource): number | null {
+  const selfId = Number(cat.id);
+  if (!Number.isFinite(selfId) || selfId <= 0) return null;
+  if (Number(cat.position) === 0) return selfId;
+  const parentId = Number(cat.parent_id);
+  if (Number.isFinite(parentId) && parentId > 0) return parentId;
+  return selfId;
+}
 
 /** Category chip ids used on the restaurant menu (parent categories that have active items). */
 export async function loadRestaurantMenuCategories(
@@ -72,8 +93,8 @@ export async function loadRestaurantMenuCategories(
 
   const parentIds = new Set<number>();
   for (const cat of linked) {
-    const parentId = Number(cat.position) === 0 ? Number(cat.id) : Number(cat.parent_id);
-    if (Number.isFinite(parentId) && parentId > 0) parentIds.add(parentId);
+    const chipId = menuCategoryChipId(cat);
+    if (chipId != null) parentIds.add(chipId);
   }
 
   if (!parentIds.size) return [];
@@ -185,18 +206,18 @@ export async function buildRestaurantFoodWhere(params: {
 export function formatRestaurantMenuFood(
   f: FoodRow,
   extras?: { restaurant_name?: string | null },
-  addonLookup?: Map<number, FoodAddonExpanded>
+  addonLookup?: Map<number, FoodAddonExpanded>,
+  legacyVariations?: unknown[]
 ) {
-  let parsedVariations: unknown[] = [];
-
-  try {
-    if (f.variations) {
-      const raw = JSON.parse(f.variations);
-      parsedVariations = variationsForMobileClient(Number(f.price), raw);
-    }
-  } catch {
-    /* ignore */
+  const raw = resolveRawVariations(
+    typeof f.variations === 'string' ? f.variations : null,
+    legacyVariations
+  );
+  let basePrice = Number(f.price);
+  if (basePrice <= 0 && raw.length) {
+    basePrice = inferListPriceFromRawVariations(0, raw);
   }
+  const parsedVariations = raw.length ? variationsForMobileClient(basePrice, raw) : [];
 
   const parsedAddOns = addonLookup
     ? expandAddOnsFromStored(f.add_ons, addonLookup)
@@ -222,7 +243,7 @@ export function formatRestaurantMenuFood(
     category_id: f.category_id != null ? String(f.category_id) : null,
     restaurant_id: f.restaurant_id != null ? String(f.restaurant_id) : null,
     restaurant_name: extras?.restaurant_name ?? null,
-    price: Number(f.price),
+    price: basePrice,
     discount: Number(f.discount),
     discount_type: f.discount_type ?? 'percent',
     avg_rating: f.avg_rating ?? 0,
@@ -232,4 +253,15 @@ export function formatRestaurantMenuFood(
     variations: parsedVariations,
     add_ons: parsedAddOns,
   };
+}
+
+export async function formatRestaurantMenuFoodsBatch(
+  foods: FoodRow[],
+  extras?: { restaurant_name?: string | null },
+  addonLookup?: Map<number, FoodAddonExpanded>
+) {
+  const legacyMap = await loadLegacyVariationsForFoodRows(foods);
+  return foods.map((f) =>
+    formatRestaurantMenuFood(f, extras, addonLookup, legacyMap.get(Number(f.id)))
+  );
 }

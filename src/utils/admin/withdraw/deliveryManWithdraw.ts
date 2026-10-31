@@ -1,7 +1,12 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../../../config/database';
-import { notifyDeliveryManOfWithdrawDecision } from '../../notifications/sendWithdrawNotifications';
-import { decimalToNumber, roundMoney } from '../../vendor/walletHelpers';
+import {
+  notifyDeliveryManOfWithdrawDecision
+} from '../../notifications/sendWithdrawNotifications';
+import {
+  decimalToNumber,
+  roundMoney
+} from '../../vendor/walletHelpers';
 import {
   type WithdrawApprovedCode,
   withdrawStatusLabel,

@@ -7,6 +7,7 @@ import {
     listGeminiImageModelIds,
 } from '../../../utils/gemini/geminiModels';
 import { parseMenuFromUpload } from '../../../utils/vendor/menuAiParse';
+import { normalizeParsedMenu } from '../../../utils/vendor/variationCatalogNormalize';
 import { generateCategoryImageForName } from '../../../utils/vendor/categoryImageGeneration';
 
 function isHebrewText(text: string) {
@@ -129,7 +130,8 @@ export const parsePdf = async (req: Request, res: Response): Promise<any> => {
 
     try {
         const parsedMenu = await parseMenuFromUpload({ apiKey, mimeType, fileBase64 });
-        return res.status(200).json({ status: true, data: parsedMenu });
+        const data = normalizeParsedMenu(parsedMenu);
+        return res.status(200).json({ status: true, data });
     } catch (error: any) {
         return res.status(500).json({ status: false, msg: error.message });
     }

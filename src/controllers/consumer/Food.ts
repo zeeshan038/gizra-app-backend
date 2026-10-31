@@ -242,9 +242,18 @@ export const getFoodDetails = async (req: Request, res: Response): Promise<any> 
       '../../utils/vendor/catalog/foodAddonHelpers'
     );
     const addonLookup = await buildAddonLookupFromFoodRows([food]);
+    const { loadLegacyVariationsByFoodIds } = await import(
+      '../../utils/consumer/legacyFoodVariations'
+    );
+    const legacyMap = await loadLegacyVariationsByFoodIds([id]);
     return res.status(200).json({
       status: true,
-      data: formatRestaurantMenuFood(food, { restaurant_name: restaurantName }, addonLookup),
+      data: formatRestaurantMenuFood(
+        food,
+        { restaurant_name: restaurantName },
+        addonLookup,
+        legacyMap.get(id)
+      ),
     });
   } catch (e: unknown) {
     return sendApiError(res, 500, errorMessageFromUnknown(e));

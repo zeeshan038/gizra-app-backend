@@ -34,12 +34,19 @@ export function applyBuyNowLineSubtotalPriceRule(params: {
   if (foodFromSubtotal < 0) {
     return params.unitFood;
   }
+  if (Math.abs(foodFromSubtotal - params.unitFood) <= ORDER_PRICE_TOLERANCE) {
+    return params.unitFood;
+  }
+  if (foodFromSubtotal < params.unitFood - ORDER_PRICE_TOLERANCE) {
+    return params.unitFood;
+  }
   return foodFromSubtotal;
 }
 
 /**
  * Unit price for food + variations only (never add-ons).
- * Cart contract: `price` excludes add-ons; legacy rows may bundle food+addons in one number.
+ * Catalog (base + selected variation deltas) is authoritative; client line price only
+ * helps unbundle legacy payloads that mix food and add-ons in one field.
  */
 export function resolveUnitFoodPrice(params: {
   linePrice: number | undefined;
@@ -50,10 +57,7 @@ export function resolveUnitFoodPrice(params: {
   const addonPerUnit = roundOrderMoney(params.addonPerUnit);
 
   if (addonPerUnit <= 0) {
-    if (params.linePrice == null || !Number.isFinite(params.linePrice) || params.linePrice <= 0) {
-      return serverUnitBase;
-    }
-    return roundOrderMoney(params.linePrice);
+    return serverUnitBase;
   }
 
   if (params.linePrice == null || !Number.isFinite(params.linePrice) || params.linePrice <= 0) {
@@ -64,42 +68,30 @@ export function resolveUnitFoodPrice(params: {
   const asFoodOnly = roundOrderMoney(clientUnit - addonPerUnit);
   const bundleTotal = roundOrderMoney(serverUnitBase + addonPerUnit);
 
-  // Legacy bundle matches catalog food + add-ons (e.g. 27 = 23 + 4).
   if (Math.abs(clientUnit - bundleTotal) <= ORDER_PRICE_TOLERANCE) {
     return serverUnitBase;
   }
 
-  // Food-only unit from app (e.g. 23 with add-ons billed separately).
-  if (
-    Math.abs(clientUnit + addonPerUnit - serverUnitBase) <= ORDER_PRICE_TOLERANCE
-  ) {
-    return clientUnit;
+  if (Math.abs(clientUnit - serverUnitBase) <= ORDER_PRICE_TOLERANCE) {
+    return serverUnitBase;
   }
 
-  if (
-    clientUnit <= serverUnitBase + ORDER_PRICE_TOLERANCE &&
-    clientUnit < bundleTotal - ORDER_PRICE_TOLERANCE
-  ) {
-    return clientUnit;
-  }
-
-  // Legacy: `price` = food + add-ons while add-ons are also summed separately.
   if (
     clientUnit >= bundleTotal - ORDER_PRICE_TOLERANCE &&
-    splitIsClean(clientUnit, asFoodOnly, addonPerUnit)
+    splitIsClean(clientUnit, asFoodOnly, addonPerUnit) &&
+    Math.abs(asFoodOnly - serverUnitBase) <= ORDER_PRICE_TOLERANCE
   ) {
-    return asFoodOnly;
+    return serverUnitBase;
   }
 
-  // `price` equals catalog food+var while add-ons are listed separately (e.g. 27 + add-ons 4).
   if (
     Math.abs(clientUnit - serverUnitBase) <= ORDER_PRICE_TOLERANCE &&
     splitIsClean(clientUnit, asFoodOnly, addonPerUnit)
   ) {
-    return asFoodOnly;
+    return serverUnitBase;
   }
 
-  return clientUnit;
+  return serverUnitBase;
 }
 
 /**
@@ -127,14 +119,15 @@ export function unbundleLinePriceWhenAddonsListedSeparately(params: {
     Math.abs(clientUnit - serverUnitBase) <= ORDER_PRICE_TOLERANCE &&
     splitIsClean(clientUnit, asFoodOnly, addonPerUnit)
   ) {
-    return asFoodOnly;
+    return serverUnitBase;
   }
 
   if (
     clientUnit >= bundleTotal - ORDER_PRICE_TOLERANCE &&
-    splitIsClean(clientUnit, asFoodOnly, addonPerUnit)
+    splitIsClean(clientUnit, asFoodOnly, addonPerUnit) &&
+    Math.abs(asFoodOnly - serverUnitBase) <= ORDER_PRICE_TOLERANCE
   ) {
-    return asFoodOnly;
+    return serverUnitBase;
   }
 
   return params.resolvedUnit;
@@ -165,20 +158,6 @@ export function resolveCartLineUnitFoodPrice(params: {
     catalogFoodPrice: params.catalogFoodPrice,
     resolvedUnit: unitBase,
   });
-
-  const clientUnit = roundOrderMoney(Number(params.linePrice));
-  const foodOnlyFromClient = roundOrderMoney(clientUnit - addonPerUnit);
-  const serverFoodOnly = roundOrderMoney(params.serverUnitBase - addonPerUnit);
-  if (
-    Math.abs(clientUnit - params.serverUnitBase) <= ORDER_PRICE_TOLERANCE &&
-    clientUnit <
-      roundOrderMoney(params.serverUnitBase + addonPerUnit) - ORDER_PRICE_TOLERANCE &&
-    Math.abs(foodOnlyFromClient - serverFoodOnly) <= ORDER_PRICE_TOLERANCE &&
-    foodOnlyFromClient < params.serverUnitBase - ORDER_PRICE_TOLERANCE &&
-    clientUnit > serverFoodOnly + addonPerUnit - ORDER_PRICE_TOLERANCE
-  ) {
-    unitBase = foodOnlyFromClient;
-  }
 
   return unitBase;
 }

@@ -283,6 +283,15 @@ model categories {
   @@index([restaurant_id], map: "idx_16706_idx_categories_restaurant_id")
 }
 
+model home_category_restaurant {
+  id            BigInt  @id @default(autoincrement())
+  category_id   Decimal @db.Decimal
+  restaurant_id Decimal @db.Decimal
+
+  @@index([category_id])
+  @@index([restaurant_id])
+}
+
 model characteristic_restaurant {
   id                BigInt  @id(map: "idx_16722_primary") @default(autoincrement())
   restaurant_id     Decimal @db.Decimal

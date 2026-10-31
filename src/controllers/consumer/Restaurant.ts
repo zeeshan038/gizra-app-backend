@@ -25,14 +25,20 @@ import {
 } from '../../utils/consumer/restaurantDiscoverHelpers';
 import {
     buildRestaurantFoodWhere,
-    formatRestaurantMenuFood,
+    formatRestaurantMenuFoodsBatch,
     loadRestaurantMenuCategories,
     parseMenuFoodType,
     parseOptionalCategoryId,
 } from '../../utils/consumer/restaurantMenuHelpers';
-import { variationsForMobileClient } from '../../utils/consumer/variationsForMobileClient';
-import { consumerFoodMediaFields, consumerRestaurantMediaFields } from '../../utils/mediaStorage';
+import { consumerRestaurantMediaFields } from '../../utils/mediaStorage';
 import { recordRestaurantVisit } from '../../utils/consumer/visitorLog';
+import {
+    aggregateRestaurantReviewStats,
+    findPendingReviewOrderForRestaurant,
+    loadRestaurantReviews,
+    restaurantAvgFromStoredRating,
+} from '../../utils/consumer/reviewHelpers';
+import { sendApiError } from '../../utils/apiErrorResponse';
 
 /*
  * @Description Get active restaurants in the customer zone(s) (query zone_id, e.g. ?zone_id=2)
@@ -542,8 +548,10 @@ export const getRestaurantFoods = async (req: Request, res: Response): Promise<a
             '../../utils/vendor/catalog/foodAddonHelpers'
         );
         const addonLookup = await buildAddonLookupFromFoodRows(foods);
-        const formattedFoods = foods.map((f) =>
-            formatRestaurantMenuFood(f, { restaurant_name: restaurant.name }, addonLookup)
+        const formattedFoods = await formatRestaurantMenuFoodsBatch(
+            foods,
+            { restaurant_name: restaurant.name },
+            addonLookup
         );
 
         return res.status(200).json({
@@ -649,37 +657,15 @@ export const searchFoods = async (req: Request, res: Response): Promise<any> => 
 
         const availabilityMap = await availabilityMapForRestaurants(restaurantRows);
 
-        const formattedFoods = foods.map((f) => {
-            let parsedVariations: unknown[] = [];
-            let parsedAddOns: unknown[] = [];
-
-            try {
-                if (f.variations) {
-                    parsedVariations = variationsForMobileClient(
-                        Number(f.price),
-                        JSON.parse(f.variations)
-                    );
-                }
-            } catch (e) { }
-            try {
-                if (f.add_ons) parsedAddOns = JSON.parse(f.add_ons);
-            } catch (e) { }
-
-            return {
-                id: f.id.toString(),
-                name: f.name,
-                description: f.description,
-                ...consumerFoodMediaFields(f.image),
-                category_id: f.category_id?.toString() || null,
-                restaurant_id: f.restaurant_id?.toString() || null,
-                price: Number(f.price),
-                discount: Number(f.discount),
-                veg: f.veg,
-                status: f.status,
-                variations: parsedVariations,
-                add_ons: parsedAddOns,
-            };
-        });
+        const { buildAddonLookupFromFoodRows } = await import(
+            '../../utils/vendor/catalog/foodAddonHelpers'
+        );
+        const addonLookup = await buildAddonLookupFromFoodRows(foods);
+        const formattedFoods = await formatRestaurantMenuFoodsBatch(
+            foods,
+            undefined,
+            addonLookup
+        );
 
         const formattedRestaurants = restaurantRows.map((r) => {
             const availability = availabilityMap.get(r.id.toString());
@@ -703,6 +689,73 @@ export const searchFoods = async (req: Request, res: Response): Promise<any> => 
     }
 };
 
+
+/**
+ * @Description Restaurant review list (legacy PHP GET /api/v1/restaurants/reviews)
+ * @Route GET /api/consumer/restaurants/reviews
+ * @Access Public (write eligibility when Bearer JWT present)
+ * @Query restaurant_id — required
+ * @Query search — optional filter on review comment text
+ */
+export const getRestaurantReviews = async (req: Request, res: Response): Promise<any> => {
+    const restaurantId = Number(req.query.restaurant_id);
+    if (!Number.isFinite(restaurantId) || restaurantId <= 0) {
+        return sendApiError(res, 403, 'restaurant_id is required');
+    }
+
+    const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+
+    try {
+        const restaurant = await prisma.restaurants.findFirst({
+            where: { id: BigInt(restaurantId), status: true },
+            select: { id: true, reviews_section: true },
+        });
+        if (!restaurant) {
+            return sendApiError(res, 404, 'Restaurant not found');
+        }
+
+        const payload = await loadRestaurantReviews(restaurantId, search);
+        if (!payload) {
+            return sendApiError(res, 404, 'Restaurant not found');
+        }
+
+        let canWriteReview = false;
+        let pendingOrderId: string | null = null;
+
+        if (
+            restaurant.reviews_section &&
+            req.user?.id &&
+            !req.user.isGuest
+        ) {
+            const pending = await findPendingReviewOrderForRestaurant(
+                Number(req.user.id),
+                restaurantId
+            );
+            if (pending != null) {
+                canWriteReview = true;
+                pendingOrderId = String(pending);
+            }
+        }
+
+        const legacyArray = req.query.legacy === 'true' || req.query.legacy === '1';
+
+        if (legacyArray) {
+            return res.status(200).json(payload.reviews);
+        }
+
+        return res.status(200).json({
+            status: true,
+            avg_rating: payload.avg_rating,
+            rating_count: payload.rating_count,
+            reviews_section: restaurant.reviews_section,
+            can_write_review: canWriteReview,
+            pending_order_id: pendingOrderId,
+            reviews: payload.reviews,
+        });
+    } catch (error: any) {
+        return res.status(500).json({ status: false, msg: error.message });
+    }
+};
 
 /**
  * @Description Specific restaurant details
@@ -730,7 +783,8 @@ export const getRestaurantDetails = async (req: Request, res: Response): Promise
                 non_veg: true,
                 active: true,
                 latitude: true,
-                longitude: true
+                longitude: true,
+                reviews_section: true,
             }
         });
 
@@ -742,9 +796,10 @@ export const getRestaurantDetails = async (req: Request, res: Response): Promise
             void recordRestaurantVisit(Number(req.user.id), id);
         }
 
-        const [availability, categories] = await Promise.all([
+        const [availability, categories, reviewStats] = await Promise.all([
             computeAvailabilityForRestaurant(restaurant.id, restaurant.active),
             loadRestaurantMenuCategories(id),
+            aggregateRestaurantReviewStats(id),
         ]);
         const availabilityFields = restaurantAvailabilityResponseFields(availability);
 
@@ -753,13 +808,34 @@ export const getRestaurantDetails = async (req: Request, res: Response): Promise
             cover_photo: restaurant.cover_photo,
         });
 
+        const storedRating = restaurantAvgFromStoredRating(restaurant.rating);
+        const avgRating = reviewStats.rating_count > 0 ? reviewStats.avg_rating : storedRating.avg_rating;
+        const ratingCount =
+            reviewStats.rating_count > 0 ? reviewStats.rating_count : storedRating.rating_count;
+
+        let canWriteReview = false;
+        let pendingOrderId: string | null = null;
+        if (restaurant.reviews_section && req.user?.id && !req.user.isGuest) {
+            const pending = await findPendingReviewOrderForRestaurant(Number(req.user.id), id);
+            if (pending != null) {
+                canWriteReview = true;
+                pendingOrderId = String(pending);
+            }
+        }
+
         return res.status(200).json({
             status: true,
             data: {
                 ...restaurant,
                 id: restaurant.id.toString(),
                 minimum_order: restaurant.minimum_order ? Number(restaurant.minimum_order) : 0,
-                rating: restaurant.rating ? Number(restaurant.rating) : 0,
+                avg_rating: avgRating,
+                rating_count: ratingCount,
+                /** @deprecated Use avg_rating — kept for older clients that read `rating` as a number. */
+                rating: avgRating,
+                reviews_section: restaurant.reviews_section,
+                can_write_review: canWriteReview,
+                pending_order_id: pendingOrderId,
                 ...media,
                 ...availabilityFields,
                 categories,

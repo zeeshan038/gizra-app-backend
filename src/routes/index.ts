@@ -51,6 +51,7 @@ import adminTransactionsRoutes from './admin/transactions';
 import adminBusinessSetupRoutes from './admin/business-setup';
 import adminPushNotificationRoutes from './admin/push-notifications';
 import adminDispatchRoutes from './admin/dispatch';
+import adminHomeCategoryRoutes from './admin/home-categories';
 
 //vendor
 router.use('/vendor',vendorUserRoutes);
@@ -141,6 +142,7 @@ router.use('/admin/transactions', adminTransactionsRoutes);
 router.use('/admin/business-setup', adminBusinessSetupRoutes);
 router.use('/admin/push-notifications', adminPushNotificationRoutes);
 router.use('/admin/dispatch', adminDispatchRoutes);
+router.use('/admin/home-categories', adminHomeCategoryRoutes);
 
 
 router.use('/upload', uploadRouter);

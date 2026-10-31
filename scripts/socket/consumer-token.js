@@ -3,7 +3,9 @@
  * node scripts/socket/consumer-token.js <phone> <password>
  *
  * Manual login (login_type: manual). Prints JWT to stdout.
+ * Uses GIZRA_API_URL or http://127.0.0.1:$PORT from .env (same as other scripts).
  */
+require('dotenv').config();
 const { apiBase } = require('./config');
 
 async function main() {
@@ -14,7 +16,8 @@ async function main() {
     process.exit(1);
   }
 
-  const res = await fetch(`${apiBase()}/api/consumer/login`, {
+  const base = apiBase();
+  const res = await fetch(`${base}/api/consumer/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -33,6 +36,13 @@ async function main() {
 }
 
 main().catch((e) => {
-  console.error(e.message || e);
+  const msg = e.message || String(e);
+  if (msg.includes('fetch failed') || msg.includes('ECONNREFUSED')) {
+    console.error(
+      `${msg}\nCannot reach API at ${apiBase()} — start npm run dev or set GIZRA_API_URL (e.g. http://127.0.0.1:3010).`
+    );
+  } else {
+    console.error(msg);
+  }
   process.exit(1);
 });
