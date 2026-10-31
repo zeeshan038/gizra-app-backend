@@ -78,6 +78,11 @@ export function groupOptionsLookAbsolute(
 
   const minMatchesBase = base <= 0 || Math.abs(minP - base) <= MONEY_EPS;
 
+  /** Full tier prices (e.g. base 100 on food row, options 500 / 755.5) — not small deltas. */
+  if (base > 0 && minP > base + MONEY_EPS) {
+    return true;
+  }
+
   if (options.length === 1) {
     return minMatchesBase && minP > 0;
   }
@@ -112,7 +117,7 @@ export function normalizeItemVariationsToAdditive(
 
     const prices = options.map(optionAmount);
     const minP = Math.min(...prices);
-    if (base <= 0) {
+    if (base <= 0 || minP > base + MONEY_EPS) {
       base = roundCatalogMoney(minP);
     }
 

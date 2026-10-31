@@ -1,6 +1,7 @@
 /**
  * Same checks as test-order-line-pricing.ts — runs on server after `npm run build`.
  */
+const { resolveCheckoutServerUnitBase } = require('../dist/utils/consumer/checkoutFoodUnitPrice');
 const {
   applyBundledAddonLinePriceRule,
   resolveCartLineUnitFoodPrice,
@@ -80,6 +81,30 @@ assert(
   'checkout 100+20-6 → tax 5.70',
   checkoutTest.subtotal === 114 && checkoutTest.tax === 5.7,
   `sub ${checkoutTest.subtotal} tax ${checkoutTest.tax}`
+);
+
+const absoluteVariationsJson = JSON.stringify([
+  {
+    name: 'Size',
+    type: 'single',
+    values: [
+      { label: 'Regular', optionPrice: 500 },
+      { label: 'Large', optionPrice: 755.5 },
+    ],
+  },
+]);
+const unit755 = resolveCheckoutServerUnitBase({
+  catalogBasePrice: 100,
+  productVariationsJson: absoluteVariationsJson,
+  selectedVariations: [{ name: 'Size', value: 'Large' }],
+});
+assert('absolute variation row → 755.5', unit755 === 755.5, `got ${unit755}`);
+const multiProductSubtotal = roundOrderMoney(unit755 * 2);
+const multiTax = roundOrderMoney((multiProductSubtotal * TAX_PERCENT) / 100);
+assert(
+  '2×755.5 → tax 75.55',
+  multiProductSubtotal === 1511 && multiTax === 75.55,
+  `sub ${multiProductSubtotal} tax ${multiTax}`
 );
 
 const foodOnlyPrice = quoteLine({

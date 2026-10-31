@@ -17,8 +17,12 @@ import {
   CheckoutPaymentError,
   findPaidUnusedCheckoutPayment,
 } from '../../utils/payment/checkoutPayment';
-import { computeVariationExtra } from '../../utils/consumer/variationPricing';
 import { computeAvailabilityForRestaurant } from '../../utils/consumer/restaurantAvailability';
+import {
+  clampResolvedUnitToClientLine,
+  coerceCartLinePriceToUnit,
+  resolveCheckoutServerUnitBase,
+} from '../../utils/consumer/checkoutFoodUnitPrice';
 import {
   applyBundledAddonLinePriceRule,
   resolveCartLineUnitFoodPrice,
@@ -457,6 +461,25 @@ function normalizeCartRow(row: {
   };
 }
 
+function mergeInlineCartSources(
+  inlineCart?: CartLineInput[],
+  inlineItems?: CartLineInput[]
+): CartLineInput[] | undefined {
+  const primary = inlineCart?.length ? inlineCart : inlineItems?.length ? inlineItems : undefined;
+  if (!primary?.length) return undefined;
+  if (!inlineCart?.length || !inlineItems?.length) return primary;
+  if (inlineCart.length !== inlineItems.length) return primary;
+  for (let i = 0; i < inlineCart.length; i++) {
+    if (
+      Number(inlineCart[i].item_id) !== Number(inlineItems[i].item_id) ||
+      Number(inlineCart[i].quantity) !== Number(inlineItems[i].quantity)
+    ) {
+      return primary;
+    }
+  }
+  return inlineCart;
+}
+
 async function resolveCartLines(params: {
   userId: number;
   isGuest: boolean;
@@ -469,8 +492,7 @@ async function resolveCartLines(params: {
 }): Promise<ResolvedCartLine[]> {
   const { userId, isGuest, isBuyNow, cartId, inlineCart, inlineItems, preferInlineLines } = params;
 
-  const inlineLines =
-    inlineCart?.length ? inlineCart : inlineItems?.length ? inlineItems : undefined;
+  const inlineLines = mergeInlineCartSources(inlineCart, inlineItems);
 
   if (preferInlineLines && inlineLines?.length) {
     return inlineLines.map((line) => ({
@@ -481,9 +503,11 @@ async function resolveCartLines(params: {
   }
 
   if (isBuyNow) {
-    const cartLines = inlineCart ?? inlineItems ?? [];
+    const cartLines = inlineLines ?? [];
     const altLines =
-      inlineCart?.length && inlineItems?.length ? inlineItems : undefined;
+      inlineCart?.length && inlineItems?.length && inlineCart !== inlineItems
+        ? inlineItems
+        : undefined;
     if (!cartLines.length) {
       throw new Error('EMPTY_ORDER');
     }
@@ -746,22 +770,35 @@ export async function executePlaceOrder(params: {
       throw new PlaceOrderError('Maximum cart quantity exceeded', 406, 'quantity');
     }
 
-    const variationExtra = computeVariationExtra(food.variations, line.variations ?? []);
-    const serverUnitBase = roundMoney(Number(food.price) + variationExtra);
+    const serverUnitBase = resolveCheckoutServerUnitBase({
+      catalogBasePrice: Number(food.price),
+      productVariationsJson: food.variations,
+      selectedVariations: line.variations ?? [],
+    });
     const addonData = await calculateAddonPrice(line.add_on_ids ?? [], line.add_on_qtys ?? []);
     const addonPerUnit = addonData.total_add_on_price;
-    let unitBase = resolveCartLineUnitFoodPrice({
+    const clientLineUnit = coerceCartLinePriceToUnit({
       linePrice: line.price,
+      quantity: line.quantity,
+      serverUnitBase,
+    });
+    let unitBase = resolveCartLineUnitFoodPrice({
+      linePrice: clientLineUnit ?? line.price,
       serverUnitBase,
       addonPerUnit,
       catalogFoodPrice: Number(food.price),
     });
     unitBase = applyBundledAddonLinePriceRule({
       unitFood: unitBase,
-      linePrice: line.price,
+      linePrice: clientLineUnit ?? line.price,
       addonPerUnit,
       hasAddonIds: (line.add_on_ids?.length ?? 0) > 0,
       catalogFoodPrice: Number(food.price),
+    });
+    unitBase = clampResolvedUnitToClientLine({
+      unitFood: unitBase,
+      clientLineUnit: clientLineUnit ?? line.price,
+      addonPerUnit,
     });
     const discountOnFood = productDiscountAmount(food, unitBase);
     const lineTax = lineTaxAmount({
