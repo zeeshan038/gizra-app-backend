@@ -1,3 +1,8 @@
+import {
+  decorateMobileOption,
+  resolveMobileGroupLimits,
+} from './variationModifierGroups';
+
 /**
  * Checkout uses `food.price + computeVariationExtra(...)` on raw DB variations.
  */
@@ -91,6 +96,8 @@ export function variationsForMobileClient(_basePrice: number, raw: unknown): unk
     if (!key) return group;
 
     const rawOpts = g[key] as unknown[];
+    const optionCount = Array.isArray(rawOpts) ? rawOpts.length : 0;
+    const limits = resolveMobileGroupLimits({ group: g, optionCount });
 
     const options = rawOpts.map((opt) => {
       if (!opt || typeof opt !== 'object') return opt;
@@ -98,21 +105,21 @@ export function variationsForMobileClient(_basePrice: number, raw: unknown): unk
       const delta = roundMoney(optionDelta(o));
       const label = o.label ?? o.name ?? o.level;
 
-      return {
+      const labeled = {
         ...o,
         ...(label != null ? { label, level: o.level ?? label, name: o.name ?? label } : {}),
-        optionPrice: delta,
-        price: delta,
       };
+      return decorateMobileOption(labeled, delta, limits.priceDisplay);
     });
 
     const out: Record<string, unknown> = { ...g, values: options };
     delete out.options;
     out.required = normalizeRequiredForMobile(g.required);
-    if (out.min == null || out.min === '') out.min = '0';
-    if (out.max == null || out.max === '') {
-      out.max = isMultiGroup(g) ? '999' : '1';
-    }
+    out.min = limits.min;
+    out.max = limits.max;
+    out.selectionMode = limits.selectionMode;
+    out.defaultSelectAll = limits.defaultSelectAll;
+    out.priceDisplay = limits.priceDisplay;
     return out;
   });
 }
