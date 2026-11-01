@@ -8129,11 +8129,11 @@
       },
       "FoodVariationGroup": {
         "type": "object",
+        "description": "Vendor write / raw DB may use `options` or `values`.",
         "required": [
           "name",
           "type",
-          "required",
-          "options"
+          "required"
         ],
         "properties": {
           "name": {
@@ -8156,6 +8156,84 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/FoodVariationOption"
+            }
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodVariationOption"
+            }
+          }
+        }
+      },
+      "ConsumerFoodVariationOption": {
+        "type": "object",
+        "description": "StackFood / Flutter product model (`label`, `optionPrice`).",
+        "properties": {
+          "label": {
+            "type": "string",
+            "example": "פיתה"
+          },
+          "name": {
+            "type": "string",
+            "example": "פיתה"
+          },
+          "level": {
+            "type": "string",
+            "example": "פיתה"
+          },
+          "optionPrice": {
+            "type": "number",
+            "example": 0
+          },
+          "price": {
+            "type": "number",
+            "example": 0
+          }
+        }
+      },
+      "ConsumerFoodVariationGroup": {
+        "type": "object",
+        "description": "Consumer menu APIs always expose `values` (never rely on `options` alone).",
+        "required": [
+          "name",
+          "type",
+          "required",
+          "values"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "במה תרצו לאכול?"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "single",
+              "multi"
+            ],
+            "example": "single"
+          },
+          "required": {
+            "type": "string",
+            "enum": [
+              "on",
+              "off"
+            ],
+            "example": "on"
+          },
+          "min": {
+            "type": "string",
+            "example": "0"
+          },
+          "max": {
+            "type": "string",
+            "example": "1"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerFoodVariationOption"
             }
           }
         }
@@ -8452,7 +8530,7 @@
           "variations": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/FoodVariationGroup"
+              "$ref": "#/components/schemas/ConsumerFoodVariationGroup"
             }
           },
           "add_ons": {
@@ -10501,16 +10579,15 @@
           }
         ],
         "responses": {
-          "201": {
-            "description": "Created",
+          "200": {
+            "description": "OK",
             "content": {
               "application/json": {
                 "example": {
                   "status": true,
                   "msg": "Category created successfully",
-                  "data": {
-                    "id": "1"
-                  }
+                  "data": "…",
+                  "unknown": "…"
                 },
                 "schema": {
                   "type": "object",
@@ -10524,24 +10601,59 @@
                       "example": "Category created successfully"
                     },
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "example": "1"
-                        }
-                      },
-                      "example": {
-                        "id": "1"
-                      }
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "unknown": {
+                      "type": "string",
+                      "example": "…"
                     }
                   },
                   "example": {
                     "status": true,
                     "msg": "Category created successfully",
+                    "data": "…",
+                    "unknown": "…"
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Category created successfully",
+                  "data": "…",
+                  "unknown": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Category created successfully"
+                    },
                     "data": {
-                      "id": "1"
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "unknown": {
+                      "type": "string",
+                      "example": "…"
                     }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Category created successfully",
+                    "data": "…",
+                    "unknown": "…"
                   }
                 }
               }
@@ -10675,6 +10787,7 @@
                 "example": {
                   "status": true,
                   "data": "…",
+                  "unknown": "…",
                   "pagination": {
                     "total": 42,
                     "page": 1,
@@ -10690,6 +10803,10 @@
                       "example": true
                     },
                     "data": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "unknown": {
                       "type": "string",
                       "example": "…"
                     },
@@ -10724,6 +10841,7 @@
                   "example": {
                     "status": true,
                     "data": "…",
+                    "unknown": "…",
                     "pagination": {
                       "total": 42,
                       "page": 1,
@@ -10801,6 +10919,160 @@
                 "example": {
                   "status": false,
                   "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      }
+    },
+    "/vendor/catalog/category/{id}": {
+      "patch": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Category updated successfully",
+                  "data": "…",
+                  "unknown": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Category updated successfully"
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "unknown": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Category updated successfully",
+                    "data": "…",
+                    "unknown": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "example": "any"
+                  },
+                  "image": {
+                    "example": "any"
+                  }
                 }
               }
             }
@@ -11693,6 +11965,252 @@
         ]
       }
     },
+    "/vendor/catalog/food/publish-quota": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "data": {
+                    "draft_count": 5
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "draft_count": {
+                          "type": "number",
+                          "example": 5
+                        }
+                      },
+                      "example": {
+                        "draft_count": 5
+                      }
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "data": {
+                      "draft_count": 5
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      }
+    },
+    "/vendor/catalog/food/publish-all-drafts": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": 0
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "number",
+                      "example": 0
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": 0
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      }
+    },
     "/vendor/catalog/food/bulk-publish": {
       "post": {
         "description": "",
@@ -11712,7 +12230,13 @@
               "application/json": {
                 "example": {
                   "status": true,
-                  "msg": "Foods published successfully"
+                  "msg": "Success",
+                  "data": {
+                    "published_count": 5,
+                    "published_ids": "…",
+                    "skipped_count": 5,
+                    "quota": "…"
+                  }
                 },
                 "schema": {
                   "type": "object",
@@ -11723,12 +12247,45 @@
                     },
                     "msg": {
                       "type": "string",
-                      "example": "Foods published successfully"
+                      "example": "Success"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "published_count": {
+                          "type": "number",
+                          "example": 5
+                        },
+                        "published_ids": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "skipped_count": {
+                          "type": "number",
+                          "example": 5
+                        },
+                        "quota": {
+                          "type": "string",
+                          "example": "…"
+                        }
+                      },
+                      "example": {
+                        "published_count": 5,
+                        "published_ids": "…",
+                        "skipped_count": 5,
+                        "quota": "…"
+                      }
                     }
                   },
                   "example": {
                     "status": true,
-                    "msg": "Foods published successfully"
+                    "msg": "Success",
+                    "data": {
+                      "published_count": 5,
+                      "published_ids": "…",
+                      "skipped_count": 5,
+                      "quota": "…"
+                    }
                   }
                 }
               }
@@ -11845,10 +12402,6 @@
             "description": "OK",
             "content": {
               "application/json": {
-                "example": {
-                  "status": true,
-                  "msg": "Foods deleted successfully"
-                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -11865,12 +12418,16 @@
                     "status": true,
                     "msg": "Foods deleted successfully"
                   }
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Foods deleted successfully"
                 }
               }
             }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Bad Request - Invalid input or missing parameters",
             "content": {
               "application/json": {
                 "schema": {
@@ -11912,7 +12469,7 @@
             }
           },
           "404": {
-            "description": "Not Found",
+            "description": "Not Found - The requested resource could not be found",
             "content": {
               "application/json": {
                 "schema": {
@@ -11926,7 +12483,7 @@
             }
           },
           "500": {
-            "description": "Internal Server Error",
+            "description": "Internal Server Error - Something went wrong on the server",
             "content": {
               "application/json": {
                 "schema": {
@@ -11940,6 +12497,9 @@
             }
           }
         },
+        "tags": [
+          "Vendor Catalog"
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -11957,10 +12517,7 @@
               }
             }
           }
-        },
-        "tags": [
-          "Vendor Catalog"
-        ]
+        }
       }
     },
     "/vendor/catalog/ai/parse-pdf": {
@@ -12450,12 +13007,12 @@
                         },
                         "source": {
                           "type": "string",
-                          "example": "pollinations-direct"
+                          "example": "…"
                         }
                       },
                       "example": {
                         "image": "https://cdn.example.com/image.png",
-                        "source": "pollinations-direct"
+                        "source": "…"
                       }
                     }
                   },
@@ -12463,7 +13020,7 @@
                     "status": true,
                     "data": {
                       "image": "https://cdn.example.com/image.png",
-                      "source": "pollinations-direct"
+                      "source": "…"
                     }
                   }
                 },
@@ -12471,7 +13028,7 @@
                   "status": true,
                   "data": {
                     "image": "https://cdn.example.com/image.png",
-                    "source": "pollinations-direct"
+                    "source": "…"
                   }
                 }
               }
@@ -15208,7 +15765,7 @@
             }
           },
           "404": {
-            "description": "Not Found",
+            "description": "Not Found - The requested resource could not be found",
             "content": {
               "application/json": {
                 "schema": {

@@ -30,6 +30,14 @@ function isMultiGroup(g: Record<string, unknown>): boolean {
   return String(g.type ?? 'single').toLowerCase() === 'multi';
 }
 
+/** StackFood customer app reads `values` on each group (not `options`). */
+function normalizeRequiredForMobile(raw: unknown): string {
+  if (raw === true || raw === 1 || raw === 'on' || raw === '1') return 'on';
+  if (raw === false || raw === 0 || raw === 'off' || raw === '0') return 'off';
+  if (typeof raw === 'string' && raw.trim()) return raw;
+  return 'off';
+}
+
 function deltaStats(rawOpts: unknown[]): { minD: number; maxD: number; deltas: number[] } {
   const deltas = rawOpts
     .filter((o): o is Record<string, unknown> => !!o && typeof o === 'object')
@@ -98,6 +106,13 @@ export function variationsForMobileClient(_basePrice: number, raw: unknown): unk
       };
     });
 
-    return { ...g, [key]: options };
+    const out: Record<string, unknown> = { ...g, values: options };
+    delete out.options;
+    out.required = normalizeRequiredForMobile(g.required);
+    if (out.min == null || out.min === '') out.min = '0';
+    if (out.max == null || out.max === '') {
+      out.max = isMultiGroup(g) ? '999' : '1';
+    }
+    return out;
   });
 }

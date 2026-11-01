@@ -11,7 +11,8 @@
       },
       "FoodVariationGroup": {
         "type": "object",
-        "required": ["name", "type", "required", "options"],
+        "description": "Vendor write / raw DB may use `options` or `values`.",
+        "required": ["name", "type", "required"],
         "properties": {
           "name": { "type": "string", "example": "Size" },
           "type": {
@@ -23,6 +24,45 @@
           "options": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/FoodVariationOption" }
+          },
+          "values": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/FoodVariationOption" }
+          }
+        }
+      },
+      "ConsumerFoodVariationOption": {
+        "type": "object",
+        "description": "StackFood / Flutter product model (`label`, `optionPrice`).",
+        "properties": {
+          "label": { "type": "string", "example": "פיתה" },
+          "name": { "type": "string", "example": "פיתה" },
+          "level": { "type": "string", "example": "פיתה" },
+          "optionPrice": { "type": "number", "example": 0 },
+          "price": { "type": "number", "example": 0 }
+        }
+      },
+      "ConsumerFoodVariationGroup": {
+        "type": "object",
+        "description": "Consumer menu APIs always expose `values` (never rely on `options` alone).",
+        "required": ["name", "type", "required", "values"],
+        "properties": {
+          "name": { "type": "string", "example": "במה תרצו לאכול?" },
+          "type": {
+            "type": "string",
+            "enum": ["single", "multi"],
+            "example": "single"
+          },
+          "required": {
+            "type": "string",
+            "enum": ["on", "off"],
+            "example": "on"
+          },
+          "min": { "type": "string", "example": "0" },
+          "max": { "type": "string", "example": "1" },
+          "values": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ConsumerFoodVariationOption" }
           }
         }
       },
@@ -164,7 +204,7 @@
           "status": { "type": "boolean" },
           "variations": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/FoodVariationGroup" }
+            "items": { "$ref": "#/components/schemas/ConsumerFoodVariationGroup" }
           },
           "add_ons": {
             "type": "array",
@@ -337,7 +377,7 @@
     "/consumer/restaurants/{id}/foods": {
       "get": {
         "summary": "Restaurant menu foods",
-        "description": "Paginated foods for a restaurant. Each item includes **variations** and expanded **add_ons** (`id`, `name`, `price`) for cart `add_on_ids`.",
+        "description": "Paginated foods for a restaurant. Each item includes **variations** (groups with **`values`**, StackFood-compatible) and expanded **add_ons** (`id`, `name`, `price`) for cart `add_on_ids`.",
         "responses": {
           "200": {
             "description": "OK",
@@ -376,10 +416,24 @@
                           {
                             "name": "Size",
                             "type": "single",
-                            "required": true,
-                            "options": [
-                              { "name": "Personal", "price": 149 },
-                              { "name": "Regular", "price": 249 }
+                            "required": "on",
+                            "min": "0",
+                            "max": "1",
+                            "values": [
+                              {
+                                "label": "Personal",
+                                "name": "Personal",
+                                "level": "Personal",
+                                "optionPrice": 0,
+                                "price": 0
+                              },
+                              {
+                                "label": "Regular",
+                                "name": "Regular",
+                                "level": "Regular",
+                                "optionPrice": 10,
+                                "price": 10
+                              }
                             ]
                           }
                         ],
