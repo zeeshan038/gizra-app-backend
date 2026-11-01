@@ -66,7 +66,15 @@ export async function buildZoneFoodWhere(params: {
 
   const search = params.name?.trim();
   if (search) {
-    where.name = { contains: search, mode: 'insensitive' };
+    const { tokenizeSearchQuery } = await import('./restaurantSearchHelpers');
+    const tokens = tokenizeSearchQuery(search);
+    if (tokens.length <= 1) {
+      where.name = { contains: search, mode: 'insensitive' };
+    } else {
+      where.OR = tokens.map((token) => ({
+        name: { contains: token, mode: 'insensitive' as const },
+      }));
+    }
   }
 
   if (params.type === 'veg') where.veg = true;

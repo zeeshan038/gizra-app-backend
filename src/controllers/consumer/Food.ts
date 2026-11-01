@@ -10,6 +10,8 @@ import {
 } from '../../utils/consumer/productListHelpers';
 import { parseOptionalCategoryId } from '../../utils/consumer/restaurantMenuHelpers';
 import { searchFoods } from './Restaurant';
+import { parseConsumerSearchQuery } from '../../utils/consumer/restaurantSearchHelpers';
+import { isPhpFilteredProductSearch } from '../../utils/consumer/searchRouteHelpers';
 
 export { searchFoods };
 
@@ -266,9 +268,12 @@ export const getFoodDetails = async (req: Request, res: Response): Promise<any> 
  * @Access Public
  */
 export const searchFoodsWithFilters = async (req: Request, res: Response): Promise<any> => {
-  const name = String(req.query.name ?? '').trim();
-  if (!name) {
+  if (!isPhpFilteredProductSearch(req)) {
     return searchFoods(req, res);
+  }
+  const name = parseConsumerSearchQuery(req);
+  if (!name) {
+    return sendApiError(res, 400, 'Search name is required');
   }
   const hasZone = Boolean(req.query.zone_id || req.headers.zoneid);
   const zoneIds = hasZone ? requireZoneIds(req, res) : null;

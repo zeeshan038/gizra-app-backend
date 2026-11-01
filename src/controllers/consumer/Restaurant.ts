@@ -656,16 +656,21 @@ export const searchFoods = async (req: Request, res: Response): Promise<any> => 
             return formatDiscoverRestaurant(r, { availability: availability ?? undefined, distanceKm: distKm });
         });
 
+        const payload = {
+            total_size: foodTotal,
+            restaurants_total_size: restaurantTotal,
+            limit,
+            offset: page,
+            foods: formattedFoods,
+            restaurants: formattedRestaurants,
+            /** Legacy PHP `/products/search` and Flutter list key */
+            products: formattedFoods,
+        };
+
         return res.status(200).json({
             status: true,
-            data: {
-                total_size: foodTotal,
-                restaurants_total_size: restaurantTotal,
-                limit,
-                offset: page,
-                foods: formattedFoods,
-                restaurants: formattedRestaurants,
-            },
+            ...payload,
+            data: payload,
         });
     } catch (error: any) {
         return res.status(500).json({ status: false, msg: error.message });
