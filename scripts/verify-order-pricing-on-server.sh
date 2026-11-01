@@ -6,9 +6,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-echo "==> Pricing test inside Docker (authoritative)"
+echo "==> Pricing tests inside Docker (authoritative)"
 if docker ps --format '{{.Names}}' | grep -qx gizra-backend; then
   docker exec gizra-backend node scripts/test-order-line-pricing.js
+  docker exec gizra-backend node scripts/test-variation-catalog-normalize.js
 else
   echo "FAIL: container gizra-backend is not running"
   exit 1

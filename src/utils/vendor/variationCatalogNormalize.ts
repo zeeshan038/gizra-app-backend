@@ -89,9 +89,14 @@ export function groupOptionsLookAbsolute(
 
   if (!minMatchesBase) return false;
 
+  /** Spread across options (45/55/65) — full menu tiers, not flat +N add-ons. */
   if (maxP - minP >= 0.01) return true;
 
-  return maxP - minP < 0.01 && minP > 0 && base > 0 && Math.abs(minP - base) <= MONEY_EPS;
+  /**
+   * All options the same price as base (e.g. base 8 and six drinks each +8 entered as "8")
+   * are additive up-charges, not absolute tiers — do NOT subtract min and zero every option.
+   */
+  return false;
 }
 
 export function normalizeItemVariationsToAdditive(
