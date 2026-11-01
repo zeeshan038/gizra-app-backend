@@ -5503,7 +5503,7 @@
     "/consumer/foods/search": {
       "get": {
         "summary": "Search foods and restaurants",
-        "description": "App search bar: returns **foods** whose name matches and **restaurants** that sell those items (or whose name matches). Case-insensitive. Public — no auth. **name** is required. Optional **zone_id** (same as discover), **page** / **limit** (default 1 / 20, shared pagination), **latitude** / **longitude** for distance on restaurant cards.",
+        "description": "App search bar: returns **foods** whose name matches and **restaurants** that sell those items (or whose name matches). Case-insensitive. Public — no auth. **name** is required (`search` / `q` accepted as aliases). Matches any search word against restaurant name, translations, cuisine, tags, or menu items (PHP parity). Optional **zone_id** (same as discover), **page** / **limit** for foods (default 1 / 20), **restaurant_page** / **restaurant_limit** for restaurants (default same page, max 50), **latitude** / **longitude** for distance on restaurant cards.",
         "parameters": [
           {
             "name": "name",
@@ -5513,6 +5513,14 @@
               "type": "string"
             },
             "description": "Search term (food or restaurant name)"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Alias for name (legacy clients)"
           },
           {
             "name": "zone_id",

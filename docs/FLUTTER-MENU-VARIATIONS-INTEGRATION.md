@@ -296,3 +296,4 @@ First-time **Tour** / **Guide** on Listing Manager and Add Item drawer are **web
 - Pull latest `gizra_customer.openapi.json` after backend deploy and update Dart models accordingly.
 
 **Questions:** Backend team — reference PR/files for Burger Box modifier groups and swagger.catalog.overlay.json schema updates.
+

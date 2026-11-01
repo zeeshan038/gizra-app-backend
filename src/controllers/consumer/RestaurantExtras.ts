@@ -19,6 +19,11 @@ import {
   loadCouponsForRestaurantFilter,
 } from '../../utils/consumer/couponHelpers';
 import { parseZoneIdsFromRequest } from '../../utils/consumer/favouriteHelpers';
+import {
+  findRestaurantIdsForConsumerSearch,
+  parseConsumerSearchQuery,
+  tokenizeSearchQuery,
+} from '../../utils/consumer/restaurantSearchHelpers';
 
 async function attachTopFoods(
   restaurants: Array<{ id: bigint }>,
@@ -48,8 +53,9 @@ async function attachTopFoods(
 export const searchRestaurants = async (req: Request, res: Response): Promise<any> => {
   const zoneIds = requireZoneIds(req, res);
   if (!zoneIds) return;
-  const name = String(req.query.name ?? '').trim();
-  if (!name) return sendApiError(res, 403, 'name is required');
+  const name = parseConsumerSearchQuery(req);
+  const tokens = tokenizeSearchQuery(name);
+  if (!name || !tokens.length) return sendApiError(res, 403, 'name is required');
 
   const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 50);
   const offset = Math.max(Number(req.query.offset ?? req.query.page) || 1, 1);
@@ -66,16 +72,29 @@ export const searchRestaurants = async (req: Request, res: Response): Promise<an
   const where: Record<string, unknown> = {
     status: true,
     zone_id: { in: zoneIds },
-    name: { contains: name, mode: 'insensitive' },
   };
   applyDiscoverTypeFilter(where, type);
   if (req.query.veg === '1' || req.query.veg === 'true') where.veg = true;
   if (req.query.non_veg === '1' || req.query.non_veg === 'true') where.non_veg = true;
 
   try {
+    let searchIds = (await findRestaurantIdsForConsumerSearch(tokens, zoneIds, name)).map((id) =>
+      BigInt(id)
+    );
+    if (!searchIds.length) {
+      return res.status(200).json({
+        status: true,
+        total_size: 0,
+        limit,
+        offset,
+        restaurants: [],
+      });
+    }
+
     if (discounted) {
-      const discountedIds = await loadActiveDiscountRestaurantIds();
-      where.id = { in: discountedIds };
+      const discountedIds = await loadActiveDiscountRestaurantIds(searchIds);
+      const discountedSet = new Set(discountedIds.map((id) => id.toString()));
+      searchIds = searchIds.filter((id) => discountedSet.has(id.toString()));
     }
 
     if (dineIn) {
@@ -83,15 +102,21 @@ export const searchRestaurants = async (req: Request, res: Response): Promise<an
         where: { dine_in: true },
         select: { restaurant_id: true },
       });
-      const dineInIds = dineInConfigs.map((c) => Number(c.restaurant_id));
-      const existingIn = (where.id as any)?.in as bigint[] | undefined;
-      const dineInBigInts = dineInIds.map((id) => BigInt(id));
-      if (existingIn) {
-        where.id = { in: existingIn.filter((id) => dineInBigInts.includes(id)) };
-      } else {
-        where.id = { in: dineInBigInts };
-      }
+      const dineInSet = new Set(dineInConfigs.map((c) => Number(c.restaurant_id).toString()));
+      searchIds = searchIds.filter((id) => dineInSet.has(id.toString()));
     }
+
+    if (!searchIds.length) {
+      return res.status(200).json({
+        status: true,
+        total_size: 0,
+        limit,
+        offset,
+        restaurants: [],
+      });
+    }
+
+    where.id = { in: searchIds };
 
     const [total_size, rows] = await Promise.all([
       prisma.restaurants.count({ where }),

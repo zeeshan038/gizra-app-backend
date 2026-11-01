@@ -39,6 +39,14 @@ import {
     restaurantAvgFromStoredRating,
 } from '../../utils/consumer/reviewHelpers';
 import { sendApiError } from '../../utils/apiErrorResponse';
+import {
+    buildConsumerFoodSearchWhere,
+    consumerSearchRestaurantLimit,
+    consumerSearchRestaurantSkip,
+    findRestaurantIdsForConsumerSearch,
+    parseConsumerSearchQuery,
+    tokenizeSearchQuery,
+} from '../../utils/consumer/restaurantSearchHelpers';
 
 /*
  * @Description Get active restaurants in the customer zone(s) (query zone_id, e.g. ?zone_id=2)
@@ -578,36 +586,37 @@ export const getRestaurantFoods = async (req: Request, res: Response): Promise<a
  */
 export const searchFoods = async (req: Request, res: Response): Promise<any> => {
     try {
-        const name = (req.query.name as string)?.trim();
+        const name = parseConsumerSearchQuery(req);
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 20;
         const skip = (page - 1) * limit;
+        const restaurantPage =
+            parseInt(req.query.restaurant_page as string) || page;
+        const restaurantLimit = consumerSearchRestaurantLimit(
+            parseInt(req.query.restaurant_limit as string) || limit
+        );
+        const restaurantSkip = consumerSearchRestaurantSkip(restaurantPage, restaurantLimit);
         const zoneIds = parseZoneIdsFromRequest(req);
         const coords = parseCoordinatesFromRequest(req);
+        const tokens = tokenizeSearchQuery(name);
 
-        if (!name) {
+        if (!name || !tokens.length) {
             return res.status(400).json({ status: false, msg: 'Search name is required' });
         }
 
-        const foodWhere: {
-            status: boolean;
-            name: { contains: string; mode: 'insensitive' };
-            restaurant_id?: { in: number[] };
-        } = {
+        const foodWhere = await buildConsumerFoodSearchWhere(tokens, zoneIds);
+
+        const matchingRestaurantIds = await findRestaurantIdsForConsumerSearch(
+            tokens,
+            zoneIds,
+            name
+        );
+        const restaurantWhere: Record<string, unknown> = {
             status: true,
-            name: { contains: name, mode: 'insensitive' },
+            id: { in: matchingRestaurantIds.map((id) => BigInt(id)) },
         };
 
-        if (zoneIds?.length) {
-            const inZone = await prisma.restaurants.findMany({
-                where: { status: true, zone_id: { in: zoneIds } },
-                select: { id: true },
-            });
-            const restaurantIdsInZone = inZone.map((r) => Number(r.id));
-            foodWhere.restaurant_id = { in: restaurantIdsInZone };
-        }
-
-        const [foodTotal, foods, foodRestaurantRows] = await Promise.all([
+        const [foodTotal, foods, restaurantTotal, restaurantRows] = await Promise.all([
             prisma.food.count({ where: foodWhere }),
             prisma.food.findMany({
                 where: foodWhere,
@@ -615,44 +624,18 @@ export const searchFoods = async (req: Request, res: Response): Promise<any> => 
                 take: limit,
                 orderBy: { id: 'desc' },
             }),
-            prisma.food.findMany({
-                where: foodWhere,
-                select: { restaurant_id: true },
-                distinct: ['restaurant_id'],
-            }),
-        ]);
-
-        const restaurantIdsFromFood = [
-            ...new Set(
-                foodRestaurantRows
-                    .map((row) => (row.restaurant_id != null ? Number(row.restaurant_id) : null))
-                    .filter((id): id is number => id != null && Number.isFinite(id))
-            ),
-        ].map((id) => BigInt(id));
-
-        const restaurantOr: Record<string, unknown>[] = [];
-        if (restaurantIdsFromFood.length) {
-            restaurantOr.push({ id: { in: restaurantIdsFromFood } });
-        }
-        restaurantOr.push({ name: { contains: name, mode: 'insensitive' } });
-
-        const restaurantWhere: Record<string, unknown> = {
-            status: true,
-            OR: restaurantOr,
-        };
-        if (zoneIds?.length) {
-            restaurantWhere.zone_id = { in: zoneIds };
-        }
-
-        const [restaurantTotal, restaurantRows] = await Promise.all([
-            prisma.restaurants.count({ where: restaurantWhere }),
-            prisma.restaurants.findMany({
-                where: restaurantWhere,
-                select: DISCOVER_RESTAURANT_SELECT,
-                skip,
-                take: limit,
-                orderBy: [{ order_count: 'desc' }, { id: 'desc' }],
-            }),
+            matchingRestaurantIds.length
+                ? Promise.resolve(matchingRestaurantIds.length)
+                : Promise.resolve(0),
+            matchingRestaurantIds.length
+                ? prisma.restaurants.findMany({
+                      where: restaurantWhere,
+                      select: DISCOVER_RESTAURANT_SELECT,
+                      skip: restaurantSkip,
+                      take: restaurantLimit,
+                      orderBy: [{ order_count: 'desc' }, { id: 'desc' }],
+                  })
+                : Promise.resolve([]),
         ]);
 
         const availabilityMap = await availabilityMapForRestaurants(restaurantRows);
