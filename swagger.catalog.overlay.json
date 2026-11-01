@@ -462,6 +462,54 @@
                           }
                         ],
                         "add_ons": [{ "id": 42, "name": "Extra cheese", "price": 15, "status": true }]
+                      },
+                      {
+                        "id": "9001",
+                        "name": "TEST Burger Box",
+                        "price": 59,
+                        "variations": [
+                          {
+                            "name": "Ingredients to Remove",
+                            "type": "multi",
+                            "required": "off",
+                            "min": "0",
+                            "max": "999",
+                            "selectionMode": "opt_out",
+                            "defaultSelectAll": true,
+                            "priceDisplay": "included",
+                            "values": [
+                              {
+                                "label": "Asado",
+                                "optionPrice": 0,
+                                "price": 0,
+                                "priceTag": "included",
+                                "showPrice": false
+                              },
+                              {
+                                "label": "Onion",
+                                "optionPrice": 0,
+                                "price": 0,
+                                "priceTag": "included",
+                                "showPrice": false
+                              }
+                            ]
+                          },
+                          {
+                            "name": "Paid Upgrades",
+                            "type": "multi",
+                            "required": "off",
+                            "min": "0",
+                            "max": "4",
+                            "selectionMode": "opt_in",
+                            "defaultSelectAll": false,
+                            "priceDisplay": "price",
+                            "values": [
+                              { "label": "Extra Cheese", "optionPrice": 5, "price": 5, "showPrice": true },
+                              { "label": "Egg", "optionPrice": 4, "price": 4, "showPrice": true }
+                            ]
+                          }
+                        ],
+                        "add_ons": []
                       }
                     ]
                   }

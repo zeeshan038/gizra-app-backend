@@ -1,3 +1,5 @@
+Superseded by: gizra-backend/docs/FLUTTER-MENU-VARIATIONS-INTEGRATION.md
+
 Customer app (StackFood Flutter) — required for Burger Box UX
 
 Menu API fields (per variation group):

@@ -8161,6 +8161,32 @@
             "type": "boolean",
             "example": true
           },
+          "min": {
+            "type": "string",
+            "example": "0"
+          },
+          "max": {
+            "type": "string",
+            "example": "4"
+          },
+          "selectionMode": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "opt_out",
+              "opt_in"
+            ]
+          },
+          "defaultSelectAll": {
+            "type": "boolean"
+          },
+          "priceDisplay": {
+            "type": "string",
+            "enum": [
+              "included",
+              "price"
+            ]
+          },
           "options": {
             "type": "array",
             "items": {
@@ -8177,7 +8203,7 @@
       },
       "ConsumerFoodVariationOption": {
         "type": "object",
-        "description": "StackFood / Flutter product model (`label`, `optionPrice`).",
+        "description": "StackFood / Flutter product model (`label`, `optionPrice`). For default included ingredients use optionPrice 0 with priceTag `included` and showPrice false.",
         "properties": {
           "label": {
             "type": "string",
@@ -8198,6 +8224,17 @@
           "price": {
             "type": "number",
             "example": 0
+          },
+          "priceTag": {
+            "type": "string",
+            "enum": [
+              "included"
+            ],
+            "example": "included"
+          },
+          "showPrice": {
+            "type": "boolean",
+            "example": false
           }
         }
       },
@@ -8238,6 +8275,27 @@
           "max": {
             "type": "string",
             "example": "1"
+          },
+          "selectionMode": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "opt_out",
+              "opt_in"
+            ],
+            "description": "opt_out = default ingredients (pre-selected, uncheck to remove). opt_in = paid upgrades with max cap."
+          },
+          "defaultSelectAll": {
+            "type": "boolean",
+            "description": "When true (opt_out groups), customer app pre-checks every option in this group."
+          },
+          "priceDisplay": {
+            "type": "string",
+            "enum": [
+              "included",
+              "price"
+            ],
+            "description": "included → show Included label, not FREE."
           },
           "values": {
             "type": "array",
