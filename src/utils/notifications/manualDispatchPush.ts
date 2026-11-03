@@ -4,7 +4,7 @@ import { getManualDispatchBroadcastTopics } from '../deliveryman/pushTopics';
 import { sendFcmToTopic, type FcmPushData } from './fcm';
 import { isPushNotificationEnabled } from './notificationSettings';
 import { persistUserNotification } from './persistUserNotification';
-import { mapOrderIdentityFields } from '../order/orderIdentity';
+import { mapOrderIdentityFields, orderIdentityFcmFields } from '../order/orderIdentity';
 
 /**
  * PHP DispatchController extra push: manual orders have no vehicle_id, so notify
@@ -28,6 +28,7 @@ export async function notifyManualDispatchDriverPool(order: orders): Promise<voi
     image: '',
     type: 'order_request',
     order_type: order.order_type,
+    ...orderIdentityFcmFields(order),
   };
 
   const drivers = await prisma.delivery_men.findMany({

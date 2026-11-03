@@ -53,3 +53,63 @@ export function resolveRestaurantOrderRefFromBody(body: unknown): string | null 
     normalizeRestaurantOrderRef(b.external_order_id)
   );
 }
+
+export type DriverOrderListCardIdentity = {
+  is_manual_dispatch: boolean;
+  order_id: string;
+  order_source: OrderSource;
+  order_source_label: string;
+  gizra_order_id: string;
+  restaurant_order_ref: string | null;
+  restaurant_order_number: string | null;
+  display_order_number: string;
+  dispatch_summary?: {
+    title: string;
+    restaurant_order_ref: string | null;
+    gizra_order_id: string;
+  };
+};
+
+/** Shared identity block for GET /delivery-man/orders/latest and /active list cards. */
+export function driverOrderListCardIdentity(
+  order: Pick<orders, 'id' | 'is_manual_dispatch' | 'order_type' | 'restaurant_order_ref'>
+): DriverOrderListCardIdentity {
+  const identity = mapOrderIdentityFields(order);
+  const base = {
+    is_manual_dispatch: Boolean(order.is_manual_dispatch),
+    /** Platform id — same as `id`; use for accept/status URLs. */
+    order_id: identity.gizra_order_id,
+    ...identity,
+    /** Alias for restaurant POS id (matches request-driver body names). */
+    restaurant_order_number: identity.restaurant_order_ref,
+  };
+
+  if (!order.is_manual_dispatch) {
+    return base;
+  }
+
+  return {
+    ...base,
+    dispatch_summary: {
+      title: 'Gizra ride — restaurant requested driver',
+      restaurant_order_ref: identity.restaurant_order_ref,
+      gizra_order_id: identity.gizra_order_id,
+    },
+  };
+}
+
+/** Extra FCM / inbox fields so driver apps can show the restaurant’s ticket without refetching. */
+export function orderIdentityFcmFields(
+  order: Pick<orders, 'id' | 'is_manual_dispatch' | 'order_type' | 'restaurant_order_ref'>
+) {
+  const identity = mapOrderIdentityFields(order);
+  return {
+    gizra_order_id: identity.gizra_order_id,
+    display_order_number: identity.display_order_number,
+    order_source: identity.order_source,
+    is_manual_dispatch: String(Boolean(order.is_manual_dispatch)),
+    ...(identity.restaurant_order_ref
+      ? { restaurant_order_ref: identity.restaurant_order_ref }
+      : {}),
+  };
+}
