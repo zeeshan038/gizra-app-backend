@@ -11,7 +11,8 @@
       },
       "FoodVariationGroup": {
         "type": "object",
-        "required": ["name", "type", "required", "options"],
+        "description": "Vendor write / raw DB may use `options` or `values`.",
+        "required": ["name", "type", "required"],
         "properties": {
           "name": { "type": "string", "example": "Size" },
           "type": {
@@ -20,9 +21,72 @@
             "example": "single"
           },
           "required": { "type": "boolean", "example": true },
+          "min": { "type": "string", "example": "0" },
+          "max": { "type": "string", "example": "4" },
+          "selectionMode": {
+            "type": "string",
+            "enum": ["standard", "opt_out", "opt_in"]
+          },
+          "defaultSelectAll": { "type": "boolean" },
+          "priceDisplay": { "type": "string", "enum": ["included", "price"] },
           "options": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/FoodVariationOption" }
+          },
+          "values": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/FoodVariationOption" }
+          }
+        }
+      },
+      "ConsumerFoodVariationOption": {
+        "type": "object",
+        "description": "StackFood / Flutter product model (`label`, `optionPrice`). For default included ingredients use optionPrice 0 with priceTag `included` and showPrice false.",
+        "properties": {
+          "label": { "type": "string", "example": "פיתה" },
+          "name": { "type": "string", "example": "פיתה" },
+          "level": { "type": "string", "example": "פיתה" },
+          "optionPrice": { "type": "number", "example": 0 },
+          "price": { "type": "number", "example": 0 },
+          "priceTag": { "type": "string", "enum": ["included"], "example": "included" },
+          "showPrice": { "type": "boolean", "example": false }
+        }
+      },
+      "ConsumerFoodVariationGroup": {
+        "type": "object",
+        "description": "Consumer menu APIs always expose `values` (never rely on `options` alone).",
+        "required": ["name", "type", "required", "values"],
+        "properties": {
+          "name": { "type": "string", "example": "במה תרצו לאכול?" },
+          "type": {
+            "type": "string",
+            "enum": ["single", "multi"],
+            "example": "single"
+          },
+          "required": {
+            "type": "string",
+            "enum": ["on", "off"],
+            "example": "on"
+          },
+          "min": { "type": "string", "example": "0" },
+          "max": { "type": "string", "example": "1" },
+          "selectionMode": {
+            "type": "string",
+            "enum": ["standard", "opt_out", "opt_in"],
+            "description": "opt_out = default ingredients (pre-selected, uncheck to remove). opt_in = paid upgrades with max cap."
+          },
+          "defaultSelectAll": {
+            "type": "boolean",
+            "description": "When true (opt_out groups), customer app pre-checks every option in this group."
+          },
+          "priceDisplay": {
+            "type": "string",
+            "enum": ["included", "price"],
+            "description": "included → show Included label, not FREE."
+          },
+          "values": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ConsumerFoodVariationOption" }
           }
         }
       },
@@ -83,7 +147,19 @@
             "example": [{ "name": "Extra cheese", "price": 15 }]
           },
           "status": { "type": "boolean", "example": true },
-          "is_draft": { "type": "integer", "enum": [0, 1], "example": 0 }
+          "is_draft": { "type": "integer", "enum": [0, 1], "example": 0 },
+          "available_time_starts": {
+            "type": "string",
+            "nullable": true,
+            "example": "08:00:00",
+            "description": "When this item may be sold (business timezone). Omit or null with `available_time_ends` for all-day."
+          },
+          "available_time_ends": {
+            "type": "string",
+            "nullable": true,
+            "example": "11:00:00",
+            "description": "End of selling window (inclusive), HH:mm:ss in business timezone."
+          }
         }
       },
       "VendorFoodItem": {
@@ -106,6 +182,39 @@
             "type": "array",
             "description": "Expanded from linked add_ons ids",
             "items": { "$ref": "#/components/schemas/FoodAddonExpanded" }
+          },
+          "available_time_starts": { "type": "string", "nullable": true, "example": "08:00:00" },
+          "available_time_ends": { "type": "string", "nullable": true, "example": "11:00:00" }
+        }
+      },
+      "ConsumerFoodAvailabilityStatus": {
+        "type": "string",
+        "enum": ["all_day", "available", "not_yet_available", "time_ended"],
+        "description": "`all_day` — no restriction (or full-day window). `available` — inside window. `not_yet_available` — before window. `time_ended` — after window. Evaluated in business timezone."
+      },
+      "ConsumerFoodSellingTimeFields": {
+        "type": "object",
+        "description": "Per-item selling window (vendor-configured). Present on consumer menu/product payloads when formatted with selling-time metadata.",
+        "properties": {
+          "available_time_starts": {
+            "type": "string",
+            "nullable": true,
+            "example": "08:00:00",
+            "description": "Configured window start (HH:mm:ss), or null when all-day."
+          },
+          "available_time_ends": {
+            "type": "string",
+            "nullable": true,
+            "example": "11:00:00",
+            "description": "Configured window end (HH:mm:ss), or null when all-day."
+          },
+          "is_available_now": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether the item can be added to cart at request time (or at scheduled order time on checkout)."
+          },
+          "availability_status": {
+            "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
           }
         }
       },
@@ -148,6 +257,7 @@
       },
       "ConsumerMenuFoodItem": {
         "type": "object",
+        "description": "Menu / product card for the customer app. Includes selling-time fields when returned from consumer food endpoints.",
         "properties": {
           "id": { "type": "string", "example": "101" },
           "name": { "type": "string", "example": "Margherita" },
@@ -164,11 +274,55 @@
           "status": { "type": "boolean" },
           "variations": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/FoodVariationGroup" }
+            "items": { "$ref": "#/components/schemas/ConsumerFoodVariationGroup" }
           },
           "add_ons": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/FoodAddonExpanded" }
+          },
+          "available_time_starts": {
+            "type": "string",
+            "nullable": true,
+            "example": "08:00:00"
+          },
+          "available_time_ends": {
+            "type": "string",
+            "nullable": true,
+            "example": "11:00:00"
+          },
+          "is_available_now": { "type": "boolean", "example": true },
+          "availability_status": {
+            "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
+          },
+          "stock_type": {
+            "type": "string",
+            "enum": ["limited", "unlimited"],
+            "example": "limited"
+          },
+          "current_stock": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Remaining units when stock_type is limited (item_stock − sell_count). Null when unlimited.",
+            "example": 7
+          },
+          "is_in_stock": { "type": "boolean", "example": true },
+          "stock_status": {
+            "type": "string",
+            "enum": ["in_stock", "out_of_stock"],
+            "example": "in_stock"
+          }
+        }
+      },
+      "ConsumerFoodListPage": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "boolean", "example": true },
+          "total_size": { "type": "integer", "example": 24 },
+          "limit": { "type": "integer", "example": 10 },
+          "offset": { "type": "integer", "example": 1 },
+          "products": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ConsumerMenuFoodItem" }
           }
         }
       }
@@ -337,7 +491,7 @@
     "/consumer/restaurants/{id}/foods": {
       "get": {
         "summary": "Restaurant menu foods",
-        "description": "Paginated foods for a restaurant. Each item includes **variations** and expanded **add_ons** (`id`, `name`, `price`) for cart `add_on_ids`.",
+        "description": "Paginated foods for a restaurant. Each item includes **variations** (groups with **`values`**, StackFood-compatible), expanded **add_ons** (`id`, `name`, `price`), **selling-time** fields when configured, and **stock** fields (`stock_type`, `current_stock`, `is_in_stock`, `stock_status`) when the vendor uses limited stock.",
         "responses": {
           "200": {
             "description": "OK",
@@ -376,18 +530,184 @@
                           {
                             "name": "Size",
                             "type": "single",
-                            "required": true,
-                            "options": [
-                              { "name": "Personal", "price": 149 },
-                              { "name": "Regular", "price": 249 }
+                            "required": "on",
+                            "min": "0",
+                            "max": "1",
+                            "values": [
+                              {
+                                "label": "Personal",
+                                "name": "Personal",
+                                "level": "Personal",
+                                "optionPrice": 0,
+                                "price": 0
+                              },
+                              {
+                                "label": "Regular",
+                                "name": "Regular",
+                                "level": "Regular",
+                                "optionPrice": 10,
+                                "price": 10
+                              }
                             ]
                           }
                         ],
-                        "add_ons": [{ "id": 42, "name": "Extra cheese", "price": 15, "status": true }]
+                        "add_ons": [{ "id": 42, "name": "Extra cheese", "price": 15, "status": true }],
+                        "available_time_starts": null,
+                        "available_time_ends": null,
+                        "is_available_now": true,
+                        "availability_status": "all_day"
+                      },
+                      {
+                        "id": "102",
+                        "name": "Morning Shakshuka",
+                        "price": 45,
+                        "available_time_starts": "08:00:00",
+                        "available_time_ends": "11:00:00",
+                        "is_available_now": false,
+                        "availability_status": "time_ended",
+                        "stock_type": "limited",
+                        "current_stock": 0,
+                        "is_in_stock": false,
+                        "stock_status": "out_of_stock",
+                        "variations": [],
+                        "add_ons": []
+                      },
+                      {
+                        "id": "9001",
+                        "name": "TEST Burger Box",
+                        "price": 59,
+                        "variations": [
+                          {
+                            "name": "Ingredients to Remove",
+                            "type": "multi",
+                            "required": "off",
+                            "min": "0",
+                            "max": "999",
+                            "selectionMode": "opt_out",
+                            "defaultSelectAll": true,
+                            "priceDisplay": "included",
+                            "values": [
+                              {
+                                "label": "Asado",
+                                "optionPrice": 0,
+                                "price": 0,
+                                "priceTag": "included",
+                                "showPrice": false
+                              },
+                              {
+                                "label": "Onion",
+                                "optionPrice": 0,
+                                "price": 0,
+                                "priceTag": "included",
+                                "showPrice": false
+                              }
+                            ]
+                          },
+                          {
+                            "name": "Paid Upgrades",
+                            "type": "multi",
+                            "required": "off",
+                            "min": "0",
+                            "max": "4",
+                            "selectionMode": "opt_in",
+                            "defaultSelectAll": false,
+                            "priceDisplay": "price",
+                            "values": [
+                              { "label": "Extra Cheese", "optionPrice": 5, "price": 5, "showPrice": true },
+                              { "label": "Egg", "optionPrice": 4, "price": 4, "showPrice": true }
+                            ]
+                          }
+                        ],
+                        "add_ons": []
                       }
                     ]
                   }
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/consumer/foods/details/{id}": {
+      "get": {
+        "summary": "Food product details",
+        "description": "Single active food item. Response `data` is a **ConsumerMenuFoodItem** including selling-time fields (`available_time_starts`, `available_time_ends`, `is_available_now`, `availability_status`). Times use the business timezone from config.",
+        "tags": ["Consumer Foods"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "example": 102 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/ConsumerMenuFoodItem" }
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "id": "102",
+                    "name": "Morning Shakshuka",
+                    "description": "Eggs in spiced tomato sauce",
+                    "price": 45,
+                    "veg": true,
+                    "status": true,
+                    "variations": [],
+                    "add_ons": [],
+                    "available_time_starts": "08:00:00",
+                    "available_time_ends": "11:00:00",
+                    "is_available_now": false,
+                    "availability_status": "time_ended"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Food not found or inactive"
+          }
+        }
+      }
+    },
+    "/consumer/foods/latest": {
+      "get": {
+        "summary": "Latest foods (paginated list)",
+        "description": "Same product shape as menu items. Each entry in **`products`** includes selling-time fields when configured.",
+        "tags": ["Consumer Foods"],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConsumerFoodListPage" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/consumer/foods/popular": {
+      "get": {
+        "summary": "Popular foods in zone",
+        "description": "Paginated **`products`** array; each item is **ConsumerMenuFoodItem** with selling-time metadata.",
+        "tags": ["Consumer Foods"],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConsumerFoodListPage" }
               }
             }
           }

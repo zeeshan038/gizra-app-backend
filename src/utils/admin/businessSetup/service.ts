@@ -1,4 +1,5 @@
 import prisma from '../../../config/database';
+import { normalizeAppVersionString } from '../../config/appVersionConfig';
 import { clearBusinessSettingsCache } from '../../consumer/businessSettings';
 import {
   businessMediaUrl,
@@ -145,26 +146,50 @@ const LANGUAGE_KEYS = ['language'];
 
 const APP_SETTINGS_KEYS = [
   'app_minimum_version_android',
+  'app_minimum_build_android',
+  'app_force_update_android',
   'app_url_android',
   'app_minimum_version_ios',
+  'app_minimum_build_ios',
+  'app_force_update_ios',
   'app_url_ios',
   'app_minimum_version_android_restaurant',
+  'app_minimum_build_android_restaurant',
+  'app_force_update_android_restaurant',
   'app_url_android_restaurant',
   'app_minimum_version_ios_restaurant',
+  'app_minimum_build_ios_restaurant',
+  'app_force_update_ios_restaurant',
   'app_url_ios_restaurant',
   'app_minimum_version_android_deliveryman',
+  'app_minimum_build_android_deliveryman',
+  'app_force_update_android_deliveryman',
   'app_url_android_deliveryman',
   'app_minimum_version_ios_deliveryman',
+  'app_minimum_build_ios_deliveryman',
+  'app_force_update_ios_deliveryman',
   'app_url_ios_deliveryman',
 ] as const;
 
 type AppSettingsSuffix = '' | '_restaurant' | '_deliveryman';
 
 function appSettingsBlock(map: Map<string, string | null>, suffix: AppSettingsSuffix) {
+  const rawAndroid = settingValue(map, `app_minimum_version_android${suffix}`, '') ?? '';
+  const rawIos = settingValue(map, `app_minimum_version_ios${suffix}`, '') ?? '';
   return {
-    app_minimum_version_android: settingValue(map, `app_minimum_version_android${suffix}`, '') ?? '',
-    app_minimum_version_ios: settingValue(map, `app_minimum_version_ios${suffix}`, '') ?? '',
+    app_minimum_version_android: rawAndroid
+      ? normalizeAppVersionString(rawAndroid)
+      : '',
+    app_minimum_build_android: settingNumber(
+      map,
+      `app_minimum_build_android${suffix}`,
+      0
+    ),
+    app_force_update_android: settingFlag(map, `app_force_update_android${suffix}`),
     app_url_android: settingValue(map, `app_url_android${suffix}`, '') ?? '',
+    app_minimum_version_ios: rawIos ? normalizeAppVersionString(rawIos) : '',
+    app_minimum_build_ios: settingNumber(map, `app_minimum_build_ios${suffix}`, 0),
+    app_force_update_ios: settingFlag(map, `app_force_update_ios${suffix}`),
     app_url_ios: settingValue(map, `app_url_ios${suffix}`, '') ?? '',
   };
 }
@@ -679,7 +704,11 @@ function normalizeAppSettingValue(value: string | number | null | undefined): st
 export async function updateAppSettings(body: {
   app: 'user' | 'restaurant' | 'deliveryman';
   app_minimum_version_android?: string | number | null;
+  app_minimum_build_android?: number | string | null;
+  app_force_update_android?: boolean | number | string | null;
   app_minimum_version_ios?: string | number | null;
+  app_minimum_build_ios?: number | string | null;
+  app_force_update_ios?: boolean | number | string | null;
   app_url_android?: string | null;
   app_url_ios?: string | null;
 }) {
@@ -688,14 +717,30 @@ export async function updateAppSettings(body: {
 
   const entries: Record<string, string | null | undefined> = {};
   if (body.app_minimum_version_android !== undefined) {
-    entries[`app_minimum_version_android${suffix}`] = normalizeAppSettingValue(
-      body.app_minimum_version_android
+    const raw = normalizeAppSettingValue(body.app_minimum_version_android);
+    entries[`app_minimum_version_android${suffix}`] = raw
+      ? normalizeAppVersionString(raw)
+      : raw;
+  }
+  if (body.app_minimum_build_android !== undefined) {
+    entries[`app_minimum_build_android${suffix}`] = String(
+      Math.max(0, Math.floor(Number(body.app_minimum_build_android) || 0))
     );
   }
+  if (body.app_force_update_android !== undefined) {
+    entries[`app_force_update_android${suffix}`] = String(flag01(body.app_force_update_android));
+  }
   if (body.app_minimum_version_ios !== undefined) {
-    entries[`app_minimum_version_ios${suffix}`] = normalizeAppSettingValue(
-      body.app_minimum_version_ios
+    const raw = normalizeAppSettingValue(body.app_minimum_version_ios);
+    entries[`app_minimum_version_ios${suffix}`] = raw ? normalizeAppVersionString(raw) : raw;
+  }
+  if (body.app_minimum_build_ios !== undefined) {
+    entries[`app_minimum_build_ios${suffix}`] = String(
+      Math.max(0, Math.floor(Number(body.app_minimum_build_ios) || 0))
     );
+  }
+  if (body.app_force_update_ios !== undefined) {
+    entries[`app_force_update_ios${suffix}`] = String(flag01(body.app_force_update_ios));
   }
   if (body.app_url_android !== undefined) {
     entries[`app_url_android${suffix}`] = normalizeAppSettingValue(body.app_url_android);

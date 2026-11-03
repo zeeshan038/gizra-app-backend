@@ -8,6 +8,7 @@ export const orderListQuerySchema = Joi.object({
   limit: Joi.number().integer().min(1).max(100).default(20),
   offset: Joi.number().integer().min(0).default(0),
   search: Joi.string().optional().allow(''),
+  manual_only: Joi.string().valid('true', 'false').optional(),
 });
 
 export const updateOrderStatusSchema = Joi.object({

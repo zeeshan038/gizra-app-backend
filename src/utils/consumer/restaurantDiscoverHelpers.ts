@@ -2,6 +2,19 @@ import prisma from '../../config/database';
 import { consumerRestaurantMediaFields } from '../mediaStorage';
 import { formatTime, toMinutes } from '../vendor/restaurantSetup/helpers';
 import { distanceKm } from './favouriteHelpers';
+import {
+  closedAvailability,
+  restaurantAvailabilityResponseFields,
+  type RestaurantAvailability,
+} from './restaurantAvailability';
+
+export {
+  availabilityMapForRestaurants,
+  computeAvailabilityForRestaurant,
+  restaurantAvailabilityResponseFields,
+  type RestaurantAvailability,
+  type RestaurantAvailabilityStatus,
+} from './restaurantAvailability';
 
 /** Laravel `now()->dayOfWeek` — 0 (Sunday) through 6 (Saturday). */
 export function currentScheduleDay(): number {
@@ -13,6 +26,7 @@ function nowMinutesLocal(): number {
   return n.getHours() * 60 + n.getMinutes();
 }
 
+/** @deprecated Prefer `availabilityMapForRestaurants`. */
 export function isOpenFromSchedules(
   schedules: { opening_time: Date | null; closing_time: Date | null }[]
 ): boolean {
@@ -61,7 +75,9 @@ export async function loadTodaySchedulesByRestaurantId(
     map.set(key, list);
   }
   return map;
-}export async function loadActiveDiscountRestaurantIds(candidateIds?: bigint[]): Promise<bigint[]> {
+}
+
+export async function loadActiveDiscountRestaurantIds(candidateIds?: bigint[]): Promise<bigint[]> {
   const now = new Date();
   const todayDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const nowMin = now.getHours() * 60 + now.getMinutes();
@@ -141,6 +157,7 @@ export const DISCOVER_RESTAURANT_SELECT = {
   latitude: true,
   longitude: true,
   order_count: true,
+  active: true,
 } as const;
 
 export type DiscoverRestaurantRow = {
@@ -156,12 +173,17 @@ export type DiscoverRestaurantRow = {
   latitude: string | null;
   longitude: string | null;
   order_count: bigint;
+  active: boolean;
 };
 
 /** Home / discover cards (Popular, Latest, etc.). */
 export function formatDiscoverRestaurant(
   r: DiscoverRestaurantRow,
-  options?: { distanceKm?: number | null; open?: boolean }
+  options?: {
+    distanceKm?: number | null;
+    open?: boolean;
+    availability?: RestaurantAvailability;
+  }
 ) {
   const distance =
     options?.distanceKm != null
@@ -172,6 +194,15 @@ export function formatDiscoverRestaurant(
     logo: r.logo,
     cover_photo: r.cover_photo,
   });
+
+  const availability = restaurantAvailabilityResponseFields(
+    options?.availability ?? closedAvailability()
+  );
+  if (options?.availability == null && options?.open != null) {
+    availability.open = options.open;
+    availability.can_order = options.open;
+    availability.status = options.open ? 'OPEN' : 'CLOSED';
+  }
 
   return {
     id: r.id.toString(),
@@ -185,7 +216,7 @@ export function formatDiscoverRestaurant(
     latitude: r.latitude ?? null,
     longitude: r.longitude ?? null,
     order_count: Number(r.order_count),
-    open: options?.open ?? false,
+    ...availability,
     distance,
     distance_text: distance != null ? `${distance} km` : null,
   };
@@ -265,7 +296,11 @@ export function isRestaurantInsideBounds(
 /** Map markers — numeric lat/lng for Google/Apple Maps. */
 export function formatMapRestaurant(
   r: DiscoverRestaurantRow,
-  options?: { distanceKm?: number | null; open?: boolean }
+  options?: {
+    distanceKm?: number | null;
+    open?: boolean;
+    availability?: RestaurantAvailability;
+  }
 ) {
   const position = parseRestaurantCoordinates(r.latitude, r.longitude);
   const distance =
@@ -274,6 +309,15 @@ export function formatMapRestaurant(
       : null;
 
   const { logo, logo_full_url } = consumerRestaurantMediaFields({ logo: r.logo });
+
+  const availability = restaurantAvailabilityResponseFields(
+    options?.availability ?? closedAvailability()
+  );
+  if (options?.availability == null && options?.open != null) {
+    availability.open = options.open;
+    availability.can_order = options.open;
+    availability.status = options.open ? 'OPEN' : 'CLOSED';
+  }
 
   return {
     id: r.id.toString(),
@@ -284,7 +328,7 @@ export function formatMapRestaurant(
     address: r.address,
     latitude: position?.latitude ?? null,
     longitude: position?.longitude ?? null,
-    open: options?.open ?? false,
+    ...availability,
     distance,
     distance_text: distance != null ? `${distance} km` : null,
   };

@@ -17,27 +17,59 @@ import {
   CheckoutPaymentError,
   findPaidUnusedCheckoutPayment,
 } from '../../utils/payment/checkoutPayment';
-import { computeVariationExtra } from '../../utils/consumer/variationPricing';
+import {
+  computeAvailabilityForRestaurant,
+  getDefaultRestaurantTimeZone,
+} from '../../utils/consumer/restaurantAvailability';
+import {
+  foodSellingTimeErrorMessage,
+  resolveFoodSellingTime,
+} from '../../utils/consumer/foodSellingTime';
+import {
+  FoodStockInsufficientError,
+  foodStockErrorMessage,
+  incrementFoodSellCountsForOrder,
+  resolveFoodStockSnapshot,
+} from '../../utils/consumer/foodStock';
+import { loadLegacyVariationsForFoodRows } from '../../utils/consumer/legacyFoodVariations';
+import {
+  clampResolvedUnitToClientLine,
+  coerceCartLinePriceToUnit,
+  mergeCartLineVariations,
+  resolveCheckoutServerUnitBase,
+} from '../../utils/consumer/checkoutFoodUnitPrice';
+import {
+  applyBundledAddonLinePriceRule,
+  resolveCartLineUnitFoodPrice,
+} from '../../utils/consumer/orderLinePricing';
 
 
 function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-/** Client-quoted delivery fee (prefer `delivery_fee` from GET /consumer/config/delivery-fee). */
+
 function clientQuotedDeliveryFee(payload: PlaceOrderInput): number | null {
   const raw = payload.delivery_fee ?? payload.delivery_charge;
   if (raw == null || !Number.isFinite(Number(raw))) return null;
   return roundMoney(Math.max(0, Number(raw)));
 }
 
-/** Client-quoted food + addons amount from order_amount (e.g. Flutter checkout). */
-function clientQuotedOrderAmount(payload: PlaceOrderInput): number | null {
+/** Full amount the customer pays (checkout total — not food-only). */
+function clientQuotedGrandTotal(payload: PlaceOrderInput): number | null {
   const raw = payload.order_amount;
   if (raw == null || !Number.isFinite(Number(raw))) return null;
   const val = Number(raw);
   return val > 0 ? roundMoney(val) : null;
 }
+
+function clientQuotedTax(payload: PlaceOrderInput): number | null {
+  const raw = payload.total_tax_amount;
+  if (raw == null || !Number.isFinite(Number(raw))) return null;
+  return roundMoney(Math.max(0, Number(raw)));
+}
+
+const PRICE_TOLERANCE = 0.05;
 
 function parseJson<T>(value: string | null | undefined, fallback: T): T {
   if (!value) return fallback;
@@ -75,7 +107,16 @@ async function calculateAddonPrice(addOnIds: number[], addOnQtys: number[]) {
 }
 
 export type PlaceOrderPricing = {
+  /** Food + variations only (before add-ons). */
+  items_price: number;
+  /** Sum of add-on lines across the cart. */
+  addon_cost: number;
+  /** Food + add-ons after product/coupon discounts (before tax & delivery). */
   subtotal: number;
+  /** Amount VAT is calculated on (same as subtotal when discounts are applied). */
+  taxable_base: number;
+  restaurant_discount_amount: number;
+  coupon_discount_amount: number;
   total_tax_amount: number;
   tax_added_to_total: number;
   tax_status: 'included' | 'excluded';
@@ -89,8 +130,32 @@ export type PlaceOrderPricing = {
   tax_included: boolean;
 };
 
+/** Customer pay total from pricing lines (subtotal + VAT added + delivery + fees). */
+export function computeGrandOrderTotal(params: {
+  subtotal: number;
+  taxAddedToTotal: number;
+  deliveryCharge: number;
+  additionalCharge: number;
+  extraPackaging: number;
+  dmTips: number;
+}): number {
+  return roundMoney(
+    params.subtotal +
+      params.taxAddedToTotal +
+      params.deliveryCharge +
+      params.additionalCharge +
+      params.extraPackaging +
+      params.dmTips
+  );
+}
+
 function buildPlaceOrderPricing(params: {
+  itemsPrice: number;
+  addonCost: number;
   totalPrice: number;
+  taxableBase: number;
+  restaurantDiscountAmount: number;
+  couponDiscountAmount: number;
   taxResult: ReturnType<typeof orderLevelTax>;
   taxPercent: number;
   taxIncluded: boolean;
@@ -101,8 +166,14 @@ function buildPlaceOrderPricing(params: {
   orderAmount: number;
 }): PlaceOrderPricing {
   return {
+    items_price: params.itemsPrice,
+    addon_cost: params.addonCost,
     subtotal: params.totalPrice,
+    taxable_base: params.taxableBase,
+    restaurant_discount_amount: params.restaurantDiscountAmount,
+    coupon_discount_amount: params.couponDiscountAmount,
     total_tax_amount: params.taxResult.total_tax_amount,
+    /** VAT added on checkout when tax_status is excluded; 0 when prices already include VAT. */
     tax_added_to_total: params.taxResult.tax_to_add,
     tax_status: params.taxResult.tax_status,
     tax_percentage: params.taxPercent,
@@ -141,6 +212,44 @@ function orderLevelTax(
   }
   const total_tax_amount = roundMoney((taxableAmount * taxPercent) / 100);
   return { total_tax_amount, tax_to_add: total_tax_amount, tax_status: 'excluded' };
+}
+
+/** VAT on food + add-ons after discounts (PHP `product_tax` on order subtotal). */
+function computeOrderTax(params: {
+  itemsPrice: number;
+  addonCost: number;
+  restaurantDiscount: number;
+  couponDiscount: number;
+  taxPercent: number;
+  taxIncluded: boolean;
+}): { taxableBase: number; taxResult: ReturnType<typeof orderLevelTax> } {
+  const taxableBase = roundMoney(
+    Math.max(
+      0,
+      params.itemsPrice + params.addonCost - params.restaurantDiscount - params.couponDiscount
+    )
+  );
+  return {
+    taxableBase,
+    taxResult: orderLevelTax(taxableBase, params.taxPercent, params.taxIncluded),
+  };
+}
+
+function lineTaxAmount(params: {
+  unitFood: number;
+  discountOnFood: number;
+  addonPerUnit: number;
+  taxPercent: number;
+  taxIncluded: boolean;
+}): number {
+  const taxablePerUnit = roundMoney(
+    Math.max(0, params.unitFood - params.discountOnFood + params.addonPerUnit)
+  );
+  if (params.taxPercent <= 0) return 0;
+  if (params.taxIncluded) {
+    return roundMoney((taxablePerUnit * params.taxPercent) / (100 + params.taxPercent));
+  }
+  return roundMoney((taxablePerUnit * params.taxPercent) / 100);
 }
 
 async function getCouponDiscount(params: {
@@ -367,6 +476,25 @@ function normalizeCartRow(row: {
   };
 }
 
+function mergeInlineCartSources(
+  inlineCart?: CartLineInput[],
+  inlineItems?: CartLineInput[]
+): CartLineInput[] | undefined {
+  const primary = inlineCart?.length ? inlineCart : inlineItems?.length ? inlineItems : undefined;
+  if (!primary?.length) return undefined;
+  if (!inlineCart?.length || !inlineItems?.length) return primary;
+  if (inlineCart.length !== inlineItems.length) return primary;
+  for (let i = 0; i < inlineCart.length; i++) {
+    if (
+      Number(inlineCart[i].item_id) !== Number(inlineItems[i].item_id) ||
+      Number(inlineCart[i].quantity) !== Number(inlineItems[i].quantity)
+    ) {
+      return primary;
+    }
+  }
+  return inlineCart;
+}
+
 async function resolveCartLines(params: {
   userId: number;
   isGuest: boolean;
@@ -374,19 +502,45 @@ async function resolveCartLines(params: {
   cartId?: number;
   inlineCart?: CartLineInput[];
   inlineItems?: CartLineInput[];
+  /** Quote preview: prefer request body lines over stale DB cart. */
+  preferInlineLines?: boolean;
 }): Promise<ResolvedCartLine[]> {
-  const { userId, isGuest, isBuyNow, cartId, inlineCart, inlineItems } = params;
+  const { userId, isGuest, isBuyNow, cartId, inlineCart, inlineItems, preferInlineLines } = params;
 
-  if (isBuyNow) {
-    const source = inlineCart ?? inlineItems ?? [];
-    if (!source.length) {
-      throw new Error('EMPTY_ORDER');
-    }
-    return source.map((line) => ({
+  const inlineLines = mergeInlineCartSources(inlineCart, inlineItems);
+
+  if (preferInlineLines && inlineLines?.length) {
+    return inlineLines.map((line) => ({
       ...line,
       quantity: Number(line.quantity),
       item_id: Number(line.item_id),
     }));
+  }
+
+  if (isBuyNow) {
+    const cartLines = inlineLines ?? [];
+    const altLines =
+      inlineCart?.length && inlineItems?.length && inlineCart !== inlineItems
+        ? inlineItems
+        : undefined;
+    if (!cartLines.length) {
+      throw new Error('EMPTY_ORDER');
+    }
+    return cartLines.map((line, index) => {
+      const alt = altLines?.[index];
+      const price =
+        line.price != null && Number(line.price) > 0
+          ? Number(line.price)
+          : alt?.price != null && Number(alt.price) > 0
+            ? Number(alt.price)
+            : line.price;
+      return {
+        ...line,
+        ...(price != null ? { price } : {}),
+        quantity: Number(line.quantity),
+        item_id: Number(line.item_id),
+      };
+    });
   }
 
   const dbCarts = await prisma.carts.findMany({
@@ -577,6 +731,16 @@ export async function executePlaceOrder(params: {
     throw new PlaceOrderError('Restaurant not found', 403, 'restaurant');
   }
 
+  if (!payload.schedule_at) {
+    const availability = await computeAvailabilityForRestaurant(
+      restaurant.id,
+      restaurant.active
+    );
+    if (!availability.can_order) {
+      throw new PlaceOrderError('Restaurant is closed', 403, 'order_time');
+    }
+  }
+
   if (payload.schedule_at) {
     if (!restaurant.schedule_order) {
       throw new PlaceOrderError('Scheduled orders are not available for this restaurant', 403, 'schedule_at');
@@ -594,19 +758,63 @@ export async function executePlaceOrder(params: {
     cartId: payload.cart_id,
     inlineCart: payload.cart,
     inlineItems: payload.items,
+    preferInlineLines: dryRun && Boolean(payload.cart?.length || payload.items?.length),
   });
 
   let productPrice = 0;
   let totalAddonPrice = 0;
   let restaurantDiscountAmount = 0;
   const orderDetailsRows: Prisma.order_detailsCreateManyInput[] = [];
+  const taxIncluded = await isTaxIncluded();
+  const taxPercent = Number(restaurant.tax) || 0;
+
+  const cartFoodIds = [...new Set(cartLines.map((line) => Number(line.item_id)))];
+  const foodRows = cartFoodIds.length
+    ? await prisma.food.findMany({
+        where: { id: { in: cartFoodIds.map((id) => BigInt(id)) }, status: true },
+      })
+    : [];
+  const foodById = new Map(foodRows.map((row) => [Number(row.id), row]));
+  const legacyVariationsByFoodId = await loadLegacyVariationsForFoodRows(foodRows);
+  const orderAt = payload.schedule_at ? new Date(payload.schedule_at) : new Date();
+  const sellingTz = await getDefaultRestaurantTimeZone();
+
+  const qtyNeededByFood = new Map<number, number>();
+  for (const line of cartLines) {
+    const foodId = Number(line.item_id);
+    if (!Number.isFinite(foodId) || foodId <= 0) continue;
+    qtyNeededByFood.set(foodId, (qtyNeededByFood.get(foodId) ?? 0) + line.quantity);
+  }
+  for (const [foodId, qtyNeeded] of qtyNeededByFood) {
+    const food = foodById.get(foodId);
+    if (!food) continue;
+    const stock = resolveFoodStockSnapshot(food);
+    if (stock.stock_type === 'limited' && qtyNeeded > (stock.current_stock ?? 0)) {
+      throw new PlaceOrderError(
+        foodStockErrorMessage(food, qtyNeeded, stock.current_stock ?? 0),
+        406,
+        'food_stock'
+      );
+    }
+  }
 
   for (const line of cartLines) {
-    const food = await prisma.food.findFirst({
-      where: { id: BigInt(line.item_id), status: true },
-    });
+    const food = foodById.get(Number(line.item_id));
     if (!food) {
       throw new PlaceOrderError('Product unavailable', 404, 'food');
+    }
+    const sellingSnap = resolveFoodSellingTime(
+      food.available_time_starts,
+      food.available_time_ends,
+      orderAt,
+      sellingTz
+    );
+    if (!sellingSnap.is_available_now) {
+      throw new PlaceOrderError(
+        foodSellingTimeErrorMessage(sellingSnap),
+        406,
+        'food_selling_time'
+      );
     }
     if (Number(food.restaurant_id) !== payload.restaurant_id) {
       throw new PlaceOrderError('Order food from a single restaurant', 406, 'restaurant');
@@ -618,12 +826,46 @@ export async function executePlaceOrder(params: {
       throw new PlaceOrderError('Maximum cart quantity exceeded', 406, 'quantity');
     }
 
-    const variationExtra = computeVariationExtra(food.variations, line.variations ?? []);
-    const unitBase = Number(food.price) + variationExtra;
-    const discountOnFood = productDiscountAmount(food, unitBase);
+    const selectedVariations = mergeCartLineVariations(line);
+    const serverUnitBase = resolveCheckoutServerUnitBase({
+      catalogBasePrice: Number(food.price),
+      productVariationsJson: food.variations,
+      legacyVariations: legacyVariationsByFoodId.get(Number(food.id)),
+      selectedVariations,
+    });
     const addonData = await calculateAddonPrice(line.add_on_ids ?? [], line.add_on_qtys ?? []);
-    const taxPercent = Number(restaurant.tax) || 0;
-    const lineTax = roundMoney(((unitBase - discountOnFood) * taxPercent) / 100);
+    const addonPerUnit = addonData.total_add_on_price;
+    const clientLineUnit = coerceCartLinePriceToUnit({
+      linePrice: line.price,
+      quantity: line.quantity,
+      serverUnitBase,
+    });
+    let unitBase = resolveCartLineUnitFoodPrice({
+      linePrice: clientLineUnit ?? line.price,
+      serverUnitBase,
+      addonPerUnit,
+      catalogFoodPrice: Number(food.price),
+    });
+    unitBase = applyBundledAddonLinePriceRule({
+      unitFood: unitBase,
+      linePrice: clientLineUnit ?? line.price,
+      addonPerUnit,
+      hasAddonIds: (line.add_on_ids?.length ?? 0) > 0,
+      catalogFoodPrice: Number(food.price),
+    });
+    unitBase = clampResolvedUnitToClientLine({
+      unitFood: unitBase,
+      clientLineUnit: clientLineUnit ?? line.price,
+      addonPerUnit,
+    });
+    const discountOnFood = productDiscountAmount(food, unitBase);
+    const lineTax = lineTaxAmount({
+      unitFood: unitBase,
+      discountOnFood,
+      addonPerUnit: addonData.total_add_on_price,
+      taxPercent,
+      taxIncluded,
+    });
 
     productPrice += unitBase * line.quantity;
     totalAddonPrice += addonData.total_add_on_price * line.quantity;
@@ -643,6 +885,8 @@ export async function executePlaceOrder(params: {
         id: Number(food.id),
         name: food.name,
         price: Number(food.price),
+        /** Food + variations per unit at checkout (vendor/POS reads this; not live menu). */
+        unit_food_price: roundMoney(unitBase),
         image: food.image,
         restaurant_id: Number(food.restaurant_id),
       }),
@@ -651,12 +895,11 @@ export async function executePlaceOrder(params: {
     });
   }
 
-  const clientOrderAmount = clientQuotedOrderAmount(payload);
   const calculatedSubtotal =
     productPrice + totalAddonPrice - restaurantDiscountAmount;
-  const subtotalBeforeCoupon = clientOrderAmount ?? calculatedSubtotal;
+  const subtotalBeforeCoupon = calculatedSubtotal;
 
-  const baseForMinOrder = clientOrderAmount ?? (productPrice + totalAddonPrice);
+  const baseForMinOrder = productPrice + totalAddonPrice;
   if (Number(restaurant.minimum_order) > baseForMinOrder) {
     throw new PlaceOrderError(
       `Minimum order amount is ${Number(restaurant.minimum_order)}`,
@@ -676,9 +919,26 @@ export async function executePlaceOrder(params: {
   }
 
   const totalPrice = roundMoney(subtotalBeforeCoupon - couponResult.discount);
-  const taxIncluded = await isTaxIncluded();
-  const taxPercent = Number(restaurant.tax) || 0;
-  const taxResult = orderLevelTax(totalPrice, taxPercent, taxIncluded);
+  const { taxableBase, taxResult: computedTax } = computeOrderTax({
+    itemsPrice: productPrice,
+    addonCost: totalAddonPrice,
+    restaurantDiscount: restaurantDiscountAmount,
+    couponDiscount: couponResult.discount,
+    taxPercent,
+    taxIncluded,
+  });
+  let taxResult = computedTax;
+
+  if (!dryRun) {
+    const quotedTax = clientQuotedTax(payload);
+    if (
+      quotedTax != null &&
+      Math.abs(quotedTax - taxResult.total_tax_amount) <= PRICE_TOLERANCE
+    ) {
+      taxResult.total_tax_amount = quotedTax;
+      taxResult.tax_to_add = taxIncluded ? 0 : quotedTax;
+    }
+  }
 
   let deliveryFee = await calculateDeliveryFee({
     orderType: payload.order_type,
@@ -695,7 +955,7 @@ export async function executePlaceOrder(params: {
   const quotedDeliveryFee = clientQuotedDeliveryFee(payload);
   let freeDelivery: { delivery_charge: number; free_delivery_by: string | null };
 
-  if (payload.order_type === 'delivery' && quotedDeliveryFee != null) {
+  if (!dryRun && payload.order_type === 'delivery' && quotedDeliveryFee != null) {
     deliveryFee = {
       ...deliveryFee,
       delivery_charge: quotedDeliveryFee,
@@ -703,7 +963,7 @@ export async function executePlaceOrder(params: {
     freeDelivery = { delivery_charge: quotedDeliveryFee, free_delivery_by: null };
   } else {
     freeDelivery = await applyFreeDeliveryRules({
-      productSubtotal: clientOrderAmount ?? (productPrice + totalAddonPrice),
+      productSubtotal: productPrice + totalAddonPrice,
       couponDiscount: couponResult.discount,
       restaurantDiscount: restaurantDiscountAmount,
       distance: payload.distance ?? 0,
@@ -731,14 +991,26 @@ export async function executePlaceOrder(params: {
 
   const dmTips = await resolveDmTips(payload.dm_tips);
 
-  let orderAmount = roundMoney(
-    totalPrice +
-      taxResult.tax_to_add +
-      deliveryFee.delivery_charge +
-      additionalCharge +
-      extraPackaging
-  );
-  orderAmount = roundMoney(orderAmount + dmTips);
+  let orderAmount = computeGrandOrderTotal({
+    subtotal: totalPrice,
+    taxAddedToTotal: taxResult.tax_to_add,
+    deliveryCharge: deliveryFee.delivery_charge,
+    additionalCharge,
+    extraPackaging,
+    dmTips,
+  });
+
+  if (dryRun) {
+    // Quote must never use client `order_amount` (often food-only); total is always from breakdown.
+  } else {
+    const quotedGrandTotal = clientQuotedGrandTotal(payload);
+    if (
+      quotedGrandTotal != null &&
+      Math.abs(quotedGrandTotal - orderAmount) <= PRICE_TOLERANCE
+    ) {
+      orderAmount = quotedGrandTotal;
+    }
+  }
 
   if (
     payload.payment_method === 'wallet' &&
@@ -821,7 +1093,12 @@ export async function executePlaceOrder(params: {
   }
 
   const pricing = buildPlaceOrderPricing({
+    itemsPrice: roundMoney(productPrice),
+    addonCost: roundMoney(totalAddonPrice),
     totalPrice,
+    taxableBase,
+    restaurantDiscountAmount: roundMoney(restaurantDiscountAmount),
+    couponDiscountAmount: roundMoney(couponResult.discount),
     taxResult,
     taxPercent,
     taxIncluded,
@@ -892,6 +1169,21 @@ export async function executePlaceOrder(params: {
       order_id: Number(created.id),
     }));
     await tx.order_details.createMany({ data: withOrderId });
+
+    try {
+      await incrementFoodSellCountsForOrder(
+        tx,
+        withOrderId.map((row) => ({
+          food_id: row.food_id != null ? Number(row.food_id) : null,
+          quantity: row.quantity != null ? Number(row.quantity) : null,
+        }))
+      );
+    } catch (e: unknown) {
+      if (e instanceof FoodStockInsufficientError) {
+        throw new PlaceOrderError(e.message, 406, e.code);
+      }
+      throw e;
+    }
 
     await tx.restaurants.update({
       where: { id: restaurant.id },

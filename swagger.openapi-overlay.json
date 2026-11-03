@@ -848,7 +848,7 @@
     "/vendor/restaurant/active-status": {
       "put": {
         "summary": "Open or temporarily close restaurant",
-        "description": "Vendor panel **restaurant open/closed** toggle. `closed: true` = temporarily closed (not accepting orders).",
+        "description": "Vendor panel **temporary close** override. `closed: true` sets `restaurants.active` to false — consumer restaurant APIs return `is_temporarily_closed: true`, `can_order: false`, and place-order is blocked until reopened. Weekly hours are unchanged; this overrides accepting orders immediately.",
         "parameters": [
           {
             "$ref": "#/components/parameters/VendorAuthorizationHeader"
@@ -4491,7 +4491,7 @@
     },
     "/consumer/restaurants/all": {
       "get": {
-        "description": "Active restaurants assigned to the customer zone(s). **Flow:** 1) GET /consumer/config/zone-id?lat=&lng= 2) pass returned id(s) as query **zone_id** (e.g. ?zone_id=2). Public; no Bearer token.",
+        "description": "Active restaurants assigned to the customer zone(s). Each restaurant includes **server-computed availability** (`status`, `can_order`, `next_open_at`, `next_close_at`, `is_temporarily_closed`; legacy `open` = `can_order`). **Flow:** 1) GET /consumer/config/zone-id?lat=&lng= 2) pass returned id(s) as query **zone_id** (e.g. ?zone_id=2). Public; no Bearer token.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerZoneIdQuery"
@@ -4570,7 +4570,13 @@
                         "minimum_order": 25,
                         "tax": 17,
                         "rating": 4.9,
-                        "address": "1631 W 2nd St, Example City"
+                        "address": "1631 W 2nd St, Example City",
+                        "status": "OPEN",
+                        "can_order": true,
+                        "next_open_at": null,
+                        "next_close_at": "2026-10-27T23:00:00+02:00",
+                        "is_temporarily_closed": false,
+                        "open": true
                       },
                       {
                         "id": "8",
@@ -4581,7 +4587,13 @@
                         "minimum_order": 0,
                         "tax": 0,
                         "rating": 4.2,
-                        "address": "Main Street 10"
+                        "address": "Main Street 10",
+                        "status": "CLOSED",
+                        "can_order": false,
+                        "next_open_at": "2026-10-28T10:00:00+02:00",
+                        "next_close_at": null,
+                        "is_temporarily_closed": false,
+                        "open": false
                       }
                     ]
                   }
@@ -4714,7 +4726,7 @@
     },
     "/consumer/restaurants/popular": {
       "get": {
-        "description": "Popular restaurants for the home screen horizontal list. Same zone flow as GET /consumer/restaurants/all. Sorted **open first**, then **order_count** (legacy PHP `restaurants/popular`). Optional **latitude** / **longitude** (query or headers) for distance on cards.",
+        "description": "Popular restaurants for the home screen horizontal list. Same zone flow as GET /consumer/restaurants/all. Sorted **can_order first** (restaurants accepting orders), then **order_count** (legacy PHP `restaurants/popular`). Each item includes computed availability fields. Optional **latitude** / **longitude** (query or headers) for distance on cards.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerZoneIdQuery"
@@ -4822,6 +4834,11 @@
                         "latitude": "32.0853",
                         "longitude": "34.7818",
                         "order_count": 240,
+                        "status": "OPEN",
+                        "can_order": true,
+                        "next_open_at": null,
+                        "next_close_at": "2026-10-27T23:00:00+02:00",
+                        "is_temporarily_closed": false,
                         "open": true,
                         "distance": 0.93,
                         "distance_text": "0.93 km"
@@ -4994,6 +5011,11 @@
                         "address": "1631 W 2nd St",
                         "latitude": 32.086,
                         "longitude": 34.782,
+                        "status": "CLOSES_SOON",
+                        "can_order": true,
+                        "next_open_at": null,
+                        "next_close_at": "2026-10-27T22:15:00+02:00",
+                        "is_temporarily_closed": false,
                         "open": true,
                         "distance": 0.42,
                         "distance_text": "0.42 km"
@@ -5018,7 +5040,7 @@
     },
     "/consumer/restaurants/nearby": {
       "get": {
-        "description": "**All Restaurants near you** / list flow (paginated). Requires customer **latitude** and **longitude** (query or headers) plus **zone_id**. Returns active restaurants in the zone with valid coordinates, sorted **open first**, then **nearest** (legacy PHP `get-restaurants` + `nearest_first`). For **map pins** use GET `/consumer/restaurants/discover/map` instead.",
+        "description": "**All Restaurants near you** / list flow (paginated). Requires customer **latitude** and **longitude** (query or headers) plus **zone_id**. Returns active restaurants in the zone with valid coordinates, sorted **can_order first**, then **nearest** (legacy PHP `get-restaurants` + `nearest_first`). Each item includes computed availability. For **map pins** use GET `/consumer/restaurants/discover/map` instead.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerZoneIdQuery"
@@ -5137,6 +5159,11 @@
                         "latitude": "32.0853",
                         "longitude": "34.7818",
                         "order_count": 18,
+                        "status": "OPEN",
+                        "can_order": true,
+                        "next_open_at": null,
+                        "next_close_at": "2026-10-27T23:00:00+02:00",
+                        "is_temporarily_closed": false,
                         "open": true,
                         "distance": 0.93,
                         "distance_text": "0.93 km"
@@ -5180,6 +5207,92 @@
                 }
               }
             }
+          }
+        },
+        "tags": [
+          "Consumer Discover"
+        ]
+      }
+    },
+    "/consumer/restaurants/specific/{id}": {
+      "get": {
+        "summary": "Restaurant details",
+        "description": "Single restaurant profile for the menu / details screen. Includes **server-computed availability** (`status`, `can_order`, `next_open_at`, `next_close_at`, `is_temporarily_closed`; legacy `open` = `can_order`), menu category chips, and vendor `active` (temporary close flag). Public; optional Bearer for visit tracking.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Restaurant id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Restaurant details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerRestaurantDetailResponse"
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "id": "12",
+                    "name": "Demo Kitchen",
+                    "logo": "https://cdn.example.com/logo.png",
+                    "cover_photo": "https://cdn.example.com/cover.png",
+                    "delivery_time": "30-40 min",
+                    "minimum_order": 10,
+                    "tax": 5,
+                    "rating": 4.5,
+                    "address": "123 Main Street",
+                    "veg": true,
+                    "non_veg": true,
+                    "active": true,
+                    "latitude": "32.0853",
+                    "longitude": "34.7818",
+                    "status": "OPEN",
+                    "can_order": true,
+                    "next_open_at": null,
+                    "next_close_at": "2026-10-27T23:00:00+02:00",
+                    "is_temporarily_closed": false,
+                    "open": true,
+                    "categories": [
+                      {
+                        "id": "1",
+                        "name": "Burgers"
+                      }
+                    ],
+                    "category_ids": [
+                      1
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "404": {
+            "description": "Restaurant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Restaurant not found"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError500"
           }
         },
         "tags": [
@@ -5390,7 +5503,7 @@
     "/consumer/foods/search": {
       "get": {
         "summary": "Search foods and restaurants",
-        "description": "App search bar: returns **foods** whose name matches and **restaurants** that sell those items (or whose name matches). Case-insensitive. Public — no auth. **name** is required. Optional **zone_id** (same as discover), **page** / **limit** (default 1 / 20, shared pagination), **latitude** / **longitude** for distance on restaurant cards.",
+        "description": "App search bar: returns **foods** whose name matches and **restaurants** that sell those items (or whose name matches). Case-insensitive. Public — no auth. **name** is required (`search` / `q` accepted as aliases). Matches any search word against restaurant name, translations, cuisine, tags, or menu items (PHP parity). Optional **zone_id** (same as discover), **page** / **limit** for foods (default 1 / 20), **restaurant_page** / **restaurant_limit** for restaurants (default same page, max 50), **latitude** / **longitude** for distance on restaurant cards.",
         "parameters": [
           {
             "name": "name",
@@ -5400,6 +5513,14 @@
               "type": "string"
             },
             "description": "Search term (food or restaurant name)"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Alias for name (legacy clients)"
           },
           {
             "name": "zone_id",
@@ -5480,7 +5601,12 @@
                         "rating": 4.5,
                         "address": "123 Main Street",
                         "order_count": 240,
-                        "open": true,
+                        "status": "OPENS_SOON",
+                        "can_order": false,
+                        "next_open_at": "2026-10-27T11:00:00+02:00",
+                        "next_close_at": null,
+                        "is_temporarily_closed": false,
+                        "open": false,
                         "distance": 0.93,
                         "distance_text": "0.93 km"
                       }
@@ -5569,7 +5695,7 @@
     "/consumer/cart/": {
       "get": {
         "summary": "Get cart",
-        "description": "**Customer:** `Authorization: Bearer <customer JWT>` from login.\n\n**Guest (preferred):** `Authorization: Bearer <guest JWT>` from POST `/consumer/guest/request` — no extra query params.\n\n**Guest (legacy):** `is_guest=true` and `guest_id=<id>` with optional Bearer bypass via middleware.",
+        "description": "**Customer:** `Authorization: Bearer <customer JWT>` from login.\n\n**Guest (preferred):** `Authorization: Bearer <guest JWT>` from POST `/consumer/guest/request` — no extra query params.\n\n**Guest (legacy):** `is_guest=true` and `guest_id=<id>` with optional Bearer bypass via middleware.\n\nEach **Food** line may include selling-time fields (`is_available_now`, `availability_status`) and stock fields (`is_in_stock`, `stock_status`, `current_stock`) so the app can warn on stale or out-of-stock cart lines.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerCartAuthHeader"
@@ -5586,9 +5712,37 @@
             "description": "Cart line items",
             "content": {
               "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ConsumerCartLineItem"
+                      }
+                    }
+                  }
+                },
                 "example": {
                   "status": true,
-                  "data": []
+                  "data": [
+                    {
+                      "id": "501",
+                      "item_id": "102",
+                      "item_type": "Food",
+                      "quantity": 1,
+                      "price": 45,
+                      "is_available_now": false,
+                      "availability_status": "time_ended",
+                      "is_in_stock": false,
+                      "stock_status": "out_of_stock",
+                      "current_stock": 0
+                    }
+                  ]
                 }
               }
             }
@@ -5672,7 +5826,7 @@
     "/consumer/cart/add": {
       "post": {
         "summary": "Add to cart",
-        "description": "Same auth as GET `/consumer/cart/`. With **guest Bearer token**, set `is_guest: true` in body or omit — server infers guest from JWT. Legacy: `is_guest: true` and `guest_id` without Bearer.",
+        "description": "Same auth as GET `/consumer/cart/`. With **guest Bearer token**, set `is_guest: true` in body or omit — server infers guest from JWT. Legacy: `is_guest: true` and `guest_id` without Bearer.\n\nReturns **403** with `code: food_selling_time` when outside the selling window, or `code: food_stock` when limited stock is exhausted or quantity exceeds `current_stock`.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerCartAuthHeader"
@@ -5720,15 +5874,49 @@
             }
           },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Forbidden — selling window (`food_selling_time`), limited stock (`food_stock`), or duplicate line",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiError"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ConsumerFoodSellingTimeError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ConsumerFoodStockError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
                 },
-                "example": {
-                  "status": false,
-                  "msg": "Forbidden"
+                "examples": {
+                  "food_selling_time": {
+                    "summary": "Outside selling window",
+                    "value": {
+                      "status": false,
+                      "msg": "This item is only available from 08:00",
+                      "code": "food_selling_time",
+                      "availability_status": "not_yet_available"
+                    }
+                  },
+                  "food_stock": {
+                    "summary": "Out of stock or insufficient quantity",
+                    "value": {
+                      "status": false,
+                      "msg": "Morning Shakshuka is out of stock",
+                      "code": "food_stock",
+                      "stock_status": "out_of_stock",
+                      "current_stock": 0
+                    }
+                  },
+                  "forbidden": {
+                    "summary": "Other forbidden",
+                    "value": {
+                      "status": false,
+                      "msg": "Forbidden"
+                    }
+                  }
                 }
               }
             }
@@ -6127,7 +6315,7 @@
     "/consumer/order/quote": {
       "post": {
         "summary": "Quote order totals (checkout preview)",
-        "description": "Preview the same pricing as **POST /consumer/order/place** without creating an order row. Use on checkout before pay/place so the app shows **pricing_breakdown.order_amount** (VAT, delivery, fees). Request body is identical to place order (`PlaceOrderRequest` / `ConsumerPlaceOrderBody`). Send **`delivery_fee`** from **GET /consumer/config/delivery-fee** when available so delivery matches place. Client `price`, `order_amount`, and `total_tax_amount` fields are ignored for calculation. Bearer JWT required (registered customer or guest session).",
+        "description": "Preview the same pricing as **POST /consumer/order/place** without creating an order row. Request body matches place order. Send cart line **`price`** (food + variations, excluding add-ons), **`delivery_fee`**, **`total_tax_amount`**, and **`order_amount`** (full checkout total). Response **`pricing_breakdown`** includes separate **`items_price`**, **`addon_cost`**, **`subtotal`** (food after discounts), tax, delivery, and **`order_amount`**. Bearer JWT required.",
         "parameters": [
           {
             "name": "authorization",
@@ -8697,66 +8885,56 @@
         ],
         "summary": "Upload file to Cloudflare R2",
         "description": "Multipart upload. **Registration (recommended):** set `role`, `cloudflare_id` (from registration-init), and `category` (`restaurant` | `identity` | `profile` | `assets`). Use response `path` on register/apply. **Legacy:** `subfolder` only (defaults to `assets/`).",
-        "parameters": [
-          {
-            "name": "file",
-            "in": "formData",
-            "required": true,
-            "description": "The file to upload",
-            "schema": {
-              "type": "file"
-            }
-          },
-          {
-            "name": "role",
-            "in": "formData",
-            "required": false,
-            "description": "Registration uploads: vendor | deliveryman",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "vendor",
-                "deliveryman"
-              ]
-            }
-          },
-          {
-            "name": "cloudflare_id",
-            "in": "formData",
-            "required": false,
-            "description": "12-char hex from POST /storage/registration-init (required with role for scoped uploads)",
-            "schema": {
-              "type": "string",
-              "pattern": "^[a-f0-9]{12}$",
-              "example": "a1b2c3d4e5f6"
-            }
-          },
-          {
-            "name": "category",
-            "in": "formData",
-            "required": false,
-            "description": "With role + cloudflare_id: restaurant (vendor logo/cover), identity, profile, assets",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "restaurant",
-                "identity",
-                "profile",
-                "assets"
-              ],
-              "default": "assets"
-            }
-          },
-          {
-            "name": "subfolder",
-            "in": "formData",
-            "required": false,
-            "description": "Legacy optional path e.g. vendors/abc/assets (must match cloudflare_id prefix if role is set)",
-            "schema": {
-              "type": "string"
+        "parameters": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The file to upload"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "vendor",
+                      "deliveryman"
+                    ],
+                    "description": "Registration uploads"
+                  },
+                  "cloudflare_id": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{12}$",
+                    "example": "a1b2c3d4e5f6",
+                    "description": "12-char hex from POST /storage/registration-init (required with role for scoped uploads)"
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "restaurant",
+                      "identity",
+                      "profile",
+                      "assets"
+                    ],
+                    "default": "assets",
+                    "description": "With role + cloudflare_id: restaurant (vendor logo/cover), identity, profile, assets"
+                  },
+                  "subfolder": {
+                    "type": "string",
+                    "description": "Legacy optional path e.g. vendors/abc/assets (must match cloudflare_id prefix if role is set)"
+                  }
+                }
+              }
             }
           }
-        ],
+        },
         "responses": {
           "200": {
             "description": "File uploaded successfully",
@@ -8839,20 +9017,6 @@
                 "example": {
                   "status": false,
                   "msg": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "subfolder": {
-                    "example": "any"
-                  }
                 }
               }
             }
@@ -11462,6 +11626,126 @@
           "msg": "Something went wrong"
         }
       },
+      "ConsumerFoodAvailabilityStatus": {
+        "type": "string",
+        "enum": [
+          "all_day",
+          "available",
+          "not_yet_available",
+          "time_ended"
+        ]
+      },
+      "ConsumerFoodSellingTimeError": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "code"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": false
+          },
+          "msg": {
+            "type": "string",
+            "example": "This item was only available until 11:00"
+          },
+          "code": {
+            "type": "string",
+            "example": "food_selling_time"
+          },
+          "availability_status": {
+            "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
+          }
+        }
+      },
+      "ConsumerFoodStockStatus": {
+        "type": "string",
+        "enum": [
+          "in_stock",
+          "out_of_stock"
+        ]
+      },
+      "ConsumerFoodStockError": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "code"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": false
+          },
+          "msg": {
+            "type": "string",
+            "example": "Morning Shakshuka is out of stock"
+          },
+          "code": {
+            "type": "string",
+            "example": "food_stock"
+          },
+          "stock_status": {
+            "$ref": "#/components/schemas/ConsumerFoodStockStatus"
+          },
+          "current_stock": {
+            "type": "integer",
+            "nullable": true,
+            "example": 0
+          }
+        }
+      },
+      "ConsumerCartLineItem": {
+        "type": "object",
+        "description": "Cart row with optional selling-time and stock flags on GET (Food items only).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "501"
+          },
+          "user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "item_id": {
+            "type": "string",
+            "example": "102"
+          },
+          "item_type": {
+            "type": "string",
+            "example": "Food"
+          },
+          "quantity": {
+            "type": "integer",
+            "example": 1
+          },
+          "price": {
+            "type": "number",
+            "example": 45
+          },
+          "is_available_now": {
+            "type": "boolean",
+            "description": "Present on GET cart when item_type is Food"
+          },
+          "availability_status": {
+            "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
+          },
+          "is_in_stock": {
+            "type": "boolean",
+            "description": "Present on GET cart when item_type is Food"
+          },
+          "stock_status": {
+            "$ref": "#/components/schemas/ConsumerFoodStockStatus"
+          },
+          "current_stock": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Remaining units when vendor stock_type is limited"
+          }
+        }
+      },
       "ApiResponse": {
         "type": "object",
         "properties": {
@@ -11755,12 +12039,22 @@
       },
       "ConsumerOrderPricingBreakdown": {
         "type": "object",
-        "description": "Server-side order pricing (placeOrderLogic). VAT rate from restaurant.tax; included vs excluded from business_settings.tax_included (GET /config → tax_included).",
+        "description": "Order pricing from place/quote. VAT rate from restaurant.tax; included vs excluded from business_settings.tax_included (GET /config → tax_included).",
         "properties": {
+          "items_price": {
+            "type": "number",
+            "description": "Sum of cart line prices × qty (food + variations only, no add-ons)",
+            "example": 23
+          },
+          "addon_cost": {
+            "type": "number",
+            "description": "Sum of add-on prices × qty",
+            "example": 4
+          },
           "subtotal": {
             "type": "number",
-            "description": "Food + add-ons − product and coupon discounts (tax base before VAT add-on)",
-            "example": 40
+            "description": "items_price + addon_cost − product and coupon discounts (before tax & delivery)",
+            "example": 27
           },
           "total_tax_amount": {
             "type": "number",
@@ -11769,7 +12063,7 @@
           },
           "tax_added_to_total": {
             "type": "number",
-            "description": "VAT added on top of subtotal when tax_status is excluded; 0 when included",
+            "description": "When tax_status is `excluded`, menu prices do not include VAT — this is the VAT amount **added at checkout** (same as total_tax_amount in that mode). When `included`, this is 0 and total_tax_amount is informational only. Grand total = subtotal + tax_added_to_total + delivery_charge + fees.",
             "example": 2
           },
           "tax_status": {
@@ -11814,6 +12108,8 @@
           }
         },
         "required": [
+          "items_price",
+          "addon_cost",
           "subtotal",
           "total_tax_amount",
           "tax_added_to_total",
@@ -14885,20 +15181,80 @@
           "maintenance_mode": {
             "type": "boolean"
           },
+          "maintenance_message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Short message when maintenance_mode is true"
+          },
           "order_confirmation_model": {
             "type": "string",
             "example": "restaurant"
           },
           "app_minimum_version_android": {
-            "type": "number"
+            "type": "string",
+            "example": "10.0.0"
+          },
+          "app_minimum_build_android": {
+            "type": "integer",
+            "example": 19
+          },
+          "app_force_update_android": {
+            "type": "boolean"
+          },
+          "app_minimum_version_ios": {
+            "type": "string",
+            "example": "9.0.0"
+          },
+          "app_minimum_build_ios": {
+            "type": "integer",
+            "example": 2
+          },
+          "app_force_update_ios": {
+            "type": "boolean"
           },
           "app_minimum_version_android_restaurant": {
-            "type": "number"
+            "type": "string",
+            "example": "10.0.0"
+          },
+          "app_minimum_build_android_restaurant": {
+            "type": "integer"
+          },
+          "app_force_update_android_restaurant": {
+            "type": "boolean"
+          },
+          "app_minimum_version_ios_restaurant": {
+            "type": "string"
+          },
+          "app_minimum_build_ios_restaurant": {
+            "type": "integer"
+          },
+          "app_force_update_ios_restaurant": {
+            "type": "boolean"
           },
           "app_minimum_version_android_deliveryman": {
-            "type": "number"
+            "type": "string",
+            "example": "10.0.0"
+          },
+          "app_minimum_build_android_deliveryman": {
+            "type": "integer"
+          },
+          "app_force_update_android_deliveryman": {
+            "type": "boolean"
+          },
+          "app_minimum_version_ios_deliveryman": {
+            "type": "string"
+          },
+          "app_minimum_build_ios_deliveryman": {
+            "type": "integer"
+          },
+          "app_force_update_ios_deliveryman": {
+            "type": "boolean"
           },
           "app_url_android": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_url_ios": {
             "type": "string",
             "nullable": true
           },
@@ -14906,7 +15262,15 @@
             "type": "string",
             "nullable": true
           },
+          "app_url_ios_restaurant": {
+            "type": "string",
+            "nullable": true
+          },
           "app_url_android_deliveryman": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_url_ios_deliveryman": {
             "type": "string",
             "nullable": true
           },
@@ -14960,7 +15324,14 @@
           "cash_on_delivery": true,
           "digital_payment": false,
           "home_delivery": true,
-          "app_minimum_version_android_deliveryman": 1,
+          "maintenance_mode": false,
+          "maintenance_message": null,
+          "app_minimum_version_android": "10.0.0",
+          "app_minimum_build_android": 19,
+          "app_force_update_android": true,
+          "app_minimum_version_android_deliveryman": "10.0.0",
+          "app_minimum_build_android_deliveryman": 19,
+          "app_force_update_android_deliveryman": false,
           "app_url_android_deliveryman": "https://play.google.com/store/apps/details?id=app.gizra.driver"
         }
       },
@@ -15126,13 +15497,65 @@
           }
         }
       },
+      "ConsumerRestaurantAvailabilityStatus": {
+        "type": "string",
+        "enum": [
+          "OPEN",
+          "CLOSES_SOON",
+          "CLOSED",
+          "OPENS_SOON"
+        ],
+        "description": "Computed on the backend from weekly `restaurant_schedule`, admin business `timezone` (business_settings), and vendor temporary close (`restaurants.active` / PUT /vendor/restaurant/active-status)."
+      },
+      "ConsumerRestaurantAvailabilityFields": {
+        "type": "object",
+        "required": [
+          "status",
+          "can_order",
+          "next_open_at",
+          "next_close_at",
+          "is_temporarily_closed",
+          "open"
+        ],
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean",
+            "description": "Enable ordering in the customer app when true (OPEN and CLOSES_SOON)."
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-8601 datetime with offset; next opening instant (CLOSED, OPENS_SOON, or temporarily closed)."
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-8601 datetime with offset; closing time of the current open slot (OPEN and CLOSES_SOON)."
+          },
+          "is_temporarily_closed": {
+            "type": "boolean",
+            "description": "True when the vendor set temporary close (active=false)."
+          },
+          "open": {
+            "type": "boolean",
+            "description": "Legacy alias of can_order."
+          }
+        }
+      },
       "ConsumerRestaurantMapPin": {
         "type": "object",
         "required": [
           "id",
           "name",
           "latitude",
-          "longitude"
+          "longitude",
+          "status",
+          "can_order",
+          "is_temporarily_closed",
+          "open"
         ],
         "properties": {
           "id": {
@@ -15161,6 +15584,23 @@
             "type": "number",
             "format": "double",
             "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean"
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_temporarily_closed": {
+            "type": "boolean"
           },
           "open": {
             "type": "boolean"
@@ -15274,7 +15714,7 @@
               "restaurants": {
                 "type": "array",
                 "items": {
-                  "$ref": "#/components/schemas/ConsumerRestaurantSummary"
+                  "$ref": "#/components/schemas/ConsumerRestaurantDiscoverItem"
                 }
               }
             }
@@ -15283,6 +15723,15 @@
       },
       "ConsumerRestaurantSummary": {
         "type": "object",
+        "description": "Restaurant list/card fields including server-computed opening status.",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "can_order",
+          "is_temporarily_closed",
+          "open"
+        ],
         "properties": {
           "id": {
             "type": "string"
@@ -15314,6 +15763,113 @@
           "address": {
             "type": "string",
             "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean"
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_temporarily_closed": {
+            "type": "boolean"
+          },
+          "open": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ConsumerRestaurantDiscoverItem": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConsumerRestaurantSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "latitude": {
+                "type": "string",
+                "nullable": true
+              },
+              "longitude": {
+                "type": "string",
+                "nullable": true
+              },
+              "order_count": {
+                "type": "integer"
+              },
+              "distance": {
+                "type": "number",
+                "nullable": true,
+                "description": "km from customer when latitude/longitude sent"
+              },
+              "distance_text": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          }
+        ]
+      },
+      "ConsumerRestaurantDetailResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConsumerRestaurantSummary"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "veg": {
+                    "type": "boolean"
+                  },
+                  "non_veg": {
+                    "type": "boolean"
+                  },
+                  "active": {
+                    "type": "boolean",
+                    "description": "Vendor temporary-close flag (false = temporarily closed)."
+                  },
+                  "latitude": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "longitude": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "categories": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "category_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            ]
           }
         }
       },
@@ -15423,6 +15979,154 @@
           }
         }
       },
+      "VendorOrderDetailLineItem": {
+        "type": "object",
+        "description": "GET /vendor/orders/{id} line item (food + add-ons split for POS).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "501"
+          },
+          "food_id": {
+            "type": "string",
+            "nullable": true,
+            "example": "1415"
+          },
+          "food_name": {
+            "type": "string",
+            "example": "Margherita"
+          },
+          "food_image": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "integer",
+            "example": 1
+          },
+          "unit_food_price": {
+            "type": "number",
+            "description": "Food + variations per unit (excludes add-ons)",
+            "example": 23
+          },
+          "addon_per_unit": {
+            "type": "number",
+            "example": 4
+          },
+          "addon_lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "price": {
+                  "type": "number"
+                },
+                "quantity": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "line_food_total": {
+            "type": "number",
+            "example": 23
+          },
+          "line_addon_total": {
+            "type": "number",
+            "example": 4
+          },
+          "line_subtotal": {
+            "type": "number",
+            "example": 27
+          },
+          "variation": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "VendorOrderPricing": {
+        "type": "object",
+        "description": "Checkout-aligned totals (data.pricing). Gizra commission is restaurant-side only.",
+        "properties": {
+          "items_price": {
+            "type": "number",
+            "example": 23
+          },
+          "addon_cost": {
+            "type": "number",
+            "example": 4
+          },
+          "subtotal": {
+            "type": "number",
+            "example": 27
+          },
+          "order_value": {
+            "type": "number",
+            "example": 27
+          },
+          "restaurant_discount_amount": {
+            "type": "number",
+            "example": 0
+          },
+          "coupon_discount_amount": {
+            "type": "number",
+            "example": 0
+          },
+          "ref_bonus_amount": {
+            "type": "number",
+            "example": 0
+          },
+          "tax_amount": {
+            "type": "number",
+            "example": 1.35
+          },
+          "tax_percent": {
+            "type": "number",
+            "example": 5
+          },
+          "tax_status": {
+            "type": "string",
+            "nullable": true,
+            "example": "excluded"
+          },
+          "delivery_charge": {
+            "type": "number",
+            "example": 8.87
+          },
+          "dm_tips": {
+            "type": "number",
+            "example": 0
+          },
+          "additional_charge": {
+            "type": "number",
+            "example": 0
+          },
+          "extra_packaging_amount": {
+            "type": "number",
+            "example": 0
+          },
+          "customer_total": {
+            "type": "number",
+            "example": 37.22
+          },
+          "gizra_commission_percent": {
+            "type": "number",
+            "example": 10
+          },
+          "gizra_commission_amount": {
+            "type": "number",
+            "example": 2.7
+          },
+          "gizra_pays_you": {
+            "type": "number",
+            "example": 24.3
+          }
+        }
+      },
       "VendorOrderDetail": {
         "allOf": [
           {
@@ -15439,18 +16143,17 @@
                 "type": "string",
                 "nullable": true
               },
-              "delivery_charge": {
-                "type": "number",
-                "example": 5
+              "delivery_address_parsed": {
+                "type": "object",
+                "nullable": true
               },
-              "total_tax_amount": {
-                "type": "number",
-                "example": 2.5
+              "pricing": {
+                "$ref": "#/components/schemas/VendorOrderPricing"
               },
               "items": {
                 "type": "array",
                 "items": {
-                  "$ref": "#/components/schemas/VendorOrderLineItem"
+                  "$ref": "#/components/schemas/VendorOrderDetailLineItem"
                 }
               }
             }

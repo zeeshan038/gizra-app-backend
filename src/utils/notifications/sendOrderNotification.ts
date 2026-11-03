@@ -114,17 +114,10 @@ function customerMessageStatus(order: orders): string {
   return order.order_status;
 }
 
-/** Customer push rules after POS accept — no push on kitchen (processing) or ready (handover). */
+/** Customer push for every meaningful status change (admin, vendor POS, driver). */
 function shouldNotifyCustomerOrderStatus(order: orders): boolean {
-  if (order.order_status === 'picked_up' && order.handover != null) {
-    return false;
-  }
-  if (order.order_type === 'delivery') {
-    if (order.order_status === 'processing' || order.order_status === 'handover') {
-      return false;
-    }
-  }
-  return true;
+  const silent = new Set(['pending', 'failed']);
+  return !silent.has(order.order_status);
 }
 
 function driverPoolPushForStatus(order: orders, orderId: string): FcmPushData | null {

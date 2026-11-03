@@ -35,6 +35,7 @@ export async function buildAdminOrderSearchFilter(
   const or: Prisma.ordersWhereInput[] = [
     { order_status: { contains: q, mode: 'insensitive' } },
     { transaction_reference: { contains: q, mode: 'insensitive' } },
+    { restaurant_order_ref: { contains: q, mode: 'insensitive' } },
   ];
 
   if (restaurantIds.length) {

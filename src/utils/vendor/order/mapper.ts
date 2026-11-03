@@ -4,6 +4,7 @@ import {
   deriveRestaurantListTotal,
   gizraPaysRestaurant,
 } from './orderSettlement';
+import { mapOrderIdentityFields } from '../../order/orderIdentity';
 
 export type OrderCustomerBrief = {
   f_name: string | null;
@@ -15,6 +16,25 @@ export type OrderCustomerBrief = {
 export function formatCustomerName(customer?: OrderCustomerBrief | null): string {
   if (!customer) return 'Guest';
   return [customer.f_name, customer.l_name].filter(Boolean).join(' ') || 'Customer';
+}
+
+function contactFromDeliveryAddress(raw: string | null | undefined): {
+  name?: string;
+  phone?: string;
+} {
+  if (!raw?.trim()) return {};
+  try {
+    const parsed = JSON.parse(raw) as {
+      contact_person_name?: string;
+      contact_person_number?: string;
+    };
+    return {
+      name: parsed.contact_person_name?.trim() || undefined,
+      phone: parsed.contact_person_number?.trim() || undefined,
+    };
+  } catch {
+    return {};
+  }
 }
 
 export function mapOrderSummary(order: orders, customer?: OrderCustomerBrief | null) {
@@ -37,8 +57,17 @@ export function mapOrderSummary(order: orders, customer?: OrderCustomerBrief | n
     scheduled: order.scheduled,
     checked: order.checked,
     created_at: order.created_at,
-    customer_name: formatCustomerName(customer),
-    customer_phone: customer?.phone ?? null,
+    customer_name: (() => {
+      const fromAddress = contactFromDeliveryAddress(order.delivery_address);
+      if (fromAddress.name) return fromAddress.name;
+      return formatCustomerName(customer);
+    })(),
+    customer_phone: (() => {
+      const fromAddress = contactFromDeliveryAddress(order.delivery_address);
+      return fromAddress.phone ?? customer?.phone ?? null;
+    })(),
+    is_manual_dispatch: Boolean(order.is_manual_dispatch),
+    ...mapOrderIdentityFields(order),
   };
 }
 

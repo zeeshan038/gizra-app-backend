@@ -7,19 +7,27 @@ import {
   applyDiscoverTypeFilter,
   DISCOVER_RESTAURANT_SELECT,
   distanceKmForRestaurant,
+  availabilityMapForRestaurants,
   formatDiscoverRestaurant,
-  isOpenFromSchedules,
   loadActiveDiscountRestaurantIds,
-  loadTodaySchedulesByRestaurantId,
   parseDiscoverType,
 } from '../../utils/consumer/restaurantDiscoverHelpers';
-import { formatRestaurantMenuFood } from '../../utils/consumer/restaurantMenuHelpers';
+import {
+  formatRestaurantMenuFood,
+  formatRestaurantMenuFoodsBatch,
+} from '../../utils/consumer/restaurantMenuHelpers';
 import { paginationSkip } from '../../utils/consumer/orderListHelpers';
 import {
   filterCouponsForCustomerList,
   loadCouponsForRestaurantFilter,
+  resolveCouponZoneIds,
 } from '../../utils/consumer/couponHelpers';
 import { parseZoneIdsFromRequest } from '../../utils/consumer/favouriteHelpers';
+import {
+  findRestaurantIdsForConsumerSearch,
+  parseConsumerSearchQuery,
+  tokenizeSearchQuery,
+} from '../../utils/consumer/restaurantSearchHelpers';
 
 async function attachTopFoods(
   restaurants: Array<{ id: bigint }>,
@@ -31,11 +39,16 @@ async function attachTopFoods(
     where: { restaurant_id: { in: ids }, status: true },
     orderBy: { order_count: 'desc' },
   });
+  const formatted = await formatRestaurantMenuFoodsBatch(foods);
+  const formattedById = new Map(formatted.map((f) => [Number(f.id), f]));
   const map = new Map<number, ReturnType<typeof formatRestaurantMenuFood>[]>();
   for (const food of foods) {
     const rid = Number(food.restaurant_id);
     const list = map.get(rid) ?? [];
-    if (list.length < take) list.push(formatRestaurantMenuFood(food));
+    if (list.length < take) {
+      const row = formattedById.get(Number(food.id));
+      if (row) list.push(row);
+    }
     map.set(rid, list);
   }
   return map;
@@ -49,8 +62,9 @@ async function attachTopFoods(
 export const searchRestaurants = async (req: Request, res: Response): Promise<any> => {
   const zoneIds = requireZoneIds(req, res);
   if (!zoneIds) return;
-  const name = String(req.query.name ?? '').trim();
-  if (!name) return sendApiError(res, 403, 'name is required');
+  const name = parseConsumerSearchQuery(req);
+  const tokens = tokenizeSearchQuery(name);
+  if (!name || !tokens.length) return sendApiError(res, 403, 'name is required');
 
   const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 50);
   const offset = Math.max(Number(req.query.offset ?? req.query.page) || 1, 1);
@@ -67,16 +81,29 @@ export const searchRestaurants = async (req: Request, res: Response): Promise<an
   const where: Record<string, unknown> = {
     status: true,
     zone_id: { in: zoneIds },
-    name: { contains: name, mode: 'insensitive' },
   };
   applyDiscoverTypeFilter(where, type);
   if (req.query.veg === '1' || req.query.veg === 'true') where.veg = true;
   if (req.query.non_veg === '1' || req.query.non_veg === 'true') where.non_veg = true;
 
   try {
+    let searchIds = (await findRestaurantIdsForConsumerSearch(tokens, zoneIds, name)).map((id) =>
+      BigInt(id)
+    );
+    if (!searchIds.length) {
+      return res.status(200).json({
+        status: true,
+        total_size: 0,
+        limit,
+        offset,
+        restaurants: [],
+      });
+    }
+
     if (discounted) {
-      const discountedIds = await loadActiveDiscountRestaurantIds();
-      where.id = { in: discountedIds };
+      const discountedIds = await loadActiveDiscountRestaurantIds(searchIds);
+      const discountedSet = new Set(discountedIds.map((id) => id.toString()));
+      searchIds = searchIds.filter((id) => discountedSet.has(id.toString()));
     }
 
     if (dineIn) {
@@ -84,15 +111,21 @@ export const searchRestaurants = async (req: Request, res: Response): Promise<an
         where: { dine_in: true },
         select: { restaurant_id: true },
       });
-      const dineInIds = dineInConfigs.map((c) => Number(c.restaurant_id));
-      const existingIn = (where.id as any)?.in as bigint[] | undefined;
-      const dineInBigInts = dineInIds.map((id) => BigInt(id));
-      if (existingIn) {
-        where.id = { in: existingIn.filter((id) => dineInBigInts.includes(id)) };
-      } else {
-        where.id = { in: dineInBigInts };
-      }
+      const dineInSet = new Set(dineInConfigs.map((c) => Number(c.restaurant_id).toString()));
+      searchIds = searchIds.filter((id) => dineInSet.has(id.toString()));
     }
+
+    if (!searchIds.length) {
+      return res.status(200).json({
+        status: true,
+        total_size: 0,
+        limit,
+        offset,
+        restaurants: [],
+      });
+    }
+
+    where.id = { in: searchIds };
 
     const [total_size, rows] = await Promise.all([
       prisma.restaurants.count({ where }),
@@ -109,7 +142,7 @@ export const searchRestaurants = async (req: Request, res: Response): Promise<an
               : [{ order_count: 'desc' }, { id: 'desc' }],
       }),
     ]);
-    const scheduleMap = await loadTodaySchedulesByRestaurantId(rows.map((r) => r.id));
+    const availabilityMap = await availabilityMapForRestaurants(rows);
     return res.status(200).json({
       status: true,
       total_size,
@@ -117,7 +150,7 @@ export const searchRestaurants = async (req: Request, res: Response): Promise<an
       offset,
       restaurants: rows.map((row) =>
         formatDiscoverRestaurant(row, {
-          open: isOpenFromSchedules(scheduleMap.get(row.id.toString()) ?? []),
+          availability: availabilityMap.get(row.id.toString()) ?? undefined,
           distanceKm: distanceKmForRestaurant(coords, row.latitude, row.longitude),
         })
       ),
@@ -165,7 +198,7 @@ export const getDineInRestaurants = async (req: Request, res: Response): Promise
         orderBy: [{ order_count: 'desc' }, { id: 'desc' }],
       }),
     ]);
-    const scheduleMap = await loadTodaySchedulesByRestaurantId(rows.map((r) => r.id));
+    const availabilityMap = await availabilityMapForRestaurants(rows);
     return res.status(200).json({
       status: true,
       total_size,
@@ -173,7 +206,7 @@ export const getDineInRestaurants = async (req: Request, res: Response): Promise
       offset,
       restaurants: rows.map((row) =>
         formatDiscoverRestaurant(row, {
-          open: isOpenFromSchedules(scheduleMap.get(row.id.toString()) ?? []),
+          availability: availabilityMap.get(row.id.toString()) ?? undefined,
           distanceKm: distanceKmForRestaurant(coords, row.latitude, row.longitude),
         })
       ),
@@ -215,12 +248,12 @@ export const getRecentlyViewedRestaurants = async (req: Request, res: Response):
       select: DISCOVER_RESTAURANT_SELECT,
       take: limit,
     });
-    const scheduleMap = await loadTodaySchedulesByRestaurantId(rows.map((r) => r.id));
+    const availabilityMap = await availabilityMapForRestaurants(rows);
     return res.status(200).json({
       status: true,
       data: rows.map((row) =>
         formatDiscoverRestaurant(row, {
-          open: isOpenFromSchedules(scheduleMap.get(row.id.toString()) ?? []),
+          availability: availabilityMap.get(row.id.toString()) ?? undefined,
           distanceKm: distanceKmForRestaurant(coords, row.latitude, row.longitude),
         })
       ),
@@ -247,13 +280,13 @@ export const getRecommendedRestaurants = async (req: Request, res: Response): Pr
       orderBy: [{ order_count: 'desc' }, { id: 'desc' }],
     });
     const shuffled = [...rows].sort(() => Math.random() - 0.5).slice(0, 20);
-    const scheduleMap = await loadTodaySchedulesByRestaurantId(shuffled.map((r) => r.id));
+    const availabilityMap = await availabilityMapForRestaurants(shuffled);
     const foods = await attachTopFoods(shuffled, 5);
     return res.status(200).json({
       status: true,
       data: shuffled.map((row) => ({
         ...formatDiscoverRestaurant(row, {
-          open: isOpenFromSchedules(scheduleMap.get(row.id.toString()) ?? []),
+          availability: availabilityMap.get(row.id.toString()) ?? undefined,
           distanceKm: distanceKmForRestaurant(coords, row.latitude, row.longitude),
         }),
         foods: foods.get(Number(row.id)) ?? [],
@@ -295,13 +328,13 @@ export const getVisitedRestaurants = async (req: Request, res: Response): Promis
       select: DISCOVER_RESTAURANT_SELECT,
       take: 20,
     });
-    const scheduleMap = await loadTodaySchedulesByRestaurantId(rows.map((r) => r.id));
+    const availabilityMap = await availabilityMapForRestaurants(rows);
     const foods = await attachTopFoods(rows, 5);
     return res.status(200).json({
       status: true,
       data: rows.map((row) => ({
         ...formatDiscoverRestaurant(row, {
-          open: isOpenFromSchedules(scheduleMap.get(row.id.toString()) ?? []),
+          availability: availabilityMap.get(row.id.toString()) ?? undefined,
           distanceKm: distanceKmForRestaurant(coords, row.latitude, row.longitude),
         }),
         foods: foods.get(Number(row.id)) ?? [],
@@ -322,13 +355,13 @@ export const getRestaurantCoupons = async (req: Request, res: Response): Promise
   if (!Number.isFinite(restaurantId) || restaurantId <= 0) {
     return sendApiError(res, 403, 'restaurant_id is required');
   }
-  const zoneIds = parseZoneIdsFromRequest(req) ?? [];
   const customerId = req.user?.id ? Number(req.user.id) : Number(req.query.customer_id) || null;
   try {
+    const zoneIds = await resolveCouponZoneIds(parseZoneIdsFromRequest(req) ?? [], restaurantId);
     const rows = await loadCouponsForRestaurantFilter(restaurantId);
     const data = await filterCouponsForCustomerList({
       coupons: rows,
-      zoneIds: zoneIds.length ? zoneIds : [0],
+      zoneIds,
       customerId,
       restaurantId,
     });

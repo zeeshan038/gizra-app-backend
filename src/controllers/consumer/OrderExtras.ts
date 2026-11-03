@@ -16,12 +16,13 @@ import {
   resolveConsumerOrderUser,
 } from '../../utils/consumer/orderListHelpers';
 import { notPosWhere } from '../../utils/vendor/order/query';
-import { formatRestaurantMenuFood } from '../../utils/consumer/restaurantMenuHelpers';
+import {
+  formatRestaurantMenuFoodsBatch,
+} from '../../utils/consumer/restaurantMenuHelpers';
 import {
   DISCOVER_RESTAURANT_SELECT,
+  availabilityMapForRestaurants,
   formatDiscoverRestaurant,
-  isOpenFromSchedules,
-  loadTodaySchedulesByRestaurantId,
 } from '../../utils/consumer/restaurantDiscoverHelpers';
 import { requireZoneIds } from '../../utils/consumer/zoneHeaders';
 import { parseCoordinatesFromRequest } from '../../utils/consumer/favouriteHelpers';
@@ -530,9 +531,10 @@ export const getFoodListByIds = async (req: Request, res: Response): Promise<any
     const foods = await prisma.food.findMany({
       where: { id: { in: ids.map((id) => BigInt(id)) }, status: true },
     });
+    const data = await formatRestaurantMenuFoodsBatch(foods);
     return res.status(200).json({
       status: true,
-      data: foods.map((f) => formatRestaurantMenuFood(f)),
+      data,
     });
   } catch (e: unknown) {
     return sendApiError(res, 500, errorMessageFromUnknown(e));
@@ -637,24 +639,28 @@ export const orderAgain = async (req: Request, res: Response): Promise<any> => {
       select: DISCOVER_RESTAURANT_SELECT,
       take: 20,
     });
-    const scheduleMap = await loadTodaySchedulesByRestaurantId(restaurants.map((r) => r.id));
+    const availabilityMap = await availabilityMapForRestaurants(restaurants);
     const foods = await prisma.food.findMany({
       where: { restaurant_id: { in: restaurantIds }, status: true },
       orderBy: { order_count: 'desc' },
     });
-    const foodsByRestaurant = new Map<number, ReturnType<typeof formatRestaurantMenuFood>[]>();
+    const formattedFoods = await formatRestaurantMenuFoodsBatch(foods);
+    const formattedById = new Map(formattedFoods.map((f) => [Number(f.id), f]));
+    const foodsByRestaurant = new Map<number, typeof formattedFoods>();
     for (const food of foods) {
       const rid = Number(food.restaurant_id);
       const list = foodsByRestaurant.get(rid) ?? [];
-      if (list.length < 5) list.push(formatRestaurantMenuFood(food));
+      if (list.length < 5) {
+        const row = formattedById.get(Number(food.id));
+        if (row) list.push(row);
+      }
       foodsByRestaurant.set(rid, list);
     }
 
     const data = restaurants.map((row) => {
-      const open = isOpenFromSchedules(scheduleMap.get(row.id.toString()) ?? []);
       return {
         ...formatDiscoverRestaurant(row, {
-          open,
+          availability: availabilityMap.get(row.id.toString()) ?? undefined,
           distanceKm: distanceKmForRestaurant(coords, row.latitude, row.longitude),
         }),
         foods: foodsByRestaurant.get(Number(row.id)) ?? [],

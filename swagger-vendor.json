@@ -313,6 +313,127 @@
           }
         }
       },
+      "ConsumerFoodAvailabilityStatus": {
+        "type": "string",
+        "enum": [
+          "all_day",
+          "available",
+          "not_yet_available",
+          "time_ended"
+        ],
+        "description": "`all_day` — no restriction (or full-day window). `available` — inside window. `not_yet_available` — before window. `time_ended` — after window. Evaluated in business timezone."
+      },
+      "ConsumerFoodSellingTimeError": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "code"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": false
+          },
+          "msg": {
+            "type": "string",
+            "example": "This item was only available until 11:00"
+          },
+          "code": {
+            "type": "string",
+            "example": "food_selling_time"
+          },
+          "availability_status": {
+            "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
+          }
+        }
+      },
+      "ConsumerFoodStockStatus": {
+        "type": "string",
+        "enum": [
+          "in_stock",
+          "out_of_stock"
+        ]
+      },
+      "ConsumerFoodStockError": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "code"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": false
+          },
+          "msg": {
+            "type": "string",
+            "example": "Morning Shakshuka is out of stock"
+          },
+          "code": {
+            "type": "string",
+            "example": "food_stock"
+          },
+          "stock_status": {
+            "$ref": "#/components/schemas/ConsumerFoodStockStatus"
+          },
+          "current_stock": {
+            "type": "integer",
+            "nullable": true,
+            "example": 0
+          }
+        }
+      },
+      "ConsumerCartLineItem": {
+        "type": "object",
+        "description": "Cart row with optional selling-time and stock flags on GET (Food items only).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "501"
+          },
+          "user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "item_id": {
+            "type": "string",
+            "example": "102"
+          },
+          "item_type": {
+            "type": "string",
+            "example": "Food"
+          },
+          "quantity": {
+            "type": "integer",
+            "example": 1
+          },
+          "price": {
+            "type": "number",
+            "example": 45
+          },
+          "is_available_now": {
+            "type": "boolean",
+            "description": "Present on GET cart when item_type is Food"
+          },
+          "availability_status": {
+            "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
+          },
+          "is_in_stock": {
+            "type": "boolean",
+            "description": "Present on GET cart when item_type is Food"
+          },
+          "stock_status": {
+            "$ref": "#/components/schemas/ConsumerFoodStockStatus"
+          },
+          "current_stock": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Remaining units when vendor stock_type is limited"
+          }
+        }
+      },
       "ConsumerPlaceOrderLineItem": {
         "type": "object",
         "required": [
@@ -589,12 +710,22 @@
       },
       "ConsumerOrderPricingBreakdown": {
         "type": "object",
-        "description": "Server-side order pricing (placeOrderLogic). VAT rate from restaurant.tax; included vs excluded from business_settings.tax_included (GET /config → tax_included).",
+        "description": "Order pricing from place/quote. VAT rate from restaurant.tax; included vs excluded from business_settings.tax_included (GET /config → tax_included).",
         "properties": {
+          "items_price": {
+            "type": "number",
+            "description": "Sum of cart line prices × qty (food + variations only, no add-ons)",
+            "example": 23
+          },
+          "addon_cost": {
+            "type": "number",
+            "description": "Sum of add-on prices × qty",
+            "example": 4
+          },
           "subtotal": {
             "type": "number",
-            "description": "Food + add-ons − product and coupon discounts (tax base before VAT add-on)",
-            "example": 40
+            "description": "items_price + addon_cost − product and coupon discounts (before tax & delivery)",
+            "example": 27
           },
           "total_tax_amount": {
             "type": "number",
@@ -603,7 +734,7 @@
           },
           "tax_added_to_total": {
             "type": "number",
-            "description": "VAT added on top of subtotal when tax_status is excluded; 0 when included",
+            "description": "When tax_status is `excluded`, menu prices do not include VAT — this is the VAT amount **added at checkout** (same as total_tax_amount in that mode). When `included`, this is 0 and total_tax_amount is informational only. Grand total = subtotal + tax_added_to_total + delivery_charge + fees.",
             "example": 2
           },
           "tax_status": {
@@ -648,6 +779,8 @@
           }
         },
         "required": [
+          "items_price",
+          "addon_cost",
           "subtotal",
           "total_tax_amount",
           "tax_added_to_total",
@@ -3719,20 +3852,80 @@
           "maintenance_mode": {
             "type": "boolean"
           },
+          "maintenance_message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Short message when maintenance_mode is true"
+          },
           "order_confirmation_model": {
             "type": "string",
             "example": "restaurant"
           },
           "app_minimum_version_android": {
-            "type": "number"
+            "type": "string",
+            "example": "10.0.0"
+          },
+          "app_minimum_build_android": {
+            "type": "integer",
+            "example": 19
+          },
+          "app_force_update_android": {
+            "type": "boolean"
+          },
+          "app_minimum_version_ios": {
+            "type": "string",
+            "example": "9.0.0"
+          },
+          "app_minimum_build_ios": {
+            "type": "integer",
+            "example": 2
+          },
+          "app_force_update_ios": {
+            "type": "boolean"
           },
           "app_minimum_version_android_restaurant": {
-            "type": "number"
+            "type": "string",
+            "example": "10.0.0"
+          },
+          "app_minimum_build_android_restaurant": {
+            "type": "integer"
+          },
+          "app_force_update_android_restaurant": {
+            "type": "boolean"
+          },
+          "app_minimum_version_ios_restaurant": {
+            "type": "string"
+          },
+          "app_minimum_build_ios_restaurant": {
+            "type": "integer"
+          },
+          "app_force_update_ios_restaurant": {
+            "type": "boolean"
           },
           "app_minimum_version_android_deliveryman": {
-            "type": "number"
+            "type": "string",
+            "example": "10.0.0"
+          },
+          "app_minimum_build_android_deliveryman": {
+            "type": "integer"
+          },
+          "app_force_update_android_deliveryman": {
+            "type": "boolean"
+          },
+          "app_minimum_version_ios_deliveryman": {
+            "type": "string"
+          },
+          "app_minimum_build_ios_deliveryman": {
+            "type": "integer"
+          },
+          "app_force_update_ios_deliveryman": {
+            "type": "boolean"
           },
           "app_url_android": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_url_ios": {
             "type": "string",
             "nullable": true
           },
@@ -3740,7 +3933,15 @@
             "type": "string",
             "nullable": true
           },
+          "app_url_ios_restaurant": {
+            "type": "string",
+            "nullable": true
+          },
           "app_url_android_deliveryman": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_url_ios_deliveryman": {
             "type": "string",
             "nullable": true
           },
@@ -3794,7 +3995,14 @@
           "cash_on_delivery": true,
           "digital_payment": false,
           "home_delivery": true,
-          "app_minimum_version_android_deliveryman": 1,
+          "maintenance_mode": false,
+          "maintenance_message": null,
+          "app_minimum_version_android": "10.0.0",
+          "app_minimum_build_android": 19,
+          "app_force_update_android": true,
+          "app_minimum_version_android_deliveryman": "10.0.0",
+          "app_minimum_build_android_deliveryman": 19,
+          "app_force_update_android_deliveryman": false,
           "app_url_android_deliveryman": "https://play.google.com/store/apps/details?id=app.gizra.driver"
         }
       },
@@ -3960,13 +4168,65 @@
           }
         }
       },
+      "ConsumerRestaurantAvailabilityStatus": {
+        "type": "string",
+        "enum": [
+          "OPEN",
+          "CLOSES_SOON",
+          "CLOSED",
+          "OPENS_SOON"
+        ],
+        "description": "Computed on the backend from weekly `restaurant_schedule`, admin business `timezone` (business_settings), and vendor temporary close (`restaurants.active` / PUT /vendor/restaurant/active-status)."
+      },
+      "ConsumerRestaurantAvailabilityFields": {
+        "type": "object",
+        "required": [
+          "status",
+          "can_order",
+          "next_open_at",
+          "next_close_at",
+          "is_temporarily_closed",
+          "open"
+        ],
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean",
+            "description": "Enable ordering in the customer app when true (OPEN and CLOSES_SOON)."
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-8601 datetime with offset; next opening instant (CLOSED, OPENS_SOON, or temporarily closed)."
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-8601 datetime with offset; closing time of the current open slot (OPEN and CLOSES_SOON)."
+          },
+          "is_temporarily_closed": {
+            "type": "boolean",
+            "description": "True when the vendor set temporary close (active=false)."
+          },
+          "open": {
+            "type": "boolean",
+            "description": "Legacy alias of can_order."
+          }
+        }
+      },
       "ConsumerRestaurantMapPin": {
         "type": "object",
         "required": [
           "id",
           "name",
           "latitude",
-          "longitude"
+          "longitude",
+          "status",
+          "can_order",
+          "is_temporarily_closed",
+          "open"
         ],
         "properties": {
           "id": {
@@ -3995,6 +4255,23 @@
             "type": "number",
             "format": "double",
             "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean"
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_temporarily_closed": {
+            "type": "boolean"
           },
           "open": {
             "type": "boolean"
@@ -4108,7 +4385,7 @@
               "restaurants": {
                 "type": "array",
                 "items": {
-                  "$ref": "#/components/schemas/ConsumerRestaurantSummary"
+                  "$ref": "#/components/schemas/ConsumerRestaurantDiscoverItem"
                 }
               }
             }
@@ -4117,6 +4394,15 @@
       },
       "ConsumerRestaurantSummary": {
         "type": "object",
+        "description": "Restaurant list/card fields including server-computed opening status.",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "can_order",
+          "is_temporarily_closed",
+          "open"
+        ],
         "properties": {
           "id": {
             "type": "string"
@@ -4148,6 +4434,113 @@
           "address": {
             "type": "string",
             "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean"
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_temporarily_closed": {
+            "type": "boolean"
+          },
+          "open": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ConsumerRestaurantDiscoverItem": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConsumerRestaurantSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "latitude": {
+                "type": "string",
+                "nullable": true
+              },
+              "longitude": {
+                "type": "string",
+                "nullable": true
+              },
+              "order_count": {
+                "type": "integer"
+              },
+              "distance": {
+                "type": "number",
+                "nullable": true,
+                "description": "km from customer when latitude/longitude sent"
+              },
+              "distance_text": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          }
+        ]
+      },
+      "ConsumerRestaurantDetailResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConsumerRestaurantSummary"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "veg": {
+                    "type": "boolean"
+                  },
+                  "non_veg": {
+                    "type": "boolean"
+                  },
+                  "active": {
+                    "type": "boolean",
+                    "description": "Vendor temporary-close flag (false = temporarily closed)."
+                  },
+                  "latitude": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "longitude": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "categories": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "category_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            ]
           }
         }
       },
@@ -4257,6 +4650,154 @@
           }
         }
       },
+      "VendorOrderDetailLineItem": {
+        "type": "object",
+        "description": "GET /vendor/orders/{id} line item (food + add-ons split for POS).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "501"
+          },
+          "food_id": {
+            "type": "string",
+            "nullable": true,
+            "example": "1415"
+          },
+          "food_name": {
+            "type": "string",
+            "example": "Margherita"
+          },
+          "food_image": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "integer",
+            "example": 1
+          },
+          "unit_food_price": {
+            "type": "number",
+            "description": "Food + variations per unit (excludes add-ons)",
+            "example": 23
+          },
+          "addon_per_unit": {
+            "type": "number",
+            "example": 4
+          },
+          "addon_lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "price": {
+                  "type": "number"
+                },
+                "quantity": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "line_food_total": {
+            "type": "number",
+            "example": 23
+          },
+          "line_addon_total": {
+            "type": "number",
+            "example": 4
+          },
+          "line_subtotal": {
+            "type": "number",
+            "example": 27
+          },
+          "variation": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "VendorOrderPricing": {
+        "type": "object",
+        "description": "Checkout-aligned totals (data.pricing). Gizra commission is restaurant-side only.",
+        "properties": {
+          "items_price": {
+            "type": "number",
+            "example": 23
+          },
+          "addon_cost": {
+            "type": "number",
+            "example": 4
+          },
+          "subtotal": {
+            "type": "number",
+            "example": 27
+          },
+          "order_value": {
+            "type": "number",
+            "example": 27
+          },
+          "restaurant_discount_amount": {
+            "type": "number",
+            "example": 0
+          },
+          "coupon_discount_amount": {
+            "type": "number",
+            "example": 0
+          },
+          "ref_bonus_amount": {
+            "type": "number",
+            "example": 0
+          },
+          "tax_amount": {
+            "type": "number",
+            "example": 1.35
+          },
+          "tax_percent": {
+            "type": "number",
+            "example": 5
+          },
+          "tax_status": {
+            "type": "string",
+            "nullable": true,
+            "example": "excluded"
+          },
+          "delivery_charge": {
+            "type": "number",
+            "example": 8.87
+          },
+          "dm_tips": {
+            "type": "number",
+            "example": 0
+          },
+          "additional_charge": {
+            "type": "number",
+            "example": 0
+          },
+          "extra_packaging_amount": {
+            "type": "number",
+            "example": 0
+          },
+          "customer_total": {
+            "type": "number",
+            "example": 37.22
+          },
+          "gizra_commission_percent": {
+            "type": "number",
+            "example": 10
+          },
+          "gizra_commission_amount": {
+            "type": "number",
+            "example": 2.7
+          },
+          "gizra_pays_you": {
+            "type": "number",
+            "example": 24.3
+          }
+        }
+      },
       "VendorOrderDetail": {
         "allOf": [
           {
@@ -4273,18 +4814,17 @@
                 "type": "string",
                 "nullable": true
               },
-              "delivery_charge": {
-                "type": "number",
-                "example": 5
+              "delivery_address_parsed": {
+                "type": "object",
+                "nullable": true
               },
-              "total_tax_amount": {
-                "type": "number",
-                "example": 2.5
+              "pricing": {
+                "$ref": "#/components/schemas/VendorOrderPricing"
               },
               "items": {
                 "type": "array",
                 "items": {
-                  "$ref": "#/components/schemas/VendorOrderLineItem"
+                  "$ref": "#/components/schemas/VendorOrderDetailLineItem"
                 }
               }
             }
@@ -7785,11 +8325,11 @@
       },
       "FoodVariationGroup": {
         "type": "object",
+        "description": "Vendor write / raw DB may use `options` or `values`.",
         "required": [
           "name",
           "type",
-          "required",
-          "options"
+          "required"
         ],
         "properties": {
           "name": {
@@ -7808,10 +8348,146 @@
             "type": "boolean",
             "example": true
           },
+          "min": {
+            "type": "string",
+            "example": "0"
+          },
+          "max": {
+            "type": "string",
+            "example": "4"
+          },
+          "selectionMode": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "opt_out",
+              "opt_in"
+            ]
+          },
+          "defaultSelectAll": {
+            "type": "boolean"
+          },
+          "priceDisplay": {
+            "type": "string",
+            "enum": [
+              "included",
+              "price"
+            ]
+          },
           "options": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/FoodVariationOption"
+            }
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodVariationOption"
+            }
+          }
+        }
+      },
+      "ConsumerFoodVariationOption": {
+        "type": "object",
+        "description": "StackFood / Flutter product model (`label`, `optionPrice`). For default included ingredients use optionPrice 0 with priceTag `included` and showPrice false.",
+        "properties": {
+          "label": {
+            "type": "string",
+            "example": "פיתה"
+          },
+          "name": {
+            "type": "string",
+            "example": "פיתה"
+          },
+          "level": {
+            "type": "string",
+            "example": "פיתה"
+          },
+          "optionPrice": {
+            "type": "number",
+            "example": 0
+          },
+          "price": {
+            "type": "number",
+            "example": 0
+          },
+          "priceTag": {
+            "type": "string",
+            "enum": [
+              "included"
+            ],
+            "example": "included"
+          },
+          "showPrice": {
+            "type": "boolean",
+            "example": false
+          }
+        }
+      },
+      "ConsumerFoodVariationGroup": {
+        "type": "object",
+        "description": "Consumer menu APIs always expose `values` (never rely on `options` alone).",
+        "required": [
+          "name",
+          "type",
+          "required",
+          "values"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "במה תרצו לאכול?"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "single",
+              "multi"
+            ],
+            "example": "single"
+          },
+          "required": {
+            "type": "string",
+            "enum": [
+              "on",
+              "off"
+            ],
+            "example": "on"
+          },
+          "min": {
+            "type": "string",
+            "example": "0"
+          },
+          "max": {
+            "type": "string",
+            "example": "1"
+          },
+          "selectionMode": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "opt_out",
+              "opt_in"
+            ],
+            "description": "opt_out = default ingredients (pre-selected, uncheck to remove). opt_in = paid upgrades with max cap."
+          },
+          "defaultSelectAll": {
+            "type": "boolean",
+            "description": "When true (opt_out groups), customer app pre-checks every option in this group."
+          },
+          "priceDisplay": {
+            "type": "string",
+            "enum": [
+              "included",
+              "price"
+            ],
+            "description": "included → show Included label, not FREE."
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerFoodVariationOption"
             }
           }
         }
@@ -7937,6 +8613,18 @@
               1
             ],
             "example": 0
+          },
+          "available_time_starts": {
+            "type": "string",
+            "nullable": true,
+            "example": "08:00:00",
+            "description": "When this item may be sold (business timezone). Omit or null with `available_time_ends` for all-day."
+          },
+          "available_time_ends": {
+            "type": "string",
+            "nullable": true,
+            "example": "11:00:00",
+            "description": "End of selling window (inclusive), HH:mm:ss in business timezone."
           }
         }
       },
@@ -7985,6 +8673,42 @@
             "items": {
               "$ref": "#/components/schemas/FoodAddonExpanded"
             }
+          },
+          "available_time_starts": {
+            "type": "string",
+            "nullable": true,
+            "example": "08:00:00"
+          },
+          "available_time_ends": {
+            "type": "string",
+            "nullable": true,
+            "example": "11:00:00"
+          }
+        }
+      },
+      "ConsumerFoodSellingTimeFields": {
+        "type": "object",
+        "description": "Per-item selling window (vendor-configured). Present on consumer menu/product payloads when formatted with selling-time metadata.",
+        "properties": {
+          "available_time_starts": {
+            "type": "string",
+            "nullable": true,
+            "example": "08:00:00",
+            "description": "Configured window start (HH:mm:ss), or null when all-day."
+          },
+          "available_time_ends": {
+            "type": "string",
+            "nullable": true,
+            "example": "11:00:00",
+            "description": "Configured window end (HH:mm:ss), or null when all-day."
+          },
+          "is_available_now": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether the item can be added to cart at request time (or at scheduled order time on checkout)."
+          },
+          "availability_status": {
+            "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
           }
         }
       },
@@ -8056,6 +8780,7 @@
       },
       "ConsumerMenuFoodItem": {
         "type": "object",
+        "description": "Menu / product card for the customer app. Includes selling-time fields when returned from consumer food endpoints.",
         "properties": {
           "id": {
             "type": "string",
@@ -8108,13 +8833,83 @@
           "variations": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/FoodVariationGroup"
+              "$ref": "#/components/schemas/ConsumerFoodVariationGroup"
             }
           },
           "add_ons": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/FoodAddonExpanded"
+            }
+          },
+          "available_time_starts": {
+            "type": "string",
+            "nullable": true,
+            "example": "08:00:00"
+          },
+          "available_time_ends": {
+            "type": "string",
+            "nullable": true,
+            "example": "11:00:00"
+          },
+          "is_available_now": {
+            "type": "boolean",
+            "example": true
+          },
+          "availability_status": {
+            "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
+          },
+          "stock_type": {
+            "type": "string",
+            "enum": [
+              "limited",
+              "unlimited"
+            ],
+            "example": "limited"
+          },
+          "current_stock": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Remaining units when stock_type is limited (item_stock − sell_count). Null when unlimited.",
+            "example": 7
+          },
+          "is_in_stock": {
+            "type": "boolean",
+            "example": true
+          },
+          "stock_status": {
+            "type": "string",
+            "enum": [
+              "in_stock",
+              "out_of_stock"
+            ],
+            "example": "in_stock"
+          }
+        }
+      },
+      "ConsumerFoodListPage": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "total_size": {
+            "type": "integer",
+            "example": 24
+          },
+          "limit": {
+            "type": "integer",
+            "example": 10
+          },
+          "offset": {
+            "type": "integer",
+            "example": 1
+          },
+          "products": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerMenuFoodItem"
             }
           }
         }
@@ -10157,16 +10952,15 @@
           }
         ],
         "responses": {
-          "201": {
-            "description": "Created",
+          "200": {
+            "description": "OK",
             "content": {
               "application/json": {
                 "example": {
                   "status": true,
                   "msg": "Category created successfully",
-                  "data": {
-                    "id": "1"
-                  }
+                  "data": "…",
+                  "unknown": "…"
                 },
                 "schema": {
                   "type": "object",
@@ -10180,24 +10974,59 @@
                       "example": "Category created successfully"
                     },
                     "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "example": "1"
-                        }
-                      },
-                      "example": {
-                        "id": "1"
-                      }
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "unknown": {
+                      "type": "string",
+                      "example": "…"
                     }
                   },
                   "example": {
                     "status": true,
                     "msg": "Category created successfully",
+                    "data": "…",
+                    "unknown": "…"
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Category created successfully",
+                  "data": "…",
+                  "unknown": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Category created successfully"
+                    },
                     "data": {
-                      "id": "1"
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "unknown": {
+                      "type": "string",
+                      "example": "…"
                     }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Category created successfully",
+                    "data": "…",
+                    "unknown": "…"
                   }
                 }
               }
@@ -10331,6 +11160,7 @@
                 "example": {
                   "status": true,
                   "data": "…",
+                  "unknown": "…",
                   "pagination": {
                     "total": 42,
                     "page": 1,
@@ -10346,6 +11176,10 @@
                       "example": true
                     },
                     "data": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "unknown": {
                       "type": "string",
                       "example": "…"
                     },
@@ -10380,6 +11214,7 @@
                   "example": {
                     "status": true,
                     "data": "…",
+                    "unknown": "…",
                     "pagination": {
                       "total": 42,
                       "page": 1,
@@ -10457,6 +11292,160 @@
                 "example": {
                   "status": false,
                   "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      }
+    },
+    "/vendor/catalog/category/{id}": {
+      "patch": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Category updated successfully",
+                  "data": "…",
+                  "unknown": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Category updated successfully"
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "unknown": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Category updated successfully",
+                    "data": "…",
+                    "unknown": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "example": "any"
+                  },
+                  "image": {
+                    "example": "any"
+                  }
                 }
               }
             }
@@ -11105,18 +12094,10 @@
         "summary": "List vendor food items"
       }
     },
-    "/vendor/catalog/food/{id}": {
-      "patch": {
-        "description": "Partial update. When **add_ons** is sent, extras are synced to the add_ons catalog and food links are replaced with the resulting ids.",
+    "/vendor/catalog/food/publish-quota": {
+      "get": {
+        "description": "",
         "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "name": "authorization",
             "in": "header",
@@ -11130,26 +12111,38 @@
             "description": "OK",
             "content": {
               "application/json": {
+                "example": {
+                  "status": true,
+                  "data": {
+                    "draft_count": 5
+                  }
+                },
                 "schema": {
                   "type": "object",
                   "properties": {
                     "status": {
-                      "type": "boolean"
-                    },
-                    "msg": {
-                      "type": "string"
+                      "type": "boolean",
+                      "example": true
                     },
                     "data": {
-                      "$ref": "#/components/schemas/VendorFoodItem"
+                      "type": "object",
+                      "properties": {
+                        "draft_count": {
+                          "type": "number",
+                          "example": 5
+                        }
+                      },
+                      "example": {
+                        "draft_count": 5
+                      }
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "data": {
+                      "draft_count": 5
                     }
                   }
-                },
-                "example": {
-                  "status": true,
-                  "msg": "Food item updated successfully",
-                  "data": "…",
-                  "unknown": "…",
-                  "addonLookup": "…"
                 }
               }
             }
@@ -11225,31 +12218,15 @@
             }
           }
         },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VendorFoodWriteBody"
-              }
-            }
-          }
-        },
         "tags": [
           "Vendor Catalog"
-        ],
-        "summary": "Update food item"
-      },
-      "delete": {
+        ]
+      }
+    },
+    "/vendor/catalog/food/publish-all-drafts": {
+      "post": {
         "description": "",
         "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "name": "authorization",
             "in": "header",
@@ -11263,18 +12240,32 @@
             "description": "OK",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                },
                 "example": {
                   "status": true,
-                  "msg": "Operation successful"
+                  "msg": 0
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "number",
+                      "example": 0
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": 0
+                  }
                 }
               }
             }
           },
           "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
@@ -11368,7 +12359,13 @@
               "application/json": {
                 "example": {
                   "status": true,
-                  "msg": "Foods published successfully"
+                  "msg": "Success",
+                  "data": {
+                    "published_count": 5,
+                    "published_ids": "…",
+                    "skipped_count": 5,
+                    "quota": "…"
+                  }
                 },
                 "schema": {
                   "type": "object",
@@ -11379,12 +12376,45 @@
                     },
                     "msg": {
                       "type": "string",
-                      "example": "Foods published successfully"
+                      "example": "Success"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "published_count": {
+                          "type": "number",
+                          "example": 5
+                        },
+                        "published_ids": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "skipped_count": {
+                          "type": "number",
+                          "example": 5
+                        },
+                        "quota": {
+                          "type": "string",
+                          "example": "…"
+                        }
+                      },
+                      "example": {
+                        "published_count": 5,
+                        "published_ids": "…",
+                        "skipped_count": 5,
+                        "quota": "…"
+                      }
                     }
                   },
                   "example": {
                     "status": true,
-                    "msg": "Foods published successfully"
+                    "msg": "Success",
+                    "data": {
+                      "published_count": 5,
+                      "published_ids": "…",
+                      "skipped_count": 5,
+                      "quota": "…"
+                    }
                   }
                 }
               }
@@ -11501,10 +12531,6 @@
             "description": "OK",
             "content": {
               "application/json": {
-                "example": {
-                  "status": true,
-                  "msg": "Foods deleted successfully"
-                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -11520,6 +12546,159 @@
                   "example": {
                     "status": true,
                     "msg": "Foods deleted successfully"
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Foods deleted successfully"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vendor/catalog/food/{id}": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Food item deleted successfully",
+                  "data": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Food item deleted successfully"
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Food item deleted successfully",
+                    "data": "…"
                   }
                 }
               }
@@ -11596,19 +12775,243 @@
             }
           }
         },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      },
+      "patch": {
+        "description": "Partial update. When **add_ons** is sent, extras are synced to the add_ons catalog and food links are replaced with the resulting ids.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/VendorFoodItem"
+                    }
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Food item updated successfully",
+                  "data": "…",
+                  "unknown": "…",
+                  "addonLookup": "…"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ],
+        "summary": "Update food item",
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "ids": {
-                    "type": "array",
-                    "items": {
-                      "type": "integer"
-                    }
-                  }
+                "$ref": "#/components/schemas/VendorFoodWriteBody"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
                 }
               }
             }
@@ -12106,12 +13509,12 @@
                         },
                         "source": {
                           "type": "string",
-                          "example": "pollinations-direct"
+                          "example": "…"
                         }
                       },
                       "example": {
                         "image": "https://cdn.example.com/image.png",
-                        "source": "pollinations-direct"
+                        "source": "…"
                       }
                     }
                   },
@@ -12119,7 +13522,7 @@
                     "status": true,
                     "data": {
                       "image": "https://cdn.example.com/image.png",
-                      "source": "pollinations-direct"
+                      "source": "…"
                     }
                   }
                 },
@@ -12127,7 +13530,7 @@
                   "status": true,
                   "data": {
                     "image": "https://cdn.example.com/image.png",
-                    "source": "pollinations-direct"
+                    "source": "…"
                   }
                 }
               }
@@ -13148,23 +14551,34 @@
                 "example": {
                   "status": true,
                   "data": {
-                    "id": "1001",
-                    "order_status": "confirmed",
-                    "payment_status": "paid",
-                    "order_amount": 45.5,
+                    "id": "100603",
+                    "order_status": "pending",
+                    "payment_status": "unpaid",
                     "customer_name": "John Doe",
-                    "customer_phone": "+1234567890",
+                    "customer_phone": "+923234372432",
                     "customer_email": "john@example.com",
                     "customer_orders_count": 3,
-                    "delivery_address": "{\"address\":\"123 Main St\"}",
+                    "delivery_address": "{\"address\":\"Rawalpindi\"}",
                     "items": [
                       {
-                        "id": "1",
-                        "food_id": "101",
-                        "food_name": "Margherita Pizza",
-                        "quantity": 2,
-                        "price": 12.99,
-                        "image": "https://cdn.example.com/food.png"
+                        "id": "501",
+                        "food_id": "1415",
+                        "food_name": "Pizza",
+                        "food_image": "https://cdn.example.com/food.png",
+                        "quantity": 1,
+                        "unit_food_price": 23,
+                        "addon_per_unit": 4,
+                        "addon_lines": [
+                          {
+                            "name": "Double Cheese",
+                            "price": 2,
+                            "quantity": 1
+                          }
+                        ],
+                        "line_food_total": 23,
+                        "line_addon_total": 4,
+                        "line_subtotal": 27,
+                        "variation": "[{\"type\":\"Sizes\",\"value\":\"Party\"}]"
                       }
                     ],
                     "restaurant": {
@@ -13173,10 +14587,24 @@
                       "logo": "https://cdn.example.com/logo.png"
                     },
                     "pricing": {
-                      "subtotal": 25.98,
-                      "tax": 2.6,
-                      "delivery_charge": 3,
-                      "total": 31.58
+                      "items_price": 23,
+                      "addon_cost": 4,
+                      "subtotal": 27,
+                      "order_value": 27,
+                      "restaurant_discount_amount": 0,
+                      "coupon_discount_amount": 0,
+                      "ref_bonus_amount": 0,
+                      "tax_amount": 1.35,
+                      "tax_percent": 5,
+                      "tax_status": "excluded",
+                      "delivery_charge": 8.87,
+                      "dm_tips": 0,
+                      "additional_charge": 0,
+                      "extra_packaging_amount": 0,
+                      "customer_total": 37.22,
+                      "gizra_commission_percent": 10,
+                      "gizra_commission_amount": 2.7,
+                      "gizra_pays_you": 24.3
                     }
                   }
                 }
@@ -13793,7 +15221,7 @@
     },
     "/vendor/restaurant/active-status": {
       "put": {
-        "description": "Vendor panel **restaurant open/closed** toggle. `closed: true` = temporarily closed (not accepting orders).",
+        "description": "Vendor panel **temporary close** override. `closed: true` sets `restaurants.active` to false — consumer restaurant APIs return `is_temporarily_closed: true`, `can_order: false`, and place-order is blocked until reopened. Weekly hours are unchanged; this overrides accepting orders immediately.",
         "parameters": [
           {
             "$ref": "#/components/parameters/VendorAuthorizationHeader"
@@ -14839,7 +16267,7 @@
             }
           },
           "404": {
-            "description": "Not Found",
+            "description": "Not Found - The requested resource could not be found",
             "content": {
               "application/json": {
                 "schema": {
@@ -18070,6 +19498,726 @@
         ]
       }
     },
+    "/vendor/reports/transaction": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Success"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Success"
+                    },
+                    "data": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Success"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
+    "/vendor/reports/expense": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Success"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Success"
+                    },
+                    "data": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Success"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
+    "/vendor/reports/order": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Success"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Success"
+                    },
+                    "data": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Success"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
+    "/vendor/reports/campaign-order": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Success"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Success"
+                    },
+                    "data": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Success"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
+    "/vendor/reports/food-wise": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Success"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Success"
+                    },
+                    "data": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Success"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
+    "/vendor/reports/disbursement": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Success"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Success"
+                    },
+                    "data": {
+                      "type": "string"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Success"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
     "/config/": {
       "get": {
         "description": "Legacy PHP **GET /api/v1/config** — flat JSON (no `status`/`data` wrapper). Customer, vendor, and driver apps call this on launch for **terms_and_conditions**, **privacy_policy**, **about_us**, refund/cancellation/shipping policies (+ `*_status` flags), **cookies_text**, payment/wallet/loyalty toggles, map keys, and **app_minimum_version_*** / store URLs per app.\n\nOptional header **`X-localization`** (e.g. `en`, `he`) returns translated legal HTML from `data_settings` + `translations`.\n\nSame body as **GET /consumer/config**.",
@@ -18550,74 +20698,49 @@
           "Upload"
         ],
         "summary": "Upload file to Cloudflare R2",
-        "parameters": [
-          {
-            "name": "file",
-            "in": "formData",
-            "required": true,
-            "description": "The file to upload",
-            "schema": {
-              "type": "file"
-            }
-          },
-          {
-            "name": "role",
-            "in": "formData",
-            "required": false,
-            "description": "Registration uploads: vendor | deliveryman",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "vendor",
-                "deliveryman"
-              ]
-            }
-          },
-          {
-            "name": "cloudflare_id",
-            "in": "formData",
-            "required": false,
-            "description": "12-char hex from POST /storage/registration-init (required with role for scoped uploads)",
-            "schema": {
-              "type": "string",
-              "pattern": "^[a-f0-9]{12}$",
-              "example": "a1b2c3d4e5f6"
-            }
-          },
-          {
-            "name": "category",
-            "in": "formData",
-            "required": false,
-            "description": "With role + cloudflare_id: restaurant (vendor logo/cover), identity, profile, assets",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "restaurant",
-                "identity",
-                "profile",
-                "assets"
-              ],
-              "default": "assets"
-            }
-          },
-          {
-            "name": "subfolder",
-            "in": "formData",
-            "required": false,
-            "description": "Legacy optional path e.g. vendors/abc/assets (must match cloudflare_id prefix if role is set)",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
+          "required": true,
           "content": {
-            "application/json": {
+            "multipart/form-data": {
               "schema": {
                 "type": "object",
+                "required": [
+                  "file"
+                ],
                 "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The file to upload"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "vendor",
+                      "deliveryman"
+                    ],
+                    "description": "Registration uploads"
+                  },
+                  "cloudflare_id": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{12}$",
+                    "example": "a1b2c3d4e5f6",
+                    "description": "12-char hex from POST /storage/registration-init (required with role for scoped uploads)"
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "restaurant",
+                      "identity",
+                      "profile",
+                      "assets"
+                    ],
+                    "default": "assets",
+                    "description": "With role + cloudflare_id: restaurant (vendor logo/cover), identity, profile, assets"
+                  },
                   "subfolder": {
-                    "example": "any"
+                    "type": "string",
+                    "description": "Legacy optional path e.g. vendors/abc/assets (must match cloudflare_id prefix if role is set)"
                   }
                 }
               }

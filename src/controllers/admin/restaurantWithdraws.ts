@@ -3,6 +3,7 @@ import {
   adminRestaurantWithdrawListQuerySchema,
   adminRestaurantWithdrawStatusSchema,
 } from '../../schemas/admin/RestaurantWithdraw';
+import { countPendingDeliveryManWithdraws } from '../../utils/admin/withdraw/deliveryManWithdraw';
 import {
   countPendingRestaurantWithdraws,
   getRestaurantWithdrawRequest,
@@ -19,11 +20,17 @@ export const getAdminRestaurantWithdrawPendingAlert = async (
   res: Response
 ): Promise<any> => {
   try {
-    const pending = await countPendingRestaurantWithdraws();
+    const [pendingRestaurant, pendingDeliveryMan] = await Promise.all([
+      countPendingRestaurantWithdraws(),
+      countPendingDeliveryManWithdraws(),
+    ]);
+    const pending = pendingRestaurant + pendingDeliveryMan;
     return res.status(200).json({
       status: true,
       data: {
         pending,
+        pending_restaurant: pendingRestaurant,
+        pending_delivery_man: pendingDeliveryMan,
         play_sound: pending > 0,
       },
     });

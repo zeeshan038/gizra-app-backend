@@ -52,11 +52,17 @@ export function publicFoodMediaUrl(stored: string | null | undefined): string | 
   return publicMediaUrl(path);
 }
 
+const CATEGORY_IMAGE_PLACEHOLDERS = new Set(['def.png', 'default.png']);
+
 /** Category tiles (home + restaurant menu chips). */
 export function publicCategoryMediaUrl(stored: string | null | undefined): string | null {
   const raw = stored?.trim();
   if (!raw) return null;
+  if (CATEGORY_IMAGE_PLACEHOLDERS.has(raw.toLowerCase())) return null;
   if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  if (raw.includes('/')) {
+    return publicMediaUrl(raw.replace(/^\//, ''));
+  }
   const path = raw.startsWith('category/') ? raw : `category/${raw}`;
   return publicMediaUrl(path);
 }

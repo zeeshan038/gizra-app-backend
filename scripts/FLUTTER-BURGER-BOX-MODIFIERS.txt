@@ -1,0 +1,28 @@
+Superseded by: gizra-backend/docs/FLUTTER-MENU-VARIATIONS-INTEGRATION.md
+
+Customer app (StackFood Flutter) — required for Burger Box UX
+
+Menu API fields (per variation group):
+  selectionMode: "opt_out" | "opt_in" | "standard"
+  defaultSelectAll: boolean
+  min, max: strings (opt_out groups always max "999")
+  priceDisplay: "included" | "price"
+
+Per option (opt_out / included):
+  optionPrice: 0, priceTag: "included", showPrice: false
+  UI: show label "Included" or no price — never "FREE"
+
+On product screen init:
+  1. For each group where defaultSelectAll == true OR selectionMode == "opt_out":
+     select ALL options in that group only.
+  2. opt_in / standard multi: start with none selected unless required/min forces picks.
+
+Max selection (per group, use int.parse(max)):
+  When selected count >= max, disable unchecked options in THAT group only.
+  Allow unchecking a selected option to free a slot.
+
+Footer total:
+  product.price + sum(selected optionPrice per group) + add-ons
+  Must match cart/checkout (server uses same rule).
+
+Tests: npm run test:burger-box-modifiers

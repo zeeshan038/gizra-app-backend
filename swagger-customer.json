@@ -355,6 +355,127 @@
           }
         }
       },
+      "ConsumerFoodAvailabilityStatus": {
+        "type": "string",
+        "enum": [
+          "all_day",
+          "available",
+          "not_yet_available",
+          "time_ended"
+        ],
+        "description": "`all_day` — no restriction (or full-day window). `available` — inside window. `not_yet_available` — before window. `time_ended` — after window. Evaluated in business timezone."
+      },
+      "ConsumerFoodSellingTimeError": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "code"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": false
+          },
+          "msg": {
+            "type": "string",
+            "example": "This item was only available until 11:00"
+          },
+          "code": {
+            "type": "string",
+            "example": "food_selling_time"
+          },
+          "availability_status": {
+            "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
+          }
+        }
+      },
+      "ConsumerFoodStockStatus": {
+        "type": "string",
+        "enum": [
+          "in_stock",
+          "out_of_stock"
+        ]
+      },
+      "ConsumerFoodStockError": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "code"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": false
+          },
+          "msg": {
+            "type": "string",
+            "example": "Morning Shakshuka is out of stock"
+          },
+          "code": {
+            "type": "string",
+            "example": "food_stock"
+          },
+          "stock_status": {
+            "$ref": "#/components/schemas/ConsumerFoodStockStatus"
+          },
+          "current_stock": {
+            "type": "integer",
+            "nullable": true,
+            "example": 0
+          }
+        }
+      },
+      "ConsumerCartLineItem": {
+        "type": "object",
+        "description": "Cart row with optional selling-time and stock flags on GET (Food items only).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "501"
+          },
+          "user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "item_id": {
+            "type": "string",
+            "example": "102"
+          },
+          "item_type": {
+            "type": "string",
+            "example": "Food"
+          },
+          "quantity": {
+            "type": "integer",
+            "example": 1
+          },
+          "price": {
+            "type": "number",
+            "example": 45
+          },
+          "is_available_now": {
+            "type": "boolean",
+            "description": "Present on GET cart when item_type is Food"
+          },
+          "availability_status": {
+            "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
+          },
+          "is_in_stock": {
+            "type": "boolean",
+            "description": "Present on GET cart when item_type is Food"
+          },
+          "stock_status": {
+            "$ref": "#/components/schemas/ConsumerFoodStockStatus"
+          },
+          "current_stock": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Remaining units when vendor stock_type is limited"
+          }
+        }
+      },
       "ConsumerPlaceOrderLineItem": {
         "type": "object",
         "required": [
@@ -631,12 +752,22 @@
       },
       "ConsumerOrderPricingBreakdown": {
         "type": "object",
-        "description": "Server-side order pricing (placeOrderLogic). VAT rate from restaurant.tax; included vs excluded from business_settings.tax_included (GET /config → tax_included).",
+        "description": "Order pricing from place/quote. VAT rate from restaurant.tax; included vs excluded from business_settings.tax_included (GET /config → tax_included).",
         "properties": {
+          "items_price": {
+            "type": "number",
+            "description": "Sum of cart line prices × qty (food + variations only, no add-ons)",
+            "example": 23
+          },
+          "addon_cost": {
+            "type": "number",
+            "description": "Sum of add-on prices × qty",
+            "example": 4
+          },
           "subtotal": {
             "type": "number",
-            "description": "Food + add-ons − product and coupon discounts (tax base before VAT add-on)",
-            "example": 40
+            "description": "items_price + addon_cost − product and coupon discounts (before tax & delivery)",
+            "example": 27
           },
           "total_tax_amount": {
             "type": "number",
@@ -645,7 +776,7 @@
           },
           "tax_added_to_total": {
             "type": "number",
-            "description": "VAT added on top of subtotal when tax_status is excluded; 0 when included",
+            "description": "When tax_status is `excluded`, menu prices do not include VAT — this is the VAT amount **added at checkout** (same as total_tax_amount in that mode). When `included`, this is 0 and total_tax_amount is informational only. Grand total = subtotal + tax_added_to_total + delivery_charge + fees.",
             "example": 2
           },
           "tax_status": {
@@ -690,6 +821,8 @@
           }
         },
         "required": [
+          "items_price",
+          "addon_cost",
           "subtotal",
           "total_tax_amount",
           "tax_added_to_total",
@@ -3761,20 +3894,80 @@
           "maintenance_mode": {
             "type": "boolean"
           },
+          "maintenance_message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Short message when maintenance_mode is true"
+          },
           "order_confirmation_model": {
             "type": "string",
             "example": "restaurant"
           },
           "app_minimum_version_android": {
-            "type": "number"
+            "type": "string",
+            "example": "10.0.0"
+          },
+          "app_minimum_build_android": {
+            "type": "integer",
+            "example": 19
+          },
+          "app_force_update_android": {
+            "type": "boolean"
+          },
+          "app_minimum_version_ios": {
+            "type": "string",
+            "example": "9.0.0"
+          },
+          "app_minimum_build_ios": {
+            "type": "integer",
+            "example": 2
+          },
+          "app_force_update_ios": {
+            "type": "boolean"
           },
           "app_minimum_version_android_restaurant": {
-            "type": "number"
+            "type": "string",
+            "example": "10.0.0"
+          },
+          "app_minimum_build_android_restaurant": {
+            "type": "integer"
+          },
+          "app_force_update_android_restaurant": {
+            "type": "boolean"
+          },
+          "app_minimum_version_ios_restaurant": {
+            "type": "string"
+          },
+          "app_minimum_build_ios_restaurant": {
+            "type": "integer"
+          },
+          "app_force_update_ios_restaurant": {
+            "type": "boolean"
           },
           "app_minimum_version_android_deliveryman": {
-            "type": "number"
+            "type": "string",
+            "example": "10.0.0"
+          },
+          "app_minimum_build_android_deliveryman": {
+            "type": "integer"
+          },
+          "app_force_update_android_deliveryman": {
+            "type": "boolean"
+          },
+          "app_minimum_version_ios_deliveryman": {
+            "type": "string"
+          },
+          "app_minimum_build_ios_deliveryman": {
+            "type": "integer"
+          },
+          "app_force_update_ios_deliveryman": {
+            "type": "boolean"
           },
           "app_url_android": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_url_ios": {
             "type": "string",
             "nullable": true
           },
@@ -3782,7 +3975,15 @@
             "type": "string",
             "nullable": true
           },
+          "app_url_ios_restaurant": {
+            "type": "string",
+            "nullable": true
+          },
           "app_url_android_deliveryman": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_url_ios_deliveryman": {
             "type": "string",
             "nullable": true
           },
@@ -3836,7 +4037,14 @@
           "cash_on_delivery": true,
           "digital_payment": false,
           "home_delivery": true,
-          "app_minimum_version_android_deliveryman": 1,
+          "maintenance_mode": false,
+          "maintenance_message": null,
+          "app_minimum_version_android": "10.0.0",
+          "app_minimum_build_android": 19,
+          "app_force_update_android": true,
+          "app_minimum_version_android_deliveryman": "10.0.0",
+          "app_minimum_build_android_deliveryman": 19,
+          "app_force_update_android_deliveryman": false,
           "app_url_android_deliveryman": "https://play.google.com/store/apps/details?id=app.gizra.driver"
         }
       },
@@ -4002,13 +4210,65 @@
           }
         }
       },
+      "ConsumerRestaurantAvailabilityStatus": {
+        "type": "string",
+        "enum": [
+          "OPEN",
+          "CLOSES_SOON",
+          "CLOSED",
+          "OPENS_SOON"
+        ],
+        "description": "Computed on the backend from weekly `restaurant_schedule`, admin business `timezone` (business_settings), and vendor temporary close (`restaurants.active` / PUT /vendor/restaurant/active-status)."
+      },
+      "ConsumerRestaurantAvailabilityFields": {
+        "type": "object",
+        "required": [
+          "status",
+          "can_order",
+          "next_open_at",
+          "next_close_at",
+          "is_temporarily_closed",
+          "open"
+        ],
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean",
+            "description": "Enable ordering in the customer app when true (OPEN and CLOSES_SOON)."
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-8601 datetime with offset; next opening instant (CLOSED, OPENS_SOON, or temporarily closed)."
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-8601 datetime with offset; closing time of the current open slot (OPEN and CLOSES_SOON)."
+          },
+          "is_temporarily_closed": {
+            "type": "boolean",
+            "description": "True when the vendor set temporary close (active=false)."
+          },
+          "open": {
+            "type": "boolean",
+            "description": "Legacy alias of can_order."
+          }
+        }
+      },
       "ConsumerRestaurantMapPin": {
         "type": "object",
         "required": [
           "id",
           "name",
           "latitude",
-          "longitude"
+          "longitude",
+          "status",
+          "can_order",
+          "is_temporarily_closed",
+          "open"
         ],
         "properties": {
           "id": {
@@ -4037,6 +4297,23 @@
             "type": "number",
             "format": "double",
             "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean"
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_temporarily_closed": {
+            "type": "boolean"
           },
           "open": {
             "type": "boolean"
@@ -4150,7 +4427,7 @@
               "restaurants": {
                 "type": "array",
                 "items": {
-                  "$ref": "#/components/schemas/ConsumerRestaurantSummary"
+                  "$ref": "#/components/schemas/ConsumerRestaurantDiscoverItem"
                 }
               }
             }
@@ -4159,6 +4436,15 @@
       },
       "ConsumerRestaurantSummary": {
         "type": "object",
+        "description": "Restaurant list/card fields including server-computed opening status.",
+        "required": [
+          "id",
+          "name",
+          "status",
+          "can_order",
+          "is_temporarily_closed",
+          "open"
+        ],
         "properties": {
           "id": {
             "type": "string"
@@ -4190,6 +4476,113 @@
           "address": {
             "type": "string",
             "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean"
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_temporarily_closed": {
+            "type": "boolean"
+          },
+          "open": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ConsumerRestaurantDiscoverItem": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConsumerRestaurantSummary"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "latitude": {
+                "type": "string",
+                "nullable": true
+              },
+              "longitude": {
+                "type": "string",
+                "nullable": true
+              },
+              "order_count": {
+                "type": "integer"
+              },
+              "distance": {
+                "type": "number",
+                "nullable": true,
+                "description": "km from customer when latitude/longitude sent"
+              },
+              "distance_text": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          }
+        ]
+      },
+      "ConsumerRestaurantDetailResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConsumerRestaurantSummary"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "veg": {
+                    "type": "boolean"
+                  },
+                  "non_veg": {
+                    "type": "boolean"
+                  },
+                  "active": {
+                    "type": "boolean",
+                    "description": "Vendor temporary-close flag (false = temporarily closed)."
+                  },
+                  "latitude": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "longitude": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "categories": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    }
+                  },
+                  "category_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            ]
           }
         }
       },
@@ -4299,6 +4692,154 @@
           }
         }
       },
+      "VendorOrderDetailLineItem": {
+        "type": "object",
+        "description": "GET /vendor/orders/{id} line item (food + add-ons split for POS).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "501"
+          },
+          "food_id": {
+            "type": "string",
+            "nullable": true,
+            "example": "1415"
+          },
+          "food_name": {
+            "type": "string",
+            "example": "Margherita"
+          },
+          "food_image": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "integer",
+            "example": 1
+          },
+          "unit_food_price": {
+            "type": "number",
+            "description": "Food + variations per unit (excludes add-ons)",
+            "example": 23
+          },
+          "addon_per_unit": {
+            "type": "number",
+            "example": 4
+          },
+          "addon_lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "price": {
+                  "type": "number"
+                },
+                "quantity": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "line_food_total": {
+            "type": "number",
+            "example": 23
+          },
+          "line_addon_total": {
+            "type": "number",
+            "example": 4
+          },
+          "line_subtotal": {
+            "type": "number",
+            "example": 27
+          },
+          "variation": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "VendorOrderPricing": {
+        "type": "object",
+        "description": "Checkout-aligned totals (data.pricing). Gizra commission is restaurant-side only.",
+        "properties": {
+          "items_price": {
+            "type": "number",
+            "example": 23
+          },
+          "addon_cost": {
+            "type": "number",
+            "example": 4
+          },
+          "subtotal": {
+            "type": "number",
+            "example": 27
+          },
+          "order_value": {
+            "type": "number",
+            "example": 27
+          },
+          "restaurant_discount_amount": {
+            "type": "number",
+            "example": 0
+          },
+          "coupon_discount_amount": {
+            "type": "number",
+            "example": 0
+          },
+          "ref_bonus_amount": {
+            "type": "number",
+            "example": 0
+          },
+          "tax_amount": {
+            "type": "number",
+            "example": 1.35
+          },
+          "tax_percent": {
+            "type": "number",
+            "example": 5
+          },
+          "tax_status": {
+            "type": "string",
+            "nullable": true,
+            "example": "excluded"
+          },
+          "delivery_charge": {
+            "type": "number",
+            "example": 8.87
+          },
+          "dm_tips": {
+            "type": "number",
+            "example": 0
+          },
+          "additional_charge": {
+            "type": "number",
+            "example": 0
+          },
+          "extra_packaging_amount": {
+            "type": "number",
+            "example": 0
+          },
+          "customer_total": {
+            "type": "number",
+            "example": 37.22
+          },
+          "gizra_commission_percent": {
+            "type": "number",
+            "example": 10
+          },
+          "gizra_commission_amount": {
+            "type": "number",
+            "example": 2.7
+          },
+          "gizra_pays_you": {
+            "type": "number",
+            "example": 24.3
+          }
+        }
+      },
       "VendorOrderDetail": {
         "allOf": [
           {
@@ -4315,18 +4856,17 @@
                 "type": "string",
                 "nullable": true
               },
-              "delivery_charge": {
-                "type": "number",
-                "example": 5
+              "delivery_address_parsed": {
+                "type": "object",
+                "nullable": true
               },
-              "total_tax_amount": {
-                "type": "number",
-                "example": 2.5
+              "pricing": {
+                "$ref": "#/components/schemas/VendorOrderPricing"
               },
               "items": {
                 "type": "array",
                 "items": {
-                  "$ref": "#/components/schemas/VendorOrderLineItem"
+                  "$ref": "#/components/schemas/VendorOrderDetailLineItem"
                 }
               }
             }
@@ -7827,11 +8367,11 @@
       },
       "FoodVariationGroup": {
         "type": "object",
+        "description": "Vendor write / raw DB may use `options` or `values`.",
         "required": [
           "name",
           "type",
-          "required",
-          "options"
+          "required"
         ],
         "properties": {
           "name": {
@@ -7850,10 +8390,146 @@
             "type": "boolean",
             "example": true
           },
+          "min": {
+            "type": "string",
+            "example": "0"
+          },
+          "max": {
+            "type": "string",
+            "example": "4"
+          },
+          "selectionMode": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "opt_out",
+              "opt_in"
+            ]
+          },
+          "defaultSelectAll": {
+            "type": "boolean"
+          },
+          "priceDisplay": {
+            "type": "string",
+            "enum": [
+              "included",
+              "price"
+            ]
+          },
           "options": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/FoodVariationOption"
+            }
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FoodVariationOption"
+            }
+          }
+        }
+      },
+      "ConsumerFoodVariationOption": {
+        "type": "object",
+        "description": "StackFood / Flutter product model (`label`, `optionPrice`). For default included ingredients use optionPrice 0 with priceTag `included` and showPrice false.",
+        "properties": {
+          "label": {
+            "type": "string",
+            "example": "פיתה"
+          },
+          "name": {
+            "type": "string",
+            "example": "פיתה"
+          },
+          "level": {
+            "type": "string",
+            "example": "פיתה"
+          },
+          "optionPrice": {
+            "type": "number",
+            "example": 0
+          },
+          "price": {
+            "type": "number",
+            "example": 0
+          },
+          "priceTag": {
+            "type": "string",
+            "enum": [
+              "included"
+            ],
+            "example": "included"
+          },
+          "showPrice": {
+            "type": "boolean",
+            "example": false
+          }
+        }
+      },
+      "ConsumerFoodVariationGroup": {
+        "type": "object",
+        "description": "Consumer menu APIs always expose `values` (never rely on `options` alone).",
+        "required": [
+          "name",
+          "type",
+          "required",
+          "values"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "במה תרצו לאכול?"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "single",
+              "multi"
+            ],
+            "example": "single"
+          },
+          "required": {
+            "type": "string",
+            "enum": [
+              "on",
+              "off"
+            ],
+            "example": "on"
+          },
+          "min": {
+            "type": "string",
+            "example": "0"
+          },
+          "max": {
+            "type": "string",
+            "example": "1"
+          },
+          "selectionMode": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "opt_out",
+              "opt_in"
+            ],
+            "description": "opt_out = default ingredients (pre-selected, uncheck to remove). opt_in = paid upgrades with max cap."
+          },
+          "defaultSelectAll": {
+            "type": "boolean",
+            "description": "When true (opt_out groups), customer app pre-checks every option in this group."
+          },
+          "priceDisplay": {
+            "type": "string",
+            "enum": [
+              "included",
+              "price"
+            ],
+            "description": "included → show Included label, not FREE."
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerFoodVariationOption"
             }
           }
         }
@@ -7979,6 +8655,18 @@
               1
             ],
             "example": 0
+          },
+          "available_time_starts": {
+            "type": "string",
+            "nullable": true,
+            "example": "08:00:00",
+            "description": "When this item may be sold (business timezone). Omit or null with `available_time_ends` for all-day."
+          },
+          "available_time_ends": {
+            "type": "string",
+            "nullable": true,
+            "example": "11:00:00",
+            "description": "End of selling window (inclusive), HH:mm:ss in business timezone."
           }
         }
       },
@@ -8027,6 +8715,42 @@
             "items": {
               "$ref": "#/components/schemas/FoodAddonExpanded"
             }
+          },
+          "available_time_starts": {
+            "type": "string",
+            "nullable": true,
+            "example": "08:00:00"
+          },
+          "available_time_ends": {
+            "type": "string",
+            "nullable": true,
+            "example": "11:00:00"
+          }
+        }
+      },
+      "ConsumerFoodSellingTimeFields": {
+        "type": "object",
+        "description": "Per-item selling window (vendor-configured). Present on consumer menu/product payloads when formatted with selling-time metadata.",
+        "properties": {
+          "available_time_starts": {
+            "type": "string",
+            "nullable": true,
+            "example": "08:00:00",
+            "description": "Configured window start (HH:mm:ss), or null when all-day."
+          },
+          "available_time_ends": {
+            "type": "string",
+            "nullable": true,
+            "example": "11:00:00",
+            "description": "Configured window end (HH:mm:ss), or null when all-day."
+          },
+          "is_available_now": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether the item can be added to cart at request time (or at scheduled order time on checkout)."
+          },
+          "availability_status": {
+            "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
           }
         }
       },
@@ -8098,6 +8822,7 @@
       },
       "ConsumerMenuFoodItem": {
         "type": "object",
+        "description": "Menu / product card for the customer app. Includes selling-time fields when returned from consumer food endpoints.",
         "properties": {
           "id": {
             "type": "string",
@@ -8150,13 +8875,83 @@
           "variations": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/FoodVariationGroup"
+              "$ref": "#/components/schemas/ConsumerFoodVariationGroup"
             }
           },
           "add_ons": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/FoodAddonExpanded"
+            }
+          },
+          "available_time_starts": {
+            "type": "string",
+            "nullable": true,
+            "example": "08:00:00"
+          },
+          "available_time_ends": {
+            "type": "string",
+            "nullable": true,
+            "example": "11:00:00"
+          },
+          "is_available_now": {
+            "type": "boolean",
+            "example": true
+          },
+          "availability_status": {
+            "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
+          },
+          "stock_type": {
+            "type": "string",
+            "enum": [
+              "limited",
+              "unlimited"
+            ],
+            "example": "limited"
+          },
+          "current_stock": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Remaining units when stock_type is limited (item_stock − sell_count). Null when unlimited.",
+            "example": 7
+          },
+          "is_in_stock": {
+            "type": "boolean",
+            "example": true
+          },
+          "stock_status": {
+            "type": "string",
+            "enum": [
+              "in_stock",
+              "out_of_stock"
+            ],
+            "example": "in_stock"
+          }
+        }
+      },
+      "ConsumerFoodListPage": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "total_size": {
+            "type": "integer",
+            "example": 24
+          },
+          "limit": {
+            "type": "integer",
+            "example": 10
+          },
+          "offset": {
+            "type": "integer",
+            "example": 1
+          },
+          "products": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerMenuFoodItem"
             }
           }
         }
@@ -10441,7 +11236,7 @@
     },
     "/consumer/restaurants/popular": {
       "get": {
-        "description": "Popular restaurants for the home screen horizontal list. Same zone flow as GET /consumer/restaurants/all. Sorted **open first**, then **order_count** (legacy PHP `restaurants/popular`). Optional **latitude** / **longitude** (query or headers) for distance on cards.",
+        "description": "Popular restaurants for the home screen horizontal list. Same zone flow as GET /consumer/restaurants/all. Sorted **can_order first** (restaurants accepting orders), then **order_count** (legacy PHP `restaurants/popular`). Each item includes computed availability fields. Optional **latitude** / **longitude** (query or headers) for distance on cards.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerZoneIdQuery"
@@ -10549,6 +11344,11 @@
                         "latitude": "32.0853",
                         "longitude": "34.7818",
                         "order_count": 240,
+                        "status": "OPEN",
+                        "can_order": true,
+                        "next_open_at": null,
+                        "next_close_at": "2026-10-27T23:00:00+02:00",
+                        "is_temporarily_closed": false,
                         "open": true,
                         "distance": 0.93,
                         "distance_text": "0.93 km"
@@ -10633,7 +11433,7 @@
     },
     "/consumer/restaurants/nearby": {
       "get": {
-        "description": "**All Restaurants near you** / list flow (paginated). Requires customer **latitude** and **longitude** (query or headers) plus **zone_id**. Returns active restaurants in the zone with valid coordinates, sorted **open first**, then **nearest** (legacy PHP `get-restaurants` + `nearest_first`). For **map pins** use GET `/consumer/restaurants/discover/map` instead.",
+        "description": "**All Restaurants near you** / list flow (paginated). Requires customer **latitude** and **longitude** (query or headers) plus **zone_id**. Returns active restaurants in the zone with valid coordinates, sorted **can_order first**, then **nearest** (legacy PHP `get-restaurants` + `nearest_first`). Each item includes computed availability. For **map pins** use GET `/consumer/restaurants/discover/map` instead.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerZoneIdQuery"
@@ -10752,6 +11552,11 @@
                         "latitude": "32.0853",
                         "longitude": "34.7818",
                         "order_count": 18,
+                        "status": "OPEN",
+                        "can_order": true,
+                        "next_open_at": null,
+                        "next_close_at": "2026-10-27T23:00:00+02:00",
+                        "is_temporarily_closed": false,
                         "open": true,
                         "distance": 0.93,
                         "distance_text": "0.93 km"
@@ -10961,6 +11766,11 @@
                         "address": "1631 W 2nd St",
                         "latitude": 32.086,
                         "longitude": 34.782,
+                        "status": "CLOSES_SOON",
+                        "can_order": true,
+                        "next_open_at": null,
+                        "next_close_at": "2026-10-27T22:15:00+02:00",
+                        "is_temporarily_closed": false,
                         "open": true,
                         "distance": 0.42,
                         "distance_text": "0.42 km"
@@ -11052,7 +11862,7 @@
     },
     "/consumer/restaurants/all": {
       "get": {
-        "description": "Active restaurants assigned to the customer zone(s). **Flow:** 1) GET /consumer/config/zone-id?lat=&lng= 2) pass returned id(s) as query **zone_id** (e.g. ?zone_id=2). Public; no Bearer token.",
+        "description": "Active restaurants assigned to the customer zone(s). Each restaurant includes **server-computed availability** (`status`, `can_order`, `next_open_at`, `next_close_at`, `is_temporarily_closed`; legacy `open` = `can_order`). **Flow:** 1) GET /consumer/config/zone-id?lat=&lng= 2) pass returned id(s) as query **zone_id** (e.g. ?zone_id=2). Public; no Bearer token.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerZoneIdQuery"
@@ -11131,7 +11941,13 @@
                         "minimum_order": 25,
                         "tax": 17,
                         "rating": 4.9,
-                        "address": "1631 W 2nd St, Example City"
+                        "address": "1631 W 2nd St, Example City",
+                        "status": "OPEN",
+                        "can_order": true,
+                        "next_open_at": null,
+                        "next_close_at": "2026-10-27T23:00:00+02:00",
+                        "is_temporarily_closed": false,
+                        "open": true
                       },
                       {
                         "id": "8",
@@ -11142,7 +11958,13 @@
                         "minimum_order": 0,
                         "tax": 0,
                         "rating": 4.2,
-                        "address": "Main Street 10"
+                        "address": "Main Street 10",
+                        "status": "CLOSED",
+                        "can_order": false,
+                        "next_open_at": "2026-10-28T10:00:00+02:00",
+                        "next_close_at": null,
+                        "is_temporarily_closed": false,
+                        "open": false
                       }
                     ]
                   }
@@ -11229,11 +12051,122 @@
     "/consumer/restaurants/search": {
       "get": {
         "description": "",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dine_in",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "top_rated",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "discounted",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "discount",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "veg",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "non_veg",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "new",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "OK",
             "content": {
               "application/json": {
+                "example": {
+                  "status": true,
+                  "total_size": 42,
+                  "limit": 20,
+                  "offset": 0,
+                  "restaurants": [
+                    {
+                      "id": "12",
+                      "name": "Demo Kitchen",
+                      "logo": "https://cdn.example.com/logo.png",
+                      "cover_photo": "https://cdn.example.com/cover.png",
+                      "delivery_time": "30-40 min",
+                      "minimum_order": 10,
+                      "tax": 5,
+                      "rating": 4.5,
+                      "address": "123 Main Street",
+                      "status": "OPEN",
+                      "can_order": true,
+                      "next_open_at": null,
+                      "next_close_at": "2026-10-27T23:00:00+02:00",
+                      "is_temporarily_closed": false,
+                      "open": true
+                    }
+                  ]
+                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -11293,6 +12226,30 @@
                           "address": {
                             "type": "string",
                             "example": "123 Main Street"
+                          },
+                          "status": {
+                            "type": "string",
+                            "example": "OPEN"
+                          },
+                          "can_order": {
+                            "type": "boolean",
+                            "example": true
+                          },
+                          "next_open_at": {
+                            "nullable": true,
+                            "example": null
+                          },
+                          "next_close_at": {
+                            "type": "string",
+                            "example": "2026-10-27T23:00:00+02:00"
+                          },
+                          "is_temporarily_closed": {
+                            "type": "boolean",
+                            "example": false
+                          },
+                          "open": {
+                            "type": "boolean",
+                            "example": true
                           }
                         },
                         "example": {
@@ -11304,7 +12261,13 @@
                           "minimum_order": 10,
                           "tax": 5,
                           "rating": 4.5,
-                          "address": "123 Main Street"
+                          "address": "123 Main Street",
+                          "status": "OPEN",
+                          "can_order": true,
+                          "next_open_at": null,
+                          "next_close_at": "2026-10-27T23:00:00+02:00",
+                          "is_temporarily_closed": false,
+                          "open": true
                         }
                       },
                       "example": [
@@ -11317,7 +12280,13 @@
                           "minimum_order": 10,
                           "tax": 5,
                           "rating": 4.5,
-                          "address": "123 Main Street"
+                          "address": "123 Main Street",
+                          "status": "OPEN",
+                          "can_order": true,
+                          "next_open_at": null,
+                          "next_close_at": "2026-10-27T23:00:00+02:00",
+                          "is_temporarily_closed": false,
+                          "open": true
                         }
                       ]
                     }
@@ -11337,29 +12306,16 @@
                         "minimum_order": 10,
                         "tax": 5,
                         "rating": 4.5,
-                        "address": "123 Main Street"
+                        "address": "123 Main Street",
+                        "status": "OPEN",
+                        "can_order": true,
+                        "next_open_at": null,
+                        "next_close_at": "2026-10-27T23:00:00+02:00",
+                        "is_temporarily_closed": false,
+                        "open": true
                       }
                     ]
                   }
-                },
-                "example": {
-                  "status": true,
-                  "total_size": 42,
-                  "limit": 20,
-                  "offset": 0,
-                  "restaurants": [
-                    {
-                      "id": "12",
-                      "name": "Demo Kitchen",
-                      "logo": "https://cdn.example.com/logo.png",
-                      "cover_photo": "https://cdn.example.com/cover.png",
-                      "delivery_time": "30-40 min",
-                      "minimum_order": 10,
-                      "tax": 5,
-                      "rating": 4.5,
-                      "address": "123 Main Street"
-                    }
-                  ]
                 }
               }
             }
@@ -11443,11 +12399,80 @@
     "/consumer/restaurants/dine-in": {
       "get": {
         "description": "",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "veg",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "non_veg",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "OK",
             "content": {
               "application/json": {
+                "example": {
+                  "status": true,
+                  "total_size": 42,
+                  "limit": 20,
+                  "offset": 0,
+                  "restaurants": [
+                    {
+                      "id": "12",
+                      "name": "Demo Kitchen",
+                      "logo": "https://cdn.example.com/logo.png",
+                      "cover_photo": "https://cdn.example.com/cover.png",
+                      "delivery_time": "30-40 min",
+                      "minimum_order": 10,
+                      "tax": 5,
+                      "rating": 4.5,
+                      "address": "123 Main Street",
+                      "status": "OPEN",
+                      "can_order": true,
+                      "next_open_at": null,
+                      "next_close_at": "2026-10-27T23:00:00+02:00",
+                      "is_temporarily_closed": false,
+                      "open": true
+                    }
+                  ]
+                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -11507,6 +12532,30 @@
                           "address": {
                             "type": "string",
                             "example": "123 Main Street"
+                          },
+                          "status": {
+                            "type": "string",
+                            "example": "OPEN"
+                          },
+                          "can_order": {
+                            "type": "boolean",
+                            "example": true
+                          },
+                          "next_open_at": {
+                            "nullable": true,
+                            "example": null
+                          },
+                          "next_close_at": {
+                            "type": "string",
+                            "example": "2026-10-27T23:00:00+02:00"
+                          },
+                          "is_temporarily_closed": {
+                            "type": "boolean",
+                            "example": false
+                          },
+                          "open": {
+                            "type": "boolean",
+                            "example": true
                           }
                         },
                         "example": {
@@ -11518,7 +12567,13 @@
                           "minimum_order": 10,
                           "tax": 5,
                           "rating": 4.5,
-                          "address": "123 Main Street"
+                          "address": "123 Main Street",
+                          "status": "OPEN",
+                          "can_order": true,
+                          "next_open_at": null,
+                          "next_close_at": "2026-10-27T23:00:00+02:00",
+                          "is_temporarily_closed": false,
+                          "open": true
                         }
                       },
                       "example": [
@@ -11531,7 +12586,13 @@
                           "minimum_order": 10,
                           "tax": 5,
                           "rating": 4.5,
-                          "address": "123 Main Street"
+                          "address": "123 Main Street",
+                          "status": "OPEN",
+                          "can_order": true,
+                          "next_open_at": null,
+                          "next_close_at": "2026-10-27T23:00:00+02:00",
+                          "is_temporarily_closed": false,
+                          "open": true
                         }
                       ]
                     }
@@ -11551,29 +12612,16 @@
                         "minimum_order": 10,
                         "tax": 5,
                         "rating": 4.5,
-                        "address": "123 Main Street"
+                        "address": "123 Main Street",
+                        "status": "OPEN",
+                        "can_order": true,
+                        "next_open_at": null,
+                        "next_close_at": "2026-10-27T23:00:00+02:00",
+                        "is_temporarily_closed": false,
+                        "open": true
                       }
                     ]
                   }
-                },
-                "example": {
-                  "status": true,
-                  "total_size": 42,
-                  "limit": 20,
-                  "offset": 0,
-                  "restaurants": [
-                    {
-                      "id": "12",
-                      "name": "Demo Kitchen",
-                      "logo": "https://cdn.example.com/logo.png",
-                      "cover_photo": "https://cdn.example.com/cover.png",
-                      "delivery_time": "30-40 min",
-                      "minimum_order": 10,
-                      "tax": 5,
-                      "rating": 4.5,
-                      "address": "123 Main Street"
-                    }
-                  ]
                 }
               }
             }
@@ -11659,9 +12707,13 @@
         "description": "",
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "OK",
             "content": {
               "application/json": {
+                "example": {
+                  "status": true,
+                  "data": "…"
+                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -11678,10 +12730,6 @@
                     "status": true,
                     "data": "…"
                   }
-                },
-                "example": {
-                  "status": true,
-                  "data": "…"
                 }
               }
             }
@@ -11886,11 +12934,24 @@
     "/consumer/restaurants/recently-viewed": {
       "get": {
         "description": "",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "OK",
             "content": {
               "application/json": {
+                "example": {
+                  "status": true,
+                  "data": "…"
+                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -11907,10 +12968,6 @@
                     "status": true,
                     "data": "…"
                   }
-                },
-                "example": {
-                  "status": true,
-                  "data": "…"
                 }
               }
             }
@@ -11999,9 +13056,13 @@
         "description": "",
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "OK",
             "content": {
               "application/json": {
+                "example": {
+                  "status": true,
+                  "data": "…"
+                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -12018,10 +13079,6 @@
                     "status": true,
                     "data": "…"
                   }
-                },
-                "example": {
-                  "status": true,
-                  "data": "…"
                 }
               }
             }
@@ -12098,6 +13155,167 @@
           },
           "503": {
             "description": "Service Unavailable"
+          }
+        },
+        "tags": [
+          "Consumer Discover"
+        ]
+      }
+    },
+    "/consumer/restaurants/reviews": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "legacy",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "avg_rating": "…",
+                  "rating_count": 5,
+                  "reviews_section": "…",
+                  "can_write_review": "…",
+                  "pending_order_id": 1,
+                  "reviews": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "avg_rating": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "rating_count": {
+                      "type": "number",
+                      "example": 5
+                    },
+                    "reviews_section": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "can_write_review": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "pending_order_id": {
+                      "type": "number",
+                      "example": 1
+                    },
+                    "reviews": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "avg_rating": "…",
+                    "rating_count": 5,
+                    "reviews_section": "…",
+                    "can_write_review": "…",
+                    "pending_order_id": 1,
+                    "reviews": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -12251,7 +13469,7 @@
     },
     "/consumer/restaurants/{id}/foods": {
       "get": {
-        "description": "Paginated foods for a restaurant. Each item includes **variations** and expanded **add_ons** (`id`, `name`, `price`) for cart `add_on_ids`.",
+        "description": "Paginated foods for a restaurant. Each item includes **variations** (groups with **`values`**, StackFood-compatible), expanded **add_ons** (`id`, `name`, `price`), **selling-time** fields when configured, and **stock** fields (`stock_type`, `current_stock`, `is_in_stock`, `stock_status`) when the vendor uses limited stock.",
         "parameters": [
           {
             "name": "id",
@@ -12353,15 +13571,23 @@
                           {
                             "name": "Size",
                             "type": "single",
-                            "required": true,
-                            "options": [
+                            "required": "on",
+                            "min": "0",
+                            "max": "1",
+                            "values": [
                               {
+                                "label": "Personal",
                                 "name": "Personal",
-                                "price": 149
+                                "level": "Personal",
+                                "optionPrice": 0,
+                                "price": 0
                               },
                               {
+                                "label": "Regular",
                                 "name": "Regular",
-                                "price": 249
+                                "level": "Regular",
+                                "optionPrice": 10,
+                                "price": 10
                               }
                             ]
                           }
@@ -12373,7 +13599,84 @@
                             "price": 15,
                             "status": true
                           }
-                        ]
+                        ],
+                        "available_time_starts": null,
+                        "available_time_ends": null,
+                        "is_available_now": true,
+                        "availability_status": "all_day"
+                      },
+                      {
+                        "id": "102",
+                        "name": "Morning Shakshuka",
+                        "price": 45,
+                        "available_time_starts": "08:00:00",
+                        "available_time_ends": "11:00:00",
+                        "is_available_now": false,
+                        "availability_status": "time_ended",
+                        "stock_type": "limited",
+                        "current_stock": 0,
+                        "is_in_stock": false,
+                        "stock_status": "out_of_stock",
+                        "variations": [],
+                        "add_ons": []
+                      },
+                      {
+                        "id": "9001",
+                        "name": "TEST Burger Box",
+                        "price": 59,
+                        "variations": [
+                          {
+                            "name": "Ingredients to Remove",
+                            "type": "multi",
+                            "required": "off",
+                            "min": "0",
+                            "max": "999",
+                            "selectionMode": "opt_out",
+                            "defaultSelectAll": true,
+                            "priceDisplay": "included",
+                            "values": [
+                              {
+                                "label": "Asado",
+                                "optionPrice": 0,
+                                "price": 0,
+                                "priceTag": "included",
+                                "showPrice": false
+                              },
+                              {
+                                "label": "Onion",
+                                "optionPrice": 0,
+                                "price": 0,
+                                "priceTag": "included",
+                                "showPrice": false
+                              }
+                            ]
+                          },
+                          {
+                            "name": "Paid Upgrades",
+                            "type": "multi",
+                            "required": "off",
+                            "min": "0",
+                            "max": "4",
+                            "selectionMode": "opt_in",
+                            "defaultSelectAll": false,
+                            "priceDisplay": "price",
+                            "values": [
+                              {
+                                "label": "Extra Cheese",
+                                "optionPrice": 5,
+                                "price": 5,
+                                "showPrice": true
+                              },
+                              {
+                                "label": "Egg",
+                                "optionPrice": 4,
+                                "price": 4,
+                                "showPrice": true
+                              }
+                            ]
+                          }
+                        ],
+                        "add_ons": []
                       }
                     ]
                   }
@@ -12488,11 +13791,19 @@
                     "tax": 5,
                     "rating": 4.5,
                     "address": "123 Main Street",
+                    "status": "OPEN",
+                    "can_order": true,
+                    "next_open_at": null,
+                    "next_close_at": "2026-10-27T23:00:00+02:00",
+                    "is_temporarily_closed": false,
+                    "open": true,
                     "veg": true,
                     "non_veg": true,
                     "active": true,
                     "latitude": "40.7128",
-                    "longitude": "-74.0060"
+                    "longitude": "-74.0060",
+                    "categories": [],
+                    "category_ids": []
                   }
                 },
                 "schema": {
@@ -12541,6 +13852,30 @@
                           "type": "string",
                           "example": "123 Main Street"
                         },
+                        "status": {
+                          "type": "string",
+                          "example": "OPEN"
+                        },
+                        "can_order": {
+                          "type": "boolean",
+                          "example": true
+                        },
+                        "next_open_at": {
+                          "nullable": true,
+                          "example": null
+                        },
+                        "next_close_at": {
+                          "type": "string",
+                          "example": "2026-10-27T23:00:00+02:00"
+                        },
+                        "is_temporarily_closed": {
+                          "type": "boolean",
+                          "example": false
+                        },
+                        "open": {
+                          "type": "boolean",
+                          "example": true
+                        },
                         "veg": {
                           "type": "boolean",
                           "example": true
@@ -12560,6 +13895,16 @@
                         "longitude": {
                           "type": "string",
                           "example": "-74.0060"
+                        },
+                        "categories": {
+                          "type": "array",
+                          "items": {},
+                          "example": []
+                        },
+                        "category_ids": {
+                          "type": "array",
+                          "items": {},
+                          "example": []
                         }
                       },
                       "example": {
@@ -12572,11 +13917,19 @@
                         "tax": 5,
                         "rating": 4.5,
                         "address": "123 Main Street",
+                        "status": "OPEN",
+                        "can_order": true,
+                        "next_open_at": null,
+                        "next_close_at": "2026-10-27T23:00:00+02:00",
+                        "is_temporarily_closed": false,
+                        "open": true,
                         "veg": true,
                         "non_veg": true,
                         "active": true,
                         "latitude": "40.7128",
-                        "longitude": "-74.0060"
+                        "longitude": "-74.0060",
+                        "categories": [],
+                        "category_ids": []
                       }
                     }
                   },
@@ -12592,11 +13945,19 @@
                       "tax": 5,
                       "rating": 4.5,
                       "address": "123 Main Street",
+                      "status": "OPEN",
+                      "can_order": true,
+                      "next_open_at": null,
+                      "next_close_at": "2026-10-27T23:00:00+02:00",
+                      "is_temporarily_closed": false,
+                      "open": true,
                       "veg": true,
                       "non_veg": true,
                       "active": true,
                       "latitude": "40.7128",
-                      "longitude": "-74.0060"
+                      "longitude": "-74.0060",
+                      "categories": [],
+                      "category_ids": []
                     }
                   }
                 }
@@ -12681,7 +14042,7 @@
     },
     "/consumer/restaurants/specific/{id}": {
       "get": {
-        "description": "",
+        "description": "Single restaurant profile for the menu / details screen. Includes **server-computed availability** (`status`, `can_order`, `next_open_at`, `next_close_at`, `is_temporarily_closed`; legacy `open` = `can_order`), menu category chips, and vendor `active` (temporary close flag). Public; optional Bearer for visit tracking.",
         "parameters": [
           {
             "name": "id",
@@ -12689,122 +14050,50 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Restaurant id"
           }
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Restaurant details",
             "content": {
               "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerRestaurantDetailResponse"
+                },
                 "example": {
                   "status": true,
                   "data": {
-                    "id": "1",
+                    "id": "12",
                     "name": "Demo Kitchen",
                     "logo": "https://cdn.example.com/logo.png",
                     "cover_photo": "https://cdn.example.com/cover.png",
                     "delivery_time": "30-40 min",
-                    "minimum_order": 0,
+                    "minimum_order": 10,
                     "tax": 5,
-                    "rating": 0,
+                    "rating": 4.5,
                     "address": "123 Main Street",
-                    "open": "…",
-                    "categories": "…",
-                    "category_ids": "…"
-                  }
-                },
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "example": "1"
-                        },
-                        "name": {
-                          "type": "string",
-                          "example": "Demo Kitchen"
-                        },
-                        "logo": {
-                          "type": "string",
-                          "example": "https://cdn.example.com/logo.png"
-                        },
-                        "cover_photo": {
-                          "type": "string",
-                          "example": "https://cdn.example.com/cover.png"
-                        },
-                        "delivery_time": {
-                          "type": "string",
-                          "example": "30-40 min"
-                        },
-                        "minimum_order": {
-                          "type": "number",
-                          "example": 0
-                        },
-                        "tax": {
-                          "type": "number",
-                          "example": 5
-                        },
-                        "rating": {
-                          "type": "number",
-                          "example": 0
-                        },
-                        "address": {
-                          "type": "string",
-                          "example": "123 Main Street"
-                        },
-                        "open": {
-                          "type": "string",
-                          "example": "…"
-                        },
-                        "categories": {
-                          "type": "string",
-                          "example": "…"
-                        },
-                        "category_ids": {
-                          "type": "string",
-                          "example": "…"
-                        }
-                      },
-                      "example": {
+                    "veg": true,
+                    "non_veg": true,
+                    "active": true,
+                    "latitude": "32.0853",
+                    "longitude": "34.7818",
+                    "status": "OPEN",
+                    "can_order": true,
+                    "next_open_at": null,
+                    "next_close_at": "2026-10-27T23:00:00+02:00",
+                    "is_temporarily_closed": false,
+                    "open": true,
+                    "categories": [
+                      {
                         "id": "1",
-                        "name": "Demo Kitchen",
-                        "logo": "https://cdn.example.com/logo.png",
-                        "cover_photo": "https://cdn.example.com/cover.png",
-                        "delivery_time": "30-40 min",
-                        "minimum_order": 0,
-                        "tax": 5,
-                        "rating": 0,
-                        "address": "123 Main Street",
-                        "open": "…",
-                        "categories": "…",
-                        "category_ids": "…"
+                        "name": "Burgers"
                       }
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "data": {
-                      "id": "1",
-                      "name": "Demo Kitchen",
-                      "logo": "https://cdn.example.com/logo.png",
-                      "cover_photo": "https://cdn.example.com/cover.png",
-                      "delivery_time": "30-40 min",
-                      "minimum_order": 0,
-                      "tax": 5,
-                      "rating": 0,
-                      "address": "123 Main Street",
-                      "open": "…",
-                      "categories": "…",
-                      "category_ids": "…"
-                    }
+                    ],
+                    "category_ids": [
+                      1
+                    ]
                   }
                 }
               }
@@ -12822,7 +14111,8 @@
                   "msg": "Bad Request"
                 }
               }
-            }
+            },
+            "$ref": "#/components/responses/ApiError400"
           },
           "401": {
             "description": "Unauthorized - Invalid or missing authentication token",
@@ -12853,7 +14143,7 @@
             }
           },
           "404": {
-            "description": "Not Found",
+            "description": "Restaurant not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -12861,7 +14151,7 @@
                 },
                 "example": {
                   "status": false,
-                  "msg": "Not Found"
+                  "msg": "Restaurant not found"
                 }
               }
             }
@@ -12878,12 +14168,14 @@
                   "msg": "Internal Server Error"
                 }
               }
-            }
+            },
+            "$ref": "#/components/responses/ApiError500"
           }
         },
         "tags": [
           "Consumer Discover"
-        ]
+        ],
+        "summary": "Restaurant details"
       }
     },
     "/consumer/restaurants/{id}": {
@@ -12990,103 +14282,9 @@
         ]
       }
     },
-    "/consumer/restaurants/{popularrestaurant.id.toString())??[];constopen=isOpenFromSchedules(schedules);constmedia=consumerRestaurantMediaFields({logorestaurant.logo}": {
-      "get": {
-        "description": "",
-        "responses": {
-          "200": {
-            "description": "Successful operation",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                },
-                "example": {
-                  "status": true,
-                  "msg": "Operation successful"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Bad Request"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized - Invalid or missing authentication token",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Unauthorized"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Forbidden"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found - The requested resource could not be found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Not Found"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error - Something went wrong on the server",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Internal Server Error"
-                }
-              }
-            }
-          }
-        },
-        "tags": [
-          "Consumer Discover"
-        ]
-      }
-    },
     "/consumer/foods/search": {
       "get": {
-        "description": "App search bar: returns **foods** whose name matches and **restaurants** that sell those items (or whose name matches). Case-insensitive. Public — no auth. **name** is required. Optional **zone_id** (same as discover), **page** / **limit** (default 1 / 20, shared pagination), **latitude** / **longitude** for distance on restaurant cards.",
+        "description": "App search bar: returns **foods** whose name matches and **restaurants** that sell those items (or whose name matches). Case-insensitive. Public — no auth. **name** is required (`search` / `q` accepted as aliases). Matches any search word against restaurant name, translations, cuisine, tags, or menu items (PHP parity). Optional **zone_id** (same as discover), **page** / **limit** for foods (default 1 / 20), **restaurant_page** / **restaurant_limit** for restaurants (default same page, max 50), **latitude** / **longitude** for distance on restaurant cards.",
         "parameters": [
           {
             "name": "name",
@@ -13096,6 +14294,14 @@
               "type": "string"
             },
             "description": "Search term (food or restaurant name)"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Alias for name (legacy clients)"
           },
           {
             "name": "zone_id",
@@ -13176,7 +14382,12 @@
                         "rating": 4.5,
                         "address": "123 Main Street",
                         "order_count": 240,
-                        "open": true,
+                        "status": "OPENS_SOON",
+                        "can_order": false,
+                        "next_open_at": "2026-10-27T11:00:00+02:00",
+                        "next_close_at": null,
+                        "is_temporarily_closed": false,
+                        "open": false,
                         "distance": 0.93,
                         "distance_text": "0.93 km"
                       }
@@ -13268,7 +14479,7 @@
     },
     "/consumer/foods/latest": {
       "get": {
-        "description": "",
+        "description": "Same product shape as menu items. Each entry in **`products`** includes selling-time fields when configured.",
         "parameters": [
           {
             "name": "restaurant_id",
@@ -13297,20 +14508,11 @@
             "description": "OK",
             "content": {
               "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerFoodListPage"
+                },
                 "example": {
                   "status": true
-                },
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    }
-                  },
-                  "example": {
-                    "status": true
-                  }
                 }
               }
             }
@@ -13388,12 +14590,13 @@
         },
         "tags": [
           "Consumer Foods"
-        ]
+        ],
+        "summary": "Latest foods (paginated list)"
       }
     },
     "/consumer/foods/popular": {
       "get": {
-        "description": "",
+        "description": "Paginated **`products`** array; each item is **ConsumerMenuFoodItem** with selling-time metadata.",
         "parameters": [
           {
             "name": "type",
@@ -13408,20 +14611,11 @@
             "description": "OK",
             "content": {
               "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerFoodListPage"
+                },
                 "example": {
                   "status": true
-                },
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    }
-                  },
-                  "example": {
-                    "status": true
-                  }
                 }
               }
             }
@@ -13499,7 +14693,8 @@
         },
         "tags": [
           "Consumer Foods"
-        ]
+        ],
+        "summary": "Popular foods in zone"
       }
     },
     "/consumer/foods/most-reviewed": {
@@ -14084,14 +15279,15 @@
     },
     "/consumer/foods/details/{id}": {
       "get": {
-        "description": "",
+        "description": "Single active food item. Response `data` is a **ConsumerMenuFoodItem** including selling-time fields (`available_time_starts`, `available_time_ends`, `is_available_now`, `availability_status`). Times use the business timezone from config.",
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "example": 102
             }
           }
         ],
@@ -14100,10 +15296,6 @@
             "description": "OK",
             "content": {
               "application/json": {
-                "example": {
-                  "status": true,
-                  "data": "…"
-                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -14112,13 +15304,25 @@
                       "example": true
                     },
                     "data": {
-                      "type": "string",
-                      "example": "…"
+                      "$ref": "#/components/schemas/ConsumerMenuFoodItem"
                     }
-                  },
-                  "example": {
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "id": "102",
+                    "name": "Morning Shakshuka",
+                    "description": "Eggs in spiced tomato sauce",
+                    "price": 45,
+                    "veg": true,
                     "status": true,
-                    "data": "…"
+                    "variations": [],
+                    "add_ons": [],
+                    "available_time_starts": "08:00:00",
+                    "available_time_ends": "11:00:00",
+                    "is_available_now": false,
+                    "availability_status": "time_ended"
                   }
                 }
               }
@@ -14167,7 +15371,7 @@
             }
           },
           "404": {
-            "description": "Not Found - The requested resource could not be found",
+            "description": "Food not found or inactive",
             "content": {
               "application/json": {
                 "schema": {
@@ -14197,7 +15401,8 @@
         },
         "tags": [
           "Consumer Foods"
-        ]
+        ],
+        "summary": "Food product details"
       }
     },
     "/consumer/home-slider": {
@@ -14293,6 +15498,278 @@
           {
             "$ref": "#/components/parameters/ConsumerZoneIdQuery"
           }
+        ]
+      }
+    },
+    "/consumer/categories/{id}/restaurants": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "total_size": {
+                      "type": "number",
+                      "example": 42
+                    },
+                    "limit": {
+                      "type": "number",
+                      "example": 20
+                    },
+                    "offset": {
+                      "type": "number",
+                      "example": 0
+                    },
+                    "restaurants": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "example": "12"
+                          },
+                          "name": {
+                            "type": "string",
+                            "example": "Demo Kitchen"
+                          },
+                          "logo": {
+                            "type": "string",
+                            "example": "https://cdn.example.com/logo.png"
+                          },
+                          "cover_photo": {
+                            "type": "string",
+                            "example": "https://cdn.example.com/cover.png"
+                          },
+                          "delivery_time": {
+                            "type": "string",
+                            "example": "30-40 min"
+                          },
+                          "minimum_order": {
+                            "type": "number",
+                            "example": 10
+                          },
+                          "tax": {
+                            "type": "number",
+                            "example": 5
+                          },
+                          "rating": {
+                            "type": "number",
+                            "example": 4.5
+                          },
+                          "address": {
+                            "type": "string",
+                            "example": "123 Main Street"
+                          },
+                          "status": {
+                            "type": "string",
+                            "example": "OPEN"
+                          },
+                          "can_order": {
+                            "type": "boolean",
+                            "example": true
+                          },
+                          "next_open_at": {
+                            "nullable": true,
+                            "example": null
+                          },
+                          "next_close_at": {
+                            "type": "string",
+                            "example": "2026-10-27T23:00:00+02:00"
+                          },
+                          "is_temporarily_closed": {
+                            "type": "boolean",
+                            "example": false
+                          },
+                          "open": {
+                            "type": "boolean",
+                            "example": true
+                          }
+                        },
+                        "example": {
+                          "id": "12",
+                          "name": "Demo Kitchen",
+                          "logo": "https://cdn.example.com/logo.png",
+                          "cover_photo": "https://cdn.example.com/cover.png",
+                          "delivery_time": "30-40 min",
+                          "minimum_order": 10,
+                          "tax": 5,
+                          "rating": 4.5,
+                          "address": "123 Main Street",
+                          "status": "OPEN",
+                          "can_order": true,
+                          "next_open_at": null,
+                          "next_close_at": "2026-10-27T23:00:00+02:00",
+                          "is_temporarily_closed": false,
+                          "open": true
+                        }
+                      },
+                      "example": [
+                        {
+                          "id": "12",
+                          "name": "Demo Kitchen",
+                          "logo": "https://cdn.example.com/logo.png",
+                          "cover_photo": "https://cdn.example.com/cover.png",
+                          "delivery_time": "30-40 min",
+                          "minimum_order": 10,
+                          "tax": 5,
+                          "rating": 4.5,
+                          "address": "123 Main Street",
+                          "status": "OPEN",
+                          "can_order": true,
+                          "next_open_at": null,
+                          "next_close_at": "2026-10-27T23:00:00+02:00",
+                          "is_temporarily_closed": false,
+                          "open": true
+                        }
+                      ]
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "total_size": 42,
+                    "limit": 20,
+                    "offset": 0,
+                    "restaurants": [
+                      {
+                        "id": "12",
+                        "name": "Demo Kitchen",
+                        "logo": "https://cdn.example.com/logo.png",
+                        "cover_photo": "https://cdn.example.com/cover.png",
+                        "delivery_time": "30-40 min",
+                        "minimum_order": 10,
+                        "tax": 5,
+                        "rating": 4.5,
+                        "address": "123 Main Street",
+                        "status": "OPEN",
+                        "can_order": true,
+                        "next_open_at": null,
+                        "next_close_at": "2026-10-27T23:00:00+02:00",
+                        "is_temporarily_closed": false,
+                        "open": true
+                      }
+                    ]
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "total_size": 42,
+                  "limit": 20,
+                  "offset": 0,
+                  "restaurants": [
+                    {
+                      "id": "12",
+                      "name": "Demo Kitchen",
+                      "logo": "https://cdn.example.com/logo.png",
+                      "cover_photo": "https://cdn.example.com/cover.png",
+                      "delivery_time": "30-40 min",
+                      "minimum_order": 10,
+                      "tax": 5,
+                      "rating": 4.5,
+                      "address": "123 Main Street",
+                      "status": "OPEN",
+                      "can_order": true,
+                      "next_open_at": null,
+                      "next_close_at": "2026-10-27T23:00:00+02:00",
+                      "is_temporarily_closed": false,
+                      "open": true
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Auth"
         ]
       }
     },
@@ -14417,7 +15894,7 @@
     },
     "/consumer/cart/": {
       "get": {
-        "description": "**Customer:** `Authorization: Bearer <customer JWT>` from login.\n\n**Guest (preferred):** `Authorization: Bearer <guest JWT>` from POST `/consumer/guest/request` — no extra query params.\n\n**Guest (legacy):** `is_guest=true` and `guest_id=<id>` with optional Bearer bypass via middleware.",
+        "description": "**Customer:** `Authorization: Bearer <customer JWT>` from login.\n\n**Guest (preferred):** `Authorization: Bearer <guest JWT>` from POST `/consumer/guest/request` — no extra query params.\n\n**Guest (legacy):** `is_guest=true` and `guest_id=<id>` with optional Bearer bypass via middleware.\n\nEach **Food** line may include selling-time fields (`is_available_now`, `availability_status`) and stock fields (`is_in_stock`, `stock_status`, `current_stock`) so the app can warn on stale or out-of-stock cart lines.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerCartAuthHeader"
@@ -14434,12 +15911,37 @@
             "description": "Cart line items",
             "content": {
               "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ConsumerCartLineItem"
+                      }
+                    }
+                  }
+                },
                 "example": {
                   "status": true,
-                  "data": []
-                },
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "data": [
+                    {
+                      "id": "501",
+                      "item_id": "102",
+                      "item_type": "Food",
+                      "quantity": 1,
+                      "price": 45,
+                      "is_available_now": false,
+                      "availability_status": "time_ended",
+                      "is_in_stock": false,
+                      "stock_status": "out_of_stock",
+                      "current_stock": 0
+                    }
+                  ]
                 }
               }
             }
@@ -14526,7 +16028,7 @@
     },
     "/consumer/cart/add": {
       "post": {
-        "description": "Same auth as GET `/consumer/cart/`. With **guest Bearer token**, set `is_guest: true` in body or omit — server infers guest from JWT. Legacy: `is_guest: true` and `guest_id` without Bearer.",
+        "description": "Same auth as GET `/consumer/cart/`. With **guest Bearer token**, set `is_guest: true` in body or omit — server infers guest from JWT. Legacy: `is_guest: true` and `guest_id` without Bearer.\n\nReturns **403** with `code: food_selling_time` when outside the selling window, or `code: food_stock` when limited stock is exhausted or quantity exceeds `current_stock`.",
         "responses": {
           "201": {
             "description": "Item added",
@@ -14572,15 +16074,49 @@
             }
           },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Forbidden — selling window (`food_selling_time`), limited stock (`food_stock`), or duplicate line",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiError"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ConsumerFoodSellingTimeError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ConsumerFoodStockError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
                 },
-                "example": {
-                  "status": false,
-                  "msg": "Forbidden"
+                "examples": {
+                  "food_selling_time": {
+                    "summary": "Outside selling window",
+                    "value": {
+                      "status": false,
+                      "msg": "This item is only available from 08:00",
+                      "code": "food_selling_time",
+                      "availability_status": "not_yet_available"
+                    }
+                  },
+                  "food_stock": {
+                    "summary": "Out of stock or insufficient quantity",
+                    "value": {
+                      "status": false,
+                      "msg": "Morning Shakshuka is out of stock",
+                      "code": "food_stock",
+                      "stock_status": "out_of_stock",
+                      "current_stock": 0
+                    }
+                  },
+                  "forbidden": {
+                    "summary": "Other forbidden",
+                    "value": {
+                      "status": false,
+                      "msg": "Forbidden"
+                    }
+                  }
                 }
               }
             }
@@ -14685,18 +16221,15 @@
                       "example": true
                     },
                     "data": {
-                      "type": "string",
-                      "example": "…"
+                      "type": "string"
                     }
                   },
                   "example": {
-                    "status": true,
-                    "data": "…"
+                    "status": true
                   }
                 },
                 "example": {
-                  "status": true,
-                  "data": "…"
+                  "status": true
                 }
               }
             }
@@ -16374,7 +17907,7 @@
     },
     "/consumer/order/quote": {
       "post": {
-        "description": "Preview the same pricing as **POST /consumer/order/place** without creating an order row. Use on checkout before pay/place so the app shows **pricing_breakdown.order_amount** (VAT, delivery, fees). Request body is identical to place order (`PlaceOrderRequest` / `ConsumerPlaceOrderBody`). Send **`delivery_fee`** from **GET /consumer/config/delivery-fee** when available so delivery matches place. Client `price`, `order_amount`, and `total_tax_amount` fields are ignored for calculation. Bearer JWT required (registered customer or guest session).",
+        "description": "Preview the same pricing as **POST /consumer/order/place** without creating an order row. Request body matches place order. Send cart line **`price`** (food + variations, excluding add-ons), **`delivery_fee`**, **`total_tax_amount`**, and **`order_amount`** (full checkout total). Response **`pricing_breakdown`** includes separate **`items_price`**, **`addon_cost`**, **`subtotal`** (food after discounts), tax, delivery, and **`order_amount`**. Bearer JWT required.",
         "responses": {
           "200": {
             "description": "Pricing quote",
@@ -16916,9 +18449,15 @@
         "description": "",
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "OK",
             "content": {
               "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Payment linked to order",
+                  "order_id": "1",
+                  "payment_status": true
+                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -16945,18 +18484,12 @@
                     "order_id": "1",
                     "payment_status": true
                   }
-                },
-                "example": {
-                  "status": true,
-                  "msg": "Payment linked to order",
-                  "order_id": "1",
-                  "payment_status": true
                 }
               }
             }
           },
           "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
@@ -16984,7 +18517,7 @@
             }
           },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": {
@@ -17039,9 +18572,19 @@
         "description": "",
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "OK",
             "content": {
               "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Order already created for this payment",
+                  "order_id": "1",
+                  "data": {
+                    "id": "1",
+                    "payment_status": "…",
+                    "order_status": "…"
+                  }
+                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -17090,22 +18633,12 @@
                       "order_status": "…"
                     }
                   }
-                },
-                "example": {
-                  "status": true,
-                  "msg": "Order already created for this payment",
-                  "order_id": "1",
-                  "data": {
-                    "id": "1",
-                    "payment_status": "…",
-                    "order_status": "…"
-                  }
                 }
               }
             }
           },
           "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
@@ -17132,8 +18665,11 @@
               }
             }
           },
+          "402": {
+            "description": "Payment Required"
+          },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": {
@@ -17147,7 +18683,7 @@
             }
           },
           "404": {
-            "description": "Not Found - The requested resource could not be found",
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -17161,7 +18697,7 @@
             }
           },
           "500": {
-            "description": "Internal Server Error - Something went wrong on the server",
+            "description": "Internal Server Error",
             "content": {
               "application/json": {
                 "schema": {
@@ -18718,8 +20254,11 @@
               }
             }
           },
+          "402": {
+            "description": "Payment Required"
+          },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": {
@@ -18733,7 +20272,7 @@
             }
           },
           "404": {
-            "description": "Not Found - The requested resource could not be found",
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -18852,8 +20391,11 @@
               }
             }
           },
+          "402": {
+            "description": "Payment Required"
+          },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": {
@@ -18867,7 +20409,7 @@
             }
           },
           "404": {
-            "description": "Not Found - The requested resource could not be found",
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -18968,8 +20510,11 @@
               }
             }
           },
+          "402": {
+            "description": "Payment Required"
+          },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": {
@@ -18983,7 +20528,7 @@
             }
           },
           "404": {
-            "description": "Not Found - The requested resource could not be found",
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -21851,7 +23396,13 @@
                     "minimum_order": 10,
                     "tax": 5,
                     "rating": 4.5,
-                    "address": "123 Main Street"
+                    "address": "123 Main Street",
+                    "status": "OPEN",
+                    "can_order": true,
+                    "next_open_at": null,
+                    "next_close_at": "2026-10-27T23:00:00+02:00",
+                    "is_temporarily_closed": false,
+                    "open": true
                   }
                 },
                 "schema": {
@@ -21899,6 +23450,30 @@
                         "address": {
                           "type": "string",
                           "example": "123 Main Street"
+                        },
+                        "status": {
+                          "type": "string",
+                          "example": "OPEN"
+                        },
+                        "can_order": {
+                          "type": "boolean",
+                          "example": true
+                        },
+                        "next_open_at": {
+                          "nullable": true,
+                          "example": null
+                        },
+                        "next_close_at": {
+                          "type": "string",
+                          "example": "2026-10-27T23:00:00+02:00"
+                        },
+                        "is_temporarily_closed": {
+                          "type": "boolean",
+                          "example": false
+                        },
+                        "open": {
+                          "type": "boolean",
+                          "example": true
                         }
                       },
                       "example": {
@@ -21910,7 +23485,13 @@
                         "minimum_order": 10,
                         "tax": 5,
                         "rating": 4.5,
-                        "address": "123 Main Street"
+                        "address": "123 Main Street",
+                        "status": "OPEN",
+                        "can_order": true,
+                        "next_open_at": null,
+                        "next_close_at": "2026-10-27T23:00:00+02:00",
+                        "is_temporarily_closed": false,
+                        "open": true
                       }
                     }
                   },
@@ -21925,7 +23506,13 @@
                       "minimum_order": 10,
                       "tax": 5,
                       "rating": 4.5,
-                      "address": "123 Main Street"
+                      "address": "123 Main Street",
+                      "status": "OPEN",
+                      "can_order": true,
+                      "next_open_at": null,
+                      "next_close_at": "2026-10-27T23:00:00+02:00",
+                      "is_temporarily_closed": false,
+                      "open": true
                     }
                   }
                 }
@@ -22013,9 +23600,25 @@
         "description": "",
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "OK",
             "content": {
               "application/json": {
+                "example": {
+                  "status": true,
+                  "data": "1",
+                  "title": "…",
+                  "image": "https://cdn.example.com/image.png",
+                  "image_full_url": "https://cdn.example.com/file.png",
+                  "description": "…",
+                  "price": 1,
+                  "discount": 1,
+                  "discount_type": 5,
+                  "restaurant_id": 1,
+                  "restaurant_name": 0,
+                  "veg": "…",
+                  "start_date": "…",
+                  "end_date": "…"
+                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -22092,22 +23695,6 @@
                     "start_date": "…",
                     "end_date": "…"
                   }
-                },
-                "example": {
-                  "status": true,
-                  "data": "1",
-                  "title": "…",
-                  "image": "https://cdn.example.com/image.png",
-                  "image_full_url": "https://cdn.example.com/file.png",
-                  "description": "…",
-                  "price": 1,
-                  "discount": 1,
-                  "discount_type": 5,
-                  "restaurant_id": 1,
-                  "restaurant_name": 0,
-                  "veg": "…",
-                  "start_date": "…",
-                  "end_date": "…"
                 }
               }
             }
@@ -22193,7 +23780,7 @@
         "description": "",
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
@@ -22285,11 +23872,59 @@
     "/consumer/cuisines/restaurants": {
       "get": {
         "description": "",
+        "parameters": [
+          {
+            "name": "cuisine_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "OK",
             "content": {
               "application/json": {
+                "example": {
+                  "status": true,
+                  "total_size": 42,
+                  "limit": 20,
+                  "offset": 0,
+                  "restaurants": [
+                    {
+                      "id": "12",
+                      "name": "Demo Kitchen",
+                      "logo": "https://cdn.example.com/logo.png",
+                      "cover_photo": "https://cdn.example.com/cover.png",
+                      "delivery_time": "30-40 min",
+                      "minimum_order": 10,
+                      "tax": 5,
+                      "rating": 4.5,
+                      "address": "123 Main Street",
+                      "status": "OPEN",
+                      "can_order": true,
+                      "next_open_at": null,
+                      "next_close_at": "2026-10-27T23:00:00+02:00",
+                      "is_temporarily_closed": false,
+                      "open": true
+                    }
+                  ]
+                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -22349,6 +23984,30 @@
                           "address": {
                             "type": "string",
                             "example": "123 Main Street"
+                          },
+                          "status": {
+                            "type": "string",
+                            "example": "OPEN"
+                          },
+                          "can_order": {
+                            "type": "boolean",
+                            "example": true
+                          },
+                          "next_open_at": {
+                            "nullable": true,
+                            "example": null
+                          },
+                          "next_close_at": {
+                            "type": "string",
+                            "example": "2026-10-27T23:00:00+02:00"
+                          },
+                          "is_temporarily_closed": {
+                            "type": "boolean",
+                            "example": false
+                          },
+                          "open": {
+                            "type": "boolean",
+                            "example": true
                           }
                         },
                         "example": {
@@ -22360,7 +24019,13 @@
                           "minimum_order": 10,
                           "tax": 5,
                           "rating": 4.5,
-                          "address": "123 Main Street"
+                          "address": "123 Main Street",
+                          "status": "OPEN",
+                          "can_order": true,
+                          "next_open_at": null,
+                          "next_close_at": "2026-10-27T23:00:00+02:00",
+                          "is_temporarily_closed": false,
+                          "open": true
                         }
                       },
                       "example": [
@@ -22373,7 +24038,13 @@
                           "minimum_order": 10,
                           "tax": 5,
                           "rating": 4.5,
-                          "address": "123 Main Street"
+                          "address": "123 Main Street",
+                          "status": "OPEN",
+                          "can_order": true,
+                          "next_open_at": null,
+                          "next_close_at": "2026-10-27T23:00:00+02:00",
+                          "is_temporarily_closed": false,
+                          "open": true
                         }
                       ]
                     }
@@ -22393,29 +24064,16 @@
                         "minimum_order": 10,
                         "tax": 5,
                         "rating": 4.5,
-                        "address": "123 Main Street"
+                        "address": "123 Main Street",
+                        "status": "OPEN",
+                        "can_order": true,
+                        "next_open_at": null,
+                        "next_close_at": "2026-10-27T23:00:00+02:00",
+                        "is_temporarily_closed": false,
+                        "open": true
                       }
                     ]
                   }
-                },
-                "example": {
-                  "status": true,
-                  "total_size": 42,
-                  "limit": 20,
-                  "offset": 0,
-                  "restaurants": [
-                    {
-                      "id": "12",
-                      "name": "Demo Kitchen",
-                      "logo": "https://cdn.example.com/logo.png",
-                      "cover_photo": "https://cdn.example.com/cover.png",
-                      "delivery_time": "30-40 min",
-                      "minimum_order": 10,
-                      "tax": 5,
-                      "rating": 4.5,
-                      "address": "123 Main Street"
-                    }
-                  ]
                 }
               }
             }
@@ -25718,74 +27376,49 @@
           "Upload"
         ],
         "summary": "Upload file to Cloudflare R2",
-        "parameters": [
-          {
-            "name": "file",
-            "in": "formData",
-            "required": true,
-            "description": "The file to upload",
-            "schema": {
-              "type": "file"
-            }
-          },
-          {
-            "name": "role",
-            "in": "formData",
-            "required": false,
-            "description": "Registration uploads: vendor | deliveryman",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "vendor",
-                "deliveryman"
-              ]
-            }
-          },
-          {
-            "name": "cloudflare_id",
-            "in": "formData",
-            "required": false,
-            "description": "12-char hex from POST /storage/registration-init (required with role for scoped uploads)",
-            "schema": {
-              "type": "string",
-              "pattern": "^[a-f0-9]{12}$",
-              "example": "a1b2c3d4e5f6"
-            }
-          },
-          {
-            "name": "category",
-            "in": "formData",
-            "required": false,
-            "description": "With role + cloudflare_id: restaurant (vendor logo/cover), identity, profile, assets",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "restaurant",
-                "identity",
-                "profile",
-                "assets"
-              ],
-              "default": "assets"
-            }
-          },
-          {
-            "name": "subfolder",
-            "in": "formData",
-            "required": false,
-            "description": "Legacy optional path e.g. vendors/abc/assets (must match cloudflare_id prefix if role is set)",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
         "requestBody": {
+          "required": true,
           "content": {
-            "application/json": {
+            "multipart/form-data": {
               "schema": {
                 "type": "object",
+                "required": [
+                  "file"
+                ],
                 "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "The file to upload"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "vendor",
+                      "deliveryman"
+                    ],
+                    "description": "Registration uploads"
+                  },
+                  "cloudflare_id": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{12}$",
+                    "example": "a1b2c3d4e5f6",
+                    "description": "12-char hex from POST /storage/registration-init (required with role for scoped uploads)"
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "restaurant",
+                      "identity",
+                      "profile",
+                      "assets"
+                    ],
+                    "default": "assets",
+                    "description": "With role + cloudflare_id: restaurant (vendor logo/cover), identity, profile, assets"
+                  },
                   "subfolder": {
-                    "example": "any"
+                    "type": "string",
+                    "description": "Legacy optional path e.g. vendors/abc/assets (must match cloudflare_id prefix if role is set)"
                   }
                 }
               }

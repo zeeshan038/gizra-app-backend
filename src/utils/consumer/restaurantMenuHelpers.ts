@@ -5,6 +5,17 @@ import {
   expandAddOnsFromStored,
   type FoodAddonExpanded,
 } from '../vendor/catalog/foodAddonHelpers';
+import {
+  inferListPriceFromRawVariations,
+  loadLegacyVariationsForFoodRows,
+  resolveRawVariations,
+} from './legacyFoodVariations';
+import { variationsForMobileClient } from './variationsForMobileClient';
+import {
+  getDefaultRestaurantTimeZone,
+} from './restaurantAvailability';
+import { resolveFoodSellingTime } from './foodSellingTime';
+import { resolveFoodStockSnapshot } from './foodStock';
 
 type FoodRow = {
   id: bigint;
@@ -22,6 +33,18 @@ type FoodRow = {
   add_ons: string | null;
   avg_rating?: number;
   rating_count?: bigint | number;
+  available_time_starts?: unknown;
+  available_time_ends?: unknown;
+  stock_type?: unknown;
+  item_stock?: unknown;
+  sell_count?: unknown;
+};
+
+export type FormatRestaurantMenuFoodExtras = {
+  restaurant_name?: string | null;
+  /** When set with timeZone, selling-time fields are included in the payload. */
+  sellingAt?: Date;
+  timeZone?: string;
 };
 
 export type RestaurantMenuCategory = {
@@ -32,6 +55,22 @@ export type RestaurantMenuCategory = {
   slug: string | null;
   products_count: number;
 };
+
+type CategoryChipSource = {
+  id: bigint;
+  parent_id: bigint;
+  position: bigint;
+};
+
+/** Menu filter chip id (legacy PHP + flat vendor sections with parent_id=0). */
+export function menuCategoryChipId(cat: CategoryChipSource): number | null {
+  const selfId = Number(cat.id);
+  if (!Number.isFinite(selfId) || selfId <= 0) return null;
+  if (Number(cat.position) === 0) return selfId;
+  const parentId = Number(cat.parent_id);
+  if (Number.isFinite(parentId) && parentId > 0) return parentId;
+  return selfId;
+}
 
 /** Category chip ids used on the restaurant menu (parent categories that have active items). */
 export async function loadRestaurantMenuCategories(
@@ -71,8 +110,8 @@ export async function loadRestaurantMenuCategories(
 
   const parentIds = new Set<number>();
   for (const cat of linked) {
-    const parentId = Number(cat.position) === 0 ? Number(cat.id) : Number(cat.parent_id);
-    if (Number.isFinite(parentId) && parentId > 0) parentIds.add(parentId);
+    const chipId = menuCategoryChipId(cat);
+    if (chipId != null) parentIds.add(chipId);
   }
 
   if (!parentIds.size) return [];
@@ -183,16 +222,19 @@ export async function buildRestaurantFoodWhere(params: {
 
 export function formatRestaurantMenuFood(
   f: FoodRow,
-  extras?: { restaurant_name?: string | null },
-  addonLookup?: Map<number, FoodAddonExpanded>
+  extras?: FormatRestaurantMenuFoodExtras,
+  addonLookup?: Map<number, FoodAddonExpanded>,
+  legacyVariations?: unknown[]
 ) {
-  let parsedVariations: unknown[] = [];
-
-  try {
-    if (f.variations) parsedVariations = JSON.parse(f.variations);
-  } catch {
-    /* ignore */
+  const raw = resolveRawVariations(
+    typeof f.variations === 'string' ? f.variations : null,
+    legacyVariations
+  );
+  let basePrice = Number(f.price);
+  if (basePrice <= 0 && raw.length) {
+    basePrice = inferListPriceFromRawVariations(0, raw);
   }
+  const parsedVariations = raw.length ? variationsForMobileClient(basePrice, raw) : [];
 
   const parsedAddOns = addonLookup
     ? expandAddOnsFromStored(f.add_ons, addonLookup)
@@ -210,6 +252,18 @@ export function formatRestaurantMenuFood(
 
   const foodMedia = consumerFoodMediaFields(f.image);
 
+  const selling =
+    extras?.timeZone != null
+      ? resolveFoodSellingTime(
+          f.available_time_starts,
+          f.available_time_ends,
+          extras.sellingAt ?? new Date(),
+          extras.timeZone
+        )
+      : null;
+
+  const stock = resolveFoodStockSnapshot(f);
+
   return {
     id: f.id.toString(),
     name: f.name,
@@ -218,7 +272,7 @@ export function formatRestaurantMenuFood(
     category_id: f.category_id != null ? String(f.category_id) : null,
     restaurant_id: f.restaurant_id != null ? String(f.restaurant_id) : null,
     restaurant_name: extras?.restaurant_name ?? null,
-    price: Number(f.price),
+    price: basePrice,
     discount: Number(f.discount),
     discount_type: f.discount_type ?? 'percent',
     avg_rating: f.avg_rating ?? 0,
@@ -227,5 +281,51 @@ export function formatRestaurantMenuFood(
     status: f.status,
     variations: parsedVariations,
     add_ons: parsedAddOns,
+    ...(selling
+      ? {
+          available_time_starts: selling.available_time_starts,
+          available_time_ends: selling.available_time_ends,
+          is_available_now: selling.is_available_now,
+          availability_status: selling.availability_status,
+        }
+      : {}),
+    stock_type: stock.stock_type,
+    current_stock: stock.current_stock,
+    is_in_stock: stock.is_in_stock,
+    stock_status: stock.stock_status,
   };
+}
+
+export async function formatRestaurantMenuFoodsBatch(
+  foods: FoodRow[],
+  extras?: FormatRestaurantMenuFoodExtras,
+  addonLookup?: Map<number, FoodAddonExpanded>
+) {
+  const legacyMap = await loadLegacyVariationsForFoodRows(foods);
+  const timeZone = await getDefaultRestaurantTimeZone();
+  const sellingAt = new Date();
+  const withSelling: FormatRestaurantMenuFoodExtras = {
+    ...extras,
+    timeZone,
+    sellingAt,
+  };
+  return foods.map((f) =>
+    formatRestaurantMenuFood(f, withSelling, addonLookup, legacyMap.get(Number(f.id)))
+  );
+}
+
+/** Single-item format with selling-time fields (details, extras). */
+export async function formatRestaurantMenuFoodWithSellingTime(
+  f: FoodRow,
+  extras?: Omit<FormatRestaurantMenuFoodExtras, 'timeZone' | 'sellingAt'>,
+  addonLookup?: Map<number, FoodAddonExpanded>,
+  legacyVariations?: unknown[]
+) {
+  const timeZone = await getDefaultRestaurantTimeZone();
+  return formatRestaurantMenuFood(
+    f,
+    { ...extras, timeZone, sellingAt: new Date() },
+    addonLookup,
+    legacyVariations
+  );
 }

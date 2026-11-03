@@ -89,6 +89,6 @@ if [[ -x "$ROOT_DIR/scripts/fix-postgres-grants.sh" ]]; then
   "$ROOT_DIR/scripts/fix-postgres-grants.sh"
 fi
 
-if [[ -x "$ROOT_DIR/scripts/apply-schema-patches.sh" ]]; then
+if [[ "${SKIP_SCHEMA_PATCHES:-0}" != "1" && -x "$ROOT_DIR/scripts/apply-schema-patches.sh" ]]; then
   "$ROOT_DIR/scripts/apply-schema-patches.sh"
 fi

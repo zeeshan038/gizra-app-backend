@@ -2,7 +2,10 @@ import { Request, Response } from 'express';
 import prisma from '../../config/database';
 import { sendApiError, errorMessageFromUnknown } from '../../utils/apiErrorResponse';
 import { requireZoneIds } from '../../utils/consumer/zoneHeaders';
-import { parseMenuFoodType, formatRestaurantMenuFood } from '../../utils/consumer/restaurantMenuHelpers';
+import {
+  parseMenuFoodType,
+  formatRestaurantMenuFoodWithSellingTime,
+} from '../../utils/consumer/restaurantMenuHelpers';
 import {
   buildZoneFoodWhere,
   paginateFoods,
@@ -10,8 +13,24 @@ import {
 } from '../../utils/consumer/productListHelpers';
 import { parseOptionalCategoryId } from '../../utils/consumer/restaurantMenuHelpers';
 import { searchFoods } from './Restaurant';
+import { parseConsumerSearchQuery } from '../../utils/consumer/restaurantSearchHelpers';
 
 export { searchFoods };
+
+/** PHP GET /api/v1/products/search — food-only listing with extra filters (not the app search bar). */
+function isPhpFilteredProductSearch(req: Request): boolean {
+  const q = req.query;
+  if (q.restaurant_id) return true;
+  if (q.category_id) return true;
+  if (q.min_price != null && String(q.min_price).trim() !== '') return true;
+  if (q.max_price != null && String(q.max_price).trim() !== '') return true;
+  if (minRatingFromQuery(q as Record<string, unknown>) != null) return true;
+  if (q.popular === '1' || q.popular === 'true') return true;
+  if (q.new === '1' || q.new === 'true') return true;
+  const type = String(q.type ?? 'all').toLowerCase();
+  if (type && type !== 'all') return true;
+  return false;
+}
 
 function minRatingFromQuery(query: Record<string, unknown>): number | undefined {
   if (query.rating_5 === '1' || query.rating_5 === 'true') return 5;
@@ -242,9 +261,19 @@ export const getFoodDetails = async (req: Request, res: Response): Promise<any> 
       '../../utils/vendor/catalog/foodAddonHelpers'
     );
     const addonLookup = await buildAddonLookupFromFoodRows([food]);
+    const { loadLegacyVariationsByFoodIds } = await import(
+      '../../utils/consumer/legacyFoodVariations'
+    );
+    const legacyMap = await loadLegacyVariationsByFoodIds([id]);
+    const data = await formatRestaurantMenuFoodWithSellingTime(
+      food,
+      { restaurant_name: restaurantName },
+      addonLookup,
+      legacyMap.get(id)
+    );
     return res.status(200).json({
       status: true,
-      data: formatRestaurantMenuFood(food, { restaurant_name: restaurantName }, addonLookup),
+      data,
     });
   } catch (e: unknown) {
     return sendApiError(res, 500, errorMessageFromUnknown(e));
@@ -257,9 +286,12 @@ export const getFoodDetails = async (req: Request, res: Response): Promise<any> 
  * @Access Public
  */
 export const searchFoodsWithFilters = async (req: Request, res: Response): Promise<any> => {
-  const name = String(req.query.name ?? '').trim();
-  if (!name) {
+  if (!isPhpFilteredProductSearch(req)) {
     return searchFoods(req, res);
+  }
+  const name = parseConsumerSearchQuery(req);
+  if (!name) {
+    return sendApiError(res, 400, 'Search name is required');
   }
   const hasZone = Boolean(req.query.zone_id || req.headers.zoneid);
   const zoneIds = hasZone ? requireZoneIds(req, res) : null;

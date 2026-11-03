@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import {
   expandMenuCategoryFilterIds,
-  formatRestaurantMenuFood,
+  formatRestaurantMenuFoodsBatch,
   parseMenuFoodType,
 } from './restaurantMenuHelpers';
 import { buildAddonLookupFromFoodRows } from '../vendor/catalog/foodAddonHelpers';
@@ -26,6 +26,11 @@ export const FOOD_LIST_SELECT = {
   order_count: true,
   recommended: true,
   created_at: true,
+  available_time_starts: true,
+  available_time_ends: true,
+  stock_type: true,
+  item_stock: true,
+  sell_count: true,
 } as const;
 
 export type FoodListRow = Prisma.foodGetPayload<{ select: typeof FOOD_LIST_SELECT }>;
@@ -116,19 +121,18 @@ export async function paginateFoods(params: {
   const nameById = new Map(restaurants.map((r) => [Number(r.id), r.name]));
   const addonLookup = await buildAddonLookupFromFoodRows(rows);
 
+  const products = await formatRestaurantMenuFoodsBatch(rows, undefined, addonLookup);
+  const productsWithRestaurantName = products.map((product, index) => ({
+    ...product,
+    restaurant_name:
+      nameById.get(Number(rows[index].restaurant_id)) ?? product.restaurant_name,
+  }));
+
   return {
     total_size,
     limit: params.limit,
     offset: params.page,
-    products: rows.map((row) =>
-      formatRestaurantMenuFood(
-        row,
-        {
-          restaurant_name: nameById.get(Number(row.restaurant_id)) ?? null,
-        },
-        addonLookup
-      )
-    ),
+    products: productsWithRestaurantName,
   };
 }
 

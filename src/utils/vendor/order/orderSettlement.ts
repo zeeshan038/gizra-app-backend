@@ -22,12 +22,19 @@ export function deriveRestaurantListTotal(order: orders): number {
   return roundMoney(orderValue + delivery);
 }
 
-const RESTAURANT_TAX_PERCENT = 10;
+/** Gizra platform fee on food — deducted from restaurant payout, never added to customer bill. */
+export const GIZRA_COMMISSION_PERCENT = 10;
 
+/** @deprecated Prefer `gizraCommissionOnFood`. */
 export function taxOnOrderValue(orderValue: number): number {
-  return roundMoney((orderValue * RESTAURANT_TAX_PERCENT) / 100);
+  return gizraCommissionOnFood(orderValue);
 }
 
+export function gizraCommissionOnFood(orderValue: number): number {
+  return roundMoney((orderValue * GIZRA_COMMISSION_PERCENT) / 100);
+}
+
+/** Food amount restaurant receives after Gizra commission (delivery goes to rider separately). */
 export function gizraPaysRestaurant(orderValue: number): number {
-  return roundMoney(Math.max(0, orderValue - taxOnOrderValue(orderValue)));
+  return roundMoney(Math.max(0, orderValue - gizraCommissionOnFood(orderValue)));
 }

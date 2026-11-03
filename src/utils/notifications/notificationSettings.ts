@@ -32,6 +32,14 @@ export async function isPushNotificationEnabled(
     ) {
       return true;
     }
+    if (
+      userType === 'deliveryman' &&
+      (key === 'deliveryman_withdraw_approve' ||
+        key === 'deliveryman_withdraw_rejaction' ||
+        key === 'deliveryman_withdraw_rejection')
+    ) {
+      return true;
+    }
     return false;
   }
   return row.push_notification_status === 'active';

@@ -27,6 +27,7 @@ import vendorCouponRoutes from './vendor/coupon';
 import vendorReviewRoutes from './vendor/review';
 import vendorWalletRoutes from './vendor/wallet';
 import vendorWithdrawMethodRoutes from './vendor/withdrawMethod';
+import vendorReportRoutes from './vendor/reports';
 //consumer
 import consumerUserRoutes from './consumer/user';
 //deliveryman
@@ -49,6 +50,10 @@ import adminCouponRoutes from './admin/coupons';
 import adminDisbursementRoutes from './admin/disbursement';
 import adminTransactionsRoutes from './admin/transactions';
 import adminBusinessSetupRoutes from './admin/business-setup';
+import adminPushNotificationRoutes from './admin/push-notifications';
+import adminDispatchRoutes from './admin/dispatch';
+import adminHomeCategoryRoutes from './admin/home-categories';
+import adminReportRoutes from './admin/reports';
 
 //vendor
 router.use('/vendor',vendorUserRoutes);
@@ -63,6 +68,7 @@ router.use('/vendor/coupons', vendorCouponRoutes);
 router.use('/vendor/reviews', vendorReviewRoutes);
 router.use('/vendor/wallet', vendorWalletRoutes);
 router.use('/vendor/withdraw-method', vendorWithdrawMethodRoutes);
+router.use('/vendor/reports', vendorReportRoutes);
 
 //consumer
 import consumerCartRoutes from './consumer/cart';
@@ -86,10 +92,12 @@ import consumerCuisineRoutes from './consumer/cuisine';
 import consumerAdvertisementRoutes from './consumer/advertisement';
 import sharedConfigRoutes from './config';
 import legalPagesRoutes from './pages';
+import publicLandingRoutes from './public/landing';
 
 //consumer — public discover/config first; `/consumer` user router last (auth is per-route, not a catch-all)
 router.use('/config', sharedConfigRoutes);
 router.use('/pages', legalPagesRoutes);
+router.use('/public', publicLandingRoutes);
 router.use('/consumer/config', consumerConfigRoutes);
 router.use('/consumer/zone', consumerZoneRoutes);
 router.use('/consumer/restaurants', consumerRestaurantRoutes);
@@ -135,6 +143,10 @@ router.use('/admin/coupons', adminCouponRoutes);
 router.use('/admin/disbursement', adminDisbursementRoutes);
 router.use('/admin/transactions', adminTransactionsRoutes);
 router.use('/admin/business-setup', adminBusinessSetupRoutes);
+router.use('/admin/push-notifications', adminPushNotificationRoutes);
+router.use('/admin/dispatch', adminDispatchRoutes);
+router.use('/admin/home-categories', adminHomeCategoryRoutes);
+router.use('/admin/reports', adminReportRoutes);
 
 
 router.use('/upload', uploadRouter);

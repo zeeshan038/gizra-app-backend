@@ -4,6 +4,7 @@ import {
   consumerRestaurantMediaFields,
   publicRestaurantMediaUrl,
 } from '../mediaStorage';
+import { variationsForMobileClient } from './variationsForMobileClient';
 
 function parseZoneIdsFromRaw(raw: unknown): number[] | null {
   if (raw == null || raw === '') return null;
@@ -132,7 +133,9 @@ export function formatFavouriteFood(
   let variations: unknown[] = [];
   let add_ons: unknown[] = [];
   try {
-    if (f.variations) variations = JSON.parse(f.variations);
+    if (f.variations) {
+      variations = variationsForMobileClient(Number(f.price), JSON.parse(f.variations));
+    }
   } catch {
     /* ignore */
   }

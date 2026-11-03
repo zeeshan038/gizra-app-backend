@@ -1,6 +1,32 @@
 import { Request, Response } from 'express';
 import prisma from '../../config/database';
 import { addMultipleCartSchema, addToCartSchema, updateCartSchema } from '../../schemas/consumer/Cart';
+import {
+  assertCartFoodSellableNow,
+  assertCartFoodStockAvailable,
+  attachSellingTimeToCartRows,
+  CartFoodSellingTimeError,
+  CartFoodStockError,
+} from '../../utils/consumer/cartFoodSellingTime';
+
+function cartSellingTimeResponse(err: CartFoodSellingTimeError) {
+  return {
+    status: false,
+    msg: err.message,
+    code: 'food_selling_time',
+    availability_status: err.availability_status ?? null,
+  };
+}
+
+function cartStockResponse(err: CartFoodStockError) {
+  return {
+    status: false,
+    msg: err.message,
+    code: 'food_stock',
+    stock_status: err.stock_status ?? 'out_of_stock',
+    current_stock: err.current_stock ?? 0,
+  };
+}
 
 /**
  * @Description Get all cart items for a user or guest
@@ -45,7 +71,8 @@ export const getCart = async (req: Request, res: Response): Promise<any> => {
             variation_options: cart.variation_options ? JSON.parse(cart.variation_options) : []
         }));
 
-        return res.status(200).json({ status: true, data: mappedCarts });
+        const data = await attachSellingTimeToCartRows(mappedCarts);
+        return res.status(200).json({ status: true, data });
     } catch (e: any) {
         return res.status(500).json({ status: false, msg: e.message });
     }
@@ -81,6 +108,27 @@ export const addToCart = async (req: Request, res: Response): Promise<any> => {
     }
 
     try {
+        const itemType = String(payload.item_type ?? 'Food');
+        if (itemType.toLowerCase() === 'food') {
+            try {
+                await assertCartFoodSellableNow(Number(payload.item_id));
+                await assertCartFoodStockAvailable({
+                    itemId: Number(payload.item_id),
+                    quantity: Number(payload.quantity) || 1,
+                    userId: user_id,
+                    isGuest: is_guest,
+                });
+            } catch (e: unknown) {
+                if (e instanceof CartFoodSellingTimeError) {
+                    return res.status(403).json(cartSellingTimeResponse(e));
+                }
+                if (e instanceof CartFoodStockError) {
+                    return res.status(403).json(cartStockResponse(e));
+                }
+                throw e;
+            }
+        }
+
         // Check if item already exists in cart with same variations
         const existingCartItem = await prisma.carts.findFirst({
             where: {
@@ -148,6 +196,33 @@ export const updateCart = async (req: Request, res: Response): Promise<any> => {
     }
 
     try {
+        const existing = await prisma.carts.findUnique({
+            where: { id: BigInt(payload.cart_id) },
+        });
+        if (!existing) {
+            return res.status(404).json({ status: false, msg: 'Cart item not found' });
+        }
+        if (String(existing.item_type ?? 'Food').toLowerCase() === 'food') {
+            try {
+                await assertCartFoodSellableNow(Number(existing.item_id));
+                await assertCartFoodStockAvailable({
+                    itemId: Number(existing.item_id),
+                    quantity: Number(payload.quantity) || 1,
+                    userId: Number(existing.user_id),
+                    isGuest: existing.is_guest,
+                    excludeCartId: existing.id,
+                });
+            } catch (e: unknown) {
+                if (e instanceof CartFoodSellingTimeError) {
+                    return res.status(403).json(cartSellingTimeResponse(e));
+                }
+                if (e instanceof CartFoodStockError) {
+                    return res.status(403).json(cartStockResponse(e));
+                }
+                throw e;
+            }
+        }
+
         const cart = await prisma.carts.update({
             where: { id: BigInt(payload.cart_id) },
             data: { quantity: payload.quantity }
@@ -256,6 +331,25 @@ export const addMultipleToCart = async (req: Request, res: Response): Promise<an
   try {
     for (const single of items) {
       const itemType = single.item_type ?? single.model ?? 'Food';
+      if (String(itemType).toLowerCase() === 'food') {
+        try {
+          await assertCartFoodSellableNow(Number(single.item_id));
+          await assertCartFoodStockAvailable({
+            itemId: Number(single.item_id),
+            quantity: Number(single.quantity) || 1,
+            userId: user_id,
+            isGuest: is_guest,
+          });
+        } catch (e: unknown) {
+          if (e instanceof CartFoodSellingTimeError) {
+            return res.status(403).json(cartSellingTimeResponse(e));
+          }
+          if (e instanceof CartFoodStockError) {
+            return res.status(403).json(cartStockResponse(e));
+          }
+          throw e;
+        }
+      }
       const existing = await prisma.carts.findFirst({
         where: {
           user_id,
@@ -286,7 +380,8 @@ export const addMultipleToCart = async (req: Request, res: Response): Promise<an
     const carts = await prisma.carts.findMany({
       where: { user_id, is_guest },
     });
-    return res.status(200).json({ status: true, data: carts.map(mapCartRow) });
+    const data = await attachSellingTimeToCartRows(carts.map(mapCartRow));
+    return res.status(200).json({ status: true, data });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });
   }

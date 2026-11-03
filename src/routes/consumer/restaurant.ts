@@ -9,6 +9,7 @@ import {
     getRestaurantFoods,
     getRestaurantDetails,
     getRestaurantMenuCategories,
+    getRestaurantReviews,
 } from '../../controllers/consumer/Restaurant';
 import {
     getDineInRestaurants,
@@ -30,6 +31,7 @@ router.get('/recommended', getRecommendedRestaurants);
 router.get('/coupons', getRestaurantCoupons);
 router.get('/recently-viewed', verifyConsumer, getRecentlyViewedRestaurants);
 router.get('/visit-again', verifyConsumer, getVisitedRestaurants);
+router.get('/reviews', optionalVerifyConsumer, getRestaurantReviews);
 router.get('/:id/categories', getRestaurantMenuCategories);
 router.get('/:id/foods', getRestaurantFoods);
 router.get('/specfic/:id', optionalVerifyConsumer, getRestaurantDetails);

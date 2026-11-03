@@ -12,25 +12,41 @@ import {
     applyDiscoverTypeFilter,
     DISCOVER_RESTAURANT_SELECT,
     distanceKmForRestaurant,
+    availabilityMapForRestaurants,
+    computeAvailabilityForRestaurant,
     formatDiscoverRestaurant,
     formatMapRestaurant,
-    isOpenFromSchedules,
     isRestaurantInsideBounds,
     loadActiveDiscountRestaurantIds,
-    loadTodaySchedulesByRestaurantId,
+    restaurantAvailabilityResponseFields,
     parseDiscoverType,
     parseMapBoundsFromQuery,
     parseRestaurantCoordinates,
 } from '../../utils/consumer/restaurantDiscoverHelpers';
 import {
     buildRestaurantFoodWhere,
-    formatRestaurantMenuFood,
+    formatRestaurantMenuFoodsBatch,
     loadRestaurantMenuCategories,
     parseMenuFoodType,
     parseOptionalCategoryId,
 } from '../../utils/consumer/restaurantMenuHelpers';
-import { consumerFoodMediaFields, consumerRestaurantMediaFields } from '../../utils/mediaStorage';
+import { consumerRestaurantMediaFields } from '../../utils/mediaStorage';
 import { recordRestaurantVisit } from '../../utils/consumer/visitorLog';
+import {
+    aggregateRestaurantReviewStats,
+    findPendingReviewOrderForRestaurant,
+    loadRestaurantReviews,
+    restaurantAvgFromStoredRating,
+} from '../../utils/consumer/reviewHelpers';
+import { sendApiError } from '../../utils/apiErrorResponse';
+import {
+    buildConsumerFoodSearchWhere,
+    consumerSearchRestaurantLimit,
+    consumerSearchRestaurantSkip,
+    findRestaurantIdsForConsumerSearch,
+    parseConsumerSearchQuery,
+    tokenizeSearchQuery,
+} from '../../utils/consumer/restaurantSearchHelpers';
 
 /*
  * @Description Get active restaurants in the customer zone(s) (query zone_id, e.g. ?zone_id=2)
@@ -90,6 +106,7 @@ export const getRestaurants = async (req: Request, res: Response): Promise<any> 
                     tax: true,
                     rating: true,
                     address: true,
+                    active: true,
                 },
                 skip,
                 take: limit,
@@ -97,17 +114,31 @@ export const getRestaurants = async (req: Request, res: Response): Promise<any> 
             })
         ]);
 
-        const formattedRestaurants = restaurants.map((r) => ({
-            ...r,
-            id: r.id.toString(),
-            minimum_order: r.minimum_order ? Number(r.minimum_order) : 0,
-            tax: r.tax ? Number(r.tax) : 0,
-            rating: r.rating ? Number(r.rating) : 0,
-            ...consumerRestaurantMediaFields({
-                logo: r.logo,
-                cover_photo: r.cover_photo,
-            }),
-        }));
+        const availabilityMap = await availabilityMapForRestaurants(restaurants);
+
+        const formattedRestaurants = restaurants.map((r) => {
+            const availability = restaurantAvailabilityResponseFields(
+                availabilityMap.get(r.id.toString()) ?? {
+                    status: 'CLOSED',
+                    can_order: false,
+                    next_open_at: null,
+                    next_close_at: null,
+                    is_temporarily_closed: r.active === false,
+                }
+            );
+            return {
+                ...r,
+                id: r.id.toString(),
+                minimum_order: r.minimum_order ? Number(r.minimum_order) : 0,
+                tax: r.tax ? Number(r.tax) : 0,
+                rating: r.rating ? Number(r.rating) : 0,
+                ...consumerRestaurantMediaFields({
+                    logo: r.logo,
+                    cover_photo: r.cover_photo,
+                }),
+                ...availability,
+            };
+        });
 
         return res.status(200).json({
             status: true,
@@ -177,24 +208,24 @@ export const getPopularRestaurants = async (req: Request, res: Response): Promis
             take: candidateCap,
         });
 
-        const scheduleMap = await loadTodaySchedulesByRestaurantId(candidates.map((r) => r.id));
+        const availabilityMap = await availabilityMapForRestaurants(candidates);
 
         const ranked = candidates
             .map((r) => {
-                const schedules = scheduleMap.get(r.id.toString()) ?? [];
-                const open = isOpenFromSchedules(schedules);
-                return { row: r, open, orderCount: Number(r.order_count) };
+                const availability = availabilityMap.get(r.id.toString());
+                const canOrder = availability?.can_order ?? false;
+                return { row: r, canOrder, orderCount: Number(r.order_count), availability };
             })
             .sort((a, b) => {
-                if (a.open !== b.open) return a.open ? -1 : 1;
+                if (a.canOrder !== b.canOrder) return a.canOrder ? -1 : 1;
                 if (b.orderCount !== a.orderCount) return b.orderCount - a.orderCount;
                 return Number(b.row.id) - Number(a.row.id);
             });
 
         const pageSlice = ranked.slice(skip, skip + limit);
-        const restaurants = pageSlice.map(({ row, open }) =>
+        const restaurants = pageSlice.map(({ row, availability }) =>
             formatDiscoverRestaurant(row, {
-                open,
+                availability: availability ?? undefined,
                 distanceKm: distanceKmForRestaurant(coords, row.latitude, row.longitude),
             })
         );
@@ -265,22 +296,23 @@ export const getNearbyRestaurants = async (req: Request, res: Response): Promise
             select: DISCOVER_RESTAURANT_SELECT,
         });
 
-        const scheduleMap = await loadTodaySchedulesByRestaurantId(rows.map((r) => r.id));
+        const availabilityMap = await availabilityMapForRestaurants(rows);
 
         const ranked = rows
             .map((row) => {
                 const distKm = distanceKmForRestaurant(coords, row.latitude, row.longitude);
-                const schedules = scheduleMap.get(row.id.toString()) ?? [];
-                const open = isOpenFromSchedules(schedules);
+                const availability = availabilityMap.get(row.id.toString());
+                const canOrder = availability?.can_order ?? false;
                 return {
                     row,
-                    open,
+                    canOrder,
+                    availability,
                     distKm: distKm ?? Number.POSITIVE_INFINITY,
                 };
             })
             .filter((item) => Number.isFinite(item.distKm))
             .sort((a, b) => {
-                if (a.open !== b.open) return a.open ? -1 : 1;
+                if (a.canOrder !== b.canOrder) return a.canOrder ? -1 : 1;
                 if (a.distKm !== b.distKm) return a.distKm - b.distKm;
                 return Number(b.row.order_count) - Number(a.row.order_count);
             });
@@ -295,9 +327,9 @@ export const getNearbyRestaurants = async (req: Request, res: Response): Promise
         }
 
         const pageSlice = ranked.slice(skip, skip + limit);
-        const restaurants = pageSlice.map(({ row, open, distKm }) =>
+        const restaurants = pageSlice.map(({ row, availability, distKm }) =>
             formatDiscoverRestaurant(row, {
-                open,
+                availability: availability ?? undefined,
                 distanceKm: Number.isFinite(distKm) ? distKm : null,
             })
         );
@@ -373,18 +405,18 @@ export const getDiscoverMapRestaurants = async (req: Request, res: Response): Pr
             orderBy: [{ order_count: 'desc' }, { id: 'desc' }],
         });
 
-        const scheduleMap = await loadTodaySchedulesByRestaurantId(rows.map((r) => r.id));
+        const availabilityMap = await availabilityMapForRestaurants(rows);
 
         let filtered = rows
             .map((row) => {
                 const position = parseRestaurantCoordinates(row.latitude, row.longitude);
                 if (!position) return null;
 
-                const schedules = scheduleMap.get(row.id.toString()) ?? [];
-                const open = isOpenFromSchedules(schedules);
+                const availability = availabilityMap.get(row.id.toString());
+                const canOrder = availability?.can_order ?? false;
                 const distKm = distanceKmForRestaurant(coords, row.latitude, row.longitude);
 
-                return { row, open, position, distKm };
+                return { row, canOrder, availability, position, distKm };
             })
             .filter((item): item is NonNullable<typeof item> => item != null);
 
@@ -401,16 +433,16 @@ export const getDiscoverMapRestaurants = async (req: Request, res: Response): Pr
         }
 
         filtered.sort((a, b) => {
-            if (a.open !== b.open) return a.open ? -1 : 1;
+            if (a.canOrder !== b.canOrder) return a.canOrder ? -1 : 1;
             const distA = a.distKm ?? Number.POSITIVE_INFINITY;
             const distB = b.distKm ?? Number.POSITIVE_INFINITY;
             if (distA !== distB) return distA - distB;
             return Number(b.row.order_count) - Number(a.row.order_count);
         });
 
-        const restaurants = filtered.map(({ row, open, distKm }) =>
+        const restaurants = filtered.map(({ row, availability, distKm }) =>
             formatMapRestaurant(row, {
-                open,
+                availability: availability ?? undefined,
                 distanceKm: distKm,
             })
         );
@@ -524,8 +556,10 @@ export const getRestaurantFoods = async (req: Request, res: Response): Promise<a
             '../../utils/vendor/catalog/foodAddonHelpers'
         );
         const addonLookup = await buildAddonLookupFromFoodRows(foods);
-        const formattedFoods = foods.map((f) =>
-            formatRestaurantMenuFood(f, { restaurant_name: restaurant.name }, addonLookup)
+        const formattedFoods = await formatRestaurantMenuFoodsBatch(
+            foods,
+            { restaurant_name: restaurant.name },
+            addonLookup
         );
 
         return res.status(200).json({
@@ -552,36 +586,37 @@ export const getRestaurantFoods = async (req: Request, res: Response): Promise<a
  */
 export const searchFoods = async (req: Request, res: Response): Promise<any> => {
     try {
-        const name = (req.query.name as string)?.trim();
+        const name = parseConsumerSearchQuery(req);
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 20;
         const skip = (page - 1) * limit;
+        const restaurantPage =
+            parseInt(req.query.restaurant_page as string) || page;
+        const restaurantLimit = consumerSearchRestaurantLimit(
+            parseInt(req.query.restaurant_limit as string) || limit
+        );
+        const restaurantSkip = consumerSearchRestaurantSkip(restaurantPage, restaurantLimit);
         const zoneIds = parseZoneIdsFromRequest(req);
         const coords = parseCoordinatesFromRequest(req);
+        const tokens = tokenizeSearchQuery(name);
 
-        if (!name) {
+        if (!name || !tokens.length) {
             return res.status(400).json({ status: false, msg: 'Search name is required' });
         }
 
-        const foodWhere: {
-            status: boolean;
-            name: { contains: string; mode: 'insensitive' };
-            restaurant_id?: { in: number[] };
-        } = {
+        const foodWhere = await buildConsumerFoodSearchWhere(tokens, zoneIds);
+
+        const matchingRestaurantIds = await findRestaurantIdsForConsumerSearch(
+            tokens,
+            zoneIds,
+            name
+        );
+        const restaurantWhere: Record<string, unknown> = {
             status: true,
-            name: { contains: name, mode: 'insensitive' },
+            id: { in: matchingRestaurantIds.map((id) => BigInt(id)) },
         };
 
-        if (zoneIds?.length) {
-            const inZone = await prisma.restaurants.findMany({
-                where: { status: true, zone_id: { in: zoneIds } },
-                select: { id: true },
-            });
-            const restaurantIdsInZone = inZone.map((r) => Number(r.id));
-            foodWhere.restaurant_id = { in: restaurantIdsInZone };
-        }
-
-        const [foodTotal, foods, foodRestaurantRows] = await Promise.all([
+        const [foodTotal, foods, restaurantTotal, restaurantRows] = await Promise.all([
             prisma.food.count({ where: foodWhere }),
             prisma.food.findMany({
                 where: foodWhere,
@@ -589,100 +624,126 @@ export const searchFoods = async (req: Request, res: Response): Promise<any> => 
                 take: limit,
                 orderBy: { id: 'desc' },
             }),
-            prisma.food.findMany({
-                where: foodWhere,
-                select: { restaurant_id: true },
-                distinct: ['restaurant_id'],
-            }),
+            matchingRestaurantIds.length
+                ? Promise.resolve(matchingRestaurantIds.length)
+                : Promise.resolve(0),
+            matchingRestaurantIds.length
+                ? prisma.restaurants.findMany({
+                      where: restaurantWhere,
+                      select: DISCOVER_RESTAURANT_SELECT,
+                      skip: restaurantSkip,
+                      take: restaurantLimit,
+                      orderBy: [{ order_count: 'desc' }, { id: 'desc' }],
+                  })
+                : Promise.resolve([]),
         ]);
 
-        const restaurantIdsFromFood = [
-            ...new Set(
-                foodRestaurantRows
-                    .map((row) => (row.restaurant_id != null ? Number(row.restaurant_id) : null))
-                    .filter((id): id is number => id != null && Number.isFinite(id))
-            ),
-        ].map((id) => BigInt(id));
+        const availabilityMap = await availabilityMapForRestaurants(restaurantRows);
 
-        const restaurantOr: Record<string, unknown>[] = [];
-        if (restaurantIdsFromFood.length) {
-            restaurantOr.push({ id: { in: restaurantIdsFromFood } });
-        }
-        restaurantOr.push({ name: { contains: name, mode: 'insensitive' } });
-
-        const restaurantWhere: Record<string, unknown> = {
-            status: true,
-            OR: restaurantOr,
-        };
-        if (zoneIds?.length) {
-            restaurantWhere.zone_id = { in: zoneIds };
-        }
-
-        const [restaurantTotal, restaurantRows] = await Promise.all([
-            prisma.restaurants.count({ where: restaurantWhere }),
-            prisma.restaurants.findMany({
-                where: restaurantWhere,
-                select: DISCOVER_RESTAURANT_SELECT,
-                skip,
-                take: limit,
-                orderBy: [{ order_count: 'desc' }, { id: 'desc' }],
-            }),
-        ]);
-
-        const scheduleMap = await loadTodaySchedulesByRestaurantId(
-            restaurantRows.map((r) => r.id)
+        const { buildAddonLookupFromFoodRows } = await import(
+            '../../utils/vendor/catalog/foodAddonHelpers'
+        );
+        const addonLookup = await buildAddonLookupFromFoodRows(foods);
+        const formattedFoods = await formatRestaurantMenuFoodsBatch(
+            foods,
+            undefined,
+            addonLookup
         );
 
-        const formattedFoods = foods.map((f) => {
-            let parsedVariations = [];
-            let parsedAddOns = [];
-
-            try {
-                if (f.variations) parsedVariations = JSON.parse(f.variations);
-            } catch (e) { }
-            try {
-                if (f.add_ons) parsedAddOns = JSON.parse(f.add_ons);
-            } catch (e) { }
-
-            return {
-                id: f.id.toString(),
-                name: f.name,
-                description: f.description,
-                ...consumerFoodMediaFields(f.image),
-                category_id: f.category_id?.toString() || null,
-                restaurant_id: f.restaurant_id?.toString() || null,
-                price: Number(f.price),
-                discount: Number(f.discount),
-                veg: f.veg,
-                status: f.status,
-                variations: parsedVariations,
-                add_ons: parsedAddOns,
-            };
-        });
-
         const formattedRestaurants = restaurantRows.map((r) => {
-            const schedules = scheduleMap.get(r.id.toString()) ?? [];
-            const open = isOpenFromSchedules(schedules);
+            const availability = availabilityMap.get(r.id.toString());
             const distKm = distanceKmForRestaurant(coords, r.latitude, r.longitude);
-            return formatDiscoverRestaurant(r, { open, distanceKm: distKm });
+            return formatDiscoverRestaurant(r, { availability: availability ?? undefined, distanceKm: distKm });
         });
+
+        const payload = {
+            total_size: foodTotal,
+            restaurants_total_size: restaurantTotal,
+            limit,
+            offset: page,
+            foods: formattedFoods,
+            restaurants: formattedRestaurants,
+            /** Legacy PHP `/products/search` and Flutter list key */
+            products: formattedFoods,
+        };
 
         return res.status(200).json({
             status: true,
-            data: {
-                total_size: foodTotal,
-                restaurants_total_size: restaurantTotal,
-                limit,
-                offset: page,
-                foods: formattedFoods,
-                restaurants: formattedRestaurants,
-            },
+            ...payload,
+            data: payload,
         });
     } catch (error: any) {
         return res.status(500).json({ status: false, msg: error.message });
     }
 };
 
+
+/**
+ * @Description Restaurant review list (legacy PHP GET /api/v1/restaurants/reviews)
+ * @Route GET /api/consumer/restaurants/reviews
+ * @Access Public (write eligibility when Bearer JWT present)
+ * @Query restaurant_id — required
+ * @Query search — optional filter on review comment text
+ */
+export const getRestaurantReviews = async (req: Request, res: Response): Promise<any> => {
+    const restaurantId = Number(req.query.restaurant_id);
+    if (!Number.isFinite(restaurantId) || restaurantId <= 0) {
+        return sendApiError(res, 403, 'restaurant_id is required');
+    }
+
+    const search = typeof req.query.search === 'string' ? req.query.search : undefined;
+
+    try {
+        const restaurant = await prisma.restaurants.findFirst({
+            where: { id: BigInt(restaurantId), status: true },
+            select: { id: true, reviews_section: true },
+        });
+        if (!restaurant) {
+            return sendApiError(res, 404, 'Restaurant not found');
+        }
+
+        const payload = await loadRestaurantReviews(restaurantId, search);
+        if (!payload) {
+            return sendApiError(res, 404, 'Restaurant not found');
+        }
+
+        let canWriteReview = false;
+        let pendingOrderId: string | null = null;
+
+        if (
+            restaurant.reviews_section &&
+            req.user?.id &&
+            !req.user.isGuest
+        ) {
+            const pending = await findPendingReviewOrderForRestaurant(
+                Number(req.user.id),
+                restaurantId
+            );
+            if (pending != null) {
+                canWriteReview = true;
+                pendingOrderId = String(pending);
+            }
+        }
+
+        const legacyArray = req.query.legacy === 'true' || req.query.legacy === '1';
+
+        if (legacyArray) {
+            return res.status(200).json(payload.reviews);
+        }
+
+        return res.status(200).json({
+            status: true,
+            avg_rating: payload.avg_rating,
+            rating_count: payload.rating_count,
+            reviews_section: restaurant.reviews_section,
+            can_write_review: canWriteReview,
+            pending_order_id: pendingOrderId,
+            reviews: payload.reviews,
+        });
+    } catch (error: any) {
+        return res.status(500).json({ status: false, msg: error.message });
+    }
+};
 
 /**
  * @Description Specific restaurant details
@@ -710,7 +771,8 @@ export const getRestaurantDetails = async (req: Request, res: Response): Promise
                 non_veg: true,
                 active: true,
                 latitude: true,
-                longitude: true
+                longitude: true,
+                reviews_section: true,
             }
         });
 
@@ -722,17 +784,32 @@ export const getRestaurantDetails = async (req: Request, res: Response): Promise
             void recordRestaurantVisit(Number(req.user.id), id);
         }
 
-        const [scheduleMap, categories] = await Promise.all([
-            loadTodaySchedulesByRestaurantId([restaurant.id]),
+        const [availability, categories, reviewStats] = await Promise.all([
+            computeAvailabilityForRestaurant(restaurant.id, restaurant.active),
             loadRestaurantMenuCategories(id),
+            aggregateRestaurantReviewStats(id),
         ]);
-        const schedules = scheduleMap.get(restaurant.id.toString()) ?? [];
-        const open = isOpenFromSchedules(schedules);
+        const availabilityFields = restaurantAvailabilityResponseFields(availability);
 
         const media = consumerRestaurantMediaFields({
             logo: restaurant.logo,
             cover_photo: restaurant.cover_photo,
         });
+
+        const storedRating = restaurantAvgFromStoredRating(restaurant.rating);
+        const avgRating = reviewStats.rating_count > 0 ? reviewStats.avg_rating : storedRating.avg_rating;
+        const ratingCount =
+            reviewStats.rating_count > 0 ? reviewStats.rating_count : storedRating.rating_count;
+
+        let canWriteReview = false;
+        let pendingOrderId: string | null = null;
+        if (restaurant.reviews_section && req.user?.id && !req.user.isGuest) {
+            const pending = await findPendingReviewOrderForRestaurant(Number(req.user.id), id);
+            if (pending != null) {
+                canWriteReview = true;
+                pendingOrderId = String(pending);
+            }
+        }
 
         return res.status(200).json({
             status: true,
@@ -740,9 +817,15 @@ export const getRestaurantDetails = async (req: Request, res: Response): Promise
                 ...restaurant,
                 id: restaurant.id.toString(),
                 minimum_order: restaurant.minimum_order ? Number(restaurant.minimum_order) : 0,
-                rating: restaurant.rating ? Number(restaurant.rating) : 0,
+                avg_rating: avgRating,
+                rating_count: ratingCount,
+                /** @deprecated Use avg_rating — kept for older clients that read `rating` as a number. */
+                rating: avgRating,
+                reviews_section: restaurant.reviews_section,
+                can_write_review: canWriteReview,
+                pending_order_id: pendingOrderId,
                 ...media,
-                open,
+                ...availabilityFields,
                 categories,
                 category_ids: categories.map((c) => Number(c.id)),
             }

@@ -6,6 +6,11 @@ export const createCategorySchema = Joi.object({
   parent_id: Joi.number().optional().allow(null),
 });
 
+export const updateCategorySchema = Joi.object({
+  name: Joi.string().optional(),
+  image: Joi.string().allow('').optional(),
+});
+
 export const createFoodSchema = Joi.object({
   name: Joi.string().required(),
   description: Joi.string().allow('').optional().default(''),
@@ -29,6 +34,47 @@ export const createFoodSchema = Joi.object({
     .default([]),
   status: Joi.boolean().optional().default(true),
   is_draft: Joi.number().optional().default(0),
+  discount: Joi.number().min(0).optional().default(0),
+  discount_type: Joi.string().valid('percent', 'amount').optional().default('percent'),
+  stock_type: Joi.string().valid('unlimited', 'limited').optional().default('unlimited'),
+  item_stock: Joi.number().integer().min(0).optional().default(0),
+  available_time_starts: Joi.string().allow('', null).optional(),
+  available_time_ends: Joi.string().allow('', null).optional(),
+  veg: Joi.boolean().optional().default(false),
+});
+
+const foodAddOnsSchema = Joi.array()
+  .items(
+    Joi.alternatives().try(
+      Joi.number(),
+      Joi.object({
+        id: Joi.number().optional(),
+        name: Joi.string().required(),
+        price: Joi.number().required().min(0),
+      })
+    )
+  )
+  .optional();
+
+/** PATCH — no defaults; omitted keys must not overwrite existing DB values. */
+export const updateFoodSchema = Joi.object({
+  name: Joi.string().optional(),
+  description: Joi.string().allow('').optional(),
+  image: Joi.string().optional(),
+  category_id: Joi.number().optional(),
+  price: Joi.number().optional(),
+  restaurant_id: Joi.number().optional(),
+  variations: Joi.array().items(Joi.object()).optional(),
+  add_ons: foodAddOnsSchema,
+  status: Joi.boolean().optional(),
+  is_draft: Joi.number().optional(),
+  discount: Joi.number().min(0).optional(),
+  discount_type: Joi.string().valid('percent', 'amount').optional(),
+  stock_type: Joi.string().valid('unlimited', 'limited').optional(),
+  item_stock: Joi.number().integer().min(0).optional(),
+  available_time_starts: Joi.string().allow('', null).optional(),
+  available_time_ends: Joi.string().allow('', null).optional(),
+  veg: Joi.boolean().optional(),
 });
 
 export const aiTextSchema = Joi.object({

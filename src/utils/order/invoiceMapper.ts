@@ -3,6 +3,8 @@ import prisma from '../../config/database';
 import { publicRestaurantMediaUrl } from '../mediaStorage';
 import {
   buildOrderPricing,
+  toVendorOrderPricing,
+  VendorOrderPricing,
   mapOrderDetailLineItem,
   parseDeliveryAddress,
   resolveOrderDeliveryAddress,
@@ -50,7 +52,7 @@ export type OrderInvoicePayload = {
     variation: string | null;
     addons: Array<{ name: string; quantity: number; price: number }>;
   }>;
-  pricing: ReturnType<typeof buildOrderPricing>;
+  pricing: VendorOrderPricing;
 };
 
 function parseGst(raw: string | null | undefined): { gst_status: boolean; gst_code: string } {
@@ -105,7 +107,7 @@ export async function buildOrderInvoice(
   const foods: Pick<food, 'id' | 'name' | 'image'>[] = foodIds.length
     ? await prisma.food.findMany({
         where: { id: { in: foodIds.map((id) => BigInt(id)) } },
-        select: { id: true, name: true, image: true },
+        select: { id: true, name: true, image: true, variations: true },
       })
     : [];
   const foodById = new Map(foods.map((f) => [Number(f.id), f]));
@@ -160,11 +162,10 @@ export async function buildOrderInvoice(
       name: item.food_name,
       quantity: item.quantity,
       unit_price: item.price,
-      line_total:
-        item.line_subtotal + item.addon_lines.reduce((s, a) => s + a.price * a.quantity, 0),
+      line_total: item.line_subtotal,
       variation: item.variation,
       addons: item.addon_lines,
     })),
-    pricing,
+    pricing: toVendorOrderPricing(pricing),
   };
 }

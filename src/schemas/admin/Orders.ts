@@ -22,3 +22,23 @@ export const adminSubscriptionsListQuerySchema = Joi.object({
 export const assignAdminOrderDeliveryManSchema = Joi.object({
   delivery_man_id: Joi.number().integer().positive().required(),
 });
+
+export const updateAdminOrderStatusSchema = Joi.object({
+  status: Joi.string()
+    .valid(
+      'pending',
+      'confirmed',
+      'accepted',
+      'processing',
+      'handover',
+      'picked_up',
+      'food_on_the_way',
+      'delivered',
+      'canceled',
+      'failed',
+      'refunded'
+    )
+    .required(),
+  cancellation_reason: Joi.string().allow('').optional(),
+});
+

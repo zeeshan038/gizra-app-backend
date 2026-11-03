@@ -73,7 +73,7 @@ export async function getAdminOrderDetail(orderId: number) {
     foodIds.length > 0
       ? await prisma.food.findMany({
           where: { id: { in: foodIds.map((id) => BigInt(id)) } },
-          select: { id: true, name: true, image: true },
+          select: { id: true, name: true, image: true, variations: true },
         })
       : [];
   const foodById = new Map(foods.map((f) => [Number(f.id), f]));

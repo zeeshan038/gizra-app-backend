@@ -133,7 +133,11 @@ function mergeOperation(baseOp, overlayOp) {
 
   if (overlayOp.tags?.length) merged.tags = overlayOp.tags;
   if (overlayOp.security) merged.security = overlayOp.security;
-  if (overlayOp.parameters?.length) merged.parameters = overlayOp.parameters;
+  if (overlayOp.parameters === false) {
+    delete merged.parameters;
+  } else if (overlayOp.parameters?.length) {
+    merged.parameters = overlayOp.parameters;
+  }
   if (overlayOp.requestBody === false) {
     delete merged.requestBody;
   } else if (overlayOp.requestBody) {

@@ -165,7 +165,7 @@ export async function buildDeliveryManOrderDetail(
   const foods = foodIds.length
     ? await prisma.food.findMany({
         where: { id: { in: foodIds.map((id) => BigInt(id)) } },
-        select: { id: true, name: true, image: true },
+        select: { id: true, name: true, image: true, variations: true },
       })
     : [];
 
