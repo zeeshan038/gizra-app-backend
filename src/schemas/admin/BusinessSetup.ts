@@ -192,10 +192,16 @@ const appVersionField = Joi.alternatives()
   .try(Joi.string().trim().allow('', null), Joi.number())
   .optional();
 
+const appBuildField = Joi.number().integer().min(0).optional();
+
 export const adminUpdateAppSettingsSchema = Joi.object({
   app: Joi.string().valid('user', 'restaurant', 'deliveryman').default('user'),
   app_minimum_version_android: appVersionField,
+  app_minimum_build_android: appBuildField,
+  app_force_update_android: boolish.optional(),
   app_minimum_version_ios: appVersionField,
+  app_minimum_build_ios: appBuildField,
+  app_force_update_ios: boolish.optional(),
   app_url_android: Joi.string().trim().allow('', null).optional(),
   app_url_ios: Joi.string().trim().allow('', null).optional(),
 });

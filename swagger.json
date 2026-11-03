@@ -55681,20 +55681,80 @@
           "maintenance_mode": {
             "type": "boolean"
           },
+          "maintenance_message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Short message when maintenance_mode is true"
+          },
           "order_confirmation_model": {
             "type": "string",
             "example": "restaurant"
           },
           "app_minimum_version_android": {
-            "type": "number"
+            "type": "string",
+            "example": "10.0.0"
+          },
+          "app_minimum_build_android": {
+            "type": "integer",
+            "example": 19
+          },
+          "app_force_update_android": {
+            "type": "boolean"
+          },
+          "app_minimum_version_ios": {
+            "type": "string",
+            "example": "9.0.0"
+          },
+          "app_minimum_build_ios": {
+            "type": "integer",
+            "example": 2
+          },
+          "app_force_update_ios": {
+            "type": "boolean"
           },
           "app_minimum_version_android_restaurant": {
-            "type": "number"
+            "type": "string",
+            "example": "10.0.0"
+          },
+          "app_minimum_build_android_restaurant": {
+            "type": "integer"
+          },
+          "app_force_update_android_restaurant": {
+            "type": "boolean"
+          },
+          "app_minimum_version_ios_restaurant": {
+            "type": "string"
+          },
+          "app_minimum_build_ios_restaurant": {
+            "type": "integer"
+          },
+          "app_force_update_ios_restaurant": {
+            "type": "boolean"
           },
           "app_minimum_version_android_deliveryman": {
-            "type": "number"
+            "type": "string",
+            "example": "10.0.0"
+          },
+          "app_minimum_build_android_deliveryman": {
+            "type": "integer"
+          },
+          "app_force_update_android_deliveryman": {
+            "type": "boolean"
+          },
+          "app_minimum_version_ios_deliveryman": {
+            "type": "string"
+          },
+          "app_minimum_build_ios_deliveryman": {
+            "type": "integer"
+          },
+          "app_force_update_ios_deliveryman": {
+            "type": "boolean"
           },
           "app_url_android": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_url_ios": {
             "type": "string",
             "nullable": true
           },
@@ -55702,7 +55762,15 @@
             "type": "string",
             "nullable": true
           },
+          "app_url_ios_restaurant": {
+            "type": "string",
+            "nullable": true
+          },
           "app_url_android_deliveryman": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_url_ios_deliveryman": {
             "type": "string",
             "nullable": true
           },
@@ -55756,7 +55824,14 @@
           "cash_on_delivery": true,
           "digital_payment": false,
           "home_delivery": true,
-          "app_minimum_version_android_deliveryman": 1,
+          "maintenance_mode": false,
+          "maintenance_message": null,
+          "app_minimum_version_android": "10.0.0",
+          "app_minimum_build_android": 19,
+          "app_force_update_android": true,
+          "app_minimum_version_android_deliveryman": "10.0.0",
+          "app_minimum_build_android_deliveryman": 19,
+          "app_force_update_android_deliveryman": false,
           "app_url_android_deliveryman": "https://play.google.com/store/apps/details?id=app.gizra.driver"
         }
       },

@@ -56,6 +56,7 @@
     "backfill:variation-additive:server:apply": "bash scripts/backfill-variation-additive-server.sh --apply",
     "test:burger-box-modifiers": "node ./node_modules/ts-node/dist/bin.js scripts/test-burger-box-modifiers.ts",
     "test:mixed-variation-groups": "node ./node_modules/ts-node/dist/bin.js scripts/test-mixed-variation-groups.ts",
+    "test:app-version-config": "node ./node_modules/ts-node/dist/bin.js scripts/test-app-version-config.ts",
     "test:order-pricing": "node ./node_modules/ts-node/dist/bin.js scripts/test-order-line-pricing.ts",
     "test:order-pricing:dist": "npm run build && node scripts/test-order-line-pricing.js",
     "test:variation-catalog-normalize:dist": "npm run build && node scripts/test-variation-catalog-normalize.js",
