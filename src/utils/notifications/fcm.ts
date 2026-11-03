@@ -11,6 +11,14 @@ export type FcmPushData = {
   order_status?: string;
   processing_time?: string;
   cooking_time_minutes?: string;
+  /** Gizra platform order id (same as order_id for delivery jobs). */
+  gizra_order_id?: string;
+  /** Restaurant POS / ticket number when provided on request-driver. */
+  restaurant_order_ref?: string;
+  /** Primary label for driver UI — POS ref when set, else gizra_order_id. */
+  display_order_number?: string;
+  order_source?: string;
+  is_manual_dispatch?: string;
 };
 
 function buildStringData(data: FcmPushData): Record<string, string> {
@@ -25,6 +33,11 @@ function buildStringData(data: FcmPushData): Record<string, string> {
       image: data.image,
       processing_time: data.processing_time,
       cooking_time_minutes: data.cooking_time_minutes,
+      gizra_order_id: data.gizra_order_id,
+      restaurant_order_ref: data.restaurant_order_ref,
+      display_order_number: data.display_order_number,
+      order_source: data.order_source,
+      is_manual_dispatch: data.is_manual_dispatch,
     })
       .filter(([, v]) => v != null && v !== '')
       .map(([k, v]) => [k, String(v)])
@@ -98,7 +111,7 @@ async function getGoogleAccessToken(serviceAccountJson: string): Promise<string 
 }
 
 function legacyDataPayload(data: FcmPushData): Record<string, string> {
-  return {
+  const base: Record<string, string> = {
     title: String(data.title),
     body: String(data.description),
     order_id: data.order_id != null ? String(data.order_id) : '',
@@ -108,6 +121,12 @@ function legacyDataPayload(data: FcmPushData): Record<string, string> {
     image: String(data.image ?? ''),
     sound: 'notification.wav',
   };
+  if (data.gizra_order_id) base.gizra_order_id = data.gizra_order_id;
+  if (data.restaurant_order_ref) base.restaurant_order_ref = data.restaurant_order_ref;
+  if (data.display_order_number) base.display_order_number = data.display_order_number;
+  if (data.order_source) base.order_source = data.order_source;
+  if (data.is_manual_dispatch) base.is_manual_dispatch = data.is_manual_dispatch;
+  return base;
 }
 
 /** Device token — mirrors PHP `send_push_notif_to_device`. */

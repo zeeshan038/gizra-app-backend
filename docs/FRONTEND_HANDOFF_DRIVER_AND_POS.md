@@ -218,12 +218,16 @@ Example:
 |-------|---------|
 | `order_source` | `manual_dispatch` = Gizra ride from restaurant; `gizra_consumer` = customer app order |
 | `order_source_label` | Human-readable badge text |
-| `gizra_order_id` | Platform id (`orders.id`) |
+| `id` / `order_id` / `gizra_order_id` | Platform id (`orders.id`) — use for accept/status |
 | `restaurant_order_ref` | Restaurant’s number when provided |
-| `display_order_number` | Show **`restaurant_order_ref`** if set, else **`gizra_order_id`** |
+| `restaurant_order_number` | Same value as `restaurant_order_ref` (alias) |
+| `display_order_number` | **Main label on request + active cards** — `restaurant_order_ref` if set, else `gizra_order_id` |
+| `dispatch_summary` | On **latest/active** list rows when `is_manual_dispatch` — includes `restaurant_order_ref` + `gizra_order_id` |
 | `is_manual_dispatch` | Same as `order_source === manual_dispatch` |
 
 Socket **`order_request`** payload includes the same identity fields so the request tab can show a badge without refetching.
+
+**FCM `order_request` data** (in addition to `order_id`, `type`, `description`) now includes `restaurant_order_ref`, `display_order_number`, `gizra_order_id`, `order_source`, and `is_manual_dispatch` when applicable — use **`display_order_number`** as the main title on the notification and request list; show `gizra_order_id` as secondary “Gizra #…” when a POS ref is set.
 
 **Deploy:** run SQL `scripts/sql/add-restaurant-order-ref.sql` on the database before enabling the new backend build.
 

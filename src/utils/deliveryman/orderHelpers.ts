@@ -6,7 +6,7 @@ import {
 } from '../vendor/order/detailMapper';
 import { publicMediaUrl } from '../mediaStorage';
 import { mapOrderCookingTimeForApi } from '../vendor/order/cookingTime';
-import { mapOrderIdentityFields } from '../order/orderIdentity';
+import { driverOrderListCardIdentity } from '../order/orderIdentity';
 
 export const DM_ACTIVE_ORDER_STATUSES = [
   'accepted',
@@ -51,8 +51,16 @@ function formatAddressSnippet(raw: string | null): string | null {
   return parts.join(', ') || null;
 }
 
+export type DmOrderListDispatchSummary = {
+  title: string;
+  restaurant_order_ref: string | null;
+  gizra_order_id: string;
+};
+
 export type DmOrderListItem = {
   id: string;
+  /** Gizra platform order id (same as `id`). */
+  order_id: string;
   order_status: string;
   payment_method: string | null;
   order_amount: number;
@@ -85,7 +93,11 @@ export type DmOrderListItem = {
   order_source_label: string;
   gizra_order_id: string;
   restaurant_order_ref: string | null;
+  /** Alias of restaurant_order_ref for clients that expect this key. */
+  restaurant_order_number: string | null;
+  /** Restaurant ticket when set, else gizra_order_id — show as main order # on cards. */
   display_order_number: string;
+  dispatch_summary?: DmOrderListDispatchSummary | null;
 };
 
 const DEFAULT_RESTAURANT_IMAGE = 'default_logo.png';
@@ -207,7 +219,7 @@ export async function mapOrdersForDeliveryManList(
     const customerImageStored = user?.image?.trim() || DEFAULT_CUSTOMER_IMAGE;
 
     const cookingTime = mapOrderCookingTimeForApi(order);
-    const identity = mapOrderIdentityFields(order);
+    const cardIdentity = driverOrderListCardIdentity(order);
 
     return {
       id,
@@ -243,8 +255,7 @@ export async function mapOrdersForDeliveryManList(
         : null,
       restaurant_image_url: driverMediaUrl(restaurantImageStored, DEFAULT_RESTAURANT_IMAGE),
       customer_image_url: driverMediaUrl(customerImageStored, DEFAULT_CUSTOMER_IMAGE),
-      is_manual_dispatch: Boolean(order.is_manual_dispatch),
-      ...identity,
+      ...cardIdentity,
       ...cookingTime,
     };
   });

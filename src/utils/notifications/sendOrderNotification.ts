@@ -22,6 +22,7 @@ import {
   mapOrderCookingTimeForApi,
   parseCookingMinutes,
 } from '../vendor/order/cookingTime';
+import { orderIdentityFcmFields } from '../order/orderIdentity';
 
 const ORDER_PUSH_TITLE = 'Order notification';
 
@@ -138,6 +139,7 @@ function driverPoolPushForStatus(order: orders, orderId: string): FcmPushData | 
     image: '',
     type: 'order_request',
     order_type: order.order_type,
+    ...orderIdentityFcmFields(order),
   };
 }
 
