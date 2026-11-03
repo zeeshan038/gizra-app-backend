@@ -27,6 +27,7 @@ import vendorCouponRoutes from './vendor/coupon';
 import vendorReviewRoutes from './vendor/review';
 import vendorWalletRoutes from './vendor/wallet';
 import vendorWithdrawMethodRoutes from './vendor/withdrawMethod';
+import vendorReportRoutes from './vendor/reports';
 //consumer
 import consumerUserRoutes from './consumer/user';
 //deliveryman
@@ -52,6 +53,7 @@ import adminBusinessSetupRoutes from './admin/business-setup';
 import adminPushNotificationRoutes from './admin/push-notifications';
 import adminDispatchRoutes from './admin/dispatch';
 import adminHomeCategoryRoutes from './admin/home-categories';
+import adminReportRoutes from './admin/reports';
 
 //vendor
 router.use('/vendor',vendorUserRoutes);
@@ -66,6 +68,7 @@ router.use('/vendor/coupons', vendorCouponRoutes);
 router.use('/vendor/reviews', vendorReviewRoutes);
 router.use('/vendor/wallet', vendorWalletRoutes);
 router.use('/vendor/withdraw-method', vendorWithdrawMethodRoutes);
+router.use('/vendor/reports', vendorReportRoutes);
 
 //consumer
 import consumerCartRoutes from './consumer/cart';
@@ -143,6 +146,7 @@ router.use('/admin/business-setup', adminBusinessSetupRoutes);
 router.use('/admin/push-notifications', adminPushNotificationRoutes);
 router.use('/admin/dispatch', adminDispatchRoutes);
 router.use('/admin/home-categories', adminHomeCategoryRoutes);
+router.use('/admin/reports', adminReportRoutes);
 
 
 router.use('/upload', uploadRouter);

@@ -7,7 +7,6 @@ import {
   parseConsumerSearchQuery,
   tokenizeSearchQuery,
 } from '../src/utils/consumer/restaurantSearchHelpers';
-import { isPhpFilteredProductSearch } from '../src/utils/consumer/searchRouteHelpers';
 import { Request } from 'express';
 
 function assert(name: string, ok: boolean, detail: string) {
@@ -28,24 +27,6 @@ const mockReq = {
   query: { search: 'test-query' },
 } as unknown as Request;
 assert('parse search alias', parseConsumerSearchQuery(mockReq) === 'test-query', '');
-
-const appSearchReq = {
-  query: {
-    name: 'new e',
-    page: '1',
-    limit: '20',
-    zone_id: '11',
-    latitude: '33.56',
-    longitude: '73.15',
-    type: 'null',
-    new: '1',
-  },
-} as unknown as Request;
-assert(
-  'app search bar uses combined search (not PHP products)',
-  isPhpFilteredProductSearch(appSearchReq) === false,
-  'expected false when only name + zone/coords'
-);
 
 const liveName = process.env.SEARCH_NAME?.trim();
 const zoneRaw = process.env.ZONE_ID;

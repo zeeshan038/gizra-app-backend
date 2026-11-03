@@ -1,3 +1,5 @@
+import { readVariationGroupOptionRows } from '../consumer/variationGroupOptions';
+
 /** Normalize catalog variations so checkout uses base + additive option prices. */
 
 export type VariationOptionLike = {
@@ -43,8 +45,8 @@ function setOptionAmount(opt: VariationOptionLike, amount: number): VariationOpt
 }
 
 function getGroupOptions(group: VariationGroupLike): VariationOptionLike[] {
-  const raw = group.options ?? group.values ?? [];
-  return Array.isArray(raw) ? raw : [];
+  const raw = readVariationGroupOptionRows(group as Record<string, unknown>);
+  return raw as VariationOptionLike[];
 }
 
 function setGroupOptions(

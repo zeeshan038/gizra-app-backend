@@ -9,6 +9,7 @@ import {
     bulkPublishFoods,
     bulkDeleteFoods,
     updateFood,
+    getFoodById,
     publishAllDraftFoods,
     getFoodPublishQuotaHandler,
 } from '../../controllers/vendor/catalog/Food';
@@ -31,12 +32,13 @@ router.get('/addon', getAddons);
 // Foods
 router.post('/food', createFood);
 router.get('/food', getFoods);
-router.patch('/food/:id', updateFood);
-router.delete('/food/:id', deleteFood);
 router.get('/food/publish-quota', getFoodPublishQuotaHandler);
 router.post('/food/publish-all-drafts', publishAllDraftFoods);
 router.post('/food/bulk-publish', bulkPublishFoods);
 router.post('/food/bulk-delete', bulkDeleteFoods);
+router.get('/food/:id', getFoodById);
+router.patch('/food/:id', updateFood);
+router.delete('/food/:id', deleteFood);
 
 // AI Tools
 import multer from 'multer';

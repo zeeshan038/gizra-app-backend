@@ -11,9 +11,23 @@ import {
 import { parseOptionalCategoryId } from '../../utils/consumer/restaurantMenuHelpers';
 import { searchFoods } from './Restaurant';
 import { parseConsumerSearchQuery } from '../../utils/consumer/restaurantSearchHelpers';
-import { isPhpFilteredProductSearch } from '../../utils/consumer/searchRouteHelpers';
 
 export { searchFoods };
+
+/** PHP GET /api/v1/products/search — food-only listing with extra filters (not the app search bar). */
+function isPhpFilteredProductSearch(req: Request): boolean {
+  const q = req.query;
+  if (q.restaurant_id) return true;
+  if (q.category_id) return true;
+  if (q.min_price != null && String(q.min_price).trim() !== '') return true;
+  if (q.max_price != null && String(q.max_price).trim() !== '') return true;
+  if (minRatingFromQuery(q as Record<string, unknown>) != null) return true;
+  if (q.popular === '1' || q.popular === 'true') return true;
+  if (q.new === '1' || q.new === 'true') return true;
+  const type = String(q.type ?? 'all').toLowerCase();
+  if (type && type !== 'all') return true;
+  return false;
+}
 
 function minRatingFromQuery(query: Record<string, unknown>): number | undefined {
   if (query.rating_5 === '1' || query.rating_5 === 'true') return 5;

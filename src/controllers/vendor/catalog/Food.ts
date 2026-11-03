@@ -1,6 +1,10 @@
 import { Request, Response } from 'express';
 import prisma from '../../../config/database';
-import { createFoodSchema } from '../../../schemas/vendor/Catalog';
+import { createFoodSchema, updateFoodSchema } from '../../../schemas/vendor/Catalog';
+import {
+    applyVendorFoodDetailFields,
+    serializeVendorFoodDetailFields,
+} from '../../../utils/vendor/catalog/foodDetailFields';
 import {
     buildAddonLookupFromFoodRows,
     expandAddOnsFromStored,
@@ -10,6 +14,7 @@ import {
 import { publicFoodMediaUrl } from '../../../utils/mediaStorage';
 import { getFoodPublishQuota } from '../../../utils/vendor/catalog/foodPublishLimits';
 import { normalizeItemVariationsToAdditive } from '../../../utils/vendor/variationCatalogNormalize';
+import { sanitizeVariationGroupsForStorage } from '../../../utils/consumer/variationGroupOptions';
 
 const FOOD_LIST_MAX_LIMIT = 5000;
 
@@ -68,7 +73,10 @@ function applyAdditiveVariationPricing(payload: {
         Number(payload.price ?? 0),
         variations
     );
-    return { price: basePrice, variations: normalized };
+    return {
+        price: basePrice,
+        variations: sanitizeVariationGroupsForStorage(normalized),
+    };
 }
 
 async function getVendorRestaurant(req: Request) {
@@ -88,11 +96,20 @@ function serializeFood(food: Record<string, unknown>) {
     }
     const imageStored =
         typeof food.image === 'string' ? food.image : food.image != null ? String(food.image) : null;
+    const detail = serializeVendorFoodDetailFields(food);
     return {
-        ...food,
         id: String(food.id),
+        name: food.name,
+        description: food.description,
+        image: food.image,
+        category_id: food.category_id != null ? Number(food.category_id) : null,
+        restaurant_id: food.restaurant_id != null ? Number(food.restaurant_id) : null,
+        price: Number(food.price ?? 0),
         variations,
+        add_ons: food.add_ons,
+        is_draft: food.is_draft != null ? Number(food.is_draft) : 0,
         image_full_url: publicFoodMediaUrl(imageStored),
+        ...detail,
     };
 }
 
@@ -136,29 +153,31 @@ export const createFood = async (req: Request, res: Response): Promise<any> => {
     }
 
     try {
-        const priced = applyAdditiveVariationPricing(payload);
+        const body = result.value as Record<string, unknown>;
+        const priced = applyAdditiveVariationPricing(body);
         const addonIds = await resolveAddOnIdsForSave(
-            payload.restaurant_id,
-            payload.add_ons
+            Number(body.restaurant_id),
+            body.add_ons as Parameters<typeof resolveAddOnIdsForSave>[1]
         );
 
+        const createData: Record<string, unknown> = {
+            name: body.name,
+            description: body.description || '',
+            image: body.image || 'def.png',
+            category_id: body.category_id,
+            price: priced.price ?? body.price,
+            restaurant_id: body.restaurant_id,
+            variations: JSON.stringify(priced.variations ?? body.variations),
+            add_ons: JSON.stringify(addonIds),
+            is_draft:
+                body.is_draft !== undefined && body.is_draft !== null
+                    ? Number(body.is_draft)
+                    : 0,
+        };
+        applyVendorFoodDetailFields(createData, body);
+
         const food = await prisma.food.create({
-            data: {
-                name: payload.name,
-                description: payload.description || '',
-                image: payload.image || 'def.png',
-                category_id: payload.category_id,
-                price: priced.price ?? payload.price,
-                restaurant_id: payload.restaurant_id,
-                variations: JSON.stringify(priced.variations ?? payload.variations),
-                add_ons: JSON.stringify(addonIds),
-                status: payload.status !== undefined ? payload.status : true,
-                is_draft:
-                    payload.is_draft !== undefined && payload.is_draft !== null
-                        ? Number(payload.is_draft)
-                        : 0,
-                veg: false
-            }
+            data: createData as any,
         });
 
         const addonLookup = await loadAddonLookup(addonIds);
@@ -182,22 +201,31 @@ export const updateFood = async (req: Request, res: Response): Promise<any> => {
     const { id } = req.params;
     const payload = req.body;
 
+    const validated = updateFoodSchema.validate(payload, { stripUnknown: true });
+    if (validated.error) {
+        return res.status(400).json({
+            status: false,
+            msg: validated.error.details.map((d: { message: string }) => d.message).join(','),
+        });
+    }
+
     try {
         const existing = await prisma.food.findUnique({ where: { id: Number(id) } });
         if (!existing) {
             return res.status(404).json({ status: false, msg: 'Food item not found' });
         }
 
-        const dataToUpdate: any = {};
-        if (payload.name !== undefined) dataToUpdate.name = payload.name;
-        if (payload.description !== undefined) dataToUpdate.description = payload.description;
-        if (payload.image !== undefined) dataToUpdate.image = payload.image;
-        if (payload.category_id !== undefined) dataToUpdate.category_id = payload.category_id;
+        const dataToUpdate: Record<string, unknown> = {};
+        const body = validated.value as Record<string, unknown>;
+        if (body.name !== undefined) dataToUpdate.name = body.name;
+        if (body.description !== undefined) dataToUpdate.description = body.description;
+        if (body.image !== undefined) dataToUpdate.image = body.image;
+        if (body.category_id !== undefined) dataToUpdate.category_id = body.category_id;
         const priced = applyAdditiveVariationPricing({
-            price: payload.price !== undefined ? payload.price : Number(existing.price),
+            price: body.price !== undefined ? Number(body.price) : Number(existing.price),
             variations:
-                payload.variations !== undefined
-                    ? payload.variations
+                body.variations !== undefined
+                    ? body.variations
                     : (() => {
                           try {
                               return JSON.parse(existing.variations || '[]');
@@ -206,25 +234,25 @@ export const updateFood = async (req: Request, res: Response): Promise<any> => {
                           }
                       })(),
         });
-        if (payload.price !== undefined || payload.variations !== undefined) {
+        if (body.price !== undefined || body.variations !== undefined) {
             dataToUpdate.price = priced.price;
         }
-        if (payload.variations !== undefined) {
+        if (body.variations !== undefined) {
             dataToUpdate.variations = JSON.stringify(priced.variations);
         }
-        if (payload.add_ons !== undefined) {
+        if (body.add_ons !== undefined) {
             const addonIds = await resolveAddOnIdsForSave(
                 Number(existing.restaurant_id),
-                payload.add_ons
+                body.add_ons as Parameters<typeof resolveAddOnIdsForSave>[1]
             );
             dataToUpdate.add_ons = JSON.stringify(addonIds);
         }
-        if (payload.status !== undefined) dataToUpdate.status = payload.status;
-        if (payload.is_draft !== undefined) dataToUpdate.is_draft = payload.is_draft;
+        if (body.is_draft !== undefined) dataToUpdate.is_draft = body.is_draft;
+        applyVendorFoodDetailFields(dataToUpdate, body);
 
         const food = await prisma.food.update({
             where: { id: Number(id) },
-            data: dataToUpdate
+            data: dataToUpdate as any,
         });
 
         const addonLookup = await buildAddonLookupFromFoodRows([food]);
@@ -236,6 +264,40 @@ export const updateFood = async (req: Request, res: Response): Promise<any> => {
         });
     } catch (error: any) {
         return res.status(500).json({ status: false, msg: error.message });
+    }
+};
+
+/**
+ * @Description Get one food item (vendor restaurant scope)
+ * @Route GET /api/vendor/catalog/food/:id
+ * @Access Private (Vendor)
+ */
+export const getFoodById = async (req: Request, res: Response): Promise<any> => {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) {
+        return res.status(400).json({ status: false, msg: 'Invalid food id' });
+    }
+
+    try {
+        const restaurant = await getVendorRestaurant(req);
+        if (!restaurant) {
+            return res.status(404).json({ status: false, msg: 'Restaurant not found for this vendor' });
+        }
+
+        const food = await prisma.food.findFirst({
+            where: { id, restaurant_id: Number(restaurant.id) },
+        });
+        if (!food) {
+            return res.status(404).json({ status: false, msg: 'Food item not found' });
+        }
+
+        const addonLookup = await buildAddonLookupFromFoodRows([food]);
+        return res.status(200).json({
+            status: true,
+            data: serializeFoodWithAddons(food as Record<string, unknown>, addonLookup),
+        });
+    } catch (e: any) {
+        return res.status(500).json({ status: false, msg: e.message });
     }
 };
 

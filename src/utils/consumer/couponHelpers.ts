@@ -187,6 +187,23 @@ async function restaurantActiveInZones(restaurantId: number, zoneIds: number[]):
   return Boolean(row);
 }
 
+function dedupeCouponsById(rows: coupons[]): coupons[] {
+  const seen = new Set<string>();
+  const out: coupons[] = [];
+  for (const row of rows) {
+    const key = String(row.id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
+  }
+  return out;
+}
+
+/** True when zone ids are present and not the legacy placeholder `[0]`. */
+function hasRealZoneFilter(zoneIds: number[]): boolean {
+  return zoneIds.length > 0 && !(zoneIds.length === 1 && zoneIds[0] === 0);
+}
+
 /** PHP CouponController::list filtering loop */
 export async function filterCouponsForCustomerList(params: {
   coupons: coupons[];
@@ -197,6 +214,10 @@ export async function filterCouponsForCustomerList(params: {
   publicRestaurantCoupons?: boolean;
 }): Promise<Record<string, unknown>[]> {
   const out: Record<string, unknown>[] = [];
+  const scopedRestaurantId =
+    params.restaurantId != null && Number.isFinite(params.restaurantId)
+      ? params.restaurantId
+      : undefined;
 
   for (const coupon of params.coupons) {
     const customerIds = parseCouponCustomerIds(coupon.customer_id);
@@ -206,8 +227,27 @@ export async function filterCouponsForCustomerList(params: {
 
     if (coupon.coupon_type === 'restaurant_wise') {
       const ids = parseJsonIdList(coupon.data);
+      if (scopedRestaurantId != null) {
+        if (!ids.includes(scopedRestaurantId) || !eligible) continue;
+        const temp = await prisma.restaurants.findFirst({
+          where: { id: BigInt(scopedRestaurantId), status: true },
+          select: { id: true, name: true },
+        });
+        if (temp) {
+          out.push(formatConsumerCoupon(coupon, { dataLabel: temp.name }));
+        }
+        continue;
+      }
+
+      const restaurantWhere: Prisma.restaurantsWhereInput = {
+        id: { in: ids.map((id) => BigInt(id)) },
+        status: true,
+      };
+      if (hasRealZoneFilter(params.zoneIds)) {
+        restaurantWhere.zone_id = { in: params.zoneIds };
+      }
       const temp = await prisma.restaurants.findFirst({
-        where: { id: { in: ids.map((id) => BigInt(id)) }, status: true, zone_id: { in: params.zoneIds } },
+        where: restaurantWhere,
         select: { id: true, name: true },
       });
       if (temp && eligible) {
@@ -218,21 +258,36 @@ export async function filterCouponsForCustomerList(params: {
 
     if (coupon.coupon_type === 'zone_wise') {
       const couponZones = parseJsonIdList(coupon.data);
-      if (params.zoneIds.some((z) => couponZones.includes(z)) && eligible) {
+      let zoneMatch = params.zoneIds.some((z) => couponZones.includes(z));
+      if (scopedRestaurantId != null && !zoneMatch) {
+        zoneMatch = await restaurantActiveInZones(scopedRestaurantId, couponZones);
+      }
+      if (zoneMatch && eligible) {
         out.push(formatConsumerCoupon(coupon));
       }
       continue;
     }
 
     if (coupon.restaurant_id != null) {
+      const vendorRestaurantId = Number(coupon.restaurant_id);
+      if (scopedRestaurantId != null && vendorRestaurantId !== scopedRestaurantId) {
+        continue;
+      }
       const exists = await prisma.restaurants.findFirst({
-        where: { id: BigInt(Number(coupon.restaurant_id)), status: true },
+        where: { id: BigInt(vendorRestaurantId), status: true },
         select: { id: true, name: true },
       });
       if (exists) {
         out.push(formatConsumerCoupon(coupon, { restaurantName: exists.name }));
       }
       continue;
+    }
+
+    if (scopedRestaurantId != null) {
+      const platformWideTypes = ['default', 'first_order', 'free_delivery'];
+      if (!platformWideTypes.includes(coupon.coupon_type ?? '')) {
+        continue;
+      }
     }
 
     if (eligible) {
@@ -247,17 +302,43 @@ export async function loadCouponsForRestaurantFilter(restaurantId?: number) {
   if (restaurantId == null) {
     return prisma.coupons.findMany({ where: activeCouponWhere() });
   }
-  return prisma.coupons.findMany({
-    where: activeCouponWhere({
-      OR: [
-        { restaurant_id: restaurantId },
-        {
-          coupon_type: 'restaurant_wise',
-          data: { contains: String(restaurantId) },
-        },
-      ],
+
+  const [vendorRows, restaurantWiseRows, platformRows] = await Promise.all([
+    prisma.coupons.findMany({
+      where: activeCouponWhere({ restaurant_id: restaurantId }),
     }),
+    prisma.coupons.findMany({
+      where: activeCouponWhere({ coupon_type: 'restaurant_wise' }),
+    }),
+    prisma.coupons.findMany({
+      where: activeCouponWhere({
+        restaurant_id: null,
+        coupon_type: { in: ['zone_wise', 'default', 'first_order', 'free_delivery'] },
+      }),
+    }),
+  ]);
+
+  const restaurantWise = restaurantWiseRows.filter((c) =>
+    parseJsonIdList(c.data).includes(restaurantId)
+  );
+
+  return dedupeCouponsById([...vendorRows, ...restaurantWise, ...platformRows]);
+}
+
+/** Resolve zone ids for coupon filtering (header/query, else restaurant zone). */
+export async function resolveCouponZoneIds(
+  zoneIds: number[],
+  restaurantId?: number
+): Promise<number[]> {
+  if (zoneIds.length) return zoneIds;
+  if (restaurantId == null || !Number.isFinite(restaurantId)) return [];
+  const row = await prisma.restaurants.findFirst({
+    where: { id: BigInt(restaurantId) },
+    select: { zone_id: true },
   });
+  if (row?.zone_id == null) return [];
+  const zoneId = Number(row.zone_id);
+  return Number.isFinite(zoneId) ? [zoneId] : [];
 }
 
 export { restaurantActiveInZones };

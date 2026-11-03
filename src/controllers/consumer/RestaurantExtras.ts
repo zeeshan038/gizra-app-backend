@@ -17,6 +17,7 @@ import { paginationSkip } from '../../utils/consumer/orderListHelpers';
 import {
   filterCouponsForCustomerList,
   loadCouponsForRestaurantFilter,
+  resolveCouponZoneIds,
 } from '../../utils/consumer/couponHelpers';
 import { parseZoneIdsFromRequest } from '../../utils/consumer/favouriteHelpers';
 import {
@@ -346,13 +347,13 @@ export const getRestaurantCoupons = async (req: Request, res: Response): Promise
   if (!Number.isFinite(restaurantId) || restaurantId <= 0) {
     return sendApiError(res, 403, 'restaurant_id is required');
   }
-  const zoneIds = parseZoneIdsFromRequest(req) ?? [];
   const customerId = req.user?.id ? Number(req.user.id) : Number(req.query.customer_id) || null;
   try {
+    const zoneIds = await resolveCouponZoneIds(parseZoneIdsFromRequest(req) ?? [], restaurantId);
     const rows = await loadCouponsForRestaurantFilter(restaurantId);
     const data = await filterCouponsForCustomerList({
       coupons: rows,
-      zoneIds: zoneIds.length ? zoneIds : [0],
+      zoneIds,
       customerId,
       restaurantId,
     });

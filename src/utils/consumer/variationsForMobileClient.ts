@@ -2,6 +2,7 @@ import {
   decorateMobileOption,
   resolveMobileGroupLimits,
 } from './variationModifierGroups';
+import { readVariationGroupOptionRows } from './variationGroupOptions';
 
 /**
  * Checkout uses `food.price + computeVariationExtra(...)` on raw DB variations.
@@ -21,10 +22,8 @@ function optionDelta(opt: Record<string, unknown>): number {
   return 0;
 }
 
-function listKey(g: Record<string, unknown>): 'values' | 'options' | null {
-  if (Array.isArray(g.values)) return 'values';
-  if (Array.isArray(g.options)) return 'options';
-  return null;
+function groupOptionRows(g: Record<string, unknown>): unknown[] {
+  return readVariationGroupOptionRows(g);
 }
 
 function isRequiredGroup(g: Record<string, unknown>): boolean {
@@ -67,11 +66,8 @@ export function indexOfVariationGroupCarryingBase(
     const group = raw[i];
     if (!group || typeof group !== 'object') continue;
     const g = group as Record<string, unknown>;
-    const key = listKey(g);
-    if (!key) continue;
-
-    const rawOpts = g[key] as unknown[];
-    if (!Array.isArray(rawOpts) || !rawOpts.length) continue;
+    const rawOpts = groupOptionRows(g);
+    if (!rawOpts.length) continue;
 
     const { minD, maxD } = deltaStats(rawOpts);
     const allZero = maxD === 0 && minD === 0;
@@ -92,11 +88,8 @@ export function variationsForMobileClient(_basePrice: number, raw: unknown): unk
   return raw.map((group) => {
     if (!group || typeof group !== 'object') return group;
     const g = group as Record<string, unknown>;
-    const key = listKey(g);
-    if (!key) return group;
-
-    const rawOpts = g[key] as unknown[];
-    const optionCount = Array.isArray(rawOpts) ? rawOpts.length : 0;
+    const rawOpts = groupOptionRows(g);
+    const optionCount = rawOpts.length;
     const limits = resolveMobileGroupLimits({ group: g, optionCount });
 
     const options = rawOpts.map((opt) => {

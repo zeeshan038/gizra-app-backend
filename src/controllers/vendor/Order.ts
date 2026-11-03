@@ -130,6 +130,7 @@ export const listOrders = async (req: Request, res: Response): Promise<any> => {
         where.OR = [
           { restaurant_order_ref: { contains: q, mode: 'insensitive' } },
           { order_status: { contains: q, mode: 'insensitive' } },
+          { delivery_address: { contains: q, mode: 'insensitive' } },
         ];
       }
     }

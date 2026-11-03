@@ -6,6 +6,8 @@ type VariationOption = {
   price?: number;
 };
 
+import { readVariationGroupOptionRows } from './variationGroupOptions';
+
 function parseProductVariations(json: string | null | undefined): Array<{
   name?: string;
   type?: string;
@@ -16,15 +18,13 @@ function parseProductVariations(json: string | null | undefined): Array<{
     const parsed = JSON.parse(json);
     if (!Array.isArray(parsed)) return [];
     return parsed.map((group: any) => {
-      const rawList = group.values ?? group.options ?? [];
-      const values: VariationOption[] = Array.isArray(rawList)
-        ? rawList.map((opt: any) => ({
-            label: opt.label ?? opt.name,
-            name: opt.name ?? opt.label,
-            optionPrice: opt.optionPrice ?? opt.price,
-            price: opt.price ?? opt.optionPrice,
-          }))
-        : [];
+      const rawList = readVariationGroupOptionRows(group as Record<string, unknown>);
+      const values: VariationOption[] = rawList.map((opt: any) => ({
+        label: opt.label ?? opt.name,
+        name: opt.name ?? opt.label,
+        optionPrice: opt.optionPrice ?? opt.price,
+        price: opt.price ?? opt.optionPrice,
+      }));
       return {
         name: typeof group.name === 'string' ? group.name.trim() : group.name,
         type: typeof group.type === 'string' ? group.type.trim() : group.type,
@@ -108,10 +108,13 @@ function findVariationDef(
   groupKey: string
 ) {
   const cleanKey = groupKey.trim().toLowerCase();
+  const genericType = cleanKey === 'single' || cleanKey === 'multi';
   return defs.find((d) => {
     const name = d.name ? String(d.name).trim().toLowerCase() : '';
+    if (name === cleanKey) return true;
+    if (genericType) return false;
     const type = d.type ? String(d.type).trim().toLowerCase() : '';
-    return name === cleanKey || type === cleanKey;
+    return type === cleanKey && type !== 'single' && type !== 'multi';
   });
 }
 
