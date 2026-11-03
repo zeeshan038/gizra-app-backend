@@ -2,7 +2,10 @@ import { Request, Response } from 'express';
 import prisma from '../../config/database';
 import { sendApiError, errorMessageFromUnknown } from '../../utils/apiErrorResponse';
 import { requireZoneIds } from '../../utils/consumer/zoneHeaders';
-import { parseMenuFoodType, formatRestaurantMenuFood } from '../../utils/consumer/restaurantMenuHelpers';
+import {
+  parseMenuFoodType,
+  formatRestaurantMenuFoodWithSellingTime,
+} from '../../utils/consumer/restaurantMenuHelpers';
 import {
   buildZoneFoodWhere,
   paginateFoods,
@@ -262,14 +265,15 @@ export const getFoodDetails = async (req: Request, res: Response): Promise<any> 
       '../../utils/consumer/legacyFoodVariations'
     );
     const legacyMap = await loadLegacyVariationsByFoodIds([id]);
+    const data = await formatRestaurantMenuFoodWithSellingTime(
+      food,
+      { restaurant_name: restaurantName },
+      addonLookup,
+      legacyMap.get(id)
+    );
     return res.status(200).json({
       status: true,
-      data: formatRestaurantMenuFood(
-        food,
-        { restaurant_name: restaurantName },
-        addonLookup,
-        legacyMap.get(id)
-      ),
+      data,
     });
   } catch (e: unknown) {
     return sendApiError(res, 500, errorMessageFromUnknown(e));

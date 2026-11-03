@@ -17,7 +17,14 @@ import {
   CheckoutPaymentError,
   findPaidUnusedCheckoutPayment,
 } from '../../utils/payment/checkoutPayment';
-import { computeAvailabilityForRestaurant } from '../../utils/consumer/restaurantAvailability';
+import {
+  computeAvailabilityForRestaurant,
+  getDefaultRestaurantTimeZone,
+} from '../../utils/consumer/restaurantAvailability';
+import {
+  foodSellingTimeErrorMessage,
+  resolveFoodSellingTime,
+} from '../../utils/consumer/foodSellingTime';
 import { loadLegacyVariationsForFoodRows } from '../../utils/consumer/legacyFoodVariations';
 import {
   clampResolvedUnitToClientLine,
@@ -763,11 +770,26 @@ export async function executePlaceOrder(params: {
     : [];
   const foodById = new Map(foodRows.map((row) => [Number(row.id), row]));
   const legacyVariationsByFoodId = await loadLegacyVariationsForFoodRows(foodRows);
+  const orderAt = payload.schedule_at ? new Date(payload.schedule_at) : new Date();
+  const sellingTz = await getDefaultRestaurantTimeZone();
 
   for (const line of cartLines) {
     const food = foodById.get(Number(line.item_id));
     if (!food) {
       throw new PlaceOrderError('Product unavailable', 404, 'food');
+    }
+    const sellingSnap = resolveFoodSellingTime(
+      food.available_time_starts,
+      food.available_time_ends,
+      orderAt,
+      sellingTz
+    );
+    if (!sellingSnap.is_available_now) {
+      throw new PlaceOrderError(
+        foodSellingTimeErrorMessage(sellingSnap),
+        406,
+        'food_selling_time'
+      );
     }
     if (Number(food.restaurant_id) !== payload.restaurant_id) {
       throw new PlaceOrderError('Order food from a single restaurant', 406, 'restaurant');

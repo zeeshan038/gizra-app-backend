@@ -11,6 +11,10 @@ import {
   resolveRawVariations,
 } from './legacyFoodVariations';
 import { variationsForMobileClient } from './variationsForMobileClient';
+import {
+  getDefaultRestaurantTimeZone,
+} from './restaurantAvailability';
+import { resolveFoodSellingTime } from './foodSellingTime';
 
 type FoodRow = {
   id: bigint;
@@ -28,6 +32,15 @@ type FoodRow = {
   add_ons: string | null;
   avg_rating?: number;
   rating_count?: bigint | number;
+  available_time_starts?: unknown;
+  available_time_ends?: unknown;
+};
+
+export type FormatRestaurantMenuFoodExtras = {
+  restaurant_name?: string | null;
+  /** When set with timeZone, selling-time fields are included in the payload. */
+  sellingAt?: Date;
+  timeZone?: string;
 };
 
 export type RestaurantMenuCategory = {
@@ -205,7 +218,7 @@ export async function buildRestaurantFoodWhere(params: {
 
 export function formatRestaurantMenuFood(
   f: FoodRow,
-  extras?: { restaurant_name?: string | null },
+  extras?: FormatRestaurantMenuFoodExtras,
   addonLookup?: Map<number, FoodAddonExpanded>,
   legacyVariations?: unknown[]
 ) {
@@ -235,6 +248,16 @@ export function formatRestaurantMenuFood(
 
   const foodMedia = consumerFoodMediaFields(f.image);
 
+  const selling =
+    extras?.timeZone != null
+      ? resolveFoodSellingTime(
+          f.available_time_starts,
+          f.available_time_ends,
+          extras.sellingAt ?? new Date(),
+          extras.timeZone
+        )
+      : null;
+
   return {
     id: f.id.toString(),
     name: f.name,
@@ -252,16 +275,47 @@ export function formatRestaurantMenuFood(
     status: f.status,
     variations: parsedVariations,
     add_ons: parsedAddOns,
+    ...(selling
+      ? {
+          available_time_starts: selling.available_time_starts,
+          available_time_ends: selling.available_time_ends,
+          is_available_now: selling.is_available_now,
+          availability_status: selling.availability_status,
+        }
+      : {}),
   };
 }
 
 export async function formatRestaurantMenuFoodsBatch(
   foods: FoodRow[],
-  extras?: { restaurant_name?: string | null },
+  extras?: FormatRestaurantMenuFoodExtras,
   addonLookup?: Map<number, FoodAddonExpanded>
 ) {
   const legacyMap = await loadLegacyVariationsForFoodRows(foods);
+  const timeZone = await getDefaultRestaurantTimeZone();
+  const sellingAt = new Date();
+  const withSelling: FormatRestaurantMenuFoodExtras = {
+    ...extras,
+    timeZone,
+    sellingAt,
+  };
   return foods.map((f) =>
-    formatRestaurantMenuFood(f, extras, addonLookup, legacyMap.get(Number(f.id)))
+    formatRestaurantMenuFood(f, withSelling, addonLookup, legacyMap.get(Number(f.id)))
+  );
+}
+
+/** Single-item format with selling-time fields (details, extras). */
+export async function formatRestaurantMenuFoodWithSellingTime(
+  f: FoodRow,
+  extras?: Omit<FormatRestaurantMenuFoodExtras, 'timeZone' | 'sellingAt'>,
+  addonLookup?: Map<number, FoodAddonExpanded>,
+  legacyVariations?: unknown[]
+) {
+  const timeZone = await getDefaultRestaurantTimeZone();
+  return formatRestaurantMenuFood(
+    f,
+    { ...extras, timeZone, sellingAt: new Date() },
+    addonLookup,
+    legacyVariations
   );
 }

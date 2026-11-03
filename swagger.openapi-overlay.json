@@ -5695,7 +5695,7 @@
     "/consumer/cart/": {
       "get": {
         "summary": "Get cart",
-        "description": "**Customer:** `Authorization: Bearer <customer JWT>` from login.\n\n**Guest (preferred):** `Authorization: Bearer <guest JWT>` from POST `/consumer/guest/request` — no extra query params.\n\n**Guest (legacy):** `is_guest=true` and `guest_id=<id>` with optional Bearer bypass via middleware.",
+        "description": "**Customer:** `Authorization: Bearer <customer JWT>` from login.\n\n**Guest (preferred):** `Authorization: Bearer <guest JWT>` from POST `/consumer/guest/request` — no extra query params.\n\n**Guest (legacy):** `is_guest=true` and `guest_id=<id>` with optional Bearer bypass via middleware.\n\nEach **Food** line may include `is_available_now` and `availability_status` (selling window vs business timezone) so the app can warn on stale cart items.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerCartAuthHeader"
@@ -5712,9 +5712,34 @@
             "description": "Cart line items",
             "content": {
               "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ConsumerCartLineItem"
+                      }
+                    }
+                  }
+                },
                 "example": {
                   "status": true,
-                  "data": []
+                  "data": [
+                    {
+                      "id": "501",
+                      "item_id": "102",
+                      "item_type": "Food",
+                      "quantity": 1,
+                      "price": 45,
+                      "is_available_now": false,
+                      "availability_status": "time_ended"
+                    }
+                  ]
                 }
               }
             }
@@ -5798,7 +5823,7 @@
     "/consumer/cart/add": {
       "post": {
         "summary": "Add to cart",
-        "description": "Same auth as GET `/consumer/cart/`. With **guest Bearer token**, set `is_guest: true` in body or omit — server infers guest from JWT. Legacy: `is_guest: true` and `guest_id` without Bearer.",
+        "description": "Same auth as GET `/consumer/cart/`. With **guest Bearer token**, set `is_guest: true` in body or omit — server infers guest from JWT. Legacy: `is_guest: true` and `guest_id` without Bearer.\n\nReturns **403** with `code: food_selling_time` when the food is outside its configured selling window.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerCartAuthHeader"
@@ -5846,15 +5871,36 @@
             }
           },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Forbidden — includes selling-time rejection (`food_selling_time`) or duplicate line",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiError"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ConsumerFoodSellingTimeError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
                 },
-                "example": {
-                  "status": false,
-                  "msg": "Forbidden"
+                "examples": {
+                  "food_selling_time": {
+                    "summary": "Outside selling window",
+                    "value": {
+                      "status": false,
+                      "msg": "This item is only available from 08:00",
+                      "code": "food_selling_time",
+                      "availability_status": "not_yet_available"
+                    }
+                  },
+                  "forbidden": {
+                    "summary": "Other forbidden",
+                    "value": {
+                      "status": false,
+                      "msg": "Forbidden"
+                    }
+                  }
                 }
               }
             }
@@ -11562,6 +11608,77 @@
         "example": {
           "status": false,
           "msg": "Something went wrong"
+        }
+      },
+      "ConsumerFoodAvailabilityStatus": {
+        "type": "string",
+        "enum": [
+          "all_day",
+          "available",
+          "not_yet_available",
+          "time_ended"
+        ]
+      },
+      "ConsumerFoodSellingTimeError": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "code"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": false
+          },
+          "msg": {
+            "type": "string",
+            "example": "This item was only available until 11:00"
+          },
+          "code": {
+            "type": "string",
+            "example": "food_selling_time"
+          },
+          "availability_status": {
+            "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
+          }
+        }
+      },
+      "ConsumerCartLineItem": {
+        "type": "object",
+        "description": "Cart row with optional selling-time flags on GET (Food items only).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "501"
+          },
+          "user_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "item_id": {
+            "type": "string",
+            "example": "102"
+          },
+          "item_type": {
+            "type": "string",
+            "example": "Food"
+          },
+          "quantity": {
+            "type": "integer",
+            "example": 1
+          },
+          "price": {
+            "type": "number",
+            "example": 45
+          },
+          "is_available_now": {
+            "type": "boolean",
+            "description": "Present on GET cart when item_type is Food"
+          },
+          "availability_status": {
+            "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
+          }
         }
       },
       "ApiResponse": {

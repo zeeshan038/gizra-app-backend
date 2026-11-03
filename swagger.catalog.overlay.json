@@ -147,7 +147,19 @@
             "example": [{ "name": "Extra cheese", "price": 15 }]
           },
           "status": { "type": "boolean", "example": true },
-          "is_draft": { "type": "integer", "enum": [0, 1], "example": 0 }
+          "is_draft": { "type": "integer", "enum": [0, 1], "example": 0 },
+          "available_time_starts": {
+            "type": "string",
+            "nullable": true,
+            "example": "08:00:00",
+            "description": "When this item may be sold (business timezone). Omit or null with `available_time_ends` for all-day."
+          },
+          "available_time_ends": {
+            "type": "string",
+            "nullable": true,
+            "example": "11:00:00",
+            "description": "End of selling window (inclusive), HH:mm:ss in business timezone."
+          }
         }
       },
       "VendorFoodItem": {
@@ -170,6 +182,39 @@
             "type": "array",
             "description": "Expanded from linked add_ons ids",
             "items": { "$ref": "#/components/schemas/FoodAddonExpanded" }
+          },
+          "available_time_starts": { "type": "string", "nullable": true, "example": "08:00:00" },
+          "available_time_ends": { "type": "string", "nullable": true, "example": "11:00:00" }
+        }
+      },
+      "ConsumerFoodAvailabilityStatus": {
+        "type": "string",
+        "enum": ["all_day", "available", "not_yet_available", "time_ended"],
+        "description": "`all_day` — no restriction (or full-day window). `available` — inside window. `not_yet_available` — before window. `time_ended` — after window. Evaluated in business timezone."
+      },
+      "ConsumerFoodSellingTimeFields": {
+        "type": "object",
+        "description": "Per-item selling window (vendor-configured). Present on consumer menu/product payloads when formatted with selling-time metadata.",
+        "properties": {
+          "available_time_starts": {
+            "type": "string",
+            "nullable": true,
+            "example": "08:00:00",
+            "description": "Configured window start (HH:mm:ss), or null when all-day."
+          },
+          "available_time_ends": {
+            "type": "string",
+            "nullable": true,
+            "example": "11:00:00",
+            "description": "Configured window end (HH:mm:ss), or null when all-day."
+          },
+          "is_available_now": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether the item can be added to cart at request time (or at scheduled order time on checkout)."
+          },
+          "availability_status": {
+            "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
           }
         }
       },
@@ -212,6 +257,7 @@
       },
       "ConsumerMenuFoodItem": {
         "type": "object",
+        "description": "Menu / product card for the customer app. Includes selling-time fields when returned from consumer food endpoints.",
         "properties": {
           "id": { "type": "string", "example": "101" },
           "name": { "type": "string", "example": "Margherita" },
@@ -233,6 +279,33 @@
           "add_ons": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/FoodAddonExpanded" }
+          },
+          "available_time_starts": {
+            "type": "string",
+            "nullable": true,
+            "example": "08:00:00"
+          },
+          "available_time_ends": {
+            "type": "string",
+            "nullable": true,
+            "example": "11:00:00"
+          },
+          "is_available_now": { "type": "boolean", "example": true },
+          "availability_status": {
+            "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
+          }
+        }
+      },
+      "ConsumerFoodListPage": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "boolean", "example": true },
+          "total_size": { "type": "integer", "example": 24 },
+          "limit": { "type": "integer", "example": 10 },
+          "offset": { "type": "integer", "example": 1 },
+          "products": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ConsumerMenuFoodItem" }
           }
         }
       }
@@ -401,7 +474,7 @@
     "/consumer/restaurants/{id}/foods": {
       "get": {
         "summary": "Restaurant menu foods",
-        "description": "Paginated foods for a restaurant. Each item includes **variations** (groups with **`values`**, StackFood-compatible) and expanded **add_ons** (`id`, `name`, `price`) for cart `add_on_ids`.",
+        "description": "Paginated foods for a restaurant. Each item includes **variations** (groups with **`values`**, StackFood-compatible), expanded **add_ons** (`id`, `name`, `price`), and **selling-time** fields (`available_time_starts`, `available_time_ends`, `is_available_now`, `availability_status`) when the vendor set a time window.",
         "responses": {
           "200": {
             "description": "OK",
@@ -461,7 +534,22 @@
                             ]
                           }
                         ],
-                        "add_ons": [{ "id": 42, "name": "Extra cheese", "price": 15, "status": true }]
+                        "add_ons": [{ "id": 42, "name": "Extra cheese", "price": 15, "status": true }],
+                        "available_time_starts": null,
+                        "available_time_ends": null,
+                        "is_available_now": true,
+                        "availability_status": "all_day"
+                      },
+                      {
+                        "id": "102",
+                        "name": "Morning Shakshuka",
+                        "price": 45,
+                        "available_time_starts": "08:00:00",
+                        "available_time_ends": "11:00:00",
+                        "is_available_now": false,
+                        "availability_status": "time_ended",
+                        "variations": [],
+                        "add_ons": []
                       },
                       {
                         "id": "9001",
@@ -514,6 +602,91 @@
                     ]
                   }
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/consumer/foods/details/{id}": {
+      "get": {
+        "summary": "Food product details",
+        "description": "Single active food item. Response `data` is a **ConsumerMenuFoodItem** including selling-time fields (`available_time_starts`, `available_time_ends`, `is_available_now`, `availability_status`). Times use the business timezone from config.",
+        "tags": ["Consumer Foods"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer", "example": 102 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/ConsumerMenuFoodItem" }
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "id": "102",
+                    "name": "Morning Shakshuka",
+                    "description": "Eggs in spiced tomato sauce",
+                    "price": 45,
+                    "veg": true,
+                    "status": true,
+                    "variations": [],
+                    "add_ons": [],
+                    "available_time_starts": "08:00:00",
+                    "available_time_ends": "11:00:00",
+                    "is_available_now": false,
+                    "availability_status": "time_ended"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Food not found or inactive"
+          }
+        }
+      }
+    },
+    "/consumer/foods/latest": {
+      "get": {
+        "summary": "Latest foods (paginated list)",
+        "description": "Same product shape as menu items. Each entry in **`products`** includes selling-time fields when configured.",
+        "tags": ["Consumer Foods"],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConsumerFoodListPage" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/consumer/foods/popular": {
+      "get": {
+        "summary": "Popular foods in zone",
+        "description": "Paginated **`products`** array; each item is **ConsumerMenuFoodItem** with selling-time metadata.",
+        "tags": ["Consumer Foods"],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ConsumerFoodListPage" }
               }
             }
           }

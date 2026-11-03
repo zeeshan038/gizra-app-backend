@@ -12,7 +12,10 @@ import {
   loadActiveDiscountRestaurantIds,
   parseDiscoverType,
 } from '../../utils/consumer/restaurantDiscoverHelpers';
-import { formatRestaurantMenuFood } from '../../utils/consumer/restaurantMenuHelpers';
+import {
+  formatRestaurantMenuFood,
+  formatRestaurantMenuFoodsBatch,
+} from '../../utils/consumer/restaurantMenuHelpers';
 import { paginationSkip } from '../../utils/consumer/orderListHelpers';
 import {
   filterCouponsForCustomerList,
@@ -36,11 +39,16 @@ async function attachTopFoods(
     where: { restaurant_id: { in: ids }, status: true },
     orderBy: { order_count: 'desc' },
   });
+  const formatted = await formatRestaurantMenuFoodsBatch(foods);
+  const formattedById = new Map(formatted.map((f) => [Number(f.id), f]));
   const map = new Map<number, ReturnType<typeof formatRestaurantMenuFood>[]>();
   for (const food of foods) {
     const rid = Number(food.restaurant_id);
     const list = map.get(rid) ?? [];
-    if (list.length < take) list.push(formatRestaurantMenuFood(food));
+    if (list.length < take) {
+      const row = formattedById.get(Number(food.id));
+      if (row) list.push(row);
+    }
     map.set(rid, list);
   }
   return map;
