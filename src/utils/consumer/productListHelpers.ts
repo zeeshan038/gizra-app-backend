@@ -28,6 +28,9 @@ export const FOOD_LIST_SELECT = {
   created_at: true,
   available_time_starts: true,
   available_time_ends: true,
+  stock_type: true,
+  item_stock: true,
+  sell_count: true,
 } as const;
 
 export type FoodListRow = Prisma.foodGetPayload<{ select: typeof FOOD_LIST_SELECT }>;

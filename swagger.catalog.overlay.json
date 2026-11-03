@@ -293,6 +293,23 @@
           "is_available_now": { "type": "boolean", "example": true },
           "availability_status": {
             "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
+          },
+          "stock_type": {
+            "type": "string",
+            "enum": ["limited", "unlimited"],
+            "example": "limited"
+          },
+          "current_stock": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Remaining units when stock_type is limited (item_stock − sell_count). Null when unlimited.",
+            "example": 7
+          },
+          "is_in_stock": { "type": "boolean", "example": true },
+          "stock_status": {
+            "type": "string",
+            "enum": ["in_stock", "out_of_stock"],
+            "example": "in_stock"
           }
         }
       },
@@ -474,7 +491,7 @@
     "/consumer/restaurants/{id}/foods": {
       "get": {
         "summary": "Restaurant menu foods",
-        "description": "Paginated foods for a restaurant. Each item includes **variations** (groups with **`values`**, StackFood-compatible), expanded **add_ons** (`id`, `name`, `price`), and **selling-time** fields (`available_time_starts`, `available_time_ends`, `is_available_now`, `availability_status`) when the vendor set a time window.",
+        "description": "Paginated foods for a restaurant. Each item includes **variations** (groups with **`values`**, StackFood-compatible), expanded **add_ons** (`id`, `name`, `price`), **selling-time** fields when configured, and **stock** fields (`stock_type`, `current_stock`, `is_in_stock`, `stock_status`) when the vendor uses limited stock.",
         "responses": {
           "200": {
             "description": "OK",
@@ -548,6 +565,10 @@
                         "available_time_ends": "11:00:00",
                         "is_available_now": false,
                         "availability_status": "time_ended",
+                        "stock_type": "limited",
+                        "current_stock": 0,
+                        "is_in_stock": false,
+                        "stock_status": "out_of_stock",
                         "variations": [],
                         "add_ons": []
                       },

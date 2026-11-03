@@ -15,6 +15,7 @@ import {
   getDefaultRestaurantTimeZone,
 } from './restaurantAvailability';
 import { resolveFoodSellingTime } from './foodSellingTime';
+import { resolveFoodStockSnapshot } from './foodStock';
 
 type FoodRow = {
   id: bigint;
@@ -34,6 +35,9 @@ type FoodRow = {
   rating_count?: bigint | number;
   available_time_starts?: unknown;
   available_time_ends?: unknown;
+  stock_type?: unknown;
+  item_stock?: unknown;
+  sell_count?: unknown;
 };
 
 export type FormatRestaurantMenuFoodExtras = {
@@ -258,6 +262,8 @@ export function formatRestaurantMenuFood(
         )
       : null;
 
+  const stock = resolveFoodStockSnapshot(f);
+
   return {
     id: f.id.toString(),
     name: f.name,
@@ -283,6 +289,10 @@ export function formatRestaurantMenuFood(
           availability_status: selling.availability_status,
         }
       : {}),
+    stock_type: stock.stock_type,
+    current_stock: stock.current_stock,
+    is_in_stock: stock.is_in_stock,
+    stock_status: stock.stock_status,
   };
 }
 

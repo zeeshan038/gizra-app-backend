@@ -25,6 +25,12 @@ import {
   foodSellingTimeErrorMessage,
   resolveFoodSellingTime,
 } from '../../utils/consumer/foodSellingTime';
+import {
+  FoodStockInsufficientError,
+  foodStockErrorMessage,
+  incrementFoodSellCountsForOrder,
+  resolveFoodStockSnapshot,
+} from '../../utils/consumer/foodStock';
 import { loadLegacyVariationsForFoodRows } from '../../utils/consumer/legacyFoodVariations';
 import {
   clampResolvedUnitToClientLine,
@@ -773,6 +779,25 @@ export async function executePlaceOrder(params: {
   const orderAt = payload.schedule_at ? new Date(payload.schedule_at) : new Date();
   const sellingTz = await getDefaultRestaurantTimeZone();
 
+  const qtyNeededByFood = new Map<number, number>();
+  for (const line of cartLines) {
+    const foodId = Number(line.item_id);
+    if (!Number.isFinite(foodId) || foodId <= 0) continue;
+    qtyNeededByFood.set(foodId, (qtyNeededByFood.get(foodId) ?? 0) + line.quantity);
+  }
+  for (const [foodId, qtyNeeded] of qtyNeededByFood) {
+    const food = foodById.get(foodId);
+    if (!food) continue;
+    const stock = resolveFoodStockSnapshot(food);
+    if (stock.stock_type === 'limited' && qtyNeeded > (stock.current_stock ?? 0)) {
+      throw new PlaceOrderError(
+        foodStockErrorMessage(food, qtyNeeded, stock.current_stock ?? 0),
+        406,
+        'food_stock'
+      );
+    }
+  }
+
   for (const line of cartLines) {
     const food = foodById.get(Number(line.item_id));
     if (!food) {
@@ -1144,6 +1169,21 @@ export async function executePlaceOrder(params: {
       order_id: Number(created.id),
     }));
     await tx.order_details.createMany({ data: withOrderId });
+
+    try {
+      await incrementFoodSellCountsForOrder(
+        tx,
+        withOrderId.map((row) => ({
+          food_id: row.food_id != null ? Number(row.food_id) : null,
+          quantity: row.quantity != null ? Number(row.quantity) : null,
+        }))
+      );
+    } catch (e: unknown) {
+      if (e instanceof FoodStockInsufficientError) {
+        throw new PlaceOrderError(e.message, 406, e.code);
+      }
+      throw e;
+    }
 
     await tx.restaurants.update({
       where: { id: restaurant.id },

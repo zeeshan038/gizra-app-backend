@@ -357,9 +357,46 @@
           }
         }
       },
+      "ConsumerFoodStockStatus": {
+        "type": "string",
+        "enum": [
+          "in_stock",
+          "out_of_stock"
+        ]
+      },
+      "ConsumerFoodStockError": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "code"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": false
+          },
+          "msg": {
+            "type": "string",
+            "example": "Morning Shakshuka is out of stock"
+          },
+          "code": {
+            "type": "string",
+            "example": "food_stock"
+          },
+          "stock_status": {
+            "$ref": "#/components/schemas/ConsumerFoodStockStatus"
+          },
+          "current_stock": {
+            "type": "integer",
+            "nullable": true,
+            "example": 0
+          }
+        }
+      },
       "ConsumerCartLineItem": {
         "type": "object",
-        "description": "Cart row with optional selling-time flags on GET (Food items only).",
+        "description": "Cart row with optional selling-time and stock flags on GET (Food items only).",
         "properties": {
           "id": {
             "type": "string",
@@ -391,6 +428,18 @@
           },
           "availability_status": {
             "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
+          },
+          "is_in_stock": {
+            "type": "boolean",
+            "description": "Present on GET cart when item_type is Food"
+          },
+          "stock_status": {
+            "$ref": "#/components/schemas/ConsumerFoodStockStatus"
+          },
+          "current_stock": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Remaining units when vendor stock_type is limited"
           }
         }
       },
@@ -8743,6 +8792,32 @@
           },
           "availability_status": {
             "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
+          },
+          "stock_type": {
+            "type": "string",
+            "enum": [
+              "limited",
+              "unlimited"
+            ],
+            "example": "limited"
+          },
+          "current_stock": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Remaining units when stock_type is limited (item_stock − sell_count). Null when unlimited.",
+            "example": 7
+          },
+          "is_in_stock": {
+            "type": "boolean",
+            "example": true
+          },
+          "stock_status": {
+            "type": "string",
+            "enum": [
+              "in_stock",
+              "out_of_stock"
+            ],
+            "example": "in_stock"
           }
         }
       },

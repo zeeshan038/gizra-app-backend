@@ -740,15 +740,22 @@ export const cancelOrder = async (req: Request, res: Response): Promise<any> => 
     }
 
     const now = new Date();
-    const updated = await prisma.orders.update({
-      where: { id: order.id },
-      data: {
-        order_status: 'canceled',
-        canceled: now,
-        cancellation_reason: reason,
-        canceled_by: 'customer',
-        updated_at: now,
-      },
+    const updated = await prisma.$transaction(async (tx) => {
+      const row = await tx.orders.update({
+        where: { id: order.id },
+        data: {
+          order_status: 'canceled',
+          canceled: now,
+          cancellation_reason: reason,
+          canceled_by: 'customer',
+          updated_at: now,
+        },
+      });
+      const { restoreFoodSellCountForOrder } = await import(
+        '../../utils/consumer/foodStock'
+      );
+      await restoreFoodSellCountForOrder(Number(order.id), tx);
+      return row;
     });
 
     emitOrderStatusRealtime(updated);

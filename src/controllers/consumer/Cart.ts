@@ -3,8 +3,10 @@ import prisma from '../../config/database';
 import { addMultipleCartSchema, addToCartSchema, updateCartSchema } from '../../schemas/consumer/Cart';
 import {
   assertCartFoodSellableNow,
+  assertCartFoodStockAvailable,
   attachSellingTimeToCartRows,
   CartFoodSellingTimeError,
+  CartFoodStockError,
 } from '../../utils/consumer/cartFoodSellingTime';
 
 function cartSellingTimeResponse(err: CartFoodSellingTimeError) {
@@ -13,6 +15,16 @@ function cartSellingTimeResponse(err: CartFoodSellingTimeError) {
     msg: err.message,
     code: 'food_selling_time',
     availability_status: err.availability_status ?? null,
+  };
+}
+
+function cartStockResponse(err: CartFoodStockError) {
+  return {
+    status: false,
+    msg: err.message,
+    code: 'food_stock',
+    stock_status: err.stock_status ?? 'out_of_stock',
+    current_stock: err.current_stock ?? 0,
   };
 }
 
@@ -100,9 +112,18 @@ export const addToCart = async (req: Request, res: Response): Promise<any> => {
         if (itemType.toLowerCase() === 'food') {
             try {
                 await assertCartFoodSellableNow(Number(payload.item_id));
+                await assertCartFoodStockAvailable({
+                    itemId: Number(payload.item_id),
+                    quantity: Number(payload.quantity) || 1,
+                    userId: user_id,
+                    isGuest: is_guest,
+                });
             } catch (e: unknown) {
                 if (e instanceof CartFoodSellingTimeError) {
                     return res.status(403).json(cartSellingTimeResponse(e));
+                }
+                if (e instanceof CartFoodStockError) {
+                    return res.status(403).json(cartStockResponse(e));
                 }
                 throw e;
             }
@@ -184,9 +205,19 @@ export const updateCart = async (req: Request, res: Response): Promise<any> => {
         if (String(existing.item_type ?? 'Food').toLowerCase() === 'food') {
             try {
                 await assertCartFoodSellableNow(Number(existing.item_id));
+                await assertCartFoodStockAvailable({
+                    itemId: Number(existing.item_id),
+                    quantity: Number(payload.quantity) || 1,
+                    userId: Number(existing.user_id),
+                    isGuest: existing.is_guest,
+                    excludeCartId: existing.id,
+                });
             } catch (e: unknown) {
                 if (e instanceof CartFoodSellingTimeError) {
                     return res.status(403).json(cartSellingTimeResponse(e));
+                }
+                if (e instanceof CartFoodStockError) {
+                    return res.status(403).json(cartStockResponse(e));
                 }
                 throw e;
             }
@@ -303,9 +334,18 @@ export const addMultipleToCart = async (req: Request, res: Response): Promise<an
       if (String(itemType).toLowerCase() === 'food') {
         try {
           await assertCartFoodSellableNow(Number(single.item_id));
+          await assertCartFoodStockAvailable({
+            itemId: Number(single.item_id),
+            quantity: Number(single.quantity) || 1,
+            userId: user_id,
+            isGuest: is_guest,
+          });
         } catch (e: unknown) {
           if (e instanceof CartFoodSellingTimeError) {
             return res.status(403).json(cartSellingTimeResponse(e));
+          }
+          if (e instanceof CartFoodStockError) {
+            return res.status(403).json(cartStockResponse(e));
           }
           throw e;
         }

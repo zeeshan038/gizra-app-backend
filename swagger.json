@@ -15450,7 +15450,7 @@
     },
     "/consumer/restaurants/{id}/foods": {
       "get": {
-        "description": "Paginated foods for a restaurant. Each item includes **variations** (groups with **`values`**, StackFood-compatible), expanded **add_ons** (`id`, `name`, `price`), and **selling-time** fields (`available_time_starts`, `available_time_ends`, `is_available_now`, `availability_status`) when the vendor set a time window.",
+        "description": "Paginated foods for a restaurant. Each item includes **variations** (groups with **`values`**, StackFood-compatible), expanded **add_ons** (`id`, `name`, `price`), **selling-time** fields when configured, and **stock** fields (`stock_type`, `current_stock`, `is_in_stock`, `stock_status`) when the vendor uses limited stock.",
         "parameters": [
           {
             "name": "id",
@@ -15594,6 +15594,10 @@
                         "available_time_ends": "11:00:00",
                         "is_available_now": false,
                         "availability_status": "time_ended",
+                        "stock_type": "limited",
+                        "current_stock": 0,
+                        "is_in_stock": false,
+                        "stock_status": "out_of_stock",
                         "variations": [],
                         "add_ons": []
                       },
@@ -17871,7 +17875,7 @@
     },
     "/consumer/cart/": {
       "get": {
-        "description": "**Customer:** `Authorization: Bearer <customer JWT>` from login.\n\n**Guest (preferred):** `Authorization: Bearer <guest JWT>` from POST `/consumer/guest/request` — no extra query params.\n\n**Guest (legacy):** `is_guest=true` and `guest_id=<id>` with optional Bearer bypass via middleware.\n\nEach **Food** line may include `is_available_now` and `availability_status` (selling window vs business timezone) so the app can warn on stale cart items.",
+        "description": "**Customer:** `Authorization: Bearer <customer JWT>` from login.\n\n**Guest (preferred):** `Authorization: Bearer <guest JWT>` from POST `/consumer/guest/request` — no extra query params.\n\n**Guest (legacy):** `is_guest=true` and `guest_id=<id>` with optional Bearer bypass via middleware.\n\nEach **Food** line may include selling-time fields (`is_available_now`, `availability_status`) and stock fields (`is_in_stock`, `stock_status`, `current_stock`) so the app can warn on stale or out-of-stock cart lines.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerCartAuthHeader"
@@ -17913,7 +17917,10 @@
                       "quantity": 1,
                       "price": 45,
                       "is_available_now": false,
-                      "availability_status": "time_ended"
+                      "availability_status": "time_ended",
+                      "is_in_stock": false,
+                      "stock_status": "out_of_stock",
+                      "current_stock": 0
                     }
                   ]
                 }
@@ -18002,7 +18009,7 @@
     },
     "/consumer/cart/add": {
       "post": {
-        "description": "Same auth as GET `/consumer/cart/`. With **guest Bearer token**, set `is_guest: true` in body or omit — server infers guest from JWT. Legacy: `is_guest: true` and `guest_id` without Bearer.\n\nReturns **403** with `code: food_selling_time` when the food is outside its configured selling window.",
+        "description": "Same auth as GET `/consumer/cart/`. With **guest Bearer token**, set `is_guest: true` in body or omit — server infers guest from JWT. Legacy: `is_guest: true` and `guest_id` without Bearer.\n\nReturns **403** with `code: food_selling_time` when outside the selling window, or `code: food_stock` when limited stock is exhausted or quantity exceeds `current_stock`.",
         "responses": {
           "201": {
             "description": "Item added",
@@ -18048,13 +18055,16 @@
             }
           },
           "403": {
-            "description": "Forbidden — includes selling-time rejection (`food_selling_time`) or duplicate line",
+            "description": "Forbidden — selling window (`food_selling_time`), limited stock (`food_stock`), or duplicate line",
             "content": {
               "application/json": {
                 "schema": {
                   "oneOf": [
                     {
                       "$ref": "#/components/schemas/ConsumerFoodSellingTimeError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ConsumerFoodStockError"
                     },
                     {
                       "$ref": "#/components/schemas/ApiError"
@@ -18069,6 +18079,16 @@
                       "msg": "This item is only available from 08:00",
                       "code": "food_selling_time",
                       "availability_status": "not_yet_available"
+                    }
+                  },
+                  "food_stock": {
+                    "summary": "Out of stock or insufficient quantity",
+                    "value": {
+                      "status": false,
+                      "msg": "Morning Shakshuka is out of stock",
+                      "code": "food_stock",
+                      "stock_status": "out_of_stock",
+                      "current_stock": 0
                     }
                   },
                   "forbidden": {
@@ -20410,9 +20430,15 @@
         "description": "",
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "OK",
             "content": {
               "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Payment linked to order",
+                  "order_id": "1",
+                  "payment_status": true
+                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -20439,18 +20465,12 @@
                     "order_id": "1",
                     "payment_status": true
                   }
-                },
-                "example": {
-                  "status": true,
-                  "msg": "Payment linked to order",
-                  "order_id": "1",
-                  "payment_status": true
                 }
               }
             }
           },
           "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
@@ -20478,7 +20498,7 @@
             }
           },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": {
@@ -20533,9 +20553,19 @@
         "description": "",
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "OK",
             "content": {
               "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Order already created for this payment",
+                  "order_id": "1",
+                  "data": {
+                    "id": "1",
+                    "payment_status": "…",
+                    "order_status": "…"
+                  }
+                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -20584,22 +20614,12 @@
                       "order_status": "…"
                     }
                   }
-                },
-                "example": {
-                  "status": true,
-                  "msg": "Order already created for this payment",
-                  "order_id": "1",
-                  "data": {
-                    "id": "1",
-                    "payment_status": "…",
-                    "order_status": "…"
-                  }
                 }
               }
             }
           },
           "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
@@ -20626,8 +20646,11 @@
               }
             }
           },
+          "402": {
+            "description": "Payment Required"
+          },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": {
@@ -20641,7 +20664,7 @@
             }
           },
           "404": {
-            "description": "Not Found - The requested resource could not be found",
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -20655,7 +20678,7 @@
             }
           },
           "500": {
-            "description": "Internal Server Error - Something went wrong on the server",
+            "description": "Internal Server Error",
             "content": {
               "application/json": {
                 "schema": {
@@ -22212,8 +22235,11 @@
               }
             }
           },
+          "402": {
+            "description": "Payment Required"
+          },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": {
@@ -22227,7 +22253,7 @@
             }
           },
           "404": {
-            "description": "Not Found - The requested resource could not be found",
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -22346,8 +22372,11 @@
               }
             }
           },
+          "402": {
+            "description": "Payment Required"
+          },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": {
@@ -22361,7 +22390,7 @@
             }
           },
           "404": {
-            "description": "Not Found - The requested resource could not be found",
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -22462,8 +22491,11 @@
               }
             }
           },
+          "402": {
+            "description": "Payment Required"
+          },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": {
@@ -22477,7 +22509,7 @@
             }
           },
           "404": {
-            "description": "Not Found - The requested resource could not be found",
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -52145,9 +52177,46 @@
           }
         }
       },
+      "ConsumerFoodStockStatus": {
+        "type": "string",
+        "enum": [
+          "in_stock",
+          "out_of_stock"
+        ]
+      },
+      "ConsumerFoodStockError": {
+        "type": "object",
+        "required": [
+          "status",
+          "msg",
+          "code"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": false
+          },
+          "msg": {
+            "type": "string",
+            "example": "Morning Shakshuka is out of stock"
+          },
+          "code": {
+            "type": "string",
+            "example": "food_stock"
+          },
+          "stock_status": {
+            "$ref": "#/components/schemas/ConsumerFoodStockStatus"
+          },
+          "current_stock": {
+            "type": "integer",
+            "nullable": true,
+            "example": 0
+          }
+        }
+      },
       "ConsumerCartLineItem": {
         "type": "object",
-        "description": "Cart row with optional selling-time flags on GET (Food items only).",
+        "description": "Cart row with optional selling-time and stock flags on GET (Food items only).",
         "properties": {
           "id": {
             "type": "string",
@@ -52179,6 +52248,18 @@
           },
           "availability_status": {
             "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
+          },
+          "is_in_stock": {
+            "type": "boolean",
+            "description": "Present on GET cart when item_type is Food"
+          },
+          "stock_status": {
+            "$ref": "#/components/schemas/ConsumerFoodStockStatus"
+          },
+          "current_stock": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Remaining units when vendor stock_type is limited"
           }
         }
       },
@@ -60531,6 +60612,32 @@
           },
           "availability_status": {
             "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
+          },
+          "stock_type": {
+            "type": "string",
+            "enum": [
+              "limited",
+              "unlimited"
+            ],
+            "example": "limited"
+          },
+          "current_stock": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Remaining units when stock_type is limited (item_stock − sell_count). Null when unlimited.",
+            "example": 7
+          },
+          "is_in_stock": {
+            "type": "boolean",
+            "example": true
+          },
+          "stock_status": {
+            "type": "string",
+            "enum": [
+              "in_stock",
+              "out_of_stock"
+            ],
+            "example": "in_stock"
           }
         }
       },
