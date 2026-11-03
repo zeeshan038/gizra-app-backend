@@ -13,7 +13,6 @@ import {
 } from '../../../utils/vendor/catalog/foodAddonHelpers';
 import { publicFoodMediaUrl } from '../../../utils/mediaStorage';
 import { getFoodPublishQuota } from '../../../utils/vendor/catalog/foodPublishLimits';
-import { normalizeItemVariationsToAdditive } from '../../../utils/vendor/variationCatalogNormalize';
 import { sanitizeVariationGroupsForStorage } from '../../../utils/consumer/variationGroupOptions';
 
 const FOOD_LIST_MAX_LIMIT = 5000;
@@ -60,22 +59,17 @@ async function publishDraftFoodIds(
     return { publishedIds: toPublish, quota };
 }
 
-/** Store base price + additive option deltas (never full size prices on options). */
-function applyAdditiveVariationPricing(payload: {
+/** Manual catalog save: store price/variations as sent (additive +0/+N). Tier→delta conversion is AI import only. */
+function prepareFoodVariationPayload(payload: {
     price?: number;
     variations?: unknown;
 }): { price?: number; variations?: unknown } {
-    const variations = Array.isArray(payload.variations) ? payload.variations : [];
-    if (!variations.length) {
+    if (!Array.isArray(payload.variations) || !payload.variations.length) {
         return payload;
     }
-    const { basePrice, variations: normalized } = normalizeItemVariationsToAdditive(
-        Number(payload.price ?? 0),
-        variations
-    );
     return {
-        price: basePrice,
-        variations: sanitizeVariationGroupsForStorage(normalized),
+        price: payload.price,
+        variations: sanitizeVariationGroupsForStorage(payload.variations),
     };
 }
 
@@ -154,7 +148,7 @@ export const createFood = async (req: Request, res: Response): Promise<any> => {
 
     try {
         const body = result.value as Record<string, unknown>;
-        const priced = applyAdditiveVariationPricing(body);
+        const priced = prepareFoodVariationPayload(body);
         const addonIds = await resolveAddOnIdsForSave(
             Number(body.restaurant_id),
             body.add_ons as Parameters<typeof resolveAddOnIdsForSave>[1]
@@ -221,24 +215,15 @@ export const updateFood = async (req: Request, res: Response): Promise<any> => {
         if (body.description !== undefined) dataToUpdate.description = body.description;
         if (body.image !== undefined) dataToUpdate.image = body.image;
         if (body.category_id !== undefined) dataToUpdate.category_id = body.category_id;
-        const priced = applyAdditiveVariationPricing({
-            price: body.price !== undefined ? Number(body.price) : Number(existing.price),
-            variations:
-                body.variations !== undefined
-                    ? body.variations
-                    : (() => {
-                          try {
-                              return JSON.parse(existing.variations || '[]');
-                          } catch {
-                              return [];
-                          }
-                      })(),
-        });
-        if (body.price !== undefined || body.variations !== undefined) {
-            dataToUpdate.price = priced.price;
+        if (body.price !== undefined) {
+            dataToUpdate.price = body.price;
         }
         if (body.variations !== undefined) {
-            dataToUpdate.variations = JSON.stringify(priced.variations);
+            const prepared = prepareFoodVariationPayload({
+                price: body.price !== undefined ? Number(body.price) : Number(existing.price),
+                variations: body.variations,
+            });
+            dataToUpdate.variations = JSON.stringify(prepared.variations);
         }
         if (body.add_ons !== undefined) {
             const addonIds = await resolveAddOnIdsForSave(

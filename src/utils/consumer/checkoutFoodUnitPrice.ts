@@ -1,4 +1,3 @@
-import { normalizeItemVariationsToAdditive } from '../vendor/variationCatalogNormalize';
 import {
   inferListPriceFromRawVariations,
   resolveRawVariations,
@@ -6,16 +5,6 @@ import {
 import { roundOrderMoney, ORDER_PRICE_TOLERANCE } from './orderLinePricing';
 import { computeVariationExtra } from './variationPricing';
 import { variationsForMobileClient } from './variationsForMobileClient';
-
-function parseProductVariationsJson(json: string | null | undefined): unknown[] {
-  if (!json?.trim()) return [];
-  try {
-    const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
 
 /**
  * Flutter often sends the same picks in both `variations` and `variation_options`.
@@ -52,40 +41,17 @@ function mobileMenuUnitBase(params: {
   return roundOrderMoney(basePrice + extra);
 }
 
-function catalogNormalizedUnitBase(params: {
-  catalogBasePrice: number;
-  productVariationsJson: string | null | undefined;
-  legacyVariations?: unknown[];
-  selectedVariations: unknown[] | null | undefined;
-}): number {
-  const raw = resolveRawVariations(params.productVariationsJson, params.legacyVariations);
-  const parsed = raw.length ? raw : parseProductVariationsJson(params.productVariationsJson);
-  const { basePrice, variations } = normalizeItemVariationsToAdditive(
-    params.catalogBasePrice,
-    parsed
-  );
-  const extra = computeVariationExtra(JSON.stringify(variations), params.selectedVariations);
-  return roundOrderMoney(basePrice + extra);
-}
-
-/** Food + selected variations per unit (aligned with menu + absolute tier catalogs). */
+/** Food + selected variations per unit (base + additive option deltas stored in catalog). */
 export function resolveCheckoutServerUnitBase(params: {
   catalogBasePrice: number;
   productVariationsJson: string | null | undefined;
   legacyVariations?: unknown[];
   selectedVariations: unknown[] | null | undefined;
 }): number {
-  const selected = params.selectedVariations ?? [];
-  const mobileTotal = mobileMenuUnitBase({ ...params, selectedVariations: selected });
-  const catalogTotal = catalogNormalizedUnitBase({ ...params, selectedVariations: selected });
-
-  if (catalogTotal > mobileTotal + ORDER_PRICE_TOLERANCE) {
-    return mobileTotal;
-  }
-  if (mobileTotal > catalogTotal + ORDER_PRICE_TOLERANCE) {
-    return catalogTotal;
-  }
-  return catalogTotal;
+  return mobileMenuUnitBase({
+    ...params,
+    selectedVariations: params.selectedVariations ?? [],
+  });
 }
 
 /**

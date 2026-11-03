@@ -1,6 +1,9 @@
 import { readVariationGroupOptionRows } from '../consumer/variationGroupOptions';
 
-/** Normalize catalog variations so checkout uses base + additive option prices. */
+/**
+ * Convert full menu tier prices on size groups to base + additive deltas.
+ * Used for **AI menu import / parse only** — not manual Listing Manager save.
+ */
 
 export type VariationOptionLike = {
   name?: string;

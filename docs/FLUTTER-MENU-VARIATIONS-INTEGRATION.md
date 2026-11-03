@@ -24,7 +24,7 @@ orderFoodSubtotal = Σ(lineFood) + Σ(add-on lines) − discounts
 | **Variations** | Sum of `optionPrice` (or `price`) for **selected** options only, **per group** |
 | **Add-ons** | Separate `add_on_ids` / `add_on_qtys` on cart & place-order (not variation JSON) |
 
-**Do not** treat variation options as full dish prices. Options are **deltas** (+0, +5, +10), except legacy data being normalized server-side.
+**Do not** treat variation options as full dish prices. Options are **deltas** (+0, +5, +10). Full tier prices (45/55/65) are converted to base + deltas **only when importing a menu with AI**, not when vendors edit items manually.
 
 **Footer on product screen** must include **`food.price`** when showing total. Summing only selected `optionPrice` without base produces **₪0** bugs on combo/burger items.
 
