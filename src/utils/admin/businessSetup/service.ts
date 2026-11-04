@@ -594,6 +594,12 @@ export async function updateRestaurantTab(body: Record<string, any>) {
   });
 }
 
+function parseOptionalNonNegativeAmount(value: unknown, fallback = 0): number {
+  if (value == null || value === '') return fallback;
+  const n = typeof value === 'number' ? value : Number.parseFloat(String(value));
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
 export async function updateDeliverymanTab(body: Record<string, any>) {
   const dmMaxRaw = body.dm_maximum_orders;
   const dmMaxParsed =
@@ -604,14 +610,14 @@ export async function updateDeliverymanTab(body: Record<string, any>) {
       : DM_DEFAULT_MAX_CONCURRENT_ORDERS;
 
   await upsertBusinessSettings({
-    min_amount_to_pay_dm: body.min_amount_to_pay_dm ?? 0,
+    min_amount_to_pay_dm: parseOptionalNonNegativeAmount(body.min_amount_to_pay_dm),
     cash_in_hand_overflow_delivery_man: flag01(body.cash_in_hand_overflow_delivery_man),
     dm_tips_status: flag01(body.dm_tips_status),
     dm_maximum_orders: dmMaximumOrders,
     canceled_by_deliveryman: flag01(body.canceled_by_deliveryman),
     show_dm_earning: flag01(body.show_dm_earning),
     toggle_dm_registration: flag01(body.toggle_dm_registration ?? body.dm_self_registration),
-    dm_max_cash_in_hand: body.dm_max_cash_in_hand ?? 0,
+    dm_max_cash_in_hand: parseOptionalNonNegativeAmount(body.dm_max_cash_in_hand),
     dm_picture_upload_status: flag01(body.dm_picture_upload_status),
   });
 }

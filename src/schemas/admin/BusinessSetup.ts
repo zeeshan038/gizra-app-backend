@@ -2,6 +2,24 @@ import Joi from 'joi';
 
 const boolish = Joi.alternatives().try(Joi.boolean(), Joi.number().valid(0, 1), Joi.string().valid('0', '1', 'true', 'false'));
 
+/** Admin forms may send null or '' for cleared optional number inputs. */
+function optionalNumber(min = 0) {
+  return Joi.alternatives()
+    .try(Joi.number().min(min), Joi.string().trim().allow(''), Joi.valid(null))
+    .optional()
+    .custom((value, helpers) => {
+      if (value === '' || value == null) return undefined;
+      const n = typeof value === 'number' ? value : Number(value);
+      if (!Number.isFinite(n)) {
+        return helpers.error('number.base');
+      }
+      if (n < min) {
+        return helpers.error('number.min', { limit: min });
+      }
+      return n;
+    });
+}
+
 export const adminBusinessSetupTabQuerySchema = Joi.object({
   tab: Joi.string()
     .valid(
@@ -100,8 +118,8 @@ export const adminUpdateOrderSchema = Joi.object({
 
 export const adminUpdateRestaurantSchema = Joi.object({
   cash_in_hand_overflow_restaurant: boolish.optional(),
-  cash_in_hand_overflow_restaurant_amount: Joi.number().min(0).optional(),
-  min_amount_to_pay_restaurant: Joi.number().min(0).optional(),
+  cash_in_hand_overflow_restaurant_amount: optionalNumber(0),
+  min_amount_to_pay_restaurant: optionalNumber(0),
   canceled_by_restaurant: boolish.optional(),
   toggle_restaurant_registration: boolish.optional(),
   restaurant_self_registration: boolish.optional(),
@@ -110,7 +128,7 @@ export const adminUpdateRestaurantSchema = Joi.object({
 }).unknown(true);
 
 export const adminUpdateDeliverymanSchema = Joi.object({
-  min_amount_to_pay_dm: Joi.number().min(0).optional(),
+  min_amount_to_pay_dm: optionalNumber(0),
   cash_in_hand_overflow_delivery_man: boolish.optional(),
   dm_tips_status: boolish.optional(),
   dm_maximum_orders: Joi.number().integer().min(1).max(50).optional(),
@@ -118,7 +136,7 @@ export const adminUpdateDeliverymanSchema = Joi.object({
   show_dm_earning: boolish.optional(),
   toggle_dm_registration: boolish.optional(),
   dm_self_registration: boolish.optional(),
-  dm_max_cash_in_hand: Joi.number().min(0).optional(),
+  dm_max_cash_in_hand: optionalNumber(0),
   dm_picture_upload_status: boolish.optional(),
 }).unknown(true);
 
