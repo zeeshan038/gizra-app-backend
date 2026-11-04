@@ -1,6 +1,17 @@
 import Joi from 'joi';
 
-const boolish = Joi.alternatives().try(Joi.boolean(), Joi.number().valid(0, 1), Joi.string().valid('0', '1', 'true', 'false'));
+/** Admin switches may send boolean, 0/1, null, or '' when unset. */
+const boolish = Joi.any()
+  .optional()
+  .custom((value, helpers) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    if (typeof value === 'boolean') return value;
+    if (value === 1 || value === '1' || value === 'true') return true;
+    if (value === 0 || value === '0' || value === 'false') return false;
+    return helpers.error('any.only', {
+      valids: [true, false, 0, 1, '0', '1', 'true', 'false', null, ''],
+    });
+  });
 
 /** Admin forms may send null or '' for cleared optional number inputs. */
 function optionalNumber(min = 0) {
