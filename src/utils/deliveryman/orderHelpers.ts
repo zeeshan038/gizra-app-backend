@@ -28,8 +28,19 @@ export const DM_CONCURRENT_ORDER_STATUSES = [
 
 export const DM_LATEST_BASE_STATUSES = ['confirmed', 'accepted', 'processing', 'handover'] as const;
 
-/** Used when admin `dm_maximum_orders` is missing or invalid (legacy PHP default was 1). */
-export const DM_DEFAULT_MAX_CONCURRENT_ORDERS = 1;
+/** Fallback when admin `dm_maximum_orders` is missing, empty, or invalid. */
+export const DM_DEFAULT_MAX_CONCURRENT_ORDERS = 2;
+
+export function resolveDmMaximumConcurrentOrdersFromSetting(
+  raw: string | null | undefined
+): number {
+  const configured =
+    raw != null && String(raw).trim() !== '' ? Number.parseInt(String(raw), 10) : Number.NaN;
+  if (Number.isFinite(configured) && configured > 0) {
+    return configured;
+  }
+  return DM_DEFAULT_MAX_CONCURRENT_ORDERS;
+}
 
 export function requireDmIdFromRequest(req: {
   user?: { id?: string };
@@ -49,12 +60,7 @@ export async function getBusinessSetting(key: string): Promise<string | null> {
  */
 export async function getDmMaximumConcurrentOrders(): Promise<number> {
   const raw = await getBusinessSetting('dm_maximum_orders');
-  const configured =
-    raw != null && String(raw).trim() !== '' ? Number.parseInt(String(raw), 10) : Number.NaN;
-  if (Number.isFinite(configured) && configured > 0) {
-    return configured;
-  }
-  return DM_DEFAULT_MAX_CONCURRENT_ORDERS;
+  return resolveDmMaximumConcurrentOrdersFromSetting(raw);
 }
 
 export async function countDmConcurrentAssignedOrders(deliveryManId: number): Promise<number> {

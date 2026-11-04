@@ -1,4 +1,8 @@
 import prisma from '../../../config/database';
+import {
+  DM_DEFAULT_MAX_CONCURRENT_ORDERS,
+  resolveDmMaximumConcurrentOrdersFromSetting,
+} from '../../deliveryman/orderHelpers';
 import { normalizeAppVersionString } from '../../config/appVersionConfig';
 import { clearBusinessSettingsCache } from '../../consumer/businessSettings';
 import {
@@ -358,6 +362,9 @@ export async function getBusinessSetup(tab?: string) {
     restaurant: flagsFromKeys(map, RESTAURANT_KEYS),
     deliveryman: {
       ...flagsFromKeys(map, DELIVERYMAN_KEYS),
+      dm_maximum_orders: resolveDmMaximumConcurrentOrdersFromSetting(
+        settingValue(map, 'dm_maximum_orders')
+      ),
       dm_self_registration: settingFlag(map, 'toggle_dm_registration'),
     },
     customer: {
@@ -588,11 +595,19 @@ export async function updateRestaurantTab(body: Record<string, any>) {
 }
 
 export async function updateDeliverymanTab(body: Record<string, any>) {
+  const dmMaxRaw = body.dm_maximum_orders;
+  const dmMaxParsed =
+    dmMaxRaw != null && dmMaxRaw !== '' ? Number.parseInt(String(dmMaxRaw), 10) : Number.NaN;
+  const dmMaximumOrders =
+    Number.isFinite(dmMaxParsed) && dmMaxParsed > 0
+      ? dmMaxParsed
+      : DM_DEFAULT_MAX_CONCURRENT_ORDERS;
+
   await upsertBusinessSettings({
     min_amount_to_pay_dm: body.min_amount_to_pay_dm ?? 0,
     cash_in_hand_overflow_delivery_man: flag01(body.cash_in_hand_overflow_delivery_man),
     dm_tips_status: flag01(body.dm_tips_status),
-    dm_maximum_orders: body.dm_maximum_orders ?? 0,
+    dm_maximum_orders: dmMaximumOrders,
     canceled_by_deliveryman: flag01(body.canceled_by_deliveryman),
     show_dm_earning: flag01(body.show_dm_earning),
     toggle_dm_registration: flag01(body.toggle_dm_registration ?? body.dm_self_registration),
