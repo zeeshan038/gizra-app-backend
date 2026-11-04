@@ -50,24 +50,28 @@ export async function buildRestaurantsAdminWhere(
     and.push({ created_at: { gte: options.createdAfter } });
   }
 
-  if (query.vendorApprovedOnly) {
-    const approved = await prisma.vendors.findMany({ where: { status: true }, select: { id: true } });
-    and.push({ vendor_id: { in: approved.map((v) => Number(v.id)) } });
-  } else if (query.vendorPendingOnly) {
-    const pending = await prisma.vendors.findMany({
-      where: { NOT: { status: true } },
-      select: { id: true },
-    });
-    and.push({ vendor_id: { in: pending.map((v) => Number(v.id)) } });
-  } else if (query.vendorDeniedOnly) {
-    const denied = await prisma.vendors.findMany({
-      where: { status: false },
-      select: { id: true },
-    });
-    and.push({ vendor_id: { in: denied.map((v) => Number(v.id)) } });
-  } else {
-    const approved = await prisma.vendors.findMany({ where: { status: true }, select: { id: true } });
-    and.push({ vendor_id: { in: approved.map((v) => Number(v.id)) } });
+  const skipVendorFilter = query.assignment_picker === '1';
+
+  if (!skipVendorFilter) {
+    if (query.vendorApprovedOnly) {
+      const approved = await prisma.vendors.findMany({ where: { status: true }, select: { id: true } });
+      and.push({ vendor_id: { in: approved.map((v) => Number(v.id)) } });
+    } else if (query.vendorPendingOnly) {
+      const pending = await prisma.vendors.findMany({
+        where: { NOT: { status: true } },
+        select: { id: true },
+      });
+      and.push({ vendor_id: { in: pending.map((v) => Number(v.id)) } });
+    } else if (query.vendorDeniedOnly) {
+      const denied = await prisma.vendors.findMany({
+        where: { status: false },
+        select: { id: true },
+      });
+      and.push({ vendor_id: { in: denied.map((v) => Number(v.id)) } });
+    } else {
+      const approved = await prisma.vendors.findMany({ where: { status: true }, select: { id: true } });
+      and.push({ vendor_id: { in: approved.map((v) => Number(v.id)) } });
+    }
   }
 
   if (query.zone_id && query.zone_id !== 'all') {
@@ -100,23 +104,36 @@ export async function buildRestaurantsAdminWhere(
 
   if (query.search?.trim()) {
     const tokens = query.search.trim().split(/\s+/).filter(Boolean);
-    and.push({
-      OR: tokens.flatMap((token) => [
+    const orClauses: Prisma.restaurantsWhereInput[] = [];
+
+    for (const token of tokens) {
+      orClauses.push(
         { name: { contains: token, mode: 'insensitive' } },
         { email: { contains: token, mode: 'insensitive' } },
-        { phone: { contains: token, mode: 'insensitive' } },
-        {
-          vendors: {
-            OR: [
-              { f_name: { contains: token, mode: 'insensitive' } },
-              { l_name: { contains: token, mode: 'insensitive' } },
-              { email: { contains: token, mode: 'insensitive' } },
-              { phone: { contains: token, mode: 'insensitive' } },
-            ],
-          },
+        { phone: { contains: token, mode: 'insensitive' } }
+      );
+
+      const matchingVendors = await prisma.vendors.findMany({
+        where: {
+          OR: [
+            { f_name: { contains: token, mode: 'insensitive' } },
+            { l_name: { contains: token, mode: 'insensitive' } },
+            { email: { contains: token, mode: 'insensitive' } },
+            { phone: { contains: token, mode: 'insensitive' } },
+          ],
         },
-      ]),
-    });
+        select: { id: true },
+        take: 500,
+      });
+      const vendorIds = matchingVendors
+        .map((v) => Number(v.id))
+        .filter((id) => Number.isFinite(id));
+      if (vendorIds.length) {
+        orClauses.push({ vendor_id: { in: vendorIds } });
+      }
+    }
+
+    and.push({ OR: orClauses });
   }
 
   return and.length ? { AND: and } : {};

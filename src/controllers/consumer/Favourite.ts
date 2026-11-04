@@ -6,13 +6,18 @@ import {
   removeFavouriteSchema,
 } from '../../schemas/consumer/favourite';
 import {
-  distanceKm,
   formatFavouriteFood,
   formatFavouriteRestaurant,
   matchesSearch,
   parseCoordinatesFromRequest,
   parseZoneIdsFromRequest,
 } from '../../utils/consumer/favouriteHelpers';
+import {
+  availabilityMapForRestaurants,
+  compareRestaurantsOpenNearest,
+  restaurantDistanceKmRank,
+} from '../../utils/consumer/restaurantDiscoverHelpers';
+import { restaurantAvailabilityResponseFields } from '../../utils/consumer/restaurantAvailability';
 
 function requireUserId(req: Request, res: Response): number | null {
   const userId = Number(req.user?.id);
@@ -102,15 +107,11 @@ export const listFavourites = async (req: Request, res: Response): Promise<any> 
           },
         });
 
-        let dist: number | null = null;
-        if (coords && restaurant.latitude && restaurant.longitude) {
-          dist = distanceKm(
-            coords.lat,
-            coords.lng,
-            Number(restaurant.latitude),
-            Number(restaurant.longitude)
-          );
-        }
+        const distKm = coords
+          ? restaurantDistanceKmRank(coords, restaurant.latitude, restaurant.longitude)
+          : null;
+        const dist =
+          distKm != null && Number.isFinite(distKm) ? distKm : null;
 
         restaurants.push(
           formatFavouriteRestaurant(
@@ -119,6 +120,61 @@ export const listFavourites = async (req: Request, res: Response): Promise<any> 
           )
         );
       }
+    }
+
+    if (restaurants.length > 1) {
+      const restRows = await prisma.restaurants.findMany({
+        where: { id: { in: restaurants.map((r) => BigInt(Number(r.id))) } },
+        select: {
+          id: true,
+          active: true,
+          latitude: true,
+          longitude: true,
+          order_count: true,
+          rating: true,
+        },
+      });
+      const availabilityMap = await availabilityMapForRestaurants(restRows);
+      const metaById = new Map(
+        restRows.map((row) => [
+          row.id.toString(),
+          {
+            canOrder: availabilityMap.get(row.id.toString())?.can_order ?? false,
+            distKm: restaurantDistanceKmRank(coords, row.latitude, row.longitude),
+            orderCount: Number(row.order_count),
+            rating: row.rating != null ? Number(row.rating) : 0,
+            availability: availabilityMap.get(row.id.toString()),
+          },
+        ])
+      );
+
+      for (const item of restaurants) {
+        const meta = metaById.get(item.id);
+        if (meta?.availability) {
+          Object.assign(item, restaurantAvailabilityResponseFields(meta.availability));
+        }
+      }
+
+      restaurants.sort((a, b) => {
+        const metaA = metaById.get(a.id);
+        const metaB = metaById.get(b.id);
+        return compareRestaurantsOpenNearest(
+          {
+            canOrder: metaA?.canOrder ?? false,
+            distKm: metaA?.distKm ?? Number.POSITIVE_INFINITY,
+            orderCount: metaA?.orderCount,
+            rating: metaA?.rating,
+            id: a.id,
+          },
+          {
+            canOrder: metaB?.canOrder ?? false,
+            distKm: metaB?.distKm ?? Number.POSITIVE_INFINITY,
+            orderCount: metaB?.orderCount,
+            rating: metaB?.rating,
+            id: b.id,
+          }
+        );
+      });
     }
 
     return res.status(200).json({

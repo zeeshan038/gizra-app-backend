@@ -1,14 +1,18 @@
 import prisma from '../../../config/database';
 import { emitOrderStatusRealtime } from '../../../sockets/orderRealtime';
 import { ORDER_SETTLEMENT_TX_OPTIONS } from '../../order/createOrderTransaction';
-import { getBusinessSetting } from '../../deliveryman/orderHelpers';
+import {
+  countDmConcurrentAssignedOrders,
+  DM_CONCURRENT_ORDER_STATUSES,
+  getDmMaximumConcurrentOrders,
+  getBusinessSetting,
+} from '../../deliveryman/orderHelpers';
 import { notPosWhere } from '../../vendor/order/query';
 
 export async function listNotifiedDeliveryMenForZone(zoneId: number | null) {
   if (zoneId == null || !Number.isFinite(zoneId)) return [];
 
-  const maxOrdersRaw = await getBusinessSetting('dm_maximum_orders');
-  const maxOrders = maxOrdersRaw ? Number(maxOrdersRaw) : 1;
+  const maxOrders = await getDmMaximumConcurrentOrders();
 
   const rows = await prisma.delivery_men.findMany({
     where: {
@@ -70,10 +74,14 @@ export async function assignAdminOrderDeliveryMan(
     return { ok: false, status: 404, msg: 'Delivery man not found' };
   }
 
-  const maxOrdersRaw = await getBusinessSetting('dm_maximum_orders');
-  const maxOrders = maxOrdersRaw ? Number(maxOrdersRaw) : 1;
-  if (Number(deliveryman.current_orders) >= maxOrders) {
-    return { ok: false, status: 400, msg: 'Delivery man maximum order limit reached' };
+  const maxOrders = await getDmMaximumConcurrentOrders();
+  const activeAssigned = await countDmConcurrentAssignedOrders(deliveryManId);
+  if (activeAssigned >= maxOrders || Number(deliveryman.current_orders) >= maxOrders) {
+    return {
+      ok: false,
+      status: 400,
+      msg: `Delivery man can carry at most ${maxOrders} orders at a time`,
+    };
   }
 
   if (order.payment_method === 'cash_on_delivery') {
@@ -102,6 +110,17 @@ export async function assignAdminOrderDeliveryMan(
       : order.order_status;
 
   const updatedOrder = await prisma.$transaction(async (tx) => {
+    const inFlight = await tx.orders.count({
+      where: {
+        delivery_man_id: deliveryManId,
+        order_status: { in: [...DM_CONCURRENT_ORDER_STATUSES] },
+        order_type: { not: 'pos' },
+      },
+    });
+    if (inFlight >= maxOrders) {
+      throw new Error('DM_MAX_CONCURRENT_ORDERS');
+    }
+
     if (prevDmId != null && prevDmId !== deliveryManId) {
       const prev = await tx.delivery_men.findUnique({ where: { id: BigInt(prevDmId) } });
       if (prev) {

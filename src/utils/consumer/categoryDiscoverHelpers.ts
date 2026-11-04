@@ -41,14 +41,25 @@ export type HomeCategoryFormatted = {
   parent_id: string;
   products_count: number;
   order_count: number;
+  type: 'category' | 'restaurant';
+  restaurantID: string | null;
+  restaurantName: string | null;
   childes?: HomeCategoryFormatted[];
 };
 
 export function formatHomeCategory(
   row: CategoryRow,
-  extras?: { products_count?: number; order_count?: number; childes?: HomeCategoryFormatted[] }
+  extras?: {
+    products_count?: number;
+    order_count?: number;
+    childes?: HomeCategoryFormatted[];
+    type?: 'category' | 'restaurant';
+    restaurantID?: string | null;
+    restaurantName?: string | null;
+  }
 ): HomeCategoryFormatted {
   const media = consumerCategoryMediaFields(row.image || 'def.png');
+  const type = extras?.type ?? 'category';
   return {
     id: row.id.toString(),
     name: row.name,
@@ -59,6 +70,9 @@ export function formatHomeCategory(
     parent_id: row.parent_id.toString(),
     products_count: extras?.products_count ?? 0,
     order_count: extras?.order_count ?? 0,
+    type,
+    restaurantID: type === 'restaurant' ? extras?.restaurantID ?? null : null,
+    restaurantName: type === 'restaurant' ? extras?.restaurantName ?? row.name : null,
     ...(extras?.childes?.length ? { childes: extras.childes } : {}),
   };
 }

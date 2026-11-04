@@ -9,6 +9,7 @@ export type ListRestaurantsQuery = {
   type?: string;
   restaurant_model?: string;
   active_only?: string;
+  assignment_picker?: string;
   page?: number;
   limit?: number;
   vendorApprovedOnly?: boolean;

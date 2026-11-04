@@ -406,6 +406,39 @@
         }
       }
     },
+    "/vendor/catalog/food/{id}/duplicate": {
+      "post": {
+        "summary": "Duplicate food item",
+        "description": "Creates a copy with the same name, variations, add-ons, and pricing. The new item is **inactive** (`status: false`) until the vendor updates settings and enables it.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Duplicated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "boolean" },
+                    "msg": { "type": "string" },
+                    "data": { "$ref": "#/components/schemas/VendorFoodItem" }
+                  }
+                }
+              }
+            }
+          },
+          "404": { "description": "Food not found" },
+          "400": { "description": "Live menu quota reached (published duplicate)" }
+        }
+      }
+    },
     "/vendor/catalog/food/{id}": {
       "patch": {
         "summary": "Update food item",

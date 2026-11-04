@@ -113,7 +113,7 @@ export const adminUpdateDeliverymanSchema = Joi.object({
   min_amount_to_pay_dm: Joi.number().min(0).optional(),
   cash_in_hand_overflow_delivery_man: boolish.optional(),
   dm_tips_status: boolish.optional(),
-  dm_maximum_orders: Joi.number().integer().min(0).optional(),
+  dm_maximum_orders: Joi.number().integer().min(1).max(50).optional(),
   canceled_by_deliveryman: boolish.optional(),
   show_dm_earning: boolish.optional(),
   toggle_dm_registration: boolish.optional(),

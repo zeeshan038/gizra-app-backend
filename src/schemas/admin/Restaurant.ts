@@ -52,8 +52,9 @@ export const adminRestaurantListQuerySchema = Joi.object({
     .optional()
     .default('all'),
   active_only: Joi.string().valid('0', '1').optional().default('1'),
+  assignment_picker: Joi.string().valid('0', '1').optional(),
   page: Joi.number().integer().min(1).optional(),
-  limit: Joi.number().integer().min(1).max(100).optional(),
+  limit: Joi.number().integer().min(1).max(200).optional(),
 });
 
 export const adminRestaurantJoinQuerySchema = Joi.object({

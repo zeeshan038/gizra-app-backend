@@ -15,6 +15,9 @@ import {
   serializeAdminHomeCategory,
   slugifyHomeCategoryName,
   storedHomeCategoryImage,
+  decimalCategoryId,
+  homeCategoryRestaurantSlug,
+  parseHomeCategoryLink,
 } from '../../utils/admin/homeCategories/homeCategoryHelpers';
 
 /**
@@ -51,7 +54,7 @@ export const generateHomeCategoryImage = async (req: Request, res: Response): Pr
 export const listHomeCategories = async (req: Request, res: Response): Promise<any> => {
   try {
     const rows = await prisma.categories.findMany({
-      where: adminHomeCategoryWhere(),
+      where: { ...adminHomeCategoryWhere(), status: true },
       orderBy: [{ priority: 'desc' }, { id: 'asc' }],
     });
 
@@ -68,14 +71,38 @@ export const listHomeCategories = async (req: Request, res: Response): Promise<a
       linkCounts.map((g) => [Number(g.category_id), g._count.restaurant_id])
     );
 
+    const restaurantIdsForTiles = [
+      ...new Set(
+        rows
+          .map((row) => parseHomeCategoryLink(row.slug).restaurantID)
+          .filter((id): id is number => id != null)
+      ),
+    ];
+    const restaurantNameById = new Map<number, string>();
+    if (restaurantIdsForTiles.length) {
+      const rests = await prisma.restaurants.findMany({
+        where: { id: { in: restaurantIdsForTiles.map((id) => BigInt(id)) } },
+        select: { id: true, name: true },
+      });
+      for (const r of rests) {
+        restaurantNameById.set(Number(r.id), r.name);
+      }
+    }
+
     return res.status(200).json({
       status: true,
       msg: 'Home categories fetched successfully',
-      data: rows.map((row) =>
-        serializeAdminHomeCategory(row, {
+      data: rows.map((row) => {
+        const link = parseHomeCategoryLink(row.slug);
+        const restaurant_name =
+          link.restaurantID != null
+            ? restaurantNameById.get(link.restaurantID) ?? row.name
+            : null;
+        return serializeAdminHomeCategory(row, {
           restaurants_count: countByCategory.get(Number(row.id)) ?? 0,
-        })
-      ),
+          restaurant_name,
+        });
+      }),
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Failed to load home categories';
@@ -97,25 +124,58 @@ export const createHomeCategory = async (req: Request, res: Response): Promise<a
 
   try {
     const now = new Date();
+    const linkType = value.type === 'restaurant' ? 'restaurant' : 'category';
+    let displayName = value.name?.trim() ?? '';
+    let slug = slugifyHomeCategoryName(displayName || 'category');
+    let restaurant_ids: number[] = [];
+    let restaurant_name: string | null = null;
+
+    if (linkType === 'restaurant') {
+      const restaurantId = Number(value.restaurant_id);
+      const restaurant = await prisma.restaurants.findUnique({
+        where: { id: BigInt(restaurantId) },
+        select: { id: true, name: true },
+      });
+      if (!restaurant) {
+        return res.status(400).json({ status: false, msg: 'Restaurant not found' });
+      }
+      restaurant_name = restaurant.name;
+      displayName = displayName || restaurant.name;
+      slug = homeCategoryRestaurantSlug(restaurantId);
+      restaurant_ids = [restaurantId];
+    }
+
+    if (!displayName) {
+      return res.status(400).json({ status: false, msg: 'Name is required' });
+    }
+
     const created = await prisma.categories.create({
       data: {
-        name: value.name.trim(),
+        name: displayName,
         image: storedHomeCategoryImage(value.image),
         parent_id: BigInt(0),
         position: BigInt(0),
         status: value.status !== false,
         priority: BigInt(value.priority ?? 0),
-        slug: slugifyHomeCategoryName(value.name),
+        slug,
         restaurant_id: null,
         created_at: now,
         updated_at: now,
       },
     });
 
+    if (restaurant_ids.length) {
+      await replaceHomeCategoryRestaurants(Number(created.id), restaurant_ids);
+    }
+
     return res.status(201).json({
       status: true,
       msg: 'Home category created successfully',
-      data: serializeAdminHomeCategory(created, { restaurants_count: 0, restaurant_ids: [] }),
+      data: serializeAdminHomeCategory(created, {
+        restaurants_count: restaurant_ids.length,
+        restaurant_ids,
+        restaurant_name,
+      }),
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Failed to create home category';
@@ -137,12 +197,13 @@ export const updateHomeCategory = async (req: Request, res: Response): Promise<a
   }
 
   try {
-    await assertAdminHomeCategory(categoryId);
+    const existing = await assertAdminHomeCategory(categoryId);
     const data: Record<string, unknown> = { updated_at: new Date() };
-    if (value.name !== undefined) {
-      data.name = value.name.trim();
-      data.slug = slugifyHomeCategoryName(value.name);
-    }
+    const nextType =
+      value.type === 'restaurant' || value.type === 'category'
+        ? value.type
+        : parseHomeCategoryLink(existing.slug).type;
+
     if (value.image !== undefined) {
       data.image = storedHomeCategoryImage(value.image);
     }
@@ -153,11 +214,55 @@ export const updateHomeCategory = async (req: Request, res: Response): Promise<a
       data.status = value.status;
     }
 
+    let restaurant_name: string | null = null;
+
+    if (nextType === 'restaurant') {
+      const restaurantId =
+        value.restaurant_id != null
+          ? Number(value.restaurant_id)
+          : parseHomeCategoryLink(existing.slug).restaurantID;
+      if (!restaurantId || !Number.isFinite(restaurantId)) {
+        return res.status(400).json({ status: false, msg: 'restaurant_id is required for restaurant tiles' });
+      }
+      const restaurant = await prisma.restaurants.findUnique({
+        where: { id: BigInt(restaurantId) },
+        select: { id: true, name: true },
+      });
+      if (!restaurant) {
+        return res.status(400).json({ status: false, msg: 'Restaurant not found' });
+      }
+      restaurant_name = restaurant.name;
+      const displayName = value.name?.trim() || restaurant.name;
+      data.name = displayName;
+      data.slug = homeCategoryRestaurantSlug(restaurantId);
+      await replaceHomeCategoryRestaurants(categoryId, [restaurantId]);
+    } else {
+      if (value.name !== undefined) {
+        data.name = value.name.trim();
+        data.slug = slugifyHomeCategoryName(value.name);
+      } else if (value.type === 'category') {
+        data.slug = slugifyHomeCategoryName(existing.name);
+      }
+      if (value.type === 'category') {
+        await replaceHomeCategoryRestaurants(categoryId, []);
+      }
+    }
+
     const updated = await prisma.categories.update({
       where: { id: BigInt(categoryId) },
       data,
     });
     const restaurant_ids = await loadHomeCategoryRestaurantIds(categoryId);
+    if (!restaurant_name && nextType === 'restaurant') {
+      const rid = parseHomeCategoryLink(updated.slug).restaurantID;
+      if (rid != null) {
+        const r = await prisma.restaurants.findUnique({
+          where: { id: BigInt(rid) },
+          select: { name: true },
+        });
+        restaurant_name = r?.name ?? updated.name;
+      }
+    }
 
     return res.status(200).json({
       status: true,
@@ -165,6 +270,7 @@ export const updateHomeCategory = async (req: Request, res: Response): Promise<a
       data: serializeAdminHomeCategory(updated, {
         restaurants_count: restaurant_ids.length,
         restaurant_ids,
+        restaurant_name,
       }),
     });
   } catch (error: unknown) {
@@ -182,7 +288,9 @@ export const deleteHomeCategory = async (req: Request, res: Response): Promise<a
   try {
     await assertAdminHomeCategory(categoryId);
     await prisma.$transaction([
-      prisma.home_category_restaurant.deleteMany({ where: { category_id: categoryId } }),
+      prisma.home_category_restaurant.deleteMany({
+        where: { category_id: decimalCategoryId(categoryId) },
+      }),
       prisma.categories.update({
         where: { id: BigInt(categoryId) },
         data: { status: false, updated_at: new Date() },

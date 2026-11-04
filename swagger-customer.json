@@ -5789,6 +5789,11 @@
             "type": "string",
             "example": "100178"
           },
+          "order_id": {
+            "type": "string",
+            "example": "100178",
+            "description": "Gizra platform order id (same as id) — use for accept/status"
+          },
           "order_status": {
             "type": "string",
             "example": "handover"
@@ -5900,13 +5905,36 @@
             "nullable": true,
             "description": "Restaurant's own POS/receipt number when provided on manual dispatch"
           },
+          "restaurant_order_number": {
+            "type": "string",
+            "nullable": true,
+            "description": "Alias of restaurant_order_ref"
+          },
           "display_order_number": {
             "type": "string",
             "description": "restaurant_order_ref if set, else gizra_order_id — use for list card title"
+          },
+          "dispatch_summary": {
+            "type": "object",
+            "nullable": true,
+            "description": "Present on latest/active cards for manual dispatch (Request Gizra driver)",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "restaurant_order_ref": {
+                "type": "string",
+                "nullable": true
+              },
+              "gizra_order_id": {
+                "type": "string"
+              }
+            }
           }
         },
         "example": {
           "id": "100179",
+          "order_id": "100179",
           "order_status": "confirmed",
           "payment_method": "cash_on_delivery",
           "order_amount": 210,
@@ -5920,7 +5948,19 @@
           "item_title": "Beef Burger",
           "delivery_address_snippet": "block B, Soan Garden",
           "latitude": "33.123456",
-          "longitude": "73.654321"
+          "longitude": "73.654321",
+          "is_manual_dispatch": true,
+          "order_source": "manual_dispatch",
+          "order_source_label": "Gizra ride (restaurant request)",
+          "gizra_order_id": "100179",
+          "restaurant_order_ref": "4521",
+          "restaurant_order_number": "4521",
+          "display_order_number": "4521",
+          "dispatch_summary": {
+            "title": "Gizra ride — restaurant requested driver",
+            "restaurant_order_ref": "4521",
+            "gizra_order_id": "100179"
+          }
         }
       },
       "DeliveryManOrderDetailResponse": {
@@ -8955,6 +8995,90 @@
             }
           }
         }
+      },
+      "AdminHomeCategoryWriteBody": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "category",
+              "restaurant"
+            ],
+            "default": "category",
+            "description": "category = menu tile with optional multi-restaurant assign; restaurant = single-restaurant shortcut tile"
+          },
+          "name": {
+            "type": "string",
+            "description": "Required for type=category. Optional for type=restaurant (defaults to restaurant name)."
+          },
+          "restaurant_id": {
+            "type": "integer",
+            "description": "Required when type=restaurant"
+          },
+          "image": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "status": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AdminHomeCategoryItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string"
+          },
+          "image_full_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "slug": {
+            "type": "string",
+            "nullable": true
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "boolean"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "category",
+              "restaurant"
+            ]
+          },
+          "restaurantID": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurantName": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurants_count": {
+            "type": "integer"
+          },
+          "restaurant_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        }
       }
     },
     "parameters": {
@@ -11236,7 +11360,7 @@
     },
     "/consumer/restaurants/popular": {
       "get": {
-        "description": "Popular restaurants for the home screen horizontal list. Same zone flow as GET /consumer/restaurants/all. Sorted **can_order first** (restaurants accepting orders), then **order_count** (legacy PHP `restaurants/popular`). Each item includes computed availability fields. Optional **latitude** / **longitude** (query or headers) for distance on cards.",
+        "description": "Popular restaurants for the home screen horizontal list. Same zone flow as GET /consumer/restaurants/all. Sorted **can_order first**, then **nearest** when lat/lng provided, then **order_count** as tie-break (legacy PHP `restaurants/popular`). Each item includes computed availability fields. Optional **latitude** / **longitude** (query or headers) for distance on cards.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerZoneIdQuery"
@@ -11862,7 +11986,7 @@
     },
     "/consumer/restaurants/all": {
       "get": {
-        "description": "Active restaurants assigned to the customer zone(s). Each restaurant includes **server-computed availability** (`status`, `can_order`, `next_open_at`, `next_close_at`, `is_temporarily_closed`; legacy `open` = `can_order`). **Flow:** 1) GET /consumer/config/zone-id?lat=&lng= 2) pass returned id(s) as query **zone_id** (e.g. ?zone_id=2). Public; no Bearer token.",
+        "description": "Active restaurants assigned to the customer zone(s). Each restaurant includes **server-computed availability** (`status`, `can_order`, `next_open_at`, `next_close_at`, `is_temporarily_closed`; legacy `open` = `can_order`). Sorted **open first** (`can_order`), then **nearest** when **latitude** / **longitude** are sent (query or headers); closed restaurants follow, also by distance. **Flow:** 1) GET /consumer/config/zone-id?lat=&lng= 2) pass returned id(s) as query **zone_id** (e.g. ?zone_id=2). Public; no Bearer token.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerZoneIdQuery"
@@ -13779,33 +13903,6 @@
             "description": "OK",
             "content": {
               "application/json": {
-                "example": {
-                  "status": true,
-                  "data": {
-                    "id": "12",
-                    "name": "Demo Kitchen",
-                    "logo": "https://cdn.example.com/logo.png",
-                    "cover_photo": "https://cdn.example.com/cover.png",
-                    "delivery_time": "30-40 min",
-                    "minimum_order": 10,
-                    "tax": 5,
-                    "rating": 4.5,
-                    "address": "123 Main Street",
-                    "status": "OPEN",
-                    "can_order": true,
-                    "next_open_at": null,
-                    "next_close_at": "2026-10-27T23:00:00+02:00",
-                    "is_temporarily_closed": false,
-                    "open": true,
-                    "veg": true,
-                    "non_veg": true,
-                    "active": true,
-                    "latitude": "40.7128",
-                    "longitude": "-74.0060",
-                    "categories": [],
-                    "category_ids": []
-                  }
-                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -13960,6 +14057,33 @@
                       "category_ids": []
                     }
                   }
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "id": "12",
+                    "name": "Demo Kitchen",
+                    "logo": "https://cdn.example.com/logo.png",
+                    "cover_photo": "https://cdn.example.com/cover.png",
+                    "delivery_time": "30-40 min",
+                    "minimum_order": 10,
+                    "tax": 5,
+                    "rating": 4.5,
+                    "address": "123 Main Street",
+                    "status": "OPEN",
+                    "can_order": true,
+                    "next_open_at": null,
+                    "next_close_at": "2026-10-27T23:00:00+02:00",
+                    "is_temporarily_closed": false,
+                    "open": true,
+                    "veg": true,
+                    "non_veg": true,
+                    "active": true,
+                    "latitude": "40.7128",
+                    "longitude": "-74.0060",
+                    "categories": [],
+                    "category_ids": []
+                  }
                 }
               }
             }
@@ -14100,7 +14224,7 @@
             }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Bad Request - Invalid input or missing parameters",
             "content": {
               "application/json": {
                 "schema": {
@@ -14157,7 +14281,7 @@
             }
           },
           "500": {
-            "description": "Internal Server Error",
+            "description": "Internal Server Error - Something went wrong on the server",
             "content": {
               "application/json": {
                 "schema": {
@@ -14193,7 +14317,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Successful operation",
             "content": {
               "application/json": {
                 "schema": {
@@ -14207,7 +14331,7 @@
             }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Bad Request - Invalid input or missing parameters",
             "content": {
               "application/json": {
                 "schema": {
@@ -14249,7 +14373,7 @@
             }
           },
           "404": {
-            "description": "Not Found",
+            "description": "Not Found - The requested resource could not be found",
             "content": {
               "application/json": {
                 "schema": {
@@ -14263,7 +14387,7 @@
             }
           },
           "500": {
-            "description": "Internal Server Error",
+            "description": "Internal Server Error - Something went wrong on the server",
             "content": {
               "application/json": {
                 "schema": {
@@ -15775,7 +15899,7 @@
     },
     "/consumer/categories": {
       "get": {
-        "description": "**What's on your mind** — top-level marketplace food categories for the customer home screen (legacy PHP `GET /api/v1/categories/`). Uses admin categories with `position=0` (not vendor menu categories). Requires **zone_id** query (same as home slider / discover). Optional **name** filter. Each tile includes zone-scoped **products_count** and **order_count**; parent categories may include **childes**.",
+        "description": "**What's on your mind** — top-level marketplace food categories for the customer home screen (legacy PHP `GET /api/v1/categories/`). Uses admin categories with `position=0` (not vendor menu categories). Requires **zone_id** query (same as home slider / discover). Optional **name** filter. Each tile includes **type** (`category` | `restaurant`), **restaurantID** / **restaurantName** when the admin linked a single restaurant, plus zone-scoped **products_count** and **order_count**; parent categories may include **childes**.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerZoneIdQuery"
@@ -15808,7 +15932,24 @@
                         "priority": 10,
                         "parent_id": "0",
                         "products_count": 24,
-                        "order_count": 120
+                        "order_count": 120,
+                        "type": "category",
+                        "restaurantID": null,
+                        "restaurantName": null
+                      },
+                      {
+                        "id": "99",
+                        "name": "Nickel Barn",
+                        "image": "nickel.png",
+                        "image_full_url": "https://cdn.example.com/category/nickel.png",
+                        "slug": "r:12",
+                        "priority": 8,
+                        "parent_id": "0",
+                        "products_count": 0,
+                        "order_count": 0,
+                        "type": "restaurant",
+                        "restaurantID": "12",
+                        "restaurantName": "Nickel Barn"
                       }
                     ]
                   }
@@ -21442,7 +21583,7 @@
             }
           },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": {
@@ -21466,7 +21607,7 @@
             }
           },
           "500": {
-            "description": "Internal Server Error - Something went wrong on the server",
+            "description": "Internal Server Error",
             "content": {
               "application/json": {
                 "schema": {

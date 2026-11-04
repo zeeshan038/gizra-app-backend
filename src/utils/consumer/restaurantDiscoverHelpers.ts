@@ -252,6 +252,48 @@ export function distanceKmForRestaurant(
   return distanceKm(coords.lat, coords.lng, lat, lng);
 }
 
+/** Sort key when distance is unknown — sorts after any finite distance. */
+export const RESTAURANT_DISTANCE_UNKNOWN = Number.POSITIVE_INFINITY;
+
+export function restaurantDistanceKmRank(
+  coords: { lat: number; lng: number } | null,
+  latitude: string | null,
+  longitude: string | null
+): number {
+  return distanceKmForRestaurant(coords, latitude, longitude) ?? RESTAURANT_DISTANCE_UNKNOWN;
+}
+
+export type RestaurantOpenNearestSortKey = {
+  canOrder: boolean;
+  distKm: number;
+  orderCount?: number;
+  rating?: number;
+  id?: bigint | number | string;
+};
+
+/**
+ * Customer lists: open (can_order) first, then nearest; closed block also by distance.
+ * Tie-break: order_count (default) or rating when top_rated.
+ */
+export function compareRestaurantsOpenNearest(
+  a: RestaurantOpenNearestSortKey,
+  b: RestaurantOpenNearestSortKey,
+  mode: 'default' | 'top_rated' = 'default'
+): number {
+  if (a.canOrder !== b.canOrder) return a.canOrder ? -1 : 1;
+  if (a.distKm !== b.distKm) return a.distKm - b.distKm;
+  if (mode === 'top_rated') {
+    const ratingA = a.rating ?? 0;
+    const ratingB = b.rating ?? 0;
+    if (ratingB !== ratingA) return ratingB - ratingA;
+  } else {
+    const orderA = a.orderCount ?? 0;
+    const orderB = b.orderCount ?? 0;
+    if (orderB !== orderA) return orderB - orderA;
+  }
+  return Number(b.id ?? 0) - Number(a.id ?? 0);
+}
+
 export function parseRestaurantCoordinates(
   latitude: string | null,
   longitude: string | null
