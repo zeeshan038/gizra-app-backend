@@ -17,7 +17,30 @@ export const DM_ACTIVE_ORDER_STATUSES = [
   'handover',
 ] as const;
 
+/** Assigned orders that count toward the driver concurrent cap (not delivered/canceled). */
+export const DM_CONCURRENT_ORDER_STATUSES = [
+  'accepted',
+  'confirmed',
+  'processing',
+  'handover',
+  'picked_up',
+] as const;
+
 export const DM_LATEST_BASE_STATUSES = ['confirmed', 'accepted', 'processing', 'handover'] as const;
+
+/** Fallback when admin `dm_maximum_orders` is missing, empty, or invalid. */
+export const DM_DEFAULT_MAX_CONCURRENT_ORDERS = 2;
+
+export function resolveDmMaximumConcurrentOrdersFromSetting(
+  raw: string | null | undefined
+): number {
+  const configured =
+    raw != null && String(raw).trim() !== '' ? Number.parseInt(String(raw), 10) : Number.NaN;
+  if (Number.isFinite(configured) && configured > 0) {
+    return configured;
+  }
+  return DM_DEFAULT_MAX_CONCURRENT_ORDERS;
+}
 
 export function requireDmIdFromRequest(req: {
   user?: { id?: string };
@@ -29,6 +52,32 @@ export function requireDmIdFromRequest(req: {
 export async function getBusinessSetting(key: string): Promise<string | null> {
   const row = await prisma.business_settings.findFirst({ where: { key } });
   return row?.value ?? null;
+}
+
+/**
+ * Max active (concurrent) orders one driver may carry — from admin Business setup
+ * (`dm_maximum_orders`), not a daily total.
+ */
+export async function getDmMaximumConcurrentOrders(): Promise<number> {
+  const raw = await getBusinessSetting('dm_maximum_orders');
+  return resolveDmMaximumConcurrentOrdersFromSetting(raw);
+}
+
+export async function countDmConcurrentAssignedOrders(deliveryManId: number): Promise<number> {
+  if (!Number.isFinite(deliveryManId) || deliveryManId <= 0) return 0;
+  return prisma.orders.count({
+    where: {
+      delivery_man_id: deliveryManId,
+      order_status: { in: [...DM_CONCURRENT_ORDER_STATUSES] },
+      order_type: { not: 'pos' },
+    },
+  });
+}
+
+export async function deliveryManAtConcurrentOrderLimit(deliveryManId: number): Promise<boolean> {
+  const max = await getDmMaximumConcurrentOrders();
+  const active = await countDmConcurrentAssignedOrders(deliveryManId);
+  return active >= max;
 }
 
 function parseFoodNameFromDetails(raw: string | null): string | null {

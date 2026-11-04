@@ -349,6 +349,91 @@ export const getFoods = async (req: Request, res: Response): Promise<any> => {
  * @Route GET /api/vendor/catalog/food/:id
  * @Access Private (Vendor)
  */
+/**
+ * @Description Duplicate a food item (same catalog data, status inactive)
+ * @Route POST /api/vendor/catalog/food/:id/duplicate
+ * @Access Private (Vendor)
+ */
+export const duplicateFood = async (req: Request, res: Response): Promise<any> => {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id) || id <= 0) {
+        return res.status(400).json({ status: false, msg: 'Invalid food id' });
+    }
+
+    try {
+        const restaurant = await getVendorRestaurant(req);
+        if (!restaurant) {
+            return res.status(404).json({ status: false, msg: 'Restaurant not found for this vendor' });
+        }
+
+        const restaurantId = Number(restaurant.id);
+        const source = await prisma.food.findFirst({
+            where: { id, restaurant_id: restaurantId },
+        });
+        if (!source) {
+            return res.status(404).json({ status: false, msg: 'Food item not found' });
+        }
+
+        const isDraft = Number(source.is_draft) === 1;
+        if (!isDraft) {
+            const quota = await getFoodPublishQuota(restaurantId);
+            if (quota.max_live != null && (quota.remaining ?? 0) <= 0) {
+                return res.status(400).json({
+                    status: false,
+                    msg: 'Live menu limit reached. Remove or unpublish items before duplicating.',
+                    data: { quota },
+                });
+            }
+        }
+
+        const food = await prisma.food.create({
+            data: {
+                name: source.name,
+                description: source.description ?? '',
+                image: source.image ?? 'def.png',
+                category_id: source.category_id,
+                category_ids: source.category_ids,
+                variations: source.variations,
+                add_ons: source.add_ons,
+                attributes: source.attributes,
+                choice_options: source.choice_options,
+                price: source.price,
+                tax: source.tax,
+                tax_type: source.tax_type,
+                discount: source.discount,
+                discount_type: source.discount_type,
+                available_time_starts: source.available_time_starts,
+                available_time_ends: source.available_time_ends,
+                veg: source.veg,
+                status: false,
+                restaurant_id: source.restaurant_id,
+                is_draft: source.is_draft,
+                recommended: source.recommended,
+                is_halal: source.is_halal,
+                item_stock: source.item_stock,
+                stock_type: source.stock_type,
+                maximum_cart_quantity: source.maximum_cart_quantity,
+                order_count: BigInt(0),
+                avg_rating: 0,
+                rating_count: BigInt(0),
+                sell_count: BigInt(0),
+                slug: null,
+                rating: null,
+            },
+        });
+
+        const addonLookup = await buildAddonLookupFromFoodRows([food]);
+
+        return res.status(201).json({
+            status: true,
+            msg: 'Food item duplicated successfully',
+            data: serializeFoodWithAddons(food as Record<string, unknown>, addonLookup),
+        });
+    } catch (e: any) {
+        return res.status(500).json({ status: false, msg: e.message });
+    }
+};
+
 export const deleteFood = async (req: Request, res: Response): Promise<any> => {
     const { id } = req.params;
     try {

@@ -19,7 +19,10 @@ import {
   formatDiscoverRestaurant,
 } from '../../utils/consumer/restaurantDiscoverHelpers';
 import { paginationSkip } from '../../utils/consumer/orderListHelpers';
-import { findMarketplaceHomeCategoryById } from '../../utils/admin/homeCategories/homeCategoryHelpers';
+import {
+  findMarketplaceHomeCategoryById,
+  parseHomeCategoryLink,
+} from '../../utils/admin/homeCategories/homeCategoryHelpers';
 
 /**
  * @Description Home Slider (banners in customer zone(s); query zone_id required)
@@ -122,6 +125,40 @@ export const getHomeCategories = async (req: Request, res: Response): Promise<an
       childesByParent.set(key, list);
     }
 
+    const restaurantTileIds = [
+      ...new Set(
+        parents
+          .map((p) => parseHomeCategoryLink(p.slug).restaurantID)
+          .filter((id): id is number => id != null)
+      ),
+    ];
+    const restaurantNameById = new Map<number, string>();
+    if (restaurantTileIds.length) {
+      const rests = await prisma.restaurants.findMany({
+        where: { id: { in: restaurantTileIds.map((id) => BigInt(id)) } },
+        select: { id: true, name: true },
+      });
+      for (const r of rests) {
+        restaurantNameById.set(Number(r.id), r.name);
+      }
+    }
+
+    const linkExtrasForRow = (row: { slug: string | null; name: string }) => {
+      const link = parseHomeCategoryLink(row.slug);
+      if (link.type === 'restaurant' && link.restaurantID != null) {
+        return {
+          type: 'restaurant' as const,
+          restaurantID: String(link.restaurantID),
+          restaurantName: restaurantNameById.get(link.restaurantID) ?? row.name,
+        };
+      }
+      return {
+        type: 'category' as const,
+        restaurantID: null,
+        restaurantName: null,
+      };
+    };
+
     let categories = await Promise.all(
       parents.map(async (parent) => {
         const childes = childesByParent.get(parent.id.toString()) ?? [];
@@ -140,6 +177,7 @@ export const getHomeCategories = async (req: Request, res: Response): Promise<an
             return formatHomeCategory(child, {
               products_count: childCounts.products_count,
               order_count: childCounts.order_count,
+              ...linkExtrasForRow(child),
             });
           })
         );
@@ -148,6 +186,7 @@ export const getHomeCategories = async (req: Request, res: Response): Promise<an
           products_count: counts.products_count,
           order_count: counts.order_count,
           childes: formattedChildes.length ? formattedChildes : undefined,
+          ...linkExtrasForRow(parent),
         });
       })
     );

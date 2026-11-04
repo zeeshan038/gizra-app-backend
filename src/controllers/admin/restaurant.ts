@@ -33,6 +33,7 @@ function parseListQuery(req: Request) {
     type: req.query.type ?? 'all',
     restaurant_model: req.query.restaurant_model ?? 'all',
     active_only: req.query.active_only ?? '1',
+    assignment_picker: req.query.assignment_picker === '1' ? '1' : undefined,
     page: Number(req.query.page) || 1,
     limit: Number(req.query.limit) || 15,
   };

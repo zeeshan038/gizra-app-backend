@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import prisma from '../../../config/database';
 import {
   consumerCategoryMediaFields,
@@ -20,6 +21,41 @@ export function slugifyHomeCategoryName(name: string): string {
     .slice(0, 80);
 }
 
+/** Home tile opens one restaurant (customer app deep link). */
+export const HOME_CATEGORY_RESTAURANT_SLUG_PREFIX = 'r:';
+
+export function homeCategoryRestaurantSlug(restaurantId: number): string {
+  return `${HOME_CATEGORY_RESTAURANT_SLUG_PREFIX}${restaurantId}`;
+}
+
+export function parseHomeCategoryLink(slug: string | null | undefined): {
+  type: 'category' | 'restaurant';
+  restaurantID: number | null;
+} {
+  const s = slug?.trim() ?? '';
+  if (s.startsWith(HOME_CATEGORY_RESTAURANT_SLUG_PREFIX)) {
+    const id = Number(s.slice(HOME_CATEGORY_RESTAURANT_SLUG_PREFIX.length));
+    if (Number.isFinite(id) && id > 0) {
+      return { type: 'restaurant', restaurantID: id };
+    }
+  }
+  return { type: 'category', restaurantID: null };
+}
+
+export type HomeCategoryLinkExtras = {
+  type: 'category' | 'restaurant';
+  restaurantID: string | null;
+  restaurantName: string | null;
+};
+
+export function decimalCategoryId(categoryId: number): Prisma.Decimal {
+  return new Prisma.Decimal(categoryId);
+}
+
+export function decimalRestaurantId(restaurantId: number): Prisma.Decimal {
+  return new Prisma.Decimal(restaurantId);
+}
+
 export function isGlobalMarketplaceRestaurantId(restaurantId: unknown): boolean {
   if (restaurantId == null) return true;
   const n = Number(restaurantId);
@@ -39,9 +75,19 @@ export function serializeAdminHomeCategory(
     created_at: Date | null;
     updated_at: Date | null;
   },
-  extras?: { restaurants_count?: number; restaurant_ids?: number[] }
+  extras?: {
+    restaurants_count?: number;
+    restaurant_ids?: number[];
+    restaurant_name?: string | null;
+  }
 ) {
   const media = consumerCategoryMediaFields(row.image || 'def.png');
+  const link = parseHomeCategoryLink(row.slug);
+  const restaurantID =
+    link.type === 'restaurant' && link.restaurantID != null ? String(link.restaurantID) : null;
+  const restaurantName =
+    link.type === 'restaurant' ? extras?.restaurant_name ?? row.name : null;
+
   return {
     id: row.id.toString(),
     name: row.name,
@@ -54,6 +100,9 @@ export function serializeAdminHomeCategory(
     position: Number(row.position),
     restaurants_count: extras?.restaurants_count ?? 0,
     restaurant_ids: extras?.restaurant_ids ?? [],
+    type: link.type,
+    restaurantID,
+    restaurantName,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -117,16 +166,18 @@ export async function replaceHomeCategoryRestaurants(
     }
   }
 
+  const categoryIdDecimal = decimalCategoryId(categoryId);
+
   await prisma.$transaction([
     prisma.home_category_restaurant.deleteMany({
-      where: { category_id: categoryId },
+      where: { category_id: categoryIdDecimal },
     }),
     ...(uniqueIds.length
       ? [
           prisma.home_category_restaurant.createMany({
             data: uniqueIds.map((restaurant_id) => ({
-              category_id: categoryId,
-              restaurant_id,
+              category_id: categoryIdDecimal,
+              restaurant_id: decimalRestaurantId(restaurant_id),
             })),
           }),
         ]
@@ -136,7 +187,7 @@ export async function replaceHomeCategoryRestaurants(
 
 export async function loadHomeCategoryRestaurantIds(categoryId: number): Promise<number[]> {
   const links = await prisma.home_category_restaurant.findMany({
-    where: { category_id: categoryId },
+    where: { category_id: decimalCategoryId(categoryId) },
     select: { restaurant_id: true },
   });
   return links

@@ -1,4 +1,9 @@
 import prisma from '../../config/database';
+import {
+  decimalCategoryId,
+  findMarketplaceHomeCategoryById,
+  parseHomeCategoryLink,
+} from '../admin/homeCategories/homeCategoryHelpers';
 import { expandHomeCategoryIdsForCount } from './categoryDiscoverHelpers';
 
 /** Explicit admin assignments, or legacy inference via menu items in zone. */
@@ -6,8 +11,16 @@ export async function resolveRestaurantIdsForHomeCategory(
   categoryId: number,
   zoneIds: number[]
 ): Promise<number[]> {
+  const category = await findMarketplaceHomeCategoryById(categoryId);
+  if (category?.slug) {
+    const link = parseHomeCategoryLink(category.slug);
+    if (link.type === 'restaurant' && link.restaurantID != null) {
+      return [link.restaurantID];
+    }
+  }
+
   const links = await prisma.home_category_restaurant.findMany({
-    where: { category_id: categoryId },
+    where: { category_id: decimalCategoryId(categoryId) },
     select: { restaurant_id: true },
   });
   const assigned = links

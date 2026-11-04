@@ -11,7 +11,7 @@ dotenv.config();
 const DEFAULT_SETTINGS: Record<string, string> = {
   home_delivery: '1',
   take_away: '1',
-  schedule_order: '1',
+  schedule_order: '1',  
   instant_order: '1',
   repeat_order_option: '1',
   digital_payment: '{"status":"1"}',
@@ -28,7 +28,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   timezone: 'Asia/Jerusalem',
   maintenance_mode: '0',
   toggle_veg_non_veg: '1',
-  dm_maximum_orders: '5',
+  dm_maximum_orders: '2',
   dm_max_cash_in_hand: '10000',
   business_name: 'Gizra APP',
   language: '["en","he"]',

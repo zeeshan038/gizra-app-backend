@@ -11,6 +11,7 @@ import {
 import { formatCustomerName } from '../vendor/order/mapper';
 import {
   buildLatestOrderStatusFilter,
+  deliveryManAtConcurrentOrderLimit,
   getBusinessSetting,
   getEligibleRestaurantIdsForDm,
   passesNotDigitalPending,
@@ -306,7 +307,10 @@ export async function buildDeliveryManOrderDetail(
       subtotal: pricing.order_amount,
     },
     assigned_to_me: isAssignedToMe,
-    can_accept: !assigned && (await deliveryManCanViewOrder(dm, order)),
+    can_accept:
+      !assigned &&
+      (await deliveryManCanViewOrder(dm, order)) &&
+      !(await deliveryManAtConcurrentOrderLimit(Number(dm.id))),
     can_update_status: isAssignedToMe,
     ...cookingTime,
   };

@@ -12,6 +12,7 @@ import {
     getFoodById,
     publishAllDraftFoods,
     getFoodPublishQuotaHandler,
+    duplicateFood,
 } from '../../controllers/vendor/catalog/Food';
 import { parsePdf, generateDescription, generateFoodImage, generateCategoryImage } from '../../controllers/vendor/catalog/AI';
 import { createAddon, getAddons } from '../../controllers/vendor/catalog/Addon';
@@ -36,6 +37,7 @@ router.get('/food/publish-quota', getFoodPublishQuotaHandler);
 router.post('/food/publish-all-drafts', publishAllDraftFoods);
 router.post('/food/bulk-publish', bulkPublishFoods);
 router.post('/food/bulk-delete', bulkDeleteFoods);
+router.post('/food/:id/duplicate', duplicateFood);
 router.get('/food/:id', getFoodById);
 router.patch('/food/:id', updateFood);
 router.delete('/food/:id', deleteFood);

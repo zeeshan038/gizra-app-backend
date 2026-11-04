@@ -11,7 +11,10 @@ import {
   buildLatestOrderStatusFilter,
   buildLatestOrdersAreaFilter,
   DM_ACTIVE_ORDER_STATUSES,
+  DM_CONCURRENT_ORDER_STATUSES,
+  countDmConcurrentAssignedOrders,
   getBusinessSetting,
+  getDmMaximumConcurrentOrders,
   getEligibleRestaurantIdsForDm,
   mapOrdersForDeliveryManList,
   passesNotDigitalPending,
@@ -266,12 +269,16 @@ export const acceptOrder = async (req: Request, res: Response): Promise<any> => 
       return res.status(404).json({ status: false, msg: 'Delivery man not found' });
     }
 
-    const maxOrdersRaw = await getBusinessSetting('dm_maximum_orders');
-    const maxOrders = maxOrdersRaw ? Number(maxOrdersRaw) : 1;
-    if (Number(dm.current_orders) >= maxOrders) {
+    const maxOrders = await getDmMaximumConcurrentOrders();
+    const activeAssigned = await countDmConcurrentAssignedOrders(deliveryManId);
+    if (
+      activeAssigned >= maxOrders ||
+      Number(dm.current_orders) >= maxOrders
+    ) {
       return res.status(405).json({
         status: false,
-        msg: 'Maximum concurrent orders reached',
+        msg: `You can accept at most ${maxOrders} orders at a time. Finish or cancel a trip before accepting another.`,
+        data: { max_concurrent_orders: maxOrders, active_assigned_orders: activeAssigned },
       });
     }
 
@@ -322,6 +329,17 @@ export const acceptOrder = async (req: Request, res: Response): Promise<any> => 
         : order.order_status;
 
     const updatedOrder = await prisma.$transaction(async (tx) => {
+      const inFlight = await tx.orders.count({
+        where: {
+          delivery_man_id: deliveryManId,
+          order_status: { in: [...DM_CONCURRENT_ORDER_STATUSES] },
+          order_type: { not: 'pos' },
+        },
+      });
+      if (inFlight >= maxOrders) {
+        throw new Error('DM_MAX_CONCURRENT_ORDERS');
+      }
+
       const updated = await tx.orders.update({
         where: { id: BigInt(order_id as string) },
         data: {
@@ -352,6 +370,14 @@ export const acceptOrder = async (req: Request, res: Response): Promise<any> => 
       data: { id: updatedOrder.id.toString(), order_status: updatedOrder.order_status },
     });
   } catch (e: unknown) {
+    if (e instanceof Error && e.message === 'DM_MAX_CONCURRENT_ORDERS') {
+      const maxOrders = await getDmMaximumConcurrentOrders();
+      return res.status(405).json({
+        status: false,
+        msg: `You can accept at most ${maxOrders} orders at a time. Finish or cancel a trip before accepting another.`,
+        data: { max_concurrent_orders: maxOrders },
+      });
+    }
     const msg = e instanceof Error ? e.message : 'Request failed';
     return res.status(500).json({ status: false, msg });
   }

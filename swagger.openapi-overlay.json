@@ -4491,7 +4491,7 @@
     },
     "/consumer/restaurants/all": {
       "get": {
-        "description": "Active restaurants assigned to the customer zone(s). Each restaurant includes **server-computed availability** (`status`, `can_order`, `next_open_at`, `next_close_at`, `is_temporarily_closed`; legacy `open` = `can_order`). **Flow:** 1) GET /consumer/config/zone-id?lat=&lng= 2) pass returned id(s) as query **zone_id** (e.g. ?zone_id=2). Public; no Bearer token.",
+        "description": "Active restaurants assigned to the customer zone(s). Each restaurant includes **server-computed availability** (`status`, `can_order`, `next_open_at`, `next_close_at`, `is_temporarily_closed`; legacy `open` = `can_order`). Sorted **open first** (`can_order`), then **nearest** when **latitude** / **longitude** are sent (query or headers); closed restaurants follow, also by distance. **Flow:** 1) GET /consumer/config/zone-id?lat=&lng= 2) pass returned id(s) as query **zone_id** (e.g. ?zone_id=2). Public; no Bearer token.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerZoneIdQuery"
@@ -4667,7 +4667,7 @@
     "/consumer/categories": {
       "get": {
         "summary": "What's on your mind (home categories)",
-        "description": "**What's on your mind** — top-level marketplace food categories for the customer home screen (legacy PHP `GET /api/v1/categories/`). Uses admin categories with `position=0` (not vendor menu categories). Requires **zone_id** query (same as home slider / discover). Optional **name** filter. Each tile includes zone-scoped **products_count** and **order_count**; parent categories may include **childes**.",
+        "description": "**What's on your mind** — top-level marketplace food categories for the customer home screen (legacy PHP `GET /api/v1/categories/`). Uses admin categories with `position=0` (not vendor menu categories). Requires **zone_id** query (same as home slider / discover). Optional **name** filter. Each tile includes **type** (`category` | `restaurant`), **restaurantID** / **restaurantName** when the admin linked a single restaurant, plus zone-scoped **products_count** and **order_count**; parent categories may include **childes**.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerZoneIdQuery"
@@ -4700,7 +4700,24 @@
                         "priority": 10,
                         "parent_id": "0",
                         "products_count": 24,
-                        "order_count": 120
+                        "order_count": 120,
+                        "type": "category",
+                        "restaurantID": null,
+                        "restaurantName": null
+                      },
+                      {
+                        "id": "99",
+                        "name": "Nickel Barn",
+                        "image": "nickel.png",
+                        "image_full_url": "https://cdn.example.com/category/nickel.png",
+                        "slug": "r:12",
+                        "priority": 8,
+                        "parent_id": "0",
+                        "products_count": 0,
+                        "order_count": 0,
+                        "type": "restaurant",
+                        "restaurantID": "12",
+                        "restaurantName": "Nickel Barn"
                       }
                     ]
                   }
@@ -4726,7 +4743,7 @@
     },
     "/consumer/restaurants/popular": {
       "get": {
-        "description": "Popular restaurants for the home screen horizontal list. Same zone flow as GET /consumer/restaurants/all. Sorted **can_order first** (restaurants accepting orders), then **order_count** (legacy PHP `restaurants/popular`). Each item includes computed availability fields. Optional **latitude** / **longitude** (query or headers) for distance on cards.",
+        "description": "Popular restaurants for the home screen horizontal list. Same zone flow as GET /consumer/restaurants/all. Sorted **can_order first**, then **nearest** when lat/lng provided, then **order_count** as tie-break (legacy PHP `restaurants/popular`). Each item includes computed availability fields. Optional **latitude** / **longitude** (query or headers) for distance on cards.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerZoneIdQuery"
@@ -17076,6 +17093,11 @@
             "type": "string",
             "example": "100178"
           },
+          "order_id": {
+            "type": "string",
+            "example": "100178",
+            "description": "Gizra platform order id (same as id) — use for accept/status"
+          },
           "order_status": {
             "type": "string",
             "example": "handover"
@@ -17187,13 +17209,36 @@
             "nullable": true,
             "description": "Restaurant's own POS/receipt number when provided on manual dispatch"
           },
+          "restaurant_order_number": {
+            "type": "string",
+            "nullable": true,
+            "description": "Alias of restaurant_order_ref"
+          },
           "display_order_number": {
             "type": "string",
             "description": "restaurant_order_ref if set, else gizra_order_id — use for list card title"
+          },
+          "dispatch_summary": {
+            "type": "object",
+            "nullable": true,
+            "description": "Present on latest/active cards for manual dispatch (Request Gizra driver)",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "restaurant_order_ref": {
+                "type": "string",
+                "nullable": true
+              },
+              "gizra_order_id": {
+                "type": "string"
+              }
+            }
           }
         },
         "example": {
           "id": "100179",
+          "order_id": "100179",
           "order_status": "confirmed",
           "payment_method": "cash_on_delivery",
           "order_amount": 210,
@@ -17207,7 +17252,19 @@
           "item_title": "Beef Burger",
           "delivery_address_snippet": "block B, Soan Garden",
           "latitude": "33.123456",
-          "longitude": "73.654321"
+          "longitude": "73.654321",
+          "is_manual_dispatch": true,
+          "order_source": "manual_dispatch",
+          "order_source_label": "Gizra ride (restaurant request)",
+          "gizra_order_id": "100179",
+          "restaurant_order_ref": "4521",
+          "restaurant_order_number": "4521",
+          "display_order_number": "4521",
+          "dispatch_summary": {
+            "title": "Gizra ride — restaurant requested driver",
+            "restaurant_order_ref": "4521",
+            "gizra_order_id": "100179"
+          }
         }
       },
       "DeliveryManOrderDetailResponse": {

@@ -22,6 +22,9 @@ import {
     parseDiscoverType,
     parseMapBoundsFromQuery,
     parseRestaurantCoordinates,
+    compareRestaurantsOpenNearest,
+    restaurantDistanceKmRank,
+    RESTAURANT_DISTANCE_UNKNOWN,
 } from '../../utils/consumer/restaurantDiscoverHelpers';
 import {
     buildRestaurantFoodWhere,
@@ -61,6 +64,7 @@ export const getRestaurants = async (req: Request, res: Response): Promise<any> 
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 20;
         const skip = (page - 1) * limit;
+        const coords = parseCoordinatesFromRequest(req);
 
         const name = req.query.name as string;
         const veg = req.query.veg === 'true' || req.query.veg === '1';
@@ -87,38 +91,67 @@ export const getRestaurants = async (req: Request, res: Response): Promise<any> 
             whereClause.id = { in: discountedIds };
         }
 
-        let orderBy: any = { id: 'desc' };
-        if (top_rated) {
-            orderBy = { rating: 'desc' };
-        }
-
-        const [total, restaurants] = await Promise.all([
-            prisma.restaurants.count({ where: whereClause }),
-            prisma.restaurants.findMany({
-                where: whereClause,
-                select: {
-                    id: true,
-                    name: true,
-                    logo: true,
-                    cover_photo: true,
-                    delivery_time: true,
-                    minimum_order: true,
-                    tax: true,
-                    rating: true,
-                    address: true,
-                    active: true,
-                },
-                skip,
-                take: limit,
-                orderBy
-            })
-        ]);
+        const restaurants = await prisma.restaurants.findMany({
+            where: whereClause,
+            select: {
+                id: true,
+                name: true,
+                logo: true,
+                cover_photo: true,
+                delivery_time: true,
+                minimum_order: true,
+                tax: true,
+                rating: true,
+                address: true,
+                active: true,
+                latitude: true,
+                longitude: true,
+                order_count: true,
+            },
+        });
 
         const availabilityMap = await availabilityMapForRestaurants(restaurants);
+        const sortMode = top_rated ? 'top_rated' : 'default';
 
-        const formattedRestaurants = restaurants.map((r) => {
-            const availability = restaurantAvailabilityResponseFields(
-                availabilityMap.get(r.id.toString()) ?? {
+        const ranked = restaurants
+            .map((r) => {
+                const availability = availabilityMap.get(r.id.toString());
+                const canOrder = availability?.can_order ?? false;
+                const distKm = restaurantDistanceKmRank(coords, r.latitude, r.longitude);
+                return {
+                    r,
+                    canOrder,
+                    distKm,
+                    availability,
+                    rating: r.rating != null ? Number(r.rating) : 0,
+                };
+            })
+            .filter(({ distKm }) => !coords || distKm !== RESTAURANT_DISTANCE_UNKNOWN)
+            .sort((a, b) =>
+                compareRestaurantsOpenNearest(
+                    {
+                        canOrder: a.canOrder,
+                        distKm: a.distKm,
+                        orderCount: Number(a.r.order_count),
+                        rating: a.rating,
+                        id: a.r.id,
+                    },
+                    {
+                        canOrder: b.canOrder,
+                        distKm: b.distKm,
+                        orderCount: Number(b.r.order_count),
+                        rating: b.rating,
+                        id: b.r.id,
+                    },
+                    sortMode
+                )
+            );
+
+        const pageSlice = ranked.slice(skip, skip + limit);
+
+        const formattedRestaurants = pageSlice.map(({ r, availability, distKm }) => {
+            const availabilityFields = restaurantAvailabilityResponseFields(
+                availability ?? {
                     status: 'CLOSED',
                     can_order: false,
                     next_open_at: null,
@@ -126,6 +159,10 @@ export const getRestaurants = async (req: Request, res: Response): Promise<any> 
                     is_temporarily_closed: r.active === false,
                 }
             );
+            const distance =
+                coords && Number.isFinite(distKm)
+                    ? Math.round(distKm * 100) / 100
+                    : null;
             return {
                 ...r,
                 id: r.id.toString(),
@@ -136,14 +173,16 @@ export const getRestaurants = async (req: Request, res: Response): Promise<any> 
                     logo: r.logo,
                     cover_photo: r.cover_photo,
                 }),
-                ...availability,
+                ...availabilityFields,
+                distance,
+                distance_text: distance != null ? `${distance} km` : null,
             };
         });
 
         return res.status(200).json({
             status: true,
             data: {
-                total_size: total,
+                total_size: ranked.length,
                 limit,
                 offset: page,
                 restaurants: formattedRestaurants
@@ -210,17 +249,40 @@ export const getPopularRestaurants = async (req: Request, res: Response): Promis
 
         const availabilityMap = await availabilityMapForRestaurants(candidates);
 
+        const sortMode = top_rated ? 'top_rated' : 'default';
         const ranked = candidates
             .map((r) => {
                 const availability = availabilityMap.get(r.id.toString());
                 const canOrder = availability?.can_order ?? false;
-                return { row: r, canOrder, orderCount: Number(r.order_count), availability };
+                const distKm = restaurantDistanceKmRank(coords, r.latitude, r.longitude);
+                return {
+                    row: r,
+                    canOrder,
+                    orderCount: Number(r.order_count),
+                    availability,
+                    distKm,
+                    rating: r.rating != null ? Number(r.rating) : 0,
+                };
             })
-            .sort((a, b) => {
-                if (a.canOrder !== b.canOrder) return a.canOrder ? -1 : 1;
-                if (b.orderCount !== a.orderCount) return b.orderCount - a.orderCount;
-                return Number(b.row.id) - Number(a.row.id);
-            });
+            .sort((a, b) =>
+                compareRestaurantsOpenNearest(
+                    {
+                        canOrder: a.canOrder,
+                        distKm: a.distKm,
+                        orderCount: a.orderCount,
+                        rating: a.rating,
+                        id: a.row.id,
+                    },
+                    {
+                        canOrder: b.canOrder,
+                        distKm: b.distKm,
+                        orderCount: b.orderCount,
+                        rating: b.rating,
+                        id: b.row.id,
+                    },
+                    sortMode
+                )
+            );
 
         const pageSlice = ranked.slice(skip, skip + limit);
         const restaurants = pageSlice.map(({ row, availability }) =>
@@ -311,20 +373,25 @@ export const getNearbyRestaurants = async (req: Request, res: Response): Promise
                 };
             })
             .filter((item) => Number.isFinite(item.distKm))
-            .sort((a, b) => {
-                if (a.canOrder !== b.canOrder) return a.canOrder ? -1 : 1;
-                if (a.distKm !== b.distKm) return a.distKm - b.distKm;
-                return Number(b.row.order_count) - Number(a.row.order_count);
-            });
-
-        if (top_rated) {
-            ranked.sort((a, b) => {
-                const ratingA = Number(a.row.rating) || 0;
-                const ratingB = Number(b.row.rating) || 0;
-                if (ratingB !== ratingA) return ratingB - ratingA;
-                return a.distKm - b.distKm;
-            });
-        }
+            .sort((a, b) =>
+                compareRestaurantsOpenNearest(
+                    {
+                        canOrder: a.canOrder,
+                        distKm: a.distKm,
+                        orderCount: Number(a.row.order_count),
+                        rating: a.row.rating != null ? Number(a.row.rating) : 0,
+                        id: a.row.id,
+                    },
+                    {
+                        canOrder: b.canOrder,
+                        distKm: b.distKm,
+                        orderCount: Number(b.row.order_count),
+                        rating: b.row.rating != null ? Number(b.row.rating) : 0,
+                        id: b.row.id,
+                    },
+                    top_rated ? 'top_rated' : 'default'
+                )
+            );
 
         const pageSlice = ranked.slice(skip, skip + limit);
         const restaurants = pageSlice.map(({ row, availability, distKm }) =>
@@ -432,13 +499,22 @@ export const getDiscoverMapRestaurants = async (req: Request, res: Response): Pr
             );
         }
 
-        filtered.sort((a, b) => {
-            if (a.canOrder !== b.canOrder) return a.canOrder ? -1 : 1;
-            const distA = a.distKm ?? Number.POSITIVE_INFINITY;
-            const distB = b.distKm ?? Number.POSITIVE_INFINITY;
-            if (distA !== distB) return distA - distB;
-            return Number(b.row.order_count) - Number(a.row.order_count);
-        });
+        filtered.sort((a, b) =>
+            compareRestaurantsOpenNearest(
+                {
+                    canOrder: a.canOrder,
+                    distKm: a.distKm ?? RESTAURANT_DISTANCE_UNKNOWN,
+                    orderCount: Number(a.row.order_count),
+                    id: a.row.id,
+                },
+                {
+                    canOrder: b.canOrder,
+                    distKm: b.distKm ?? RESTAURANT_DISTANCE_UNKNOWN,
+                    orderCount: Number(b.row.order_count),
+                    id: b.row.id,
+                }
+            )
+        );
 
         const restaurants = filtered.map(({ row, availability, distKm }) =>
             formatMapRestaurant(row, {
@@ -650,7 +726,28 @@ export const searchFoods = async (req: Request, res: Response): Promise<any> => 
             addonLookup
         );
 
-        const formattedRestaurants = restaurantRows.map((r) => {
+        const rankedRestaurants = [...restaurantRows].sort((a, b) => {
+            const avA = availabilityMap.get(a.id.toString());
+            const avB = availabilityMap.get(b.id.toString());
+            return compareRestaurantsOpenNearest(
+                {
+                    canOrder: avA?.can_order ?? false,
+                    distKm: restaurantDistanceKmRank(coords, a.latitude, a.longitude),
+                    orderCount: Number(a.order_count),
+                    rating: a.rating != null ? Number(a.rating) : 0,
+                    id: a.id,
+                },
+                {
+                    canOrder: avB?.can_order ?? false,
+                    distKm: restaurantDistanceKmRank(coords, b.latitude, b.longitude),
+                    orderCount: Number(b.order_count),
+                    rating: b.rating != null ? Number(b.rating) : 0,
+                    id: b.id,
+                }
+            );
+        });
+
+        const formattedRestaurants = rankedRestaurants.map((r) => {
             const availability = availabilityMap.get(r.id.toString());
             const distKm = distanceKmForRestaurant(coords, r.latitude, r.longitude);
             return formatDiscoverRestaurant(r, { availability: availability ?? undefined, distanceKm: distKm });
