@@ -168,24 +168,9 @@ async function pushVendorFcmDevices(
   await Promise.all(tokens.map((token) => pushToDeviceIfEnabled(true, token, data)));
 }
 
-/** POS / vendor panel topic fan-out (legacy PHP `restaurant_panel_{id}_message` + zone topic). */
+/** Per-restaurant POS topic only (`restaurant_panel_{id}_message`). Zone topics are for admin broadcasts, not new orders. */
 async function broadcastVendorPosTopics(restaurantId: number, data: FcmPushData): Promise<void> {
   await sendFcmToTopic(`restaurant_panel_${restaurantId}_message`, data);
-
-  const restaurant = await prisma.restaurants.findUnique({
-    where: { id: BigInt(restaurantId) },
-    select: { zone_id: true },
-  });
-  const zoneId =
-    restaurant?.zone_id != null ? Number(restaurant.zone_id) : Number.NaN;
-  if (!Number.isFinite(zoneId)) return;
-
-  const zone = await prisma.zones.findUnique({
-    where: { id: BigInt(zoneId) },
-    select: { restaurant_wise_topic: true },
-  });
-  const topic = zone?.restaurant_wise_topic || `zone_${zoneId}_restaurant`;
-  await sendFcmToTopic(topic, data);
 }
 
 async function notifyCustomerOrderStatus(
@@ -537,6 +522,7 @@ export async function persistAndPushVendorNewOrder(input: {
     title: 'New order',
     description: `New order received — Order ID: ${input.order_id}`,
     order_id: input.order_id,
+    restaurant_id: input.restaurant_id,
     image: '',
     type: 'new_order',
     order_type: input.order_type,
