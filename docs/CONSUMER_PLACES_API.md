@@ -66,7 +66,7 @@ Restart the API after changing this variable.
 In [Google Cloud Console](https://console.cloud.google.com/) for that key’s project, enable billing and APIs used by this proxy:
 
 - **Places API (New)** — autocomplete + place details (default backend path)
-- Geocoding API — reverse geocode (`/geocode`)
+- Geocoding API — optional; reverse geocode (`/geocode`) falls back to **Places (New) searchNearby** if Geocoding is off
 - Distance Matrix API — delivery distance fallback
 
 Optional env: `GOOGLE_PLACES_REGION_CODES=IL` (autocomplete country filter).  
