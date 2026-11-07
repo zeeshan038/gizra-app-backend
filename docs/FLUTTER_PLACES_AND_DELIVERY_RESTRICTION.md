@@ -247,6 +247,33 @@ cd gizra-backend && npm run test:consumer-places
 
 ---
 
+## Server: missing `delivery_distance_time_restriction_configs` table
+
+If the admin page shows **Could not load settings** / table does not exist, on the **dev VPS** (`~/gizra-dev`):
+
+```bash
+cd ~/gizra-dev
+git pull
+POSTGRES_CONTAINER=gizra-dev-postgres ./scripts/apply-schema-patches.sh
+```
+
+Or full dev redeploy (also applies patches):
+
+```bash
+npm run deploy:dev -- --pull
+```
+
+Prod stack (`~/gizra-app-backend`): use `POSTGRES_CONTAINER=gizra-postgres` and `npm run deploy:server`.
+
+Verify:
+
+```bash
+docker exec gizra-dev-postgres psql -U postgres -d gizra_db -c \
+  "\\dt delivery_distance_time_restriction*"
+```
+
+---
+
 ## Out of scope for Flutter
 
 - Admin configuration (`/admin/delivery-distance-time-restriction`) — Super Admin web only.

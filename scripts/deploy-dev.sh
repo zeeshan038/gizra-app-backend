@@ -51,6 +51,9 @@ echo "Sync Postgres role password with .env for $POSTGRES_CONTAINER…"
 echo "Ensure public schema grants for $POSTGRES_CONTAINER…"
 ./scripts/fix-postgres-grants.sh
 
+echo "Apply SQL schema patches (new tables/columns)…"
+POSTGRES_CONTAINER="$POSTGRES_CONTAINER" ./scripts/apply-schema-patches.sh
+
 echo "Building and starting Dev Backend…"
 $COMPOSE up -d --build --force-recreate --remove-orphans backend
 
