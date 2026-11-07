@@ -1,17 +1,18 @@
-import { getBusinessSetting } from './businessSettings';
+/** Server-only Google Maps / Places key — set GOOGLE_MAPS_API_KEY in backend .env (never ship to apps). */
+export function resolveGoogleMapsServerApiKey(): string | null {
+  return process.env.GOOGLE_MAPS_API_KEY?.trim() || null;
+}
 
-async function mapsApiKey(): Promise<string | null> {
-  const server = await getBusinessSetting('map_api_key_server');
-  if (server?.trim()) return server.trim();
-  const client = await getBusinessSetting('map_api_key');
-  if (client?.trim()) return client.trim();
-  return process.env.GOOGLE_MAPS_API_KEY?.trim() || process.env.MAP_API_KEY?.trim() || null;
+function mapsApiKey(): string | null {
+  return resolveGoogleMapsServerApiKey();
 }
 
 async function googleGet(path: string, params: Record<string, string>) {
-  const key = await mapsApiKey();
+  const key = mapsApiKey();
   if (!key) {
-    throw new Error('Google Maps API key is not configured');
+    throw new Error(
+      'Google Maps API key is not configured. Set GOOGLE_MAPS_API_KEY in the backend .env.'
+    );
   }
   const url = new URL(`https://maps.googleapis.com/maps/api/${path}`);
   for (const [k, v] of Object.entries(params)) {

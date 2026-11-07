@@ -6,6 +6,10 @@ import { resolveDeliveryDistanceKm } from '../../utils/delivery/deliveryDistance
 import { resolveTieredDeliveryPricing } from '../../utils/delivery/resolveDeliveryPricing';
 import { computeTieredDeliveryFee } from '../../utils/delivery/tieredDeliveryFee';
 import { parseRestaurantCoordinates } from '../../utils/consumer/restaurantDiscoverHelpers';
+import {
+  DELIVERY_DISTANCE_TIME_RESTRICTED_CODE,
+  evaluateDeliveryDistanceTimeRestriction,
+} from '../../utils/delivery/deliveryDistanceTimeRestriction';
 
 /**
  * @Description Quote delivery fee from restaurant to customer coordinates (tiered base + extra km).
@@ -61,22 +65,24 @@ export const getDeliveryFeeQuote = async (req: Request, res: Response): Promise<
       return sendApiError(res, 403, 'Restaurant location is not configured');
     }
 
-    let distance_km: number;
-    let distance_source: 'client' | 'google' | 'haversine';
+    const resolved = await resolveDeliveryDistanceKm({
+      originLat: origin.latitude,
+      originLng: origin.longitude,
+      destinationLat: destLat,
+      destinationLng: destLng,
+    });
+    const distance_km = resolved.distance_km;
+    const distance_source = resolved.source;
 
-    if (v.distance_km != null && Number.isFinite(v.distance_km)) {
-      distance_km = Math.max(0, v.distance_km);
-      distance_source = 'client';
-    } else {
-      const resolved = await resolveDeliveryDistanceKm({
-        originLat: origin.latitude,
-        originLng: origin.longitude,
-        destinationLat: destLat,
-        destinationLng: destLng,
-      });
-      distance_km = resolved.distance_km;
-      distance_source = resolved.source;
-    }
+    const timeRestrict = await evaluateDeliveryDistanceTimeRestriction({
+      orderType: 'delivery',
+      restaurantId: Number(restaurant.id),
+      restaurantLat: restaurant.latitude,
+      restaurantLng: restaurant.longitude,
+      destinationLat: destLat,
+      destinationLng: destLng,
+      precomputedDistanceKm: distance_km,
+    });
 
     const { pricing } = await resolveTieredDeliveryPricing(
       {
@@ -96,6 +102,20 @@ export const getDeliveryFeeQuote = async (req: Request, res: Response): Promise<
     let original_delivery_fee = breakdown.delivery_fee;
     if (restaurant.free_delivery) {
       delivery_fee = 0;
+    }
+
+    if (timeRestrict.blocked) {
+      return res.status(403).json({
+        status: false,
+        msg: timeRestrict.message,
+        code: DELIVERY_DISTANCE_TIME_RESTRICTED_CODE,
+        max_distance_km: timeRestrict.max_distance_km,
+        restriction_end_time: timeRestrict.restriction_end_time,
+        timezone: timeRestrict.timezone,
+        restaurant_id: Number(restaurant.id),
+        distance_km: breakdown.distance_km,
+        distance_source,
+      });
     }
 
     return res.status(200).json({

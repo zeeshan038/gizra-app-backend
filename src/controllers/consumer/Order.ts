@@ -37,7 +37,7 @@ import { sendNewOrderNotification } from '../../utils/notifications/sendNewOrder
 import { getBusinessSettingFlag } from '../../utils/consumer/businessSettings';
 import { createWalletTransaction } from '../../utils/consumer/walletTransactions';
 import { emitNewOrderRealtime, emitOrderStatusRealtime } from '../../sockets/orderRealtime';
-import { executePlaceOrder, PlaceOrderError } from './placeOrderLogic';
+import { executePlaceOrder, placeOrderErrorToJsonBody, PlaceOrderError } from './placeOrderLogic';
 import { notPosWhere } from '../../utils/vendor/order/query';
 
 function resolveOrderUser(req: Request, payload: PlaceOrderInput): {
@@ -192,7 +192,7 @@ export const quoteOrder = async (req: Request, res: Response): Promise<any> => {
     });
   } catch (e: unknown) {
     if (e instanceof PlaceOrderError) {
-      return res.status(e.statusCode).json({ status: false, msg: e.message });
+      return res.status(e.statusCode).json(placeOrderErrorToJsonBody(e));
     }
     const msg = e instanceof Error ? e.message : 'Quote failed';
     if (msg === 'EMPTY_ORDER') {
@@ -256,10 +256,7 @@ export const placeOrder = async (req: Request, res: Response): Promise<any> => {
     return sendPlaceOrderCreatedResponse(res, placed, orderPayload);
   } catch (e: any) {
     if (e instanceof PlaceOrderError) {
-      return res.status(e.statusCode).json({
-        status: false,
-        msg: e.message,
-      });
+      return res.status(e.statusCode).json(placeOrderErrorToJsonBody(e));
     }
     if (e.message === 'EMPTY_ORDER') {
       return res.status(403).json({
@@ -486,7 +483,7 @@ export const completeCheckoutPayment = async (req: Request, res: Response): Prom
     return sendPlaceOrderCreatedResponse(res, placed, orderPayload);
   } catch (e: unknown) {
     if (e instanceof PlaceOrderError) {
-      return res.status(e.statusCode).json({ status: false, msg: e.message });
+      return res.status(e.statusCode).json(placeOrderErrorToJsonBody(e));
     }
     const msg = e instanceof Error ? e.message : 'Could not complete checkout';
     return res.status(500).json({ status: false, msg });

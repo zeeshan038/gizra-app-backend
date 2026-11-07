@@ -33,6 +33,12 @@ import {
 } from '../../utils/consumer/foodStock';
 import { loadLegacyVariationsForFoodRows } from '../../utils/consumer/legacyFoodVariations';
 import {
+  DELIVERY_DISTANCE_TIME_RESTRICTED_CODE,
+  evaluateDeliveryDistanceTimeRestriction,
+} from '../../utils/delivery/deliveryDistanceTimeRestriction';
+import { resolveDeliveryDistanceKm } from '../../utils/delivery/deliveryDistanceKm';
+import { parseRestaurantCoordinates } from '../../utils/consumer/restaurantDiscoverHelpers';
+import {
   clampResolvedUnitToClientLine,
   coerceCartLinePriceToUnit,
   mergeCartLineVariations,
@@ -597,6 +603,40 @@ type DeliveryAddressPayload = {
   latitude?: string | number;
 };
 
+async function resolveDeliveryDestinationLatLng(params: {
+  userId: number;
+  deliveryAddressId?: number;
+  latitude?: string | number;
+  longitude?: string | number;
+}): Promise<{ lat: number; lng: number }> {
+  if (params.deliveryAddressId) {
+    const saved = await prisma.customer_addresses.findFirst({
+      where: {
+        id: BigInt(params.deliveryAddressId),
+        user_id: params.userId,
+      },
+    });
+    if (!saved) {
+      throw new Error('ADDRESS_NOT_FOUND');
+    }
+    const lat = Number(saved.latitude);
+    const lng = Number(saved.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      throw new PlaceOrderError('Invalid coordinates on saved address', 400, 'address');
+    }
+    return { lat, lng };
+  }
+  if (params.latitude == null || params.longitude == null) {
+    throw new PlaceOrderError('Delivery address is required', 400, 'address');
+  }
+  const lat = Number(params.latitude);
+  const lng = Number(params.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    throw new PlaceOrderError('Invalid delivery coordinates', 400, 'address');
+  }
+  return { lat, lng };
+}
+
 async function buildDeliveryAddressSnapshot(params: {
   userId: number;
   user?: { f_name?: string | null; l_name?: string | null; phone?: string | null; email?: string | null };
@@ -656,13 +696,33 @@ async function buildDeliveryAddressSnapshot(params: {
 }
 
 export class PlaceOrderError extends Error {
+  public readonly details?: Record<string, unknown>;
+
   constructor(
     message: string,
     public statusCode = 400,
-    public code = 'order_error'
+    public code = 'order_error',
+    details?: Record<string, unknown>
   ) {
     super(message);
+    this.details = details;
   }
+}
+
+export function placeOrderErrorToJsonBody(e: PlaceOrderError): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    status: false,
+    msg: e.message,
+  };
+  if (e.code && e.code !== 'order_error') {
+    body.code = e.code;
+  }
+  if (e.details) {
+    for (const [k, v] of Object.entries(e.details)) {
+      body[k] = v;
+    }
+  }
+  return body;
 }
 
 export async function executePlaceOrder(params: {
@@ -940,9 +1000,52 @@ export async function executePlaceOrder(params: {
     }
   }
 
+  const scheduleAt = payload.schedule_at ? new Date(payload.schedule_at) : new Date();
+  const scheduled = Boolean(payload.schedule_at && payload.order_type !== 'dine_in');
+
+  let distanceKmForOrder = payload.order_type === 'delivery' ? Number(payload.distance) || 0 : 0;
+
+  if (payload.order_type === 'delivery') {
+    const dest = await resolveDeliveryDestinationLatLng({
+      userId,
+      deliveryAddressId: payload.delivery_address_id,
+      latitude: payload.latitude,
+      longitude: payload.longitude,
+    });
+    const origin = parseRestaurantCoordinates(restaurant.latitude, restaurant.longitude);
+    if (!origin) {
+      throw new PlaceOrderError('Restaurant location is not configured', 403, 'restaurant');
+    }
+    const resolved = await resolveDeliveryDistanceKm({
+      originLat: origin.latitude,
+      originLng: origin.longitude,
+      destinationLat: dest.lat,
+      destinationLng: dest.lng,
+    });
+    distanceKmForOrder = resolved.distance_km;
+
+    const timeRestrict = await evaluateDeliveryDistanceTimeRestriction({
+      orderType: payload.order_type,
+      restaurantId: payload.restaurant_id,
+      restaurantLat: restaurant.latitude,
+      restaurantLng: restaurant.longitude,
+      destinationLat: dest.lat,
+      destinationLng: dest.lng,
+      evaluationTime: scheduleAt,
+      precomputedDistanceKm: distanceKmForOrder,
+    });
+    if (timeRestrict.blocked) {
+      throw new PlaceOrderError(timeRestrict.message, 403, DELIVERY_DISTANCE_TIME_RESTRICTED_CODE, {
+        max_distance_km: timeRestrict.max_distance_km,
+        restriction_end_time: timeRestrict.restriction_end_time,
+        timezone: timeRestrict.timezone,
+      });
+    }
+  }
+
   let deliveryFee = await calculateDeliveryFee({
     orderType: payload.order_type,
-    distance: payload.distance ?? 0,
+    distance: distanceKmForOrder,
     restaurant,
     latitude: payload.latitude != null ? String(payload.latitude) : undefined,
     longitude: payload.longitude != null ? String(payload.longitude) : undefined,
@@ -966,7 +1069,7 @@ export async function executePlaceOrder(params: {
       productSubtotal: productPrice + totalAddonPrice,
       couponDiscount: couponResult.discount,
       restaurantDiscount: restaurantDiscountAmount,
-      distance: payload.distance ?? 0,
+      distance: distanceKmForOrder,
       restaurant,
     });
     if (freeDelivery.delivery_charge >= 0) {
@@ -1059,9 +1162,6 @@ export async function executePlaceOrder(params: {
     }
   }
 
-  const scheduleAt = payload.schedule_at ? new Date(payload.schedule_at) : new Date();
-  const scheduled = Boolean(payload.schedule_at && payload.order_type !== 'dine_in');
-
   let orderStatus = 'pending';
   let paymentStatus = 'unpaid';
   let storedPaymentMethod = payload.payment_method;
@@ -1145,7 +1245,7 @@ export async function executePlaceOrder(params: {
         restaurant_discount_amount: restaurantDiscountAmount,
         zone_id: restaurant.zone_id != null ? Number(restaurant.zone_id) : null,
         dm_tips: dmTips,
-        distance: payload.distance ?? 0,
+        distance: distanceKmForOrder,
         tax_status: taxResult.tax_status,
         tax_percentage: taxPercent,
         delivery_instruction: payload.delivery_instruction ?? null,

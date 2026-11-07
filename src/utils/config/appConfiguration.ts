@@ -243,8 +243,8 @@ export async function buildAppConfiguration(locale?: string): Promise<Record<str
       lat: defaultLocation.lat ?? '23.757989',
       lng: defaultLocation.lng ?? '90.360587',
     },
+    /** Client Maps SDK key (optional). Places/geocode/distance use backend GOOGLE_MAPS_API_KEY only. */
     map_api_key: s(settings, 'map_api_key') || null,
-    map_api_key_server: s(settings, 'map_api_key_server') || null,
     currency_symbol: currencyRow?.currency_symbol ?? '$',
     currency_symbol_direction: s(settings, 'currency_symbol_position'),
     ...appPlatformConfigBlock(settings, ''),

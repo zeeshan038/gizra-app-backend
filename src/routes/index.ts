@@ -54,6 +54,8 @@ import adminPushNotificationRoutes from './admin/push-notifications';
 import adminDispatchRoutes from './admin/dispatch';
 import adminHomeCategoryRoutes from './admin/home-categories';
 import adminReportRoutes from './admin/reports';
+import adminMerchantInquiryRoutes from './admin/merchant-inquiries';
+import adminDeliveryDistanceTimeRestrictionRoutes from './admin/delivery-distance-time-restriction';
 
 //vendor
 router.use('/vendor',vendorUserRoutes);
@@ -147,6 +149,8 @@ router.use('/admin/push-notifications', adminPushNotificationRoutes);
 router.use('/admin/dispatch', adminDispatchRoutes);
 router.use('/admin/home-categories', adminHomeCategoryRoutes);
 router.use('/admin/reports', adminReportRoutes);
+router.use('/admin/merchant-inquiries', adminMerchantInquiryRoutes);
+router.use('/admin/delivery-distance-time-restriction', adminDeliveryDistanceTimeRestrictionRoutes);
 
 
 router.use('/upload', uploadRouter);
