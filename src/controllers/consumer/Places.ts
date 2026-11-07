@@ -21,7 +21,7 @@ import {
 import { publicMediaUrl } from '../../utils/mediaStorage';
 
 /**
- * @Description Google Places autocomplete (PHP GET /api/v1/config/place-api-autocomplete)
+ * @Description Places autocomplete proxy — user typing address search. Query: search_text. Uses backend GOOGLE_MAPS_API_KEY (not the mobile app).
  * @Route GET /api/consumer/config/place-autocomplete
  * @Access Public
  */
@@ -70,7 +70,7 @@ export const getDistance = async (req: Request, res: Response): Promise<any> => 
 };
 
 /**
- * @Description Google Place details (PHP GET /api/v1/config/place-api-details)
+ * @Description Place details proxy after user selects autocomplete suggestion. Query: placeid (Google place_id).
  * @Route GET /api/consumer/config/place-details
  * @Access Public
  */
@@ -88,7 +88,7 @@ export const getPlaceDetails = async (req: Request, res: Response): Promise<any>
 };
 
 /**
- * @Description Reverse geocode (PHP GET /api/v1/config/geocode-api)
+ * @Description Reverse geocode proxy for map pin (lat/lng → formatted address). Query: lat, lng.
  * @Route GET /api/consumer/config/geocode
  * @Access Public
  */

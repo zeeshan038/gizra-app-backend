@@ -6,6 +6,8 @@ Base URL: `{API_HOST}/api` (e.g. `https://dev-backend.gizra.app/api` or `http://
 
 No `Authorization` header required (public).
 
+**Swagger (Customer API):** `/swagger/customer` → tag **Consumer Config** — `place-autocomplete`, `place-details`, `geocode`.
+
 ## Endpoints
 
 ### 1. Autocomplete (while typing)

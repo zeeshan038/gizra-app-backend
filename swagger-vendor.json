@@ -4035,6 +4035,150 @@
           }
         }
       },
+      "GooglePlacesAutocompleteResponse": {
+        "type": "object",
+        "description": "Pass-through from Google Places Autocomplete API. Mobile must not call Google directly.",
+        "properties": {
+          "predictions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GooglePlacesPrediction"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "ZERO_RESULTS",
+              "REQUEST_DENIED",
+              "INVALID_REQUEST",
+              "OVER_QUERY_LIMIT"
+            ],
+            "example": "OK"
+          },
+          "error_message": {
+            "type": "string",
+            "description": "Present when status is not OK"
+          }
+        }
+      },
+      "GooglePlacesPrediction": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "example": "Jerusalem, Israel"
+          },
+          "place_id": {
+            "type": "string",
+            "example": "ChIJecHC4jRkAhMRCpciZik3B00"
+          },
+          "structured_formatting": {
+            "type": "object",
+            "properties": {
+              "main_text": {
+                "type": "string"
+              },
+              "secondary_text": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "GooglePlaceDetailsResponse": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "object",
+            "properties": {
+              "formatted_address": {
+                "type": "string"
+              },
+              "geometry": {
+                "type": "object",
+                "properties": {
+                  "location": {
+                    "$ref": "#/components/schemas/GoogleLatLng"
+                  }
+                }
+              },
+              "place_id": {
+                "type": "string"
+              },
+              "types": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "example": "OK"
+          },
+          "error_message": {
+            "type": "string"
+          }
+        }
+      },
+      "GoogleGeocodeResponse": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "formatted_address": {
+                  "type": "string"
+                },
+                "geometry": {
+                  "type": "object",
+                  "properties": {
+                    "location": {
+                      "$ref": "#/components/schemas/GoogleLatLng"
+                    },
+                    "location_type": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "place_id": {
+                  "type": "string"
+                },
+                "types": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "example": "OK"
+          },
+          "error_message": {
+            "type": "string"
+          }
+        }
+      },
+      "GoogleLatLng": {
+        "type": "object",
+        "properties": {
+          "lat": {
+            "type": "number",
+            "example": 31.768319
+          },
+          "lng": {
+            "type": "number",
+            "example": 35.21371
+          }
+        }
+      },
       "ConsumerDeliveryFeeQuoteResponse": {
         "type": "object",
         "properties": {
