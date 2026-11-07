@@ -65,13 +65,16 @@ Restart the API after changing this variable.
 
 In [Google Cloud Console](https://console.cloud.google.com/) for that key’s project, enable billing and APIs used by this proxy:
 
-- Places API (legacy autocomplete/details — current backend)
-- Geocoding API
-- Distance Matrix API
+- **Places API (New)** — autocomplete + place details (default backend path)
+- Geocoding API — reverse geocode (`/geocode`)
+- Distance Matrix API — delivery distance fallback
+
+Optional env: `GOOGLE_PLACES_REGION_CODES=IL` (autocomplete country filter).  
+`GOOGLE_PLACES_USE_LEGACY=1` only if you still use legacy Places on the key.
 
 Restrict the key to server IP on production; do **not** embed this key in Flutter.
 
-If autocomplete returns `status: "REQUEST_DENIED"`, enable the APIs above or check `error_message` in the JSON.
+If autocomplete returns `status: "REQUEST_DENIED"`, enable **Places API (New)** on the GCP project for `GOOGLE_MAPS_API_KEY`, redeploy backend, and check `error_message`.
 
 ## Maps on screen
 

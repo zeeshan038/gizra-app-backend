@@ -236,6 +236,8 @@ cd gizra-backend && npm run test:consumer-places
 
 ## References
 
+If autocomplete returns `REQUEST_DENIED` about **legacy API**, the backend must use **Places API (New)** (default since 2026-11-07) and GCP must enable **Places API (New)** on the server key — not legacy “Places API”.
+
 | Resource | Location |
 |----------|----------|
 | Swagger UI (customer) | `{BASE_URL}/swagger/customer` — **Consumer Config** (Places, delivery-fee) and **Consumer Orders** (quote/place, 403 `DELIVERY_DISTANCE_TIME_RESTRICTED`) |
