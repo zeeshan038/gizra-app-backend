@@ -4179,6 +4179,167 @@
           }
         }
       },
+      "AdminDeliveryDistanceTimeRestrictionUpdateBody": {
+        "type": "object",
+        "minProperties": 1,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          },
+          "max_distance_km": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 500,
+            "example": 10
+          },
+          "start_time": {
+            "type": "string",
+            "pattern": "^([01]?\\d|2[0-3]):([0-5]\\d)$",
+            "example": "16:30"
+          },
+          "end_time": {
+            "type": "string",
+            "pattern": "^([01]?\\d|2[0-3]):([0-5]\\d)$",
+            "example": "20:30"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "Asia/Jerusalem"
+          },
+          "restaurant_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "example": [
+              3
+            ]
+          }
+        }
+      },
+      "AdminDeliveryDistanceTimeRestrictionGetResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "config": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "max_distance_km": {
+                    "type": "number"
+                  },
+                  "start_time": {
+                    "type": "string"
+                  },
+                  "end_time": {
+                    "type": "string"
+                  },
+                  "timezone": {
+                    "type": "string"
+                  },
+                  "restaurant_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  },
+                  "updated_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true
+                  }
+                }
+              },
+              "effective": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "description": "disabled | outside_window | in_window"
+                  },
+                  "in_window": {
+                    "type": "boolean"
+                  },
+                  "current_time_in_tz": {
+                    "type": "string",
+                    "example": "18:05"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "DeliveryDistanceTimeRestrictedError": {
+        "type": "object",
+        "description": "HTTP 403 when delivery distance exceeds admin max during scheduled restriction window (delivery orders only).",
+        "required": [
+          "status",
+          "msg",
+          "code"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": false
+          },
+          "msg": {
+            "type": "string",
+            "example": "Delivery is temporarily limited to 10 km during restricted hours."
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "DELIVERY_DISTANCE_TIME_RESTRICTED"
+            ]
+          },
+          "max_distance_km": {
+            "type": "number",
+            "example": 10
+          },
+          "restriction_end_time": {
+            "type": "string",
+            "description": "Wall-clock end of restriction window (HH:mm) in configured timezone",
+            "example": "20:30"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "Asia/Jerusalem"
+          },
+          "restaurant_id": {
+            "type": "integer",
+            "description": "Present on GET /consumer/config/delivery-fee",
+            "example": 3
+          },
+          "distance_km": {
+            "type": "number",
+            "description": "Server-computed km (present on delivery-fee 403)",
+            "example": 14.02
+          },
+          "distance_source": {
+            "type": "string",
+            "enum": [
+              "google",
+              "haversine",
+              "client"
+            ],
+            "description": "Present on delivery-fee 403"
+          }
+        }
+      },
       "ConsumerDeliveryFeeQuoteResponse": {
         "type": "object",
         "properties": {
