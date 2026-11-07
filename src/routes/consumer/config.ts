@@ -1,5 +1,8 @@
 import express from 'express';
-import { getConsumerAppConfiguration } from '../../controllers/shared/Configuration';
+import {
+  getConsumerAppConfiguration,
+  getConsumerBootstrapConfiguration,
+} from '../../controllers/shared/Configuration';
 import { getZoneIdFromCoordinates } from '../../controllers/consumer/Zone';
 import {
   getDistance,
@@ -15,6 +18,7 @@ import { getDeliveryFeeQuote } from '../../controllers/consumer/DeliveryFee';
 
 const router = express.Router();
 
+router.get('/bootstrap', getConsumerBootstrapConfiguration);
 router.get('/', getConsumerAppConfiguration);
 router.get('/zone-id', getZoneIdFromCoordinates);
 router.get('/place-autocomplete', getPlaceAutocomplete);

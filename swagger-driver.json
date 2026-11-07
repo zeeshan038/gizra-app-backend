@@ -3800,6 +3800,136 @@
           }
         }
       },
+      "ConsumerBootstrapConfigurationResponse": {
+        "type": "object",
+        "description": "GET /consumer/config/bootstrap — customer launch only (maintenance + customer app store version rules).",
+        "required": [
+          "maintenance_mode",
+          "app_minimum_version_android",
+          "app_minimum_build_android",
+          "app_force_update_android",
+          "app_minimum_version_ios",
+          "app_minimum_build_ios",
+          "app_force_update_ios"
+        ],
+        "properties": {
+          "maintenance_mode": {
+            "type": "boolean"
+          },
+          "maintenance_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_minimum_version_android": {
+            "type": "string",
+            "example": "10.0.0"
+          },
+          "app_minimum_build_android": {
+            "type": "integer",
+            "example": 19
+          },
+          "app_force_update_android": {
+            "type": "boolean"
+          },
+          "app_url_android": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_minimum_version_ios": {
+            "type": "string",
+            "example": "9.0.0"
+          },
+          "app_minimum_build_ios": {
+            "type": "integer",
+            "example": 2
+          },
+          "app_force_update_ios": {
+            "type": "boolean"
+          },
+          "app_url_ios": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "VendorBootstrapConfigurationResponse": {
+        "type": "object",
+        "description": "GET /vendor/config/bootstrap — vendor launch (maintenance + restaurant app store version rules).",
+        "properties": {
+          "maintenance_mode": {
+            "type": "boolean"
+          },
+          "maintenance_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_minimum_version_android_restaurant": {
+            "type": "string"
+          },
+          "app_minimum_build_android_restaurant": {
+            "type": "integer"
+          },
+          "app_force_update_android_restaurant": {
+            "type": "boolean"
+          },
+          "app_url_android_restaurant": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_minimum_version_ios_restaurant": {
+            "type": "string"
+          },
+          "app_minimum_build_ios_restaurant": {
+            "type": "integer"
+          },
+          "app_force_update_ios_restaurant": {
+            "type": "boolean"
+          },
+          "app_url_ios_restaurant": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "DeliveryManBootstrapConfigurationResponse": {
+        "type": "object",
+        "description": "GET /delivery-man/config/bootstrap — driver launch (maintenance + delivery-man app store version rules).",
+        "properties": {
+          "maintenance_mode": {
+            "type": "boolean"
+          },
+          "maintenance_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_minimum_version_android_deliveryman": {
+            "type": "string"
+          },
+          "app_minimum_build_android_deliveryman": {
+            "type": "integer"
+          },
+          "app_force_update_android_deliveryman": {
+            "type": "boolean"
+          },
+          "app_url_android_deliveryman": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_minimum_version_ios_deliveryman": {
+            "type": "string"
+          },
+          "app_minimum_build_ios_deliveryman": {
+            "type": "integer"
+          },
+          "app_force_update_ios_deliveryman": {
+            "type": "boolean"
+          },
+          "app_url_ios_deliveryman": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
       "AppConfigurationResponse": {
         "type": "object",
         "description": "Flat bootstrap payload (legacy StackFood config). Additional keys may be present.",
@@ -10040,6 +10170,100 @@
           "Legal Pages (All Apps)"
         ],
         "summary": "Single legal page by slug"
+      }
+    },
+    "/delivery-man/config/bootstrap": {
+      "get": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Auth"
+        ]
       }
     },
     "/delivery-man/zones": {

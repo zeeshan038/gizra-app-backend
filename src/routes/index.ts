@@ -28,12 +28,14 @@ import vendorReviewRoutes from './vendor/review';
 import vendorWalletRoutes from './vendor/wallet';
 import vendorWithdrawMethodRoutes from './vendor/withdrawMethod';
 import vendorReportRoutes from './vendor/reports';
+import vendorConfigRoutes from './vendor/config';
 //consumer
 import consumerUserRoutes from './consumer/user';
 //deliveryman
 import dmUserRoutes from './deliveryman/user';
 import dmOrderRoutes from './deliveryman/order';
 import dmMessageRoutes from './deliveryman/message';
+import deliveryManConfigRoutes from './deliveryman/config';
 
 //admin
 import adminAuthRoutes from './admin/auth';
@@ -58,6 +60,7 @@ import adminMerchantInquiryRoutes from './admin/merchant-inquiries';
 import adminDeliveryDistanceTimeRestrictionRoutes from './admin/delivery-distance-time-restriction';
 
 //vendor
+router.use('/vendor/config', vendorConfigRoutes);
 router.use('/vendor',vendorUserRoutes);
 router.use('/vendor/catalog', vendorCatalogRoutes);
 router.use('/vendor/orders', vendorOrderRoutes);
@@ -126,6 +129,7 @@ import uploadRouter from './upload';
 import storageRouter from './storage';
 
 //deliveryman
+router.use('/delivery-man/config', deliveryManConfigRoutes);
 router.use('/delivery-man', dmUserRoutes);
 router.use('/delivery-man/orders', dmOrderRoutes);
 router.use('/delivery-man/message', dmMessageRoutes);

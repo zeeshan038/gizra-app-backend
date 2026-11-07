@@ -8369,6 +8369,68 @@
         ]
       }
     },
+    "/consumer/config/bootstrap": {
+      "get": {
+        "summary": "Customer app launch (maintenance + force update)",
+        "description": "Slim flat JSON for **Gizra customer Flutter** on app launch: `maintenance_mode`, `maintenance_message`, and **customer** `app_minimum_*` / `app_force_update_*` / `app_url_*` (Android + iOS). No legal HTML, payment flags, or vendor/driver app version fields.\n\nLegacy full StackFood config stays on **GET /config** and **GET /consumer/config** (vendor, driver, legacy clients).",
+        "responses": {
+          "200": {
+            "description": "Launch configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerBootstrapConfigurationResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Config"
+        ]
+      }
+    },
+    "/vendor/config/bootstrap": {
+      "get": {
+        "summary": "Vendor app launch (maintenance + force update)",
+        "description": "Slim flat JSON for **restaurant/vendor** app on launch: `maintenance_mode`, `maintenance_message`, and `app_minimum_*_restaurant` / `app_force_update_*_restaurant` / `app_url_*_restaurant` (Android + iOS).\n\nLegacy full config: **GET /config**.",
+        "responses": {
+          "200": {
+            "description": "Launch configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorBootstrapConfigurationResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Config"
+        ]
+      }
+    },
     "/consumer/config/zone-id": {
       "get": {
         "description": "Resolve active zone(s) at lat/lng (legacy PHP GET /config/get-zone-id). Call on app open and when the user changes location. **Query:** WGS84 `lat` (e.g. 31.75 Israel), `lng` (e.g. 34.75). No auth.",
@@ -15593,6 +15655,136 @@
                 }
               }
             }
+          }
+        }
+      },
+      "ConsumerBootstrapConfigurationResponse": {
+        "type": "object",
+        "description": "GET /consumer/config/bootstrap — customer launch only (maintenance + customer app store version rules).",
+        "required": [
+          "maintenance_mode",
+          "app_minimum_version_android",
+          "app_minimum_build_android",
+          "app_force_update_android",
+          "app_minimum_version_ios",
+          "app_minimum_build_ios",
+          "app_force_update_ios"
+        ],
+        "properties": {
+          "maintenance_mode": {
+            "type": "boolean"
+          },
+          "maintenance_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_minimum_version_android": {
+            "type": "string",
+            "example": "10.0.0"
+          },
+          "app_minimum_build_android": {
+            "type": "integer",
+            "example": 19
+          },
+          "app_force_update_android": {
+            "type": "boolean"
+          },
+          "app_url_android": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_minimum_version_ios": {
+            "type": "string",
+            "example": "9.0.0"
+          },
+          "app_minimum_build_ios": {
+            "type": "integer",
+            "example": 2
+          },
+          "app_force_update_ios": {
+            "type": "boolean"
+          },
+          "app_url_ios": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "VendorBootstrapConfigurationResponse": {
+        "type": "object",
+        "description": "GET /vendor/config/bootstrap — vendor launch (maintenance + restaurant app store version rules).",
+        "properties": {
+          "maintenance_mode": {
+            "type": "boolean"
+          },
+          "maintenance_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_minimum_version_android_restaurant": {
+            "type": "string"
+          },
+          "app_minimum_build_android_restaurant": {
+            "type": "integer"
+          },
+          "app_force_update_android_restaurant": {
+            "type": "boolean"
+          },
+          "app_url_android_restaurant": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_minimum_version_ios_restaurant": {
+            "type": "string"
+          },
+          "app_minimum_build_ios_restaurant": {
+            "type": "integer"
+          },
+          "app_force_update_ios_restaurant": {
+            "type": "boolean"
+          },
+          "app_url_ios_restaurant": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "DeliveryManBootstrapConfigurationResponse": {
+        "type": "object",
+        "description": "GET /delivery-man/config/bootstrap — driver launch (maintenance + delivery-man app store version rules).",
+        "properties": {
+          "maintenance_mode": {
+            "type": "boolean"
+          },
+          "maintenance_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_minimum_version_android_deliveryman": {
+            "type": "string"
+          },
+          "app_minimum_build_android_deliveryman": {
+            "type": "integer"
+          },
+          "app_force_update_android_deliveryman": {
+            "type": "boolean"
+          },
+          "app_url_android_deliveryman": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_minimum_version_ios_deliveryman": {
+            "type": "string"
+          },
+          "app_minimum_build_ios_deliveryman": {
+            "type": "integer"
+          },
+          "app_force_update_ios_deliveryman": {
+            "type": "boolean"
+          },
+          "app_url_ios_deliveryman": {
+            "type": "string",
+            "nullable": true
           }
         }
       },

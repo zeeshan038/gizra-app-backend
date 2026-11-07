@@ -370,3 +370,83 @@ export async function buildAppConfiguration(locale?: string): Promise<Record<str
     dine_in_order_option: num(s(settings, 'dine_in_order_option')),
   };
 }
+
+function appLaunchBootstrapBusinessKeys(suffix: AppConfigSuffix): string[] {
+  return [
+    'maintenance_mode',
+    `app_minimum_version_android${suffix}`,
+    `app_minimum_build_android${suffix}`,
+    `app_force_update_android${suffix}`,
+    `app_url_android${suffix}`,
+    `app_minimum_version_ios${suffix}`,
+    `app_minimum_build_ios${suffix}`,
+    `app_force_update_ios${suffix}`,
+    `app_url_ios${suffix}`,
+  ];
+}
+
+async function loadBusinessSettingsKeys(
+  keys: readonly string[]
+): Promise<Map<string, string | null>> {
+  const rows = await prisma.business_settings.findMany({
+    where: { key: { in: [...keys] } },
+    select: { key: true, value: true },
+  });
+  const map = new Map<string, string | null>();
+  for (const key of keys) {
+    map.set(key, null);
+  }
+  for (const row of rows) {
+    map.set(row.key, row.value);
+  }
+  return map;
+}
+
+async function loadMaintenanceMessageData(): Promise<Record<string, unknown>> {
+  const rows = await prisma.data_settings.findMany({
+    where: {
+      type: 'maintenance_mode',
+      key: 'maintenance_message_setup',
+    },
+    select: { key: true, value: true },
+  });
+  const maintenance_mode_data: Record<string, unknown> = {};
+  for (const row of rows) {
+    if (!row.value) continue;
+    try {
+      maintenance_mode_data[row.key] = JSON.parse(row.value);
+    } catch {
+      maintenance_mode_data[row.key] = row.value;
+    }
+  }
+  return maintenance_mode_data;
+}
+
+/**
+ * Slim app launch config — maintenance + platform app version/store URLs for one app role.
+ * Legacy full config remains GET /config (and GET /consumer/config for consumer alias).
+ */
+export async function buildAppLaunchBootstrapConfiguration(
+  suffix: AppConfigSuffix
+): Promise<Record<string, unknown>> {
+  const settings = await loadBusinessSettingsKeys(appLaunchBootstrapBusinessKeys(suffix));
+  const maintenance_mode_data = await loadMaintenanceMessageData();
+
+  return {
+    maintenance_mode: bool(s(settings, 'maintenance_mode')),
+    maintenance_message: maintenanceMessageTopLevel(maintenance_mode_data),
+    ...appPlatformConfigBlock(settings, suffix),
+  };
+}
+
+export async function buildConsumerBootstrapConfiguration(): Promise<Record<string, unknown>> {
+  return buildAppLaunchBootstrapConfiguration('');
+}
+
+export async function buildVendorBootstrapConfiguration(): Promise<Record<string, unknown>> {
+  return buildAppLaunchBootstrapConfiguration('_restaurant');
+}
+
+export async function buildDeliveryManBootstrapConfiguration(): Promise<Record<string, unknown>> {
+  return buildAppLaunchBootstrapConfiguration('_deliveryman');
+}
