@@ -108,7 +108,8 @@
                           "price": 25.5,
                           "food_details": {
                             "name": "Margherita Pizza",
-                            "image": "food.png"
+                            "image": "https://cdn.example.com/product/food.png",
+                            "image_full_url": "https://cdn.example.com/product/food.png"
                           }
                         }
                       ]
@@ -327,7 +328,7 @@
           "food_details": {
             "type": "object",
             "nullable": true,
-            "description": "Snapshot JSON from order (name, image, etc.)"
+            "description": "Order snapshot JSON. `image` and `image_full_url` are public CDN URLs (not raw filenames)."
           }
         }
       },

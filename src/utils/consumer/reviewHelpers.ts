@@ -72,6 +72,32 @@ export function updateRestaurantRatingHistogram(
   return JSON.stringify(arr);
 }
 
+type FoodDetailsSnapshot = Record<string, unknown>;
+
+/** Pending-review rows: expose `food_details.image` as a public CDN URL (prefer live `food.image`). */
+export function enrichFoodDetailsForReview(
+  raw: string | null | undefined,
+  liveFoodImage: string | null | undefined
+): FoodDetailsSnapshot | null {
+  if (!raw?.trim()) return null;
+  let parsed: FoodDetailsSnapshot;
+  try {
+    parsed = JSON.parse(raw) as FoodDetailsSnapshot;
+    if (!parsed || typeof parsed !== 'object') return null;
+  } catch {
+    return null;
+  }
+  const snapshotImage =
+    typeof parsed.image === 'string' && parsed.image.trim() ? parsed.image : null;
+  const stored = liveFoodImage?.trim() || snapshotImage;
+  const full = stored ? publicFoodMediaUrl(stored) : null;
+  if (full) {
+    parsed.image = full;
+    parsed.image_full_url = full;
+  }
+  return parsed;
+}
+
 export function parseReviewAttachments(raw: string | null | undefined): string[] {
   if (!raw?.trim()) return [];
   try {
@@ -389,6 +415,15 @@ export async function loadPendingOrderReviews(orderId: number, userId: number) {
   });
 
   const foodIds = orderDetails.map((d) => Number(d.food_id)).filter((id) => id > 0);
+  const foods =
+    foodIds.length > 0
+      ? await prisma.food.findMany({
+          where: { id: { in: [...new Set(foodIds)].map((id) => BigInt(id)) } },
+          select: { id: true, image: true },
+        })
+      : [];
+  const foodImageById = new Map(foods.map((f) => [Number(f.id), f.image]));
+
   const itemIds = orderDetails
     .map((d) => (d.item_campaign_id != null ? Number(d.item_campaign_id) : 0))
     .filter((id) => id > 0);
@@ -425,7 +460,12 @@ export async function loadPendingOrderReviews(orderId: number, userId: number) {
         detail.item_campaign_id != null ? Number(detail.item_campaign_id) : null,
       quantity: Number(detail.quantity),
       price: Number(detail.price),
-      food_details: detail.food_details ? JSON.parse(detail.food_details) : null,
+      food_details: enrichFoodDetailsForReview(
+        detail.food_details,
+        detail.food_id != null
+          ? foodImageById.get(Number(detail.food_id)) ?? null
+          : null
+      ),
     }));
 
   return { details };

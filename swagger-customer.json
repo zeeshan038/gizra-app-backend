@@ -8657,7 +8657,7 @@
           "food_details": {
             "type": "object",
             "nullable": true,
-            "description": "Snapshot JSON from order (name, image, etc.)"
+            "description": "Order snapshot JSON. `image` and `image_full_url` are public CDN URLs (not raw filenames)."
           }
         }
       },
@@ -17585,7 +17585,8 @@
                           "price": 25.5,
                           "food_details": {
                             "name": "Margherita Pizza",
-                            "image": "food.png"
+                            "image": "https://cdn.example.com/product/food.png",
+                            "image_full_url": "https://cdn.example.com/product/food.png"
                           }
                         }
                       ]
@@ -20103,7 +20104,8 @@
                   "details": "1",
                   "food_id": 0,
                   "item_campaign_id": 0,
-                  "food_details": "…"
+                  "food_details": "…",
+                  "d": 0
                 },
                 "schema": {
                   "type": "object",
@@ -20127,6 +20129,10 @@
                     "food_details": {
                       "type": "string",
                       "example": "…"
+                    },
+                    "d": {
+                      "type": "number",
+                      "example": 0
                     }
                   },
                   "example": {
@@ -20134,7 +20140,8 @@
                     "details": "1",
                     "food_id": 0,
                     "item_campaign_id": 0,
-                    "food_details": "…"
+                    "food_details": "…",
+                    "d": 0
                   }
                 }
               }

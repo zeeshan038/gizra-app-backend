@@ -24,6 +24,7 @@ import {
   availabilityMapForRestaurants,
   formatDiscoverRestaurant,
 } from '../../utils/consumer/restaurantDiscoverHelpers';
+import { enrichFoodDetailsForReview } from '../../utils/consumer/reviewHelpers';
 import { requireZoneIds } from '../../utils/consumer/zoneHeaders';
 import { parseCoordinatesFromRequest } from '../../utils/consumer/favouriteHelpers';
 import { distanceKmForRestaurant } from '../../utils/consumer/restaurantDiscoverHelpers';
@@ -583,13 +584,28 @@ export const getPendingReviews = async (req: Request, res: Response): Promise<an
       return !reviewedFood.has(foodId) || (itemId > 0 && !reviewedCampaign.has(itemId));
     });
 
+    const foodIds = pending
+      .map((d) => (d.food_id != null ? Number(d.food_id) : 0))
+      .filter((id) => id > 0);
+    const foods =
+      foodIds.length > 0
+        ? await prisma.food.findMany({
+            where: { id: { in: [...new Set(foodIds)].map((id) => BigInt(id)) } },
+            select: { id: true, image: true },
+          })
+        : [];
+    const foodImageById = new Map(foods.map((f) => [Number(f.id), f.image]));
+
     return res.status(200).json({
       status: true,
       details: pending.map((d) => ({
         id: d.id.toString(),
         food_id: d.food_id != null ? String(d.food_id) : null,
         item_campaign_id: d.item_campaign_id != null ? String(d.item_campaign_id) : null,
-        food_details: parseJsonField(d.food_details),
+        food_details: enrichFoodDetailsForReview(
+          d.food_details,
+          d.food_id != null ? foodImageById.get(Number(d.food_id)) ?? null : null
+        ),
       })),
     });
   } catch (e: unknown) {

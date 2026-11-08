@@ -8619,7 +8619,7 @@
           "food_details": {
             "type": "object",
             "nullable": true,
-            "description": "Snapshot JSON from order (name, image, etc.)"
+            "description": "Order snapshot JSON. `image` and `image_full_url` are public CDN URLs (not raw filenames)."
           }
         }
       },
