@@ -22,7 +22,7 @@ import { publicMediaUrl } from '../../utils/mediaStorage';
 
 /**
  * @Description Places autocomplete proxy — user typing address search. Query: search_text. Uses backend GOOGLE_MAPS_API_KEY (not the mobile app).
- * @Route GET /api/consumer/config/place-autocomplete
+ * @Route GET /api/consumer/config/place-autocomplete | /api/vendor/config/place-autocomplete | /api/delivery-man/config/place-autocomplete
  * @Access Public
  */
 export const getPlaceAutocomplete = async (req: Request, res: Response): Promise<any> => {
@@ -42,7 +42,7 @@ export const getPlaceAutocomplete = async (req: Request, res: Response): Promise
 
 /**
  * @Description Walking distance matrix (PHP GET /api/v1/config/distance-api)
- * @Route GET /api/consumer/config/distance
+ * @Route GET /api/consumer/config/distance | /api/vendor/config/distance | /api/delivery-man/config/distance
  * @Access Public
  */
 export const getDistance = async (req: Request, res: Response): Promise<any> => {
@@ -71,7 +71,7 @@ export const getDistance = async (req: Request, res: Response): Promise<any> => 
 
 /**
  * @Description Place details proxy after user selects autocomplete suggestion. Query: placeid (Google place_id).
- * @Route GET /api/consumer/config/place-details
+ * @Route GET /api/consumer/config/place-details | /api/vendor/config/place-details | /api/delivery-man/config/place-details
  * @Access Public
  */
 export const getPlaceDetails = async (req: Request, res: Response): Promise<any> => {
@@ -89,7 +89,7 @@ export const getPlaceDetails = async (req: Request, res: Response): Promise<any>
 
 /**
  * @Description Reverse geocode proxy for map pin (lat/lng → formatted address). Query: lat, lng.
- * @Route GET /api/consumer/config/geocode
+ * @Route GET /api/consumer/config/geocode | /api/vendor/config/geocode | /api/delivery-man/config/geocode
  * @Access Public
  */
 export const getGeocode = async (req: Request, res: Response): Promise<any> => {

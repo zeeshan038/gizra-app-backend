@@ -7882,6 +7882,87 @@
           }
         }
       },
+      "GoogleDistanceMatrixResponse": {
+        "type": "object",
+        "description": "Pass-through from Google Distance Matrix API (walking mode).",
+        "properties": {
+          "destination_addresses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "origin_addresses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "elements": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "distance": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "example": "3.2 km"
+                          },
+                          "value": {
+                            "type": "integer",
+                            "description": "Meters",
+                            "example": 3200
+                          }
+                        }
+                      },
+                      "duration": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "example": "38 mins"
+                          },
+                          "value": {
+                            "type": "integer",
+                            "description": "Seconds",
+                            "example": 2280
+                          }
+                        }
+                      },
+                      "status": {
+                        "type": "string",
+                        "example": "OK"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "INVALID_REQUEST",
+              "MAX_ELEMENTS_EXCEEDED",
+              "OVER_QUERY_LIMIT",
+              "REQUEST_DENIED",
+              "UNKNOWN_ERROR"
+            ],
+            "example": "OK"
+          },
+          "error_message": {
+            "type": "string"
+          }
+        }
+      },
       "ChatUserInfo": {
         "type": "object",
         "properties": {

@@ -6,7 +6,7 @@ Base URL: `{API_HOST}/api` (e.g. `https://dev-backend.gizra.app/api` or `http://
 
 No `Authorization` header required (public).
 
-**Swagger (Customer API):** `/swagger/customer` → tag **Consumer Config** — `place-autocomplete`, `place-details`, `geocode`.
+**Swagger:** `/swagger/customer` (Consumer Config), `/swagger/vendor` (Vendor Config), `/swagger/driver` (Delivery Man Config) — same `place-autocomplete`, `place-details`, `geocode`, `distance` under each app’s `/config` prefix.
 
 ## Endpoints
 

@@ -9,14 +9,24 @@
             "description": "Active zones",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DeliveryManZonesResponse" },
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManZonesResponse"
+                },
                 "example": {
                   "status": true,
                   "msg": "Zones fetched successfully",
                   "data": {
                     "zones": [
-                      { "id": "1", "name": "Tel Aviv", "display_name": "Tel Aviv" },
-                      { "id": "2", "name": "Jerusalem", "display_name": "Jerusalem" }
+                      {
+                        "id": "1",
+                        "name": "Tel Aviv",
+                        "display_name": "Tel Aviv"
+                      },
+                      {
+                        "id": "2",
+                        "name": "Jerusalem",
+                        "display_name": "Jerusalem"
+                      }
                     ]
                   }
                 }
@@ -27,12 +37,16 @@
             "description": "Server error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ApiError" }
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
               }
             }
           }
         },
-        "tags": ["Delivery Man Auth"]
+        "tags": [
+          "Delivery Man Auth"
+        ]
       }
     },
     "/delivery-man/login": {
@@ -43,7 +57,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/DeliveryManLoginBody" },
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryManLoginBody"
+              },
               "example": {
                 "phone": "+972501234567",
                 "password": "Secret123!",
@@ -57,7 +73,9 @@
             "description": "Login success",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DeliveryManLoginResponse" },
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManLoginResponse"
+                },
                 "example": {
                   "status": true,
                   "msg": "Login success",
@@ -77,20 +95,30 @@
             "description": "Invalid credentials, pending approval, or suspended account",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
                 "examples": {
                   "credentials": {
-                    "value": { "status": false, "msg": "Credential do not match, please try again." }
+                    "value": {
+                      "status": false,
+                      "msg": "Credential do not match, please try again."
+                    }
                   },
                   "pending": {
-                    "value": { "status": false, "msg": "Your application is not approved yet" }
+                    "value": {
+                      "status": false,
+                      "msg": "Your application is not approved yet"
+                    }
                   }
                 }
               }
             }
           }
         },
-        "tags": ["Delivery Man Auth"]
+        "tags": [
+          "Delivery Man Auth"
+        ]
       }
     },
     "/delivery-man/register": {
@@ -101,7 +129,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/DeliveryManRegisterBody" }
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryManRegisterBody"
+              }
             }
           }
         },
@@ -110,7 +140,9 @@
             "description": "Application submitted",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/PartnerApplicationResponse" },
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerApplicationResponse"
+                },
                 "example": {
                   "status": true,
                   "msg": "Registration successful! Please wait for admin approval.",
@@ -126,12 +158,16 @@
             "description": "Validation error or duplicate phone/email",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ApiError" }
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
               }
             }
           }
         },
-        "tags": ["Delivery Man Auth"]
+        "tags": [
+          "Delivery Man Auth"
+        ]
       }
     },
     "/delivery-man/password/forgot": {
@@ -142,8 +178,12 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/DeliveryManForgotPasswordBody" },
-              "example": { "phone": "+972501234567" }
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryManForgotPasswordBody"
+              },
+              "example": {
+                "phone": "+972501234567"
+              }
             }
           }
         },
@@ -165,10 +205,16 @@
               }
             }
           },
-          "404": { "description": "Phone not registered" },
-          "405": { "description": "Resend cooldown or SMS failure" }
+          "404": {
+            "description": "Phone not registered"
+          },
+          "405": {
+            "description": "Resend cooldown or SMS failure"
+          }
         },
-        "tags": ["Delivery Man Auth"]
+        "tags": [
+          "Delivery Man Auth"
+        ]
       }
     },
     "/delivery-man/password/verify-otp": {
@@ -179,8 +225,13 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/DeliveryManPasswordOtpBody" },
-              "example": { "phone": "+972501234567", "otp": "1234" }
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryManPasswordOtpBody"
+              },
+              "example": {
+                "phone": "+972501234567",
+                "otp": "1234"
+              }
             }
           }
         },
@@ -196,10 +247,16 @@
               }
             }
           },
-          "400": { "description": "Invalid OTP" },
-          "404": { "description": "Phone not found" }
+          "400": {
+            "description": "Invalid OTP"
+          },
+          "404": {
+            "description": "Phone not found"
+          }
         },
-        "tags": ["Delivery Man Auth"]
+        "tags": [
+          "Delivery Man Auth"
+        ]
       }
     },
     "/delivery-man/password/reset": {
@@ -210,7 +267,9 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/DeliveryManPasswordResetBody" }
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryManPasswordResetBody"
+              }
             }
           }
         },
@@ -219,25 +278,38 @@
             "description": "Password updated",
             "content": {
               "application/json": {
-                "example": { "status": true, "msg": "Password changed successfully" }
+                "example": {
+                  "status": true,
+                  "msg": "Password changed successfully"
+                }
               }
             }
           },
-          "400": { "description": "Invalid OTP or validation error" }
+          "400": {
+            "description": "Invalid OTP or validation error"
+          }
         },
-        "tags": ["Delivery Man Auth"]
+        "tags": [
+          "Delivery Man Auth"
+        ]
       }
     },
     "/delivery-man/password/change": {
       "put": {
         "summary": "Change password (logged in)",
         "description": "Profile → Change Password. Bearer from POST /delivery-man/login.",
-        "parameters": [{ "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" }],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/DeliveryManChangePasswordBody" }
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryManChangePasswordBody"
+              }
             }
           }
         },
@@ -246,7 +318,10 @@
             "description": "Password updated",
             "content": {
               "application/json": {
-                "example": { "status": true, "msg": "Password successfully updated" }
+                "example": {
+                  "status": true,
+                  "msg": "Password successfully updated"
+                }
               }
             }
           },
@@ -254,12 +329,17 @@
             "description": "Wrong current password",
             "content": {
               "application/json": {
-                "example": { "status": false, "msg": "Current password is incorrect" }
+                "example": {
+                  "status": false,
+                  "msg": "Current password is incorrect"
+                }
               }
             }
           }
         },
-        "tags": ["Delivery Man Auth"]
+        "tags": [
+          "Delivery Man Auth"
+        ]
       }
     },
     "/delivery-man/earnings": {
@@ -267,33 +347,50 @@
         "summary": "Earnings summary + history",
         "description": "Wallet totals (PHP profile), period earnings (today / week / month / lifetime from `order_transactions`), and paginated **history** rows with full **order** + line **items**. Uses transactions when present; otherwise falls back to **delivered** orders. Search by order id.",
         "parameters": [
-          { "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" },
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          },
           {
             "name": "limit",
             "in": "query",
-            "schema": { "type": "integer", "default": 15, "minimum": 1, "maximum": 50 }
+            "schema": {
+              "type": "integer",
+              "default": 15,
+              "minimum": 1,
+              "maximum": 50
+            }
           },
           {
             "name": "offset",
             "in": "query",
             "description": "1-based page",
-            "schema": { "type": "integer", "default": 1 }
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
           },
           {
             "name": "page",
             "in": "query",
-            "schema": { "type": "integer", "minimum": 1 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
           },
           {
             "name": "search",
             "in": "query",
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Filter by order id"
           },
           {
             "name": "summary_only",
             "in": "query",
-            "schema": { "type": "boolean" },
+            "schema": {
+              "type": "boolean"
+            },
             "description": "If true, returns only wallet + period summary"
           }
         ],
@@ -302,7 +399,9 @@
             "description": "Earnings payload",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DeliveryManEarningsResponse" },
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManEarningsResponse"
+                },
                 "example": {
                   "status": true,
                   "msg": "Success",
@@ -374,9 +473,13 @@
               }
             }
           },
-          "401": { "description": "Unauthorized" }
+          "401": {
+            "description": "Unauthorized"
+          }
         },
-        "tags": ["Delivery Man Earnings"]
+        "tags": [
+          "Delivery Man Earnings"
+        ]
       }
     },
     "/delivery-man/wallet": {
@@ -384,74 +487,145 @@
         "summary": "Wallet, withdraw history, payment history",
         "description": "Balance, withdrawable amount (minus collected COD cash), pending/approved withdraw requests, and collected-cash payment rows (`account_transactions`).",
         "parameters": [
-          { "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" },
-          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 25 } },
-          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 1 } }
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 25
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          }
         ],
         "responses": {
-          "200": { "description": "Wallet payload" },
-          "401": { "description": "Unauthorized" }
+          "200": {
+            "description": "Wallet payload"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
         },
-        "tags": ["Delivery Man Wallet"]
+        "tags": [
+          "Delivery Man Wallet"
+        ]
       }
     },
     "/delivery-man/wallet/withdraw-method-options": {
       "get": {
         "summary": "Active withdrawal methods",
-        "parameters": [{ "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" }],
-        "responses": { "200": { "description": "Method templates with field defs" } },
-        "tags": ["Delivery Man Wallet"]
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Method templates with field defs"
+          }
+        },
+        "tags": [
+          "Delivery Man Wallet"
+        ]
       }
     },
     "/delivery-man/wallet/withdraw-request": {
       "post": {
         "summary": "Request withdraw",
         "description": "Creates `withdraw_requests` with `delivery_man_id` and increases `pending_withdraw` on `delivery_man_wallets`.",
-        "parameters": [{ "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" }],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["amount", "id"],
+                "required": [
+                  "amount",
+                  "id"
+                ],
                 "properties": {
-                  "amount": { "type": "number" },
-                  "id": { "type": "integer", "description": "withdrawal_methods.id" }
+                  "amount": {
+                    "type": "number"
+                  },
+                  "id": {
+                    "type": "integer",
+                    "description": "withdrawal_methods.id"
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "Request placed" },
-          "403": { "description": "Insufficient balance" }
+          "200": {
+            "description": "Request placed"
+          },
+          "403": {
+            "description": "Insufficient balance"
+          }
         },
-        "tags": ["Delivery Man Wallet"]
+        "tags": [
+          "Delivery Man Wallet"
+        ]
       }
     },
     "/delivery-man/wallet/withdraw-request/{id}": {
       "delete": {
         "summary": "Cancel pending withdraw",
         "parameters": [
-          { "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" },
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
         ],
-        "responses": { "200": { "description": "Canceled" } },
-        "tags": ["Delivery Man Wallet"]
+        "responses": {
+          "200": {
+            "description": "Canceled"
+          }
+        },
+        "tags": [
+          "Delivery Man Wallet"
+        ]
       }
     },
     "/delivery-man/home": {
       "get": {
         "summary": "Home dashboard stats",
         "description": "Figma home cards: **Today** / **This Week** / **This Month** order counts (by `accepted` time) and **Today's Earning** (delivery fee + tips from `order_transactions`). Bearer from login.",
-        "parameters": [{ "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" }],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Dashboard stats",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DeliveryManHomeResponse" },
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManHomeResponse"
+                },
                 "example": {
                   "status": true,
                   "msg": "Success",
@@ -465,22 +639,32 @@
               }
             }
           },
-          "401": { "description": "Unauthorized" }
+          "401": {
+            "description": "Unauthorized"
+          }
         },
-        "tags": ["Delivery Man Home"]
+        "tags": [
+          "Delivery Man Home"
+        ]
       }
     },
     "/delivery-man/whoami": {
       "get": {
         "summary": "Current driver account",
         "description": "Returns delivery man profile fields (password/auth_token stripped). Same identity as JWT.",
-        "parameters": [{ "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" }],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Driver profile",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DeliveryManWhoamiResponse" },
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManWhoamiResponse"
+                },
                 "example": {
                   "status": true,
                   "msg": "Success",
@@ -515,22 +699,34 @@
               }
             }
           },
-          "401": { "description": "Missing or invalid Bearer token" },
-          "404": { "description": "Driver not found" }
+          "401": {
+            "description": "Missing or invalid Bearer token"
+          },
+          "404": {
+            "description": "Driver not found"
+          }
         },
-        "tags": ["Delivery Man Profile"]
+        "tags": [
+          "Delivery Man Profile"
+        ]
       }
     },
     "/delivery-man/profile": {
       "put": {
         "summary": "Update profile",
         "description": "Edit driver name, email, optional password, profile image path, and vehicle. Legacy PHP path: **PUT /delivery-man/update-profile** (same handler).",
-        "parameters": [{ "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" }],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/DeliveryManUpdateProfileBody" }
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryManUpdateProfileBody"
+              }
             }
           }
         },
@@ -539,36 +735,57 @@
             "description": "Updated profile",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DeliveryManUpdateProfileResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManUpdateProfileResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/ApiError400" },
-          "401": { "$ref": "#/components/responses/ApiError401" },
+          "400": {
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError401"
+          },
           "403": {
             "description": "Email already taken",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ApiError" },
-                "example": { "status": false, "msg": "Email is already taken" }
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Email is already taken"
+                }
               }
             }
           },
-          "404": { "$ref": "#/components/responses/ApiError404" },
-          "500": { "$ref": "#/components/responses/ApiError500" }
+          "404": {
+            "$ref": "#/components/responses/ApiError404"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError500"
+          }
         },
-        "tags": ["Delivery Man Profile"]
+        "tags": [
+          "Delivery Man Profile"
+        ]
       },
       "get": {
         "summary": "Get profile",
         "description": "Delivery man row without password. Prefer **GET /delivery-man/whoami** for app session; this endpoint also accepts legacy `dm_id` query when testing without JWT.",
         "parameters": [
-          { "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" },
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          },
           {
             "name": "dm_id",
             "in": "query",
             "required": false,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Legacy/debug only — JWT `id` is used when Bearer is present"
           }
         ],
@@ -577,7 +794,9 @@
             "description": "Profile",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DeliveryManProfileResponse" },
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManProfileResponse"
+                },
                 "example": {
                   "status": true,
                   "data": {
@@ -598,21 +817,31 @@
               }
             }
           },
-          "404": { "description": "Driver not found" }
+          "404": {
+            "description": "Driver not found"
+          }
         },
-        "tags": ["Delivery Man Profile"]
+        "tags": [
+          "Delivery Man Profile"
+        ]
       }
     },
     "/delivery-man/update-profile": {
       "put": {
         "summary": "Update profile (legacy path)",
         "description": "Same handler as **PUT /delivery-man/profile** (PHP parity).",
-        "parameters": [{ "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" }],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/DeliveryManUpdateProfileBody" }
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryManUpdateProfileBody"
+              }
             }
           }
         },
@@ -621,38 +850,65 @@
             "description": "Updated profile",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DeliveryManUpdateProfileResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManUpdateProfileResponse"
+                }
               }
             }
           },
-          "400": { "$ref": "#/components/responses/ApiError400" },
-          "401": { "$ref": "#/components/responses/ApiError401" },
-          "403": { "$ref": "#/components/responses/ApiError403" },
-          "404": { "$ref": "#/components/responses/ApiError404" },
-          "500": { "$ref": "#/components/responses/ApiError500" }
+          "400": {
+            "$ref": "#/components/responses/ApiError400"
+          },
+          "401": {
+            "$ref": "#/components/responses/ApiError401"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError403"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError404"
+          },
+          "500": {
+            "$ref": "#/components/responses/ApiError500"
+          }
         },
-        "tags": ["Delivery Man Profile"]
+        "tags": [
+          "Delivery Man Profile"
+        ]
       }
     },
     "/delivery-man/profile/status": {
       "put": {
         "summary": "Toggle online / offline",
         "description": "Flips `active` boolean (available for new order requests). Identity from Bearer JWT only.",
-        "parameters": [{ "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" }],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
         "requestBody": false,
         "responses": {
           "200": {
             "description": "Status toggled",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DeliveryManStatusToggleResponse" },
-                "example": { "status": true, "msg": "Status changed to active" }
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManStatusToggleResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Status changed to active"
+                }
               }
             }
           },
-          "404": { "description": "Driver not found" }
+          "404": {
+            "description": "Driver not found"
+          }
         },
-        "tags": ["Delivery Man Profile"]
+        "tags": [
+          "Delivery Man Profile"
+        ]
       }
     },
     "/delivery-man/orders/history": {
@@ -660,27 +916,43 @@
         "summary": "My Orders (past deliveries)",
         "description": "Figma **My Orders** tab: completed/canceled/refunded/failed orders assigned to this driver. Paginated; optional search by order id or restaurant name.",
         "parameters": [
-          { "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" },
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          },
           {
             "name": "limit",
             "in": "query",
-            "schema": { "type": "integer", "default": 10, "minimum": 1, "maximum": 50 }
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "minimum": 1,
+              "maximum": 50
+            }
           },
           {
             "name": "offset",
             "in": "query",
             "description": "1-based page number (legacy PHP name; same as `page`)",
-            "schema": { "type": "integer", "default": 1, "minimum": 1 }
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            }
           },
           {
             "name": "page",
             "in": "query",
-            "schema": { "type": "integer", "minimum": 1 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
           },
           {
             "name": "search",
             "in": "query",
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Order id or restaurant name"
           }
         ],
@@ -689,7 +961,9 @@
             "description": "Order history list",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DeliveryManMyOrdersResponse" },
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManMyOrdersResponse"
+                },
                 "example": {
                   "status": true,
                   "msg": "Success",
@@ -720,22 +994,32 @@
               }
             }
           },
-          "401": { "description": "Unauthorized" }
+          "401": {
+            "description": "Unauthorized"
+          }
         },
-        "tags": ["Delivery Man Orders"]
+        "tags": [
+          "Delivery Man Orders"
+        ]
       }
     },
     "/delivery-man/orders/active": {
       "get": {
         "summary": "Active assigned orders",
         "description": "Home / active trip — assigned orders. Same card shape as **GET /orders/latest** (includes **restaurant_image_url**, **customer_image_url**, amounts, address snippet, lat/lng). Statuses: accepted, confirmed, processing, handover, picked_up, etc.",
-        "parameters": [{ "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" }],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Order list",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DeliveryManOrderListResponse" },
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManOrderListResponse"
+                },
                 "example": {
                   "status": true,
                   "msg": "Success",
@@ -774,22 +1058,32 @@
               }
             }
           },
-          "401": { "description": "Unauthorized" }
+          "401": {
+            "description": "Unauthorized"
+          }
         },
-        "tags": ["Delivery Man Orders"]
+        "tags": [
+          "Delivery Man Orders"
+        ]
       }
     },
     "/delivery-man/orders/latest": {
       "get": {
         "summary": "Order request pool (unassigned)",
         "description": "Order Request tab — unassigned jobs in the driver's **zone**. Each card includes **`restaurant_image_url`** (logo/cover) and **`customer_image_url`** (profile), plus names, COD/payment, delivery snippet, and customer **latitude/longitude** for map. Poll after FCM or on tab focus. Orders usually appear after vendor confirm (`confirmed` / `processing` / `handover`). Filters: schedule window, vehicle, digital pending payment.",
-        "parameters": [{ "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" }],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Unassigned orders in zone",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DeliveryManOrderListResponse" },
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManOrderListResponse"
+                },
                 "example": {
                   "status": true,
                   "msg": "Success",
@@ -828,10 +1122,16 @@
               }
             }
           },
-          "401": { "description": "Unauthorized" },
-          "404": { "description": "Driver not found" }
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Driver not found"
+          }
         },
-        "tags": ["Delivery Man Orders"]
+        "tags": [
+          "Delivery Man Orders"
+        ]
       }
     },
     "/delivery-man/orders/{id}": {
@@ -840,12 +1140,17 @@
         "summary": "Order detail (request / active trip)",
         "description": "Full order for **Order Request** tap-through or **active delivery** screen: restaurant + customer contact/location, line items, pricing breakdown, manual-dispatch summary, and flags **`can_accept`** / **`can_update_status`** / **`assigned_to_me`**. Allowed when the order is in the driver's pool (same rules as GET /orders/latest) or assigned to this driver. Response includes **`user_id`** (customer) and **`vendor_id`** (restaurant) for chat (`GET /delivery-man/message/details`). **Clients:** Driver app order detail + chat entry.",
         "parameters": [
-          { "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" },
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          },
           {
             "name": "id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "pattern": "^\\d+$" },
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d+$"
+            },
             "description": "Numeric order id (from GET /delivery-man/orders/latest or /active)"
           }
         ],
@@ -854,7 +1159,9 @@
             "description": "Order detail",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DeliveryManOrderDetailResponse" },
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManOrderDetailResponse"
+                },
                 "example": {
                   "status": true,
                   "msg": "Success",
@@ -915,12 +1222,22 @@
               }
             }
           },
-          "400": { "description": "Invalid order id" },
-          "401": { "description": "Unauthorized" },
-          "403": { "description": "You cannot view this order (outside pool / zone / vehicle)" },
-          "404": { "description": "Order or driver not found" }
+          "400": {
+            "description": "Invalid order id"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "You cannot view this order (outside pool / zone / vehicle)"
+          },
+          "404": {
+            "description": "Order or driver not found"
+          }
         },
-        "tags": ["Delivery Man Orders"]
+        "tags": [
+          "Delivery Man Orders"
+        ]
       }
     },
     "/delivery-man/orders/{id}/accept": {
@@ -928,12 +1245,16 @@
         "summary": "Accept order from pool",
         "description": "Assigns order to driver, increments `current_orders`, emits realtime status. Fails if already taken, outside zone, or max concurrent/cash limits.",
         "parameters": [
-          { "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" },
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          },
           {
             "name": "id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "description": "Order id from GET /delivery-man/orders/latest"
           }
         ],
@@ -945,18 +1266,31 @@
                 "example": {
                   "status": true,
                   "msg": "Order accepted successfully",
-                  "data": { "id": "42", "order_status": "accepted" }
+                  "data": {
+                    "id": "42",
+                    "order_status": "accepted"
+                  }
                 }
               }
             }
           },
-          "403": { "description": "Order outside delivery area" },
-          "404": { "description": "Order not found or already assigned" },
-          "405": { "description": "Max concurrent orders reached" },
-          "203": { "description": "Max cash in hand exceeded (COD)" }
+          "203": {
+            "description": "Max cash in hand exceeded (COD)"
+          },
+          "403": {
+            "description": "Order outside delivery area"
+          },
+          "404": {
+            "description": "Order not found or already assigned"
+          },
+          "405": {
+            "description": "Max concurrent orders reached"
+          }
         },
         "requestBody": false,
-        "tags": ["Delivery Man Orders"]
+        "tags": [
+          "Delivery Man Orders"
+        ]
       }
     },
     "/delivery-man/orders/{id}/status": {
@@ -964,23 +1298,42 @@
         "summary": "Update order status",
         "description": "Driver progress: `picked_up`, `handover`, `delivered`, `canceled` (requires `reason`). **On `delivered`:** runs PHP-style settlement (`order_transactions`, `delivery_man_wallets`, COD cash, `payment_status=paid`). **406** if settlement fails.",
         "parameters": [
-          { "$ref": "#/components/parameters/DeliveryManAuthorizationHeader" },
+          {
+            "$ref": "#/components/parameters/DeliveryManAuthorizationHeader"
+          },
           {
             "name": "id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/DeliveryManUpdateOrderStatusBody" },
+              "schema": {
+                "$ref": "#/components/schemas/DeliveryManUpdateOrderStatusBody"
+              },
               "examples": {
-                "picked_up": { "value": { "status": "picked_up" } },
-                "delivered": { "value": { "status": "delivered" } },
-                "canceled": { "value": { "status": "canceled", "reason": "Customer unreachable" } }
+                "picked_up": {
+                  "value": {
+                    "status": "picked_up"
+                  }
+                },
+                "delivered": {
+                  "value": {
+                    "status": "delivered"
+                  }
+                },
+                "canceled": {
+                  "value": {
+                    "status": "canceled",
+                    "reason": "Customer unreachable"
+                  }
+                }
               }
             }
           }
@@ -990,28 +1343,439 @@
             "description": "Status updated",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DeliveryManOrderStatusUpdateResponse" },
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManOrderStatusUpdateResponse"
+                },
                 "example": {
                   "status": true,
                   "msg": "Order status updated to delivered",
-                  "data": { "id": "42", "order_status": "delivered" }
+                  "data": {
+                    "id": "42",
+                    "order_status": "delivered"
+                  }
                 }
               }
             }
           },
-          "400": { "description": "Validation error or invalid transition" },
-          "403": { "description": "Not your order or cancel not allowed" },
-          "404": { "description": "Order not found" },
+          "400": {
+            "description": "Validation error or invalid transition"
+          },
+          "403": {
+            "description": "Not your order or cancel not allowed"
+          },
+          "404": {
+            "description": "Order not found"
+          },
           "406": {
             "description": "Settlement failed (`create_order_transaction`) — order not marked delivered",
             "content": {
               "application/json": {
-                "example": { "status": false, "msg": "Failed to create order transaction" }
+                "example": {
+                  "status": false,
+                  "msg": "Failed to create order transaction"
+                }
               }
             }
           }
         },
-        "tags": ["Delivery Man Orders"]
+        "tags": [
+          "Delivery Man Orders"
+        ]
+      }
+    },
+    "/delivery-man/config/place-autocomplete": {
+      "get": {
+        "summary": "Places autocomplete (server proxy)",
+        "operationId": "getDeliveryManConfigPlaceAutocomplete",
+        "description": "Address search while the user types. **Mobile apps must use this route** — do not call Google Places from the client. The backend uses `GOOGLE_MAPS_API_KEY` (server `.env`). Returns Google Places Autocomplete JSON (`predictions`, `status`). Flow: autocomplete → user picks `place_id` → **GET /delivery-man/config/place-details**. Same server proxy as consumer; use this prefix from the driver app.",
+        "parameters": [
+          {
+            "name": "search_text",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "Jerusalem"
+            },
+            "description": "Partial address or place name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Google Places Autocomplete payload (pass-through)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GooglePlacesAutocompleteResponse"
+                },
+                "example": {
+                  "predictions": [
+                    {
+                      "description": "Jerusalem, Israel",
+                      "matched_substrings": [
+                        {
+                          "length": 5,
+                          "offset": 0
+                        }
+                      ],
+                      "place_id": "ChIJecHC4jRkAhMRCpciZik3B00",
+                      "reference": "ChIJecHC4jRkAhMRCpciZik3B00",
+                      "structured_formatting": {
+                        "main_text": "Jerusalem",
+                        "main_text_matched_substrings": [
+                          {
+                            "length": 5,
+                            "offset": 0
+                          }
+                        ],
+                        "secondary_text": "Israel"
+                      },
+                      "terms": [
+                        {
+                          "offset": 0,
+                          "value": "Jerusalem"
+                        },
+                        {
+                          "offset": 11,
+                          "value": "Israel"
+                        }
+                      ],
+                      "types": [
+                        "locality",
+                        "political",
+                        "geocode"
+                      ]
+                    }
+                  ],
+                  "status": "OK"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation — missing or empty search_text",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "search_text is required"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "GOOGLE_MAPS_API_KEY not set or Google upstream error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Google Maps API key is not configured. Set GOOGLE_MAPS_API_KEY in the backend .env."
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Config"
+        ]
+      }
+    },
+    "/delivery-man/config/place-details": {
+      "get": {
+        "summary": "Place details by place_id (server proxy)",
+        "operationId": "getDeliveryManConfigPlaceDetails",
+        "description": "Resolve a suggestion from autocomplete to coordinates and formatted address. Query param name is **`placeid`** (legacy PHP). Read `result.geometry.location` and `result.formatted_address`. Public; no Bearer. Same server proxy as consumer; use this prefix from the driver app.",
+        "parameters": [
+          {
+            "name": "placeid",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "ChIJecHC4jRkAhMRCpciZik3B00"
+            },
+            "description": "`place_id` from autocomplete prediction"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Google Place Details payload (pass-through)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GooglePlaceDetailsResponse"
+                },
+                "example": {
+                  "result": {
+                    "formatted_address": "Jerusalem",
+                    "geometry": {
+                      "location": {
+                        "lat": 31.768319,
+                        "lng": 35.21371
+                      },
+                      "viewport": {
+                        "northeast": {
+                          "lat": 31.882907,
+                          "lng": 35.261879
+                        },
+                        "southwest": {
+                          "lat": 31.709678,
+                          "lng": 35.085431
+                        }
+                      }
+                    },
+                    "place_id": "ChIJecHC4jRkAhMRCpciZik3B00",
+                    "types": [
+                      "locality",
+                      "political"
+                    ]
+                  },
+                  "status": "OK"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation — missing placeid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server or Google error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Config"
+        ]
+      }
+    },
+    "/delivery-man/config/geocode": {
+      "get": {
+        "summary": "Reverse geocode lat/lng (server proxy)",
+        "operationId": "getDeliveryManConfigGeocode",
+        "description": "Map pin flow: user selects coordinates without a `place_id` → get human-readable address. Backend uses `GOOGLE_MAPS_API_KEY`. Returns Google Geocoding JSON. Use `results[0].formatted_address` and geometry when status is `OK`. Same server proxy as consumer; use this prefix from the driver app.",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 31.768319
+            }
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 35.21371
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Google Geocoding payload (pass-through)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleGeocodeResponse"
+                },
+                "example": {
+                  "results": [
+                    {
+                      "formatted_address": "Jerusalem",
+                      "geometry": {
+                        "location": {
+                          "lat": 31.768319,
+                          "lng": 35.21371
+                        },
+                        "location_type": "APPROXIMATE",
+                        "viewport": {
+                          "northeast": {
+                            "lat": 31.882907,
+                            "lng": 35.261879
+                          },
+                          "southwest": {
+                            "lat": 31.709678,
+                            "lng": 35.085431
+                          }
+                        }
+                      },
+                      "place_id": "ChIJecHC4jRkAhMRCpciZik3B00",
+                      "types": [
+                        "locality",
+                        "political"
+                      ]
+                    }
+                  ],
+                  "status": "OK"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation — missing lat/lng",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server or Google error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Config"
+        ]
+      }
+    },
+    "/delivery-man/config/distance": {
+      "get": {
+        "summary": "Walking distance matrix (server proxy)",
+        "operationId": "getDeliveryManConfigDistance",
+        "description": "Route distance and duration between origin and destination (legacy PHP distance-api). **GET /delivery-man/config/distance** — backend uses `GOOGLE_MAPS_API_KEY`, mode `walking`. Returns Google Distance Matrix JSON (`rows[].elements[].distance`, `duration`, `status`). Public; no Bearer.",
+        "parameters": [
+          {
+            "name": "origin_lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 32.0853
+            },
+            "description": "Origin latitude"
+          },
+          {
+            "name": "origin_lng",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 34.7818
+            },
+            "description": "Origin longitude"
+          },
+          {
+            "name": "destination_lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 32.1093
+            },
+            "description": "Destination latitude"
+          },
+          {
+            "name": "destination_lng",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 34.8555
+            },
+            "description": "Destination longitude"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Google Distance Matrix payload (pass-through)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleDistanceMatrixResponse"
+                },
+                "example": {
+                  "destination_addresses": [
+                    "Tel Aviv-Yafo, Israel"
+                  ],
+                  "origin_addresses": [
+                    "Jaffa, Tel Aviv-Yafo, Israel"
+                  ],
+                  "rows": [
+                    {
+                      "elements": [
+                        {
+                          "distance": {
+                            "text": "3.2 km",
+                            "value": 3200
+                          },
+                          "duration": {
+                            "text": "38 mins",
+                            "value": 2280
+                          },
+                          "status": "OK"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "OK"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation — missing origin/destination coordinates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "origin_lat is required"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "GOOGLE_MAPS_API_KEY not set or Google upstream error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Google Maps API key is not configured. Set GOOGLE_MAPS_API_KEY in the backend .env."
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Config"
+        ]
       }
     }
   },
@@ -1021,7 +1785,9 @@
         "name": "authorization",
         "in": "header",
         "required": true,
-        "schema": { "type": "string" },
+        "schema": {
+          "type": "string"
+        },
         "description": "Bearer JWT from POST /delivery-man/login",
         "example": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
       }
@@ -1029,87 +1795,228 @@
     "schemas": {
       "DeliveryManLoginBody": {
         "type": "object",
-        "required": ["phone", "password"],
+        "required": [
+          "phone",
+          "password"
+        ],
         "properties": {
-          "phone": { "type": "string", "minLength": 9, "example": "+972501234567" },
-          "password": { "type": "string", "example": "Secret123!" },
-          "remember_me": { "type": "boolean", "default": false }
+          "phone": {
+            "type": "string",
+            "minLength": 9,
+            "example": "+972501234567"
+          },
+          "password": {
+            "type": "string",
+            "example": "Secret123!"
+          },
+          "remember_me": {
+            "type": "boolean",
+            "default": false
+          }
         }
       },
       "DeliveryManLoginResponse": {
         "type": "object",
         "properties": {
-          "status": { "type": "boolean", "example": true },
-          "msg": { "type": "string", "example": "Login success" },
-          "data": { "$ref": "#/components/schemas/DeliveryManLoginData" }
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Login success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DeliveryManLoginData"
+          }
         }
       },
       "DeliveryManLoginData": {
         "type": "object",
         "properties": {
-          "token": { "type": "string", "description": "Bearer JWT for all protected routes" },
+          "token": {
+            "type": "string",
+            "description": "Bearer JWT for all protected routes"
+          },
           "topic": {
             "type": "string",
             "example": "delivery_man_2_1",
             "description": "Firebase topic — subscribe for zone/vehicle order pushes"
           },
-          "id": { "type": "string" },
-          "f_name": { "type": "string" },
-          "l_name": { "type": "string" },
-          "phone": { "type": "string" }
+          "id": {
+            "type": "string"
+          },
+          "f_name": {
+            "type": "string"
+          },
+          "l_name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          }
         }
       },
       "DeliveryManProfileData": {
         "type": "object",
         "description": "Delivery man row without password or auth_token (GET whoami / profile)",
         "properties": {
-          "id": { "type": "string" },
-          "f_name": { "type": "string", "nullable": true },
-          "l_name": { "type": "string", "nullable": true },
-          "phone": { "type": "string" },
-          "email": { "type": "string", "nullable": true },
-          "identity_number": { "type": "string", "nullable": true },
-          "identity_type": { "type": "string", "nullable": true },
-          "identity_image": { "type": "string", "nullable": true, "description": "JSON array string of R2 paths" },
-          "image": { "type": "string", "nullable": true, "description": "Profile photo path" },
-          "fcm_token": { "type": "string", "nullable": true },
+          "id": {
+            "type": "string"
+          },
+          "f_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "l_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "identity_number": {
+            "type": "string",
+            "nullable": true
+          },
+          "identity_type": {
+            "type": "string",
+            "nullable": true
+          },
+          "identity_image": {
+            "type": "string",
+            "nullable": true,
+            "description": "JSON array string of R2 paths"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "description": "Profile photo path"
+          },
+          "fcm_token": {
+            "type": "string",
+            "nullable": true
+          },
           "is_notification_on": {
             "type": "boolean",
             "description": "When false, direct FCM device pushes are skipped. Toggle via PUT /delivery-man/notifications/toggle."
           },
-          "zone_id": { "type": "string", "nullable": true },
-          "restaurant_id": { "type": "string", "nullable": true },
-          "vehicle_id": { "type": "string", "nullable": true },
-          "shift_id": { "type": "string", "nullable": true },
-          "status": { "type": "boolean", "description": "Account enabled by admin" },
-          "active": { "type": "boolean", "description": "Online — available for new requests" },
-          "earning": { "type": "boolean" },
-          "current_orders": { "type": "string", "description": "Active assignment count (BigInt serialized)" },
-          "type": { "type": "string", "enum": ["zone_wise", "restaurant_wise"], "example": "zone_wise" },
-          "application_status": { "type": "string", "enum": ["pending", "approved", "denied"] },
-          "order_count": { "type": "string" },
-          "assigned_order_count": { "type": "string" },
-          "additional_data": { "type": "string", "nullable": true },
-          "additional_documents": { "type": "string", "nullable": true },
-          "cloudflareId": { "type": "string", "nullable": true },
-          "created_at": { "type": "string", "format": "date-time", "nullable": true },
-          "updated_at": { "type": "string", "format": "date-time", "nullable": true }
+          "zone_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "vehicle_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "shift_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "type": "boolean",
+            "description": "Account enabled by admin"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Online — available for new requests"
+          },
+          "earning": {
+            "type": "boolean"
+          },
+          "current_orders": {
+            "type": "string",
+            "description": "Active assignment count (BigInt serialized)"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "zone_wise",
+              "restaurant_wise"
+            ],
+            "example": "zone_wise"
+          },
+          "application_status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "approved",
+              "denied"
+            ]
+          },
+          "order_count": {
+            "type": "string"
+          },
+          "assigned_order_count": {
+            "type": "string"
+          },
+          "additional_data": {
+            "type": "string",
+            "nullable": true
+          },
+          "additional_documents": {
+            "type": "string",
+            "nullable": true
+          },
+          "cloudflareId": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
         }
       },
       "DeliveryManProfileResponse": {
         "type": "object",
         "properties": {
-          "status": { "type": "boolean", "example": true },
-          "data": { "$ref": "#/components/schemas/DeliveryManProfileData" }
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/DeliveryManProfileData"
+          }
         }
       },
       "DeliveryManUpdateProfileBody": {
         "type": "object",
-        "required": ["f_name", "l_name", "email"],
+        "required": [
+          "f_name",
+          "l_name",
+          "email"
+        ],
         "properties": {
-          "f_name": { "type": "string", "minLength": 1, "example": "Ahmed" },
-          "l_name": { "type": "string", "minLength": 1, "example": "Khan" },
-          "email": { "type": "string", "format": "email", "example": "ahmed@example.com" },
+          "f_name": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Ahmed"
+          },
+          "l_name": {
+            "type": "string",
+            "minLength": 1,
+            "example": "Khan"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "ahmed@example.com"
+          },
           "password": {
             "type": "string",
             "minLength": 6,
@@ -1129,70 +2036,150 @@
       },
       "DeliveryManUpdateProfileResponse": {
         "type": "object",
-        "required": ["status", "msg", "data"],
+        "required": [
+          "status",
+          "msg",
+          "data"
+        ],
         "properties": {
-          "status": { "type": "boolean", "example": true },
-          "msg": { "type": "string", "example": "Profile updated successfully" },
-          "message": { "type": "string", "example": "successfully updated!" },
-          "data": { "$ref": "#/components/schemas/DeliveryManProfileData" }
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Profile updated successfully"
+          },
+          "message": {
+            "type": "string",
+            "example": "successfully updated!"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DeliveryManProfileData"
+          }
         }
       },
       "DeliveryManStatusToggleResponse": {
         "type": "object",
         "properties": {
-          "status": { "type": "boolean", "example": true },
-          "msg": { "type": "string", "example": "Status changed to active" }
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Status changed to active"
+          }
         }
       },
       "DeliveryManForgotPasswordBody": {
         "type": "object",
-        "required": ["phone"],
+        "required": [
+          "phone"
+        ],
         "properties": {
-          "phone": { "type": "string", "example": "+972501234567" }
+          "phone": {
+            "type": "string",
+            "example": "+972501234567"
+          }
         }
       },
       "DeliveryManPasswordOtpBody": {
         "type": "object",
-        "required": ["phone", "otp"],
+        "required": [
+          "phone",
+          "otp"
+        ],
         "properties": {
-          "phone": { "type": "string", "example": "+972501234567" },
-          "otp": { "type": "string", "pattern": "^\\d{4,6}$", "example": "1234" }
+          "phone": {
+            "type": "string",
+            "example": "+972501234567"
+          },
+          "otp": {
+            "type": "string",
+            "pattern": "^\\d{4,6}$",
+            "example": "1234"
+          }
         }
       },
       "DeliveryManPasswordResetBody": {
         "type": "object",
-        "required": ["phone", "otp", "password", "confirm_password"],
+        "required": [
+          "phone",
+          "otp",
+          "password",
+          "confirm_password"
+        ],
         "properties": {
-          "phone": { "type": "string" },
-          "otp": { "type": "string", "example": "1234" },
-          "password": { "type": "string", "minLength": 6 },
-          "confirm_password": { "type": "string", "minLength": 6 }
+          "phone": {
+            "type": "string"
+          },
+          "otp": {
+            "type": "string",
+            "example": "1234"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6
+          },
+          "confirm_password": {
+            "type": "string",
+            "minLength": 6
+          }
         }
       },
       "DeliveryManChangePasswordBody": {
         "type": "object",
-        "required": ["current_password", "password", "confirm_password"],
+        "required": [
+          "current_password",
+          "password",
+          "confirm_password"
+        ],
         "properties": {
-          "current_password": { "type": "string" },
-          "password": { "type": "string", "minLength": 6 },
-          "confirm_password": { "type": "string", "minLength": 6 }
+          "current_password": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 6
+          },
+          "confirm_password": {
+            "type": "string",
+            "minLength": 6
+          }
         }
       },
       "DeliveryManEarningsResponse": {
         "type": "object",
         "properties": {
-          "status": { "type": "boolean", "example": true },
-          "msg": { "type": "string", "example": "Success" },
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
           "data": {
             "type": "object",
             "properties": {
-              "summary": { "$ref": "#/components/schemas/DeliveryManEarningsSummary" },
-              "total_size": { "type": "integer" },
-              "limit": { "type": "integer" },
-              "offset": { "type": "integer" },
+              "summary": {
+                "$ref": "#/components/schemas/DeliveryManEarningsSummary"
+              },
+              "total_size": {
+                "type": "integer"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "offset": {
+                "type": "integer"
+              },
               "history": {
                 "type": "array",
-                "items": { "$ref": "#/components/schemas/DeliveryManEarningHistoryItem" }
+                "items": {
+                  "$ref": "#/components/schemas/DeliveryManEarningHistoryItem"
+                }
               }
             }
           }
@@ -1204,80 +2191,205 @@
           "wallet": {
             "type": "object",
             "properties": {
-              "total_earning": { "type": "number" },
-              "total_withdrawn": { "type": "number" },
-              "pending_withdraw": { "type": "number" },
-              "collected_cash": { "type": "number" },
-              "balance": { "type": "number" }
+              "total_earning": {
+                "type": "number"
+              },
+              "total_withdrawn": {
+                "type": "number"
+              },
+              "pending_withdraw": {
+                "type": "number"
+              },
+              "collected_cash": {
+                "type": "number"
+              },
+              "balance": {
+                "type": "number"
+              }
             }
           },
-          "todays_earning": { "type": "number" },
-          "this_week_earning": { "type": "number" },
-          "this_month_earning": { "type": "number" },
-          "lifetime_earning": { "type": "number" }
+          "todays_earning": {
+            "type": "number"
+          },
+          "this_week_earning": {
+            "type": "number"
+          },
+          "this_month_earning": {
+            "type": "number"
+          },
+          "lifetime_earning": {
+            "type": "number"
+          }
         }
       },
       "DeliveryManEarningOrderItem": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "food_id": { "type": "string", "nullable": true },
-          "name": { "type": "string", "nullable": true },
-          "quantity": { "type": "integer" },
-          "price": { "type": "number" },
-          "image": { "type": "string", "nullable": true }
+          "id": {
+            "type": "string"
+          },
+          "food_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "price": {
+            "type": "number"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          }
         }
       },
       "DeliveryManEarningOrderSnapshot": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "order_status": { "type": "string" },
-          "order_amount": { "type": "number" },
-          "delivery_charge": { "type": "number" },
-          "original_delivery_charge": { "type": "number" },
-          "dm_tips": { "type": "number" },
-          "payment_method": { "type": "string", "nullable": true },
-          "payment_status": { "type": "string" },
-          "delivered_at": { "type": "string", "format": "date-time", "nullable": true },
-          "created_at": { "type": "string", "format": "date-time", "nullable": true },
-          "delivery_address": { "type": "string", "nullable": true },
-          "distance": { "type": "number", "nullable": true },
+          "id": {
+            "type": "string"
+          },
+          "order_status": {
+            "type": "string"
+          },
+          "order_amount": {
+            "type": "number"
+          },
+          "delivery_charge": {
+            "type": "number"
+          },
+          "original_delivery_charge": {
+            "type": "number"
+          },
+          "dm_tips": {
+            "type": "number"
+          },
+          "payment_method": {
+            "type": "string",
+            "nullable": true
+          },
+          "payment_status": {
+            "type": "string"
+          },
+          "delivered_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "delivery_address": {
+            "type": "string",
+            "nullable": true
+          },
+          "distance": {
+            "type": "number",
+            "nullable": true
+          },
           "items": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/DeliveryManEarningOrderItem" }
+            "items": {
+              "$ref": "#/components/schemas/DeliveryManEarningOrderItem"
+            }
           }
         }
       },
       "DeliveryManEarningHistoryItem": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "description": "Transaction id or order-{id} fallback" },
-          "source": { "type": "string", "enum": ["order_transaction", "delivered_order"] },
-          "order_id": { "type": "string" },
-          "transaction_id": { "type": "string", "nullable": true },
-          "earned_at": { "type": "string", "format": "date-time", "nullable": true },
-          "delivery_fee": { "type": "number" },
-          "dm_tips": { "type": "number" },
-          "total_earning": { "type": "number" },
-          "order_amount": { "type": "number" },
-          "payment_method": { "type": "string", "nullable": true },
-          "payment_status": { "type": "string", "nullable": true },
-          "order_status": { "type": "string" },
-          "restaurant_id": { "type": "string", "nullable": true },
-          "restaurant_name": { "type": "string", "nullable": true },
-          "restaurant_logo": { "type": "string", "nullable": true },
-          "item_name": { "type": "string", "nullable": true },
-          "item_count": { "type": "integer" },
-          "image": { "type": "string", "nullable": true },
-          "order": { "$ref": "#/components/schemas/DeliveryManEarningOrderSnapshot" }
+          "id": {
+            "type": "string",
+            "description": "Transaction id or order-{id} fallback"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "order_transaction",
+              "delivered_order"
+            ]
+          },
+          "order_id": {
+            "type": "string"
+          },
+          "transaction_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "earned_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "delivery_fee": {
+            "type": "number"
+          },
+          "dm_tips": {
+            "type": "number"
+          },
+          "total_earning": {
+            "type": "number"
+          },
+          "order_amount": {
+            "type": "number"
+          },
+          "payment_method": {
+            "type": "string",
+            "nullable": true
+          },
+          "payment_status": {
+            "type": "string",
+            "nullable": true
+          },
+          "order_status": {
+            "type": "string"
+          },
+          "restaurant_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_logo": {
+            "type": "string",
+            "nullable": true
+          },
+          "item_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "item_count": {
+            "type": "integer"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "order": {
+            "$ref": "#/components/schemas/DeliveryManEarningOrderSnapshot"
+          }
         }
       },
       "DeliveryManHomeResponse": {
         "type": "object",
         "properties": {
-          "status": { "type": "boolean", "example": true },
-          "msg": { "type": "string", "example": "Success" },
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
           "data": {
             "type": "object",
             "properties": {
@@ -1308,25 +2420,51 @@
       "DeliveryManWhoamiResponse": {
         "type": "object",
         "properties": {
-          "status": { "type": "boolean", "example": true },
-          "msg": { "type": "string", "example": "Success" },
-          "data": { "$ref": "#/components/schemas/DeliveryManProfileData" }
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DeliveryManProfileData"
+          }
         }
       },
       "DeliveryManMyOrdersResponse": {
         "type": "object",
         "properties": {
-          "status": { "type": "boolean", "example": true },
-          "msg": { "type": "string", "example": "Success" },
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
           "data": {
             "type": "object",
             "properties": {
-              "total_size": { "type": "integer", "example": 12 },
-              "limit": { "type": "integer", "example": 10 },
-              "offset": { "type": "integer", "example": 1, "description": "Current page" },
+              "total_size": {
+                "type": "integer",
+                "example": 12
+              },
+              "limit": {
+                "type": "integer",
+                "example": 10
+              },
+              "offset": {
+                "type": "integer",
+                "example": 1,
+                "description": "Current page"
+              },
               "orders": {
                 "type": "array",
-                "items": { "$ref": "#/components/schemas/DeliveryManMyOrderCard" }
+                "items": {
+                  "$ref": "#/components/schemas/DeliveryManMyOrderCard"
+                }
               }
             }
           }
@@ -1336,30 +2474,85 @@
         "type": "object",
         "description": "Figma My Orders row — #id, title, item count, date/time, status pill, amount",
         "properties": {
-          "id": { "type": "string", "example": "100178" },
-          "order_id": { "type": "string", "example": "100178" },
-          "order_number": { "type": "string", "example": "100178" },
-          "item_name": { "type": "string", "example": "Classic Cheeseburger", "nullable": true },
-          "item_count": { "type": "integer", "example": 5 },
-          "image": { "type": "string", "example": "food/burger.png" },
-          "order_amount": { "type": "number", "example": 300 },
-          "order_status": { "type": "string", "example": "delivered" },
-          "status_label": { "type": "string", "example": "Completed" },
-          "order_date": { "type": "string", "example": "25 Aug, 2026", "nullable": true },
-          "order_time": { "type": "string", "example": "18:35", "nullable": true },
-          "created_at": { "type": "string", "format": "date-time", "nullable": true },
-          "delivered_at": { "type": "string", "format": "date-time", "nullable": true },
-          "restaurant_name": { "type": "string", "nullable": true }
+          "id": {
+            "type": "string",
+            "example": "100178"
+          },
+          "order_id": {
+            "type": "string",
+            "example": "100178"
+          },
+          "order_number": {
+            "type": "string",
+            "example": "100178"
+          },
+          "item_name": {
+            "type": "string",
+            "example": "Classic Cheeseburger",
+            "nullable": true
+          },
+          "item_count": {
+            "type": "integer",
+            "example": 5
+          },
+          "image": {
+            "type": "string",
+            "example": "food/burger.png"
+          },
+          "order_amount": {
+            "type": "number",
+            "example": 300
+          },
+          "order_status": {
+            "type": "string",
+            "example": "delivered"
+          },
+          "status_label": {
+            "type": "string",
+            "example": "Completed"
+          },
+          "order_date": {
+            "type": "string",
+            "example": "25 Aug, 2026",
+            "nullable": true
+          },
+          "order_time": {
+            "type": "string",
+            "example": "18:35",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "delivered_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "restaurant_name": {
+            "type": "string",
+            "nullable": true
+          }
         }
       },
       "DeliveryManOrderListResponse": {
         "type": "object",
         "properties": {
-          "status": { "type": "boolean", "example": true },
-          "msg": { "type": "string", "example": "Success" },
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
           "data": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/DeliveryManOrderSummary" }
+            "items": {
+              "$ref": "#/components/schemas/DeliveryManOrderSummary"
+            }
           }
         }
       },
@@ -1367,20 +2560,49 @@
         "type": "object",
         "description": "Order request / active card (GET /orders/latest and GET /orders/active)",
         "properties": {
-          "id": { "type": "string", "example": "100178" },
+          "id": {
+            "type": "string",
+            "example": "100178"
+          },
           "order_id": {
             "type": "string",
             "example": "100178",
             "description": "Gizra platform order id (same as id) — use for accept/status"
           },
-          "order_status": { "type": "string", "example": "handover" },
-          "payment_method": { "type": "string", "example": "cash_on_delivery", "nullable": true },
-          "order_amount": { "type": "number", "example": 60 },
-          "delivery_charge": { "type": "number", "example": 30, "description": "Driver delivery fee for this order" },
-          "schedule_at": { "type": "string", "format": "date-time", "nullable": true },
-          "restaurant_id": { "type": "string" },
-          "restaurant_name": { "type": "string", "nullable": true },
-          "customer_name": { "type": "string", "nullable": true },
+          "order_status": {
+            "type": "string",
+            "example": "handover"
+          },
+          "payment_method": {
+            "type": "string",
+            "example": "cash_on_delivery",
+            "nullable": true
+          },
+          "order_amount": {
+            "type": "number",
+            "example": 60
+          },
+          "delivery_charge": {
+            "type": "number",
+            "example": 30,
+            "description": "Driver delivery fee for this order"
+          },
+          "schedule_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "string"
+          },
+          "restaurant_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "customer_name": {
+            "type": "string",
+            "nullable": true
+          },
           "restaurant_image_url": {
             "type": "string",
             "nullable": true,
@@ -1391,31 +2613,68 @@
             "nullable": true,
             "description": "Full URL for customer profile image (fallback def.png)"
           },
-          "item_title": { "type": "string", "nullable": true, "description": "First line item name" },
-          "delivery_address_snippet": { "type": "string", "nullable": true },
-          "latitude": { "type": "string", "nullable": true, "description": "Customer delivery lat (string or number)" },
-          "longitude": { "type": "string", "nullable": true },
+          "item_title": {
+            "type": "string",
+            "nullable": true,
+            "description": "First line item name"
+          },
+          "delivery_address_snippet": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "string",
+            "nullable": true,
+            "description": "Customer delivery lat (string or number)"
+          },
+          "longitude": {
+            "type": "string",
+            "nullable": true
+          },
           "processing_time": {
             "type": "string",
             "nullable": true,
             "description": "Minutes from POS — only when order_status is processing"
           },
-          "cooking_time_minutes": { "type": "integer", "nullable": true },
-          "processing_started_at": { "type": "string", "format": "date-time", "nullable": true },
-          "cooking_ready_by": { "type": "string", "format": "date-time", "nullable": true },
+          "cooking_time_minutes": {
+            "type": "integer",
+            "nullable": true
+          },
+          "processing_started_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cooking_ready_by": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
           "cooking_minutes_remaining": {
             "type": "integer",
             "nullable": true,
             "description": "Live countdown; null unless order_status is processing"
           },
-          "is_manual_dispatch": { "type": "boolean" },
+          "is_manual_dispatch": {
+            "type": "boolean"
+          },
           "order_source": {
             "type": "string",
-            "enum": ["gizra_consumer", "manual_dispatch", "pos_instore"],
+            "enum": [
+              "gizra_consumer",
+              "manual_dispatch",
+              "pos_instore"
+            ],
             "description": "manual_dispatch = Request Gizra ride / phone order from POS"
           },
-          "order_source_label": { "type": "string", "example": "Gizra customer app" },
-          "gizra_order_id": { "type": "string", "description": "Platform order id (orders.id)" },
+          "order_source_label": {
+            "type": "string",
+            "example": "Gizra customer app"
+          },
+          "gizra_order_id": {
+            "type": "string",
+            "description": "Platform order id (orders.id)"
+          },
           "restaurant_order_ref": {
             "type": "string",
             "nullable": true,
@@ -1435,9 +2694,16 @@
             "nullable": true,
             "description": "Present on latest/active cards for manual dispatch (Request Gizra driver)",
             "properties": {
-              "title": { "type": "string" },
-              "restaurant_order_ref": { "type": "string", "nullable": true },
-              "gizra_order_id": { "type": "string" }
+              "title": {
+                "type": "string"
+              },
+              "restaurant_order_ref": {
+                "type": "string",
+                "nullable": true
+              },
+              "gizra_order_id": {
+                "type": "string"
+              }
             }
           }
         },
@@ -1475,16 +2741,26 @@
       "DeliveryManOrderDetailResponse": {
         "type": "object",
         "properties": {
-          "status": { "type": "boolean", "example": true },
-          "msg": { "type": "string", "example": "Success" },
-          "data": { "$ref": "#/components/schemas/DeliveryManOrderDetail" }
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DeliveryManOrderDetail"
+          }
         }
       },
       "DeliveryManOrderDetail": {
         "type": "object",
         "description": "GET /delivery-man/orders/{id} — Order Request / active delivery screen",
         "properties": {
-          "id": { "type": "string" },
+          "id": {
+            "type": "string"
+          },
           "user_id": {
             "type": "string",
             "nullable": true,
@@ -1495,34 +2771,90 @@
             "nullable": true,
             "description": "Restaurant vendor id — for GET /delivery-man/message/details?vendor_id="
           },
-          "order_status": { "type": "string" },
-          "status_label": { "type": "string", "example": "Handover" },
-          "payment_status": { "type": "string", "nullable": true },
-          "payment_method": { "type": "string", "nullable": true },
-          "order_type": { "type": "string" },
-          "order_amount": { "type": "number" },
-          "delivery_charge": { "type": "number" },
-          "scheduled": { "type": "boolean" },
-          "schedule_at": { "type": "string", "format": "date-time", "nullable": true },
-          "created_at": { "type": "string", "format": "date-time", "nullable": true },
-          "is_manual_dispatch": { "type": "boolean" },
+          "order_status": {
+            "type": "string"
+          },
+          "status_label": {
+            "type": "string",
+            "example": "Handover"
+          },
+          "payment_status": {
+            "type": "string",
+            "nullable": true
+          },
+          "payment_method": {
+            "type": "string",
+            "nullable": true
+          },
+          "order_type": {
+            "type": "string"
+          },
+          "order_amount": {
+            "type": "number"
+          },
+          "delivery_charge": {
+            "type": "number"
+          },
+          "scheduled": {
+            "type": "boolean"
+          },
+          "schedule_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "is_manual_dispatch": {
+            "type": "boolean"
+          },
           "order_source": {
             "type": "string",
-            "enum": ["gizra_consumer", "manual_dispatch", "pos_instore"]
+            "enum": [
+              "gizra_consumer",
+              "manual_dispatch",
+              "pos_instore"
+            ]
           },
-          "order_source_label": { "type": "string" },
-          "gizra_order_id": { "type": "string" },
-          "restaurant_order_ref": { "type": "string", "nullable": true },
-          "display_order_number": { "type": "string" },
-          "order_note": { "type": "string", "nullable": true },
+          "order_source_label": {
+            "type": "string"
+          },
+          "gizra_order_id": {
+            "type": "string"
+          },
+          "restaurant_order_ref": {
+            "type": "string",
+            "nullable": true
+          },
+          "display_order_number": {
+            "type": "string"
+          },
+          "order_note": {
+            "type": "string",
+            "nullable": true
+          },
           "processing_time": {
             "type": "string",
             "nullable": true,
             "description": "Minutes from POS — only when order_status is processing"
           },
-          "cooking_time_minutes": { "type": "integer", "nullable": true },
-          "processing_started_at": { "type": "string", "format": "date-time", "nullable": true },
-          "cooking_ready_by": { "type": "string", "format": "date-time", "nullable": true },
+          "cooking_time_minutes": {
+            "type": "integer",
+            "nullable": true
+          },
+          "processing_started_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cooking_ready_by": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
           "cooking_minutes_remaining": {
             "type": "integer",
             "nullable": true,
@@ -1532,111 +2864,242 @@
             "type": "object",
             "nullable": true,
             "properties": {
-              "title": { "type": "string" },
-              "delivery_fee": { "type": "number" },
-              "restaurant_order_ref": { "type": "string", "nullable": true },
-              "gizra_order_id": { "type": "string" }
+              "title": {
+                "type": "string"
+              },
+              "delivery_fee": {
+                "type": "number"
+              },
+              "restaurant_order_ref": {
+                "type": "string",
+                "nullable": true
+              },
+              "gizra_order_id": {
+                "type": "string"
+              }
             }
           },
-          "restaurant": { "$ref": "#/components/schemas/DeliveryManOrderDetailRestaurant" },
-          "customer": { "$ref": "#/components/schemas/DeliveryManOrderDetailParty" },
-          "delivery_address": { "type": "string", "nullable": true },
-          "delivery_address_parsed": { "type": "object", "nullable": true },
+          "restaurant": {
+            "$ref": "#/components/schemas/DeliveryManOrderDetailRestaurant"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/DeliveryManOrderDetailParty"
+          },
+          "delivery_address": {
+            "type": "string",
+            "nullable": true
+          },
+          "delivery_address_parsed": {
+            "type": "object",
+            "nullable": true
+          },
           "items": {
             "type": "array",
-            "items": { "$ref": "#/components/schemas/DeliveryManOrderDetailItem" }
+            "items": {
+              "$ref": "#/components/schemas/DeliveryManOrderDetailItem"
+            }
           },
-          "pricing": { "$ref": "#/components/schemas/DeliveryManOrderDetailPricing" },
-          "assigned_to_me": { "type": "boolean" },
-          "can_accept": { "type": "boolean" },
-          "can_update_status": { "type": "boolean" }
+          "pricing": {
+            "$ref": "#/components/schemas/DeliveryManOrderDetailPricing"
+          },
+          "assigned_to_me": {
+            "type": "boolean"
+          },
+          "can_accept": {
+            "type": "boolean"
+          },
+          "can_update_status": {
+            "type": "boolean"
+          }
         }
       },
       "DeliveryManOrderDetailRestaurant": {
         "type": "object",
         "nullable": true,
         "properties": {
-          "id": { "type": "string" },
-          "name": { "type": "string" },
-          "phone": { "type": "string", "nullable": true },
-          "address": { "type": "string", "nullable": true },
-          "address_snippet": { "type": "string", "nullable": true },
-          "latitude": { "type": "string", "nullable": true },
-          "longitude": { "type": "string", "nullable": true },
-          "image_url": { "type": "string", "nullable": true }
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_snippet": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "string",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "string",
+            "nullable": true
+          },
+          "image_url": {
+            "type": "string",
+            "nullable": true
+          }
         }
       },
       "DeliveryManOrderDetailParty": {
         "type": "object",
         "properties": {
-          "name": { "type": "string" },
-          "phone": { "type": "string", "nullable": true },
-          "address": { "type": "string", "nullable": true },
-          "address_snippet": { "type": "string", "nullable": true },
-          "latitude": { "type": "string", "nullable": true },
-          "longitude": { "type": "string", "nullable": true },
-          "image_url": { "type": "string", "nullable": true }
+          "name": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "address_snippet": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "string",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "string",
+            "nullable": true
+          },
+          "image_url": {
+            "type": "string",
+            "nullable": true
+          }
         }
       },
       "DeliveryManOrderDetailItem": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "nullable": true },
-          "food_id": { "type": "string", "nullable": true },
-          "food_name": { "type": "string" },
-          "food_image_url": { "type": "string", "nullable": true },
-          "quantity": { "type": "number" },
-          "unit_label": { "type": "string" },
-          "price": { "type": "number" },
-          "line_total": { "type": "number" },
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "food_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "food_name": {
+            "type": "string"
+          },
+          "food_image_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "unit_label": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number"
+          },
+          "line_total": {
+            "type": "number"
+          },
           "addon_lines": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
-                "name": { "type": "string" },
-                "quantity": { "type": "number" },
-                "price": { "type": "number" }
+                "name": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "number"
+                },
+                "price": {
+                  "type": "number"
+                }
               }
             }
           },
-          "tax_amount": { "type": "number" }
+          "tax_amount": {
+            "type": "number"
+          }
         }
       },
       "DeliveryManOrderDetailPricing": {
         "type": "object",
         "properties": {
-          "items_price": { "type": "number" },
-          "discount": { "type": "number" },
-          "vat_tax": { "type": "number" },
-          "tax_percent": { "type": "number" },
-          "delivery_man_tips": { "type": "number" },
-          "addons": { "type": "number" },
-          "delivery_charge": { "type": "number" },
-          "subtotal": { "type": "number" }
+          "items_price": {
+            "type": "number"
+          },
+          "discount": {
+            "type": "number"
+          },
+          "vat_tax": {
+            "type": "number"
+          },
+          "tax_percent": {
+            "type": "number"
+          },
+          "delivery_man_tips": {
+            "type": "number"
+          },
+          "addons": {
+            "type": "number"
+          },
+          "delivery_charge": {
+            "type": "number"
+          },
+          "subtotal": {
+            "type": "number"
+          }
         }
       },
       "DeliveryManOrderStatusUpdateResponse": {
         "type": "object",
         "properties": {
-          "status": { "type": "boolean", "example": true },
-          "msg": { "type": "string" },
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string"
+          },
           "data": {
             "type": "object",
             "properties": {
-              "id": { "type": "string" },
-              "order_status": { "type": "string" }
+              "id": {
+                "type": "string"
+              },
+              "order_status": {
+                "type": "string"
+              }
             }
           }
         }
       },
       "DeliveryManUpdateOrderStatusBody": {
         "type": "object",
-        "required": ["status"],
+        "required": [
+          "status"
+        ],
         "properties": {
           "status": {
             "type": "string",
-            "enum": ["confirmed", "canceled", "picked_up", "delivered", "handover"],
+            "enum": [
+              "confirmed",
+              "canceled",
+              "picked_up",
+              "delivered",
+              "handover"
+            ],
             "example": "picked_up"
           },
           "reason": {
@@ -1648,8 +3111,14 @@
       "DeliveryManZonesResponse": {
         "type": "object",
         "properties": {
-          "status": { "type": "boolean", "example": true },
-          "msg": { "type": "string", "example": "Zones fetched successfully" },
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Zones fetched successfully"
+          },
           "data": {
             "type": "object",
             "properties": {
@@ -1658,9 +3127,19 @@
                 "items": {
                   "type": "object",
                   "properties": {
-                    "id": { "type": "string", "example": "1" },
-                    "name": { "type": "string", "example": "Tel Aviv" },
-                    "display_name": { "type": "string", "nullable": true, "example": "Tel Aviv" }
+                    "id": {
+                      "type": "string",
+                      "example": "1"
+                    },
+                    "name": {
+                      "type": "string",
+                      "example": "Tel Aviv"
+                    },
+                    "display_name": {
+                      "type": "string",
+                      "nullable": true,
+                      "example": "Tel Aviv"
+                    }
                   }
                 }
               }
@@ -1690,6 +3169,10 @@
     {
       "name": "Delivery Man Orders",
       "description": "GET /orders/active, GET /orders/latest (pool), GET /orders/{id} (detail), GET /orders/history (My Orders), PUT /orders/{id}/accept, PUT /orders/{id}/status. E2E: consumer place → vendor confirm → latest → detail → accept → delivered (records earnings)."
+    },
+    {
+      "name": "Delivery Man Config",
+      "description": "GET /delivery-man/config/bootstrap plus Google Places proxy (`place-autocomplete`, `place-details`, `geocode`, `distance`). Public; backend `GOOGLE_MAPS_API_KEY`."
     }
   ]
 }

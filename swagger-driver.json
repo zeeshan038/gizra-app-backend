@@ -37,6 +37,10 @@
       "description": "GET /delivery-man/notifications, PUT /notifications/toggle, DELETE /notifications/{id}, PUT /fcm-token. Paginated inbox + push on/off + FCM device token."
     },
     {
+      "name": "Delivery Man Config",
+      "description": "GET /delivery-man/config/bootstrap plus Google Places proxy (`place-autocomplete`, `place-details`, `geocode`, `distance`). Public; backend `GOOGLE_MAPS_API_KEY`."
+    },
+    {
       "name": "Delivery Man Chat",
       "description": "Driver messaging (PHP /api/v1/delivery-man/message/*). Chat with customer and vendor. Socket: `delivery_man:{id}` room + `watch_conversation`."
     },
@@ -7897,6 +7901,87 @@
           }
         }
       },
+      "GoogleDistanceMatrixResponse": {
+        "type": "object",
+        "description": "Pass-through from Google Distance Matrix API (walking mode).",
+        "properties": {
+          "destination_addresses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "origin_addresses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "elements": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "distance": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "example": "3.2 km"
+                          },
+                          "value": {
+                            "type": "integer",
+                            "description": "Meters",
+                            "example": 3200
+                          }
+                        }
+                      },
+                      "duration": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "example": "38 mins"
+                          },
+                          "value": {
+                            "type": "integer",
+                            "description": "Seconds",
+                            "example": 2280
+                          }
+                        }
+                      },
+                      "status": {
+                        "type": "string",
+                        "example": "OK"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "INVALID_REQUEST",
+              "MAX_ELEMENTS_EXCEEDED",
+              "OVER_QUERY_LIMIT",
+              "REQUEST_DENIED",
+              "UNKNOWN_ERROR"
+            ],
+            "example": "OK"
+          },
+          "error_message": {
+            "type": "string"
+          }
+        }
+      },
       "ChatUserInfo": {
         "type": "object",
         "properties": {
@@ -15316,6 +15401,401 @@
             }
           }
         }
+      }
+    },
+    "/delivery-man/config/place-autocomplete": {
+      "get": {
+        "summary": "Places autocomplete (server proxy)",
+        "operationId": "getDeliveryManConfigPlaceAutocomplete",
+        "description": "Address search while the user types. **Mobile apps must use this route** — do not call Google Places from the client. The backend uses `GOOGLE_MAPS_API_KEY` (server `.env`). Returns Google Places Autocomplete JSON (`predictions`, `status`). Flow: autocomplete → user picks `place_id` → **GET /delivery-man/config/place-details**. Same server proxy as consumer; use this prefix from the driver app.",
+        "parameters": [
+          {
+            "name": "search_text",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "Jerusalem"
+            },
+            "description": "Partial address or place name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Google Places Autocomplete payload (pass-through)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GooglePlacesAutocompleteResponse"
+                },
+                "example": {
+                  "predictions": [
+                    {
+                      "description": "Jerusalem, Israel",
+                      "matched_substrings": [
+                        {
+                          "length": 5,
+                          "offset": 0
+                        }
+                      ],
+                      "place_id": "ChIJecHC4jRkAhMRCpciZik3B00",
+                      "reference": "ChIJecHC4jRkAhMRCpciZik3B00",
+                      "structured_formatting": {
+                        "main_text": "Jerusalem",
+                        "main_text_matched_substrings": [
+                          {
+                            "length": 5,
+                            "offset": 0
+                          }
+                        ],
+                        "secondary_text": "Israel"
+                      },
+                      "terms": [
+                        {
+                          "offset": 0,
+                          "value": "Jerusalem"
+                        },
+                        {
+                          "offset": 11,
+                          "value": "Israel"
+                        }
+                      ],
+                      "types": [
+                        "locality",
+                        "political",
+                        "geocode"
+                      ]
+                    }
+                  ],
+                  "status": "OK"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation — missing or empty search_text",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "search_text is required"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "GOOGLE_MAPS_API_KEY not set or Google upstream error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Google Maps API key is not configured. Set GOOGLE_MAPS_API_KEY in the backend .env."
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Config"
+        ]
+      }
+    },
+    "/delivery-man/config/place-details": {
+      "get": {
+        "summary": "Place details by place_id (server proxy)",
+        "operationId": "getDeliveryManConfigPlaceDetails",
+        "description": "Resolve a suggestion from autocomplete to coordinates and formatted address. Query param name is **`placeid`** (legacy PHP). Read `result.geometry.location` and `result.formatted_address`. Public; no Bearer. Same server proxy as consumer; use this prefix from the driver app.",
+        "parameters": [
+          {
+            "name": "placeid",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "ChIJecHC4jRkAhMRCpciZik3B00"
+            },
+            "description": "`place_id` from autocomplete prediction"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Google Place Details payload (pass-through)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GooglePlaceDetailsResponse"
+                },
+                "example": {
+                  "result": {
+                    "formatted_address": "Jerusalem",
+                    "geometry": {
+                      "location": {
+                        "lat": 31.768319,
+                        "lng": 35.21371
+                      },
+                      "viewport": {
+                        "northeast": {
+                          "lat": 31.882907,
+                          "lng": 35.261879
+                        },
+                        "southwest": {
+                          "lat": 31.709678,
+                          "lng": 35.085431
+                        }
+                      }
+                    },
+                    "place_id": "ChIJecHC4jRkAhMRCpciZik3B00",
+                    "types": [
+                      "locality",
+                      "political"
+                    ]
+                  },
+                  "status": "OK"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation — missing placeid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server or Google error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Config"
+        ]
+      }
+    },
+    "/delivery-man/config/geocode": {
+      "get": {
+        "summary": "Reverse geocode lat/lng (server proxy)",
+        "operationId": "getDeliveryManConfigGeocode",
+        "description": "Map pin flow: user selects coordinates without a `place_id` → get human-readable address. Backend uses `GOOGLE_MAPS_API_KEY`. Returns Google Geocoding JSON. Use `results[0].formatted_address` and geometry when status is `OK`. Same server proxy as consumer; use this prefix from the driver app.",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 31.768319
+            }
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 35.21371
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Google Geocoding payload (pass-through)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleGeocodeResponse"
+                },
+                "example": {
+                  "results": [
+                    {
+                      "formatted_address": "Jerusalem",
+                      "geometry": {
+                        "location": {
+                          "lat": 31.768319,
+                          "lng": 35.21371
+                        },
+                        "location_type": "APPROXIMATE",
+                        "viewport": {
+                          "northeast": {
+                            "lat": 31.882907,
+                            "lng": 35.261879
+                          },
+                          "southwest": {
+                            "lat": 31.709678,
+                            "lng": 35.085431
+                          }
+                        }
+                      },
+                      "place_id": "ChIJecHC4jRkAhMRCpciZik3B00",
+                      "types": [
+                        "locality",
+                        "political"
+                      ]
+                    }
+                  ],
+                  "status": "OK"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation — missing lat/lng",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server or Google error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Config"
+        ]
+      }
+    },
+    "/delivery-man/config/distance": {
+      "get": {
+        "summary": "Walking distance matrix (server proxy)",
+        "operationId": "getDeliveryManConfigDistance",
+        "description": "Route distance and duration between origin and destination (legacy PHP distance-api). **GET /delivery-man/config/distance** — backend uses `GOOGLE_MAPS_API_KEY`, mode `walking`. Returns Google Distance Matrix JSON (`rows[].elements[].distance`, `duration`, `status`). Public; no Bearer.",
+        "parameters": [
+          {
+            "name": "origin_lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 32.0853
+            },
+            "description": "Origin latitude"
+          },
+          {
+            "name": "origin_lng",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 34.7818
+            },
+            "description": "Origin longitude"
+          },
+          {
+            "name": "destination_lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 32.1093
+            },
+            "description": "Destination latitude"
+          },
+          {
+            "name": "destination_lng",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 34.8555
+            },
+            "description": "Destination longitude"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Google Distance Matrix payload (pass-through)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleDistanceMatrixResponse"
+                },
+                "example": {
+                  "destination_addresses": [
+                    "Tel Aviv-Yafo, Israel"
+                  ],
+                  "origin_addresses": [
+                    "Jaffa, Tel Aviv-Yafo, Israel"
+                  ],
+                  "rows": [
+                    {
+                      "elements": [
+                        {
+                          "distance": {
+                            "text": "3.2 km",
+                            "value": 3200
+                          },
+                          "duration": {
+                            "text": "38 mins",
+                            "value": 2280
+                          },
+                          "status": "OK"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "OK"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation — missing origin/destination coordinates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "origin_lat is required"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "GOOGLE_MAPS_API_KEY not set or Google upstream error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Google Maps API key is not configured. Set GOOGLE_MAPS_API_KEY in the backend .env."
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Config"
+        ]
       }
     }
   }
