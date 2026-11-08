@@ -116,7 +116,8 @@ const SAMPLE_ORDER_SUMMARY = {
   order_amount: 45.5,
   created_at: '2026-01-15T10:30:00.000Z',
   customer_name: 'John Doe',
-  customer_phone: '+1234567890'
+  customer_phone: '+1234567890',
+  food_image: 'https://cdn.example.com/product/cheese-pizza.png'
 };
 
 const SAMPLE_ORDER_TRACK_DATA = {

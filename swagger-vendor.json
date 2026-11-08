@@ -5040,6 +5040,12 @@
             "type": "string",
             "nullable": true,
             "example": "+972501234567"
+          },
+          "food_image": {
+            "type": "string",
+            "nullable": true,
+            "description": "Public CDN URL of the first line item's food image (kitchen / order list thumbnail).",
+            "example": "https://cdn.example.com/product/2026-06-27-6a3fc643316c0.png"
           }
         }
       },
@@ -5108,7 +5114,9 @@
           },
           "food_image": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "description": "Public CDN URL for the food image (`product/{filename}`). Not the raw DB filename.",
+            "example": "https://cdn.example.com/product/2026-06-27-6a3fc643316c0.png"
           },
           "quantity": {
             "type": "integer",
@@ -14740,7 +14748,8 @@
                         "order_amount": 45.5,
                         "created_at": "2026-01-15T10:30:00.000Z",
                         "customer_name": "John Doe",
-                        "customer_phone": "+1234567890"
+                        "customer_phone": "+1234567890",
+                        "food_image": "https://cdn.example.com/product/cheese-pizza.png"
                       }
                     ],
                     "latest_id": 1
@@ -14925,7 +14934,8 @@
                         "order_amount": 45.5,
                         "created_at": "2026-01-15T10:30:00.000Z",
                         "customer_name": "John Doe",
-                        "customer_phone": "+1234567890"
+                        "customer_phone": "+1234567890",
+                        "food_image": "https://cdn.example.com/product/cheese-pizza.png"
                       }
                     ]
                   }
@@ -15707,7 +15717,8 @@
                     "order_amount": 45.5,
                     "created_at": "2026-01-15T10:30:00.000Z",
                     "customer_name": "John Doe",
-                    "customer_phone": "+1234567890"
+                    "customer_phone": "+1234567890",
+                    "food_image": "https://cdn.example.com/product/cheese-pizza.png"
                   },
                   "null": "…"
                 },
@@ -15756,6 +15767,10 @@
                         "customer_phone": {
                           "type": "string",
                           "example": "+1234567890"
+                        },
+                        "food_image": {
+                          "type": "string",
+                          "example": "https://cdn.example.com/product/cheese-pizza.png"
                         }
                       },
                       "example": {
@@ -15766,7 +15781,8 @@
                         "order_amount": 45.5,
                         "created_at": "2026-01-15T10:30:00.000Z",
                         "customer_name": "John Doe",
-                        "customer_phone": "+1234567890"
+                        "customer_phone": "+1234567890",
+                        "food_image": "https://cdn.example.com/product/cheese-pizza.png"
                       }
                     },
                     "null": {
@@ -15785,7 +15801,8 @@
                       "order_amount": 45.5,
                       "created_at": "2026-01-15T10:30:00.000Z",
                       "customer_name": "John Doe",
-                      "customer_phone": "+1234567890"
+                      "customer_phone": "+1234567890",
+                      "food_image": "https://cdn.example.com/product/cheese-pizza.png"
                     },
                     "null": "…"
                   }
