@@ -4445,7 +4445,8 @@
           },
           "msg": {
             "type": "string",
-            "example": "Delivery is temporarily limited to 10 km during restricted hours."
+            "description": "Admin `description` when set; otherwise default km-limit message.",
+            "example": "Main road blocked due to an accident — delivery limited to nearby addresses."
           },
           "code": {
             "type": "string",

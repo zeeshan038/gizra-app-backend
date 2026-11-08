@@ -12183,7 +12183,7 @@
     },
     "/consumer/config/delivery-fee": {
       "get": {
-        "description": "Quote tiered delivery fee for checkout: **base fee** covers the first **base distance (km)**; each additional km uses **extra per km**. Server loads restaurant origin from DB, computes route distance (Google Distance Matrix walking, haversine fallback), applies zone pricing (restaurant overrides when self-delivery). During admin **time-based distance restriction** (enabled restaurant + in schedule window + delivery distance > max km), returns **403** with `code: DELIVERY_DISTANCE_TIME_RESTRICTED`. Public; no Bearer.",
+        "description": "Quote tiered delivery fee for checkout: **base fee** covers the first **base distance (km)**; each additional km uses **extra per km**. Server loads restaurant origin from DB, computes route distance (Google Distance Matrix walking, haversine fallback), applies zone pricing (restaurant overrides when self-delivery). During admin **time-based distance restriction** (enabled restaurant + in schedule window + delivery distance > max km), returns **403** with `code: DELIVERY_DISTANCE_TIME_RESTRICTED` and optional admin `description` (customer-facing reason). Public; no Bearer.",
         "responses": {
           "200": {
             "description": "Delivery fee quote",
@@ -12262,8 +12262,9 @@
                   "deliveryDistanceTimeRestricted": {
                     "value": {
                       "status": false,
-                      "msg": "Delivery is temporarily limited to 10 km during restricted hours.",
+                      "msg": "Main road blocked due to an accident — delivery limited to nearby addresses.",
                       "code": "DELIVERY_DISTANCE_TIME_RESTRICTED",
+                      "description": "Main road blocked due to an accident — delivery limited to nearby addresses.",
                       "max_distance_km": 10,
                       "restriction_end_time": "20:30",
                       "timezone": "Asia/Jerusalem",
@@ -19875,8 +19876,20 @@
                   "deliveryDistanceTimeRestricted": {
                     "value": {
                       "status": false,
+                      "msg": "Main road blocked due to an accident — delivery limited to nearby addresses.",
+                      "code": "DELIVERY_DISTANCE_TIME_RESTRICTED",
+                      "description": "Main road blocked due to an accident — delivery limited to nearby addresses.",
+                      "max_distance_km": 10,
+                      "restriction_end_time": "20:30",
+                      "timezone": "Asia/Jerusalem"
+                    }
+                  },
+                  "deliveryDistanceTimeRestrictedDefaultMsg": {
+                    "value": {
+                      "status": false,
                       "msg": "Delivery is temporarily limited to 10 km during restricted hours.",
                       "code": "DELIVERY_DISTANCE_TIME_RESTRICTED",
+                      "description": null,
                       "max_distance_km": 10,
                       "restriction_end_time": "20:30",
                       "timezone": "Asia/Jerusalem"
@@ -20301,8 +20314,9 @@
                   "deliveryDistanceTimeRestricted": {
                     "value": {
                       "status": false,
-                      "msg": "Delivery is temporarily limited to 10 km during restricted hours.",
+                      "msg": "Main road blocked due to an accident — delivery limited to nearby addresses.",
                       "code": "DELIVERY_DISTANCE_TIME_RESTRICTED",
+                      "description": "Main road blocked due to an accident — delivery limited to nearby addresses.",
                       "max_distance_km": 10,
                       "restriction_end_time": "20:30",
                       "timezone": "Asia/Jerusalem"
@@ -51966,7 +51980,7 @@
         ]
       },
       "put": {
-        "description": "Super admin only. Partial update allowed (at least one field). `start_time` / `end_time` are HH:mm in `timezone` (supports overnight windows).",
+        "description": "Super admin only. Partial update allowed (at least one field). `start_time` / `end_time` are HH:mm in `timezone` (supports overnight windows). Optional `description` (max 1000) is shown to customers on delivery-fee / quote / place when delivery is blocked.",
         "parameters": [
           {
             "name": "authorization",
@@ -52066,6 +52080,22 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/AdminDeliveryDistanceTimeRestrictionUpdateBody"
+              },
+              "examples": {
+                "withCustomerMessage": {
+                  "summary": "Enable restriction with custom customer message",
+                  "value": {
+                    "enabled": true,
+                    "max_distance_km": 10,
+                    "start_time": "16:30",
+                    "end_time": "20:30",
+                    "timezone": "Asia/Jerusalem",
+                    "description": "Main road blocked due to an accident — delivery limited to nearby addresses.",
+                    "restaurant_ids": [
+                      3
+                    ]
+                  }
+                }
               }
             }
           }
@@ -58248,7 +58278,8 @@
           },
           "msg": {
             "type": "string",
-            "example": "Delivery is temporarily limited to 10 km during restricted hours."
+            "description": "Admin `description` when set; otherwise default km-limit message.",
+            "example": "Main road blocked due to an accident — delivery limited to nearby addresses."
           },
           "code": {
             "type": "string",

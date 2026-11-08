@@ -4435,7 +4435,8 @@
           },
           "msg": {
             "type": "string",
-            "example": "Delivery is temporarily limited to 10 km during restricted hours."
+            "description": "Admin `description` when set; otherwise default km-limit message.",
+            "example": "Main road blocked due to an accident — delivery limited to nearby addresses."
           },
           "code": {
             "type": "string",
@@ -28121,7 +28122,7 @@
         ]
       },
       "put": {
-        "description": "Super admin only. Partial update allowed (at least one field). `start_time` / `end_time` are HH:mm in `timezone` (supports overnight windows).",
+        "description": "Super admin only. Partial update allowed (at least one field). `start_time` / `end_time` are HH:mm in `timezone` (supports overnight windows). Optional `description` (max 1000) is shown to customers on delivery-fee / quote / place when delivery is blocked.",
         "parameters": [
           {
             "name": "authorization",
@@ -28221,6 +28222,22 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/AdminDeliveryDistanceTimeRestrictionUpdateBody"
+              },
+              "examples": {
+                "withCustomerMessage": {
+                  "summary": "Enable restriction with custom customer message",
+                  "value": {
+                    "enabled": true,
+                    "max_distance_km": 10,
+                    "start_time": "16:30",
+                    "end_time": "20:30",
+                    "timezone": "Asia/Jerusalem",
+                    "description": "Main road blocked due to an accident — delivery limited to nearby addresses.",
+                    "restaurant_ids": [
+                      3
+                    ]
+                  }
+                }
               }
             }
           }
