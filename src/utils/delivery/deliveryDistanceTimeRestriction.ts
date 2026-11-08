@@ -18,11 +18,31 @@ export type DeliveryDistanceTimeRestrictionRow = {
   start_time: string;
   end_time: string;
   timezone: string;
+  description: string | null;
   created_at: Date | null;
   updated_at: Date | null;
   updated_by_admin_id: bigint | null;
   restaurants: Array<{ restaurant_id: bigint }>;
 };
+
+function normalizeAdminDescription(raw: string | null | undefined): string | null {
+  if (raw == null) return null;
+  const s = String(raw).trim();
+  return s.length ? s : null;
+}
+
+/** Customer-facing text when restriction blocks delivery (admin description or default). */
+export function buildDeliveryRestrictionBlockedMessage(
+  maxKm: number,
+  adminDescription: string | null | undefined
+): { msg: string; description: string | null } {
+  const description = normalizeAdminDescription(adminDescription);
+  if (description) {
+    return { msg: description, description };
+  }
+  const msg = `Delivery is temporarily limited to ${maxKm} km during restricted hours.`;
+  return { msg, description: null };
+}
 
 let configCache: { row: DeliveryDistanceTimeRestrictionRow | null; loadedAt: number } | null = null;
 const CONFIG_TTL_MS = 5000;
@@ -224,6 +244,7 @@ export function isDistanceOverMax(distanceKm: number, maxKm: number): boolean {
 export type BlockResult = {
   blocked: true;
   message: string;
+  description: string | null;
   max_distance_km: number;
   restriction_end_time: string;
   timezone: string;
@@ -282,6 +303,7 @@ export async function evaluateDeliveryDistanceTimeRestriction(params: {
       return {
         blocked: true,
         message: 'Delivery distance could not be verified. Check addresses.',
+        description: null,
         max_distance_km: maxKm,
         restriction_end_time: config.end_time,
         timezone: tz,
@@ -291,9 +313,11 @@ export async function evaluateDeliveryDistanceTimeRestriction(params: {
   }
 
   if (isDistanceOverMax(distanceKm, maxKm)) {
+    const { msg, description } = buildDeliveryRestrictionBlockedMessage(maxKm, config.description);
     return {
       blocked: true,
-      message: `Delivery is temporarily limited to ${maxKm} km during restricted hours.`,
+      message: msg,
+      description,
       max_distance_km: maxKm,
       restriction_end_time: config.end_time,
       timezone: tz,

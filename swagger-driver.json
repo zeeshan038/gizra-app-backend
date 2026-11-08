@@ -4358,6 +4358,13 @@
             "example": [
               3
             ]
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 1000,
+            "description": "Optional customer message when delivery is blocked (road closure, accident, etc.)",
+            "example": "Main road blocked due to an accident — delivery limited to nearby addresses."
           }
         }
       },
@@ -4392,6 +4399,12 @@
                   },
                   "timezone": {
                     "type": "string"
+                  },
+                  "description": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 1000,
+                    "description": "Customer-facing reason shown on delivery-fee and order quote when blocked"
                   },
                   "restaurant_ids": {
                     "type": "array",
@@ -4448,6 +4461,12 @@
             "enum": [
               "DELIVERY_DISTANCE_TIME_RESTRICTED"
             ]
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Admin-configured reason (same as msg when set). Null when default distance message is used.",
+            "example": "Main road blocked due to an accident — delivery limited to nearby addresses."
           },
           "max_distance_km": {
             "type": "number",

@@ -109,6 +109,7 @@ export const getDeliveryFeeQuote = async (req: Request, res: Response): Promise<
         status: false,
         msg: timeRestrict.message,
         code: DELIVERY_DISTANCE_TIME_RESTRICTED_CODE,
+        description: timeRestrict.description,
         max_distance_km: timeRestrict.max_distance_km,
         restriction_end_time: timeRestrict.restriction_end_time,
         timezone: timeRestrict.timezone,

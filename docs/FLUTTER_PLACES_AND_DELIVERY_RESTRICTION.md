@@ -143,7 +143,8 @@ Authorization: Bearer {token}
 
 | Field | Use in UI |
 |-------|-----------|
-| `msg` | Primary message |
+| `msg` | Primary message (admin custom text when set) |
+| `description` | Same as `msg` when admin set a reason; else `null` (use `msg`) |
 | `max_distance_km` | e.g. “Delivery limited to 10 km during this window” |
 | `restriction_end_time` | e.g. `20:30` (local to `timezone`) |
 | `timezone` | e.g. `Asia/Jerusalem` |
@@ -158,8 +159,9 @@ Same error shape on **403** for delivery orders:
 ```json
 {
   "status": false,
-  "msg": "Delivery is temporarily limited to 10 km during restricted hours.",
+  "msg": "Main road blocked due to an accident — delivery limited to nearby addresses.",
   "code": "DELIVERY_DISTANCE_TIME_RESTRICTED",
+  "description": "Main road blocked due to an accident — delivery limited to nearby addresses.",
   "max_distance_km": 10,
   "restriction_end_time": "20:30",
   "timezone": "Asia/Jerusalem"

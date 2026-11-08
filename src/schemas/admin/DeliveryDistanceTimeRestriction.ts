@@ -35,4 +35,5 @@ export const adminDeliveryDistanceTimeRestrictionUpdateSchema = Joi.object({
       'any.invalid': 'timezone must be a valid IANA timezone (e.g. Asia/Jerusalem)',
     }),
   restaurant_ids: Joi.array().items(Joi.number().integer().positive()).max(2000).optional(),
+  description: Joi.string().trim().max(1000).allow('', null).optional(),
 }).min(1);

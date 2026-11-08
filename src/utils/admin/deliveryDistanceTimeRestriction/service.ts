@@ -15,10 +15,17 @@ export type AdminRestrictionPayload = {
   start_time: string;
   end_time: string;
   timezone: string;
+  description: string | null;
   restaurant_ids: number[];
   updated_at: string | null;
   updated_by_admin_id: string | null;
 };
+
+function normalizeDescription(raw: string | null | undefined): string | null {
+  if (raw == null) return null;
+  const s = String(raw).trim();
+  return s.length ? s : null;
+}
 
 function formatIso(d: Date | null | undefined): string | null {
   if (!d) return null;
@@ -63,6 +70,7 @@ export async function getAdminDeliveryDistanceTimeRestriction(): Promise<{
       start_time: row.start_time,
       end_time: row.end_time,
       timezone: row.timezone,
+      description: row.description,
       created_at: row.created_at,
       updated_at: row.updated_at,
       updated_by_admin_id: row.updated_by_admin_id,
@@ -86,6 +94,7 @@ export async function getAdminDeliveryDistanceTimeRestriction(): Promise<{
       start_time: row.start_time,
       end_time: row.end_time,
       timezone: tz,
+      description: normalizeDescription(row.description),
       restaurant_ids: row.restaurants.map((r) => Number(r.restaurant_id)),
       updated_at: formatIso(row.updated_at),
       updated_by_admin_id: row.updated_by_admin_id != null ? row.updated_by_admin_id.toString() : null,
@@ -106,6 +115,7 @@ export async function updateAdminDeliveryDistanceTimeRestriction(
     end_time?: string;
     timezone?: string;
     restaurant_ids?: number[];
+    description?: string | null;
   },
   adminId: number
 ): Promise<AdminRestrictionPayload> {
@@ -130,6 +140,7 @@ export async function updateAdminDeliveryDistanceTimeRestriction(
           start_time: body.start_time ?? '16:30',
           end_time: body.end_time ?? '20:30',
           timezone: body.timezone?.trim() || FIXED_IANA_TIMEZONE,
+          description: normalizeDescription(body.description),
           updated_by_admin_id: BigInt(adminId),
           created_at: new Date(),
           updated_at: new Date(),
@@ -148,6 +159,9 @@ export async function updateAdminDeliveryDistanceTimeRestriction(
       if (body.start_time !== undefined) updateData.start_time = body.start_time;
       if (body.end_time !== undefined) updateData.end_time = body.end_time;
       if (body.timezone !== undefined) updateData.timezone = body.timezone.trim() || FIXED_IANA_TIMEZONE;
+      if (body.description !== undefined) {
+        updateData.description = normalizeDescription(body.description);
+      }
 
       config = await tx.delivery_distance_time_restriction_configs.update({
         where: { id: config.id },
@@ -204,6 +218,7 @@ export async function updateAdminDeliveryDistanceTimeRestriction(
     start_time: result.start_time,
     end_time: result.end_time,
     timezone: tz,
+    description: normalizeDescription(result.description),
     restaurant_ids: result.restaurants.map((r) => Number(r.restaurant_id)),
     updated_at: formatIso(result.updated_at),
     updated_by_admin_id: result.updated_by_admin_id != null ? result.updated_by_admin_id.toString() : null,

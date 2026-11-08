@@ -11,8 +11,12 @@ CREATE TABLE IF NOT EXISTS delivery_distance_time_restriction_configs (
   created_at TIMESTAMPTZ(6),
   updated_at TIMESTAMPTZ(6),
   updated_by_admin_id BIGINT,
+  description VARCHAR(1000),
   CONSTRAINT delivery_distance_time_restriction_configs_pkey PRIMARY KEY (id)
 );
+
+ALTER TABLE delivery_distance_time_restriction_configs
+  ADD COLUMN IF NOT EXISTS description VARCHAR(1000);
 
 CREATE TABLE IF NOT EXISTS delivery_distance_time_restriction_restaurants (
   id BIGSERIAL NOT NULL,
