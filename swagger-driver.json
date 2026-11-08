@@ -6826,7 +6826,9 @@
           },
           "image": {
             "type": "string",
-            "example": "food/burger.png"
+            "nullable": true,
+            "description": "Public CDN URL — first food image, else restaurant logo (never a raw DB filename).",
+            "example": "https://cdn.example.com/product/burger.png"
           },
           "order_amount": {
             "type": "number",
@@ -13712,7 +13714,7 @@
                         "order_number": "100178",
                         "item_name": "Classic Cheeseburger",
                         "item_count": 5,
-                        "image": "food/burger.png",
+                        "image": "https://cdn.example.com/product/burger.png",
                         "order_amount": 300,
                         "order_status": "delivered",
                         "status_label": "Completed",

@@ -6855,7 +6855,9 @@
           },
           "image": {
             "type": "string",
-            "example": "food/burger.png"
+            "nullable": true,
+            "description": "Public CDN URL — first food image, else restaurant logo (never a raw DB filename).",
+            "example": "https://cdn.example.com/product/burger.png"
           },
           "order_amount": {
             "type": "number",

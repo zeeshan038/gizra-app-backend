@@ -5,6 +5,7 @@ import {
   orderStatusLabel,
   parseFoodImageFromDetail,
 } from '../consumer/orderListHelpers';
+import { resolveDriverOrderHistoryImage } from '../order/orderListImages';
 
 function formatOrderDateTime(at: Date | null | undefined): {
   order_date: string | null;
@@ -41,7 +42,7 @@ export type DmMyOrderListItem = {
   order_number: string;
   item_name: string | null;
   item_count: number;
-  image: string;
+  image: string | null;
   order_amount: number;
   order_status: string;
   status_label: string;
@@ -83,16 +84,39 @@ export async function mapMyOrdersForDeliveryMan(
   const thumbByOrderId = new Map<number, string | null>();
   const itemCountByOrderId = new Map<number, number>();
   const firstFoodNameByOrderId = new Map<number, string>();
+  const firstDetailByOrderId = new Map<number, (typeof details)[0]>();
 
   for (const row of details) {
     const oid = Number(row.order_id);
     const qty = Number(row.quantity) || 1;
     itemCountByOrderId.set(oid, (itemCountByOrderId.get(oid) ?? 0) + qty);
+    if (!firstDetailByOrderId.has(oid)) firstDetailByOrderId.set(oid, row);
+  }
 
-    if (!thumbByOrderId.has(oid)) {
-      thumbByOrderId.set(oid, parseFoodImageFromDetail(row));
+  const foodIds = details
+    .map((d) => (d.food_id != null ? Number(d.food_id) : null))
+    .filter((id): id is number => id != null && !Number.isNaN(id));
+
+  const foods =
+    foodIds.length > 0
+      ? await prisma.food.findMany({
+          where: { id: { in: [...new Set(foodIds)].map((id) => BigInt(id)) } },
+          select: { id: true, name: true, image: true },
+        })
+      : [];
+  const foodById = new Map(foods.map((f) => [Number(f.id), f]));
+
+  for (const [oid, row] of firstDetailByOrderId) {
+    let stored: string | null = null;
+    const foodId = row.food_id != null ? Number(row.food_id) : null;
+    if (foodId != null) {
+      const food = foodById.get(foodId);
+      if (food?.image?.trim()) stored = food.image;
+      if (food?.name) firstFoodNameByOrderId.set(oid, food.name);
     }
-
+    if (!stored) {
+      stored = parseFoodImageFromDetail(row);
+    }
     if (!firstFoodNameByOrderId.has(oid) && row.food_details) {
       try {
         const parsed = JSON.parse(row.food_details) as { name?: string };
@@ -101,31 +125,7 @@ export async function mapMyOrdersForDeliveryMan(
         /* ignore */
       }
     }
-  }
-
-  const foodIds = details
-    .map((d) => (d.food_id != null ? Number(d.food_id) : null))
-    .filter((id): id is number => id != null && !Number.isNaN(id));
-
-  if (foodIds.length) {
-    const foods = await prisma.food.findMany({
-      where: { id: { in: [...new Set(foodIds)].map((id) => BigInt(id)) } },
-      select: { id: true, name: true, image: true },
-    });
-    const foodById = new Map(foods.map((f) => [Number(f.id), f]));
-
-    for (const row of details) {
-      const oid = Number(row.order_id);
-      if (firstFoodNameByOrderId.has(oid)) continue;
-      const foodId = row.food_id != null ? Number(row.food_id) : null;
-      if (foodId != null) {
-        const food = foodById.get(foodId);
-        if (food?.name) firstFoodNameByOrderId.set(oid, food.name);
-        if (!thumbByOrderId.get(oid) && food?.image) {
-          thumbByOrderId.set(oid, food.image);
-        }
-      }
-    }
+    if (stored) thumbByOrderId.set(oid, stored);
   }
 
   return orderRows.map((order) => {
@@ -134,8 +134,8 @@ export async function mapMyOrdersForDeliveryMan(
     const restaurant = restaurantById.get(Number(order.restaurant_id));
     const displayAt = order.delivered ?? order.canceled ?? order.created_at;
     const { order_date, order_time } = formatOrderDateTime(displayAt);
-    const image =
-      thumbByOrderId.get(oid) ?? restaurant?.logo ?? 'default_logo.png';
+    const foodStored = thumbByOrderId.get(oid) ?? null;
+    const image = resolveDriverOrderHistoryImage(foodStored, restaurant?.logo ?? null);
 
     return {
       id,
@@ -143,7 +143,7 @@ export async function mapMyOrdersForDeliveryMan(
       order_number: id,
       item_name: firstFoodNameByOrderId.get(oid) ?? restaurant?.name ?? null,
       item_count: itemCountByOrderId.get(oid) ?? 0,
-      image: image ?? 'default_logo.png',
+      image,
       order_amount: Number(order.order_amount) || 0,
       order_status: order.order_status,
       status_label: orderStatusLabel(order.order_status),
