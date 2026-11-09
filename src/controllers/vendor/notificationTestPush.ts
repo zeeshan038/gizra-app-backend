@@ -5,7 +5,6 @@ import { sendFcmToDevice, sendFcmToTopic } from '../../utils/notifications/fcm';
 import {
   isVendorNewOrderPushEnabled,
   isVendorPushEnabled,
-  vendorPushBlockReason,
 } from '../../utils/notifications/notificationSettings';
 import { isRecipientPushOn } from '../../utils/notifications/pushNotificationPreference';
 import { getVendorFcmSubscribeTopics, vendorRestaurantMessageTopic } from '../../utils/vendor/pushTopics';
@@ -41,16 +40,16 @@ export const testVendorPush = async (req: Request, res: Response): Promise<any> 
     return res.status(404).json({ status: false, msg: 'Vendor not found' });
   }
 
-  const pushEnabled = await isVendorNewOrderPushEnabled();
   const strictRestaurantGate = await isVendorPushEnabled(
     ctx.restaurantId,
     'restaurant_order_notification'
   );
-  const blockReason = pushEnabled
-    ? strictRestaurantGate
-      ? null
-      : 'per_restaurant_notification_settings_off (new_order uses platform toggle only; this is informational)'
-    : 'platform_notification_settings_off:restaurant_order_notification';
+  const platformRestaurantPush = await isVendorNewOrderPushEnabled();
+  const blockReason = !strictRestaurantGate
+    ? 'admin per-restaurant notification row (informational — new_order FCM ignores this)'
+    : !platformRestaurantPush
+      ? 'admin platform restaurant_order_notification off (informational — new_order FCM ignores this)'
+      : null;
   const recipientOn = isRecipientPushOn(vendor.is_notification_on);
   const fcmTopics = getVendorFcmSubscribeTopics(ctx.restaurantId);
   const topic = vendorRestaurantMessageTopic(ctx.restaurantId);
@@ -67,13 +66,13 @@ export const testVendorPush = async (req: Request, res: Response): Promise<any> 
 
   const delivery: { device: string; topic: string } = { device: 'skipped', topic: 'skipped' };
 
-  if (!pushEnabled || !recipientOn) {
+  if (!recipientOn) {
     return res.status(200).json({
       status: true,
-      msg: 'Push blocked by settings — fix admin/restaurant notification toggles',
+      msg: 'Vendor push toggle off — enable notifications on the POS profile',
       data: {
         firebase_ready: isFirebaseReady,
-        push_enabled: pushEnabled,
+        push_enabled: true,
         recipient_notification_on: recipientOn,
         block_reason: blockReason,
         firebase_token: maskToken(vendor.firebase_token),
@@ -101,7 +100,7 @@ export const testVendorPush = async (req: Request, res: Response): Promise<any> 
       msg,
       data: {
         firebase_ready: isFirebaseReady,
-        push_enabled: pushEnabled,
+        push_enabled: true,
         block_reason: blockReason,
         firebase_token: maskToken(vendor.firebase_token),
         fcm_topics: fcmTopics,
@@ -115,7 +114,7 @@ export const testVendorPush = async (req: Request, res: Response): Promise<any> 
     msg: 'Test push sent — check device notification tray',
     data: {
       firebase_ready: isFirebaseReady,
-      push_enabled: pushEnabled,
+      push_enabled: true,
       recipient_notification_on: recipientOn,
       block_reason: blockReason,
       firebase_token: maskToken(vendor.firebase_token),
