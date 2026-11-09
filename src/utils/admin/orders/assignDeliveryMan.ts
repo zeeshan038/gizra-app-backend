@@ -6,13 +6,12 @@ import {
   DM_CONCURRENT_ORDER_STATUSES,
   getDmMaximumConcurrentOrders,
   getBusinessSetting,
+  syncDmCurrentOrdersCount,
 } from '../../deliveryman/orderHelpers';
 import { notPosWhere } from '../../vendor/order/query';
 
 export async function listNotifiedDeliveryMenForZone(zoneId: number | null) {
   if (zoneId == null || !Number.isFinite(zoneId)) return [];
-
-  const maxOrders = await getDmMaximumConcurrentOrders();
 
   const rows = await prisma.delivery_men.findMany({
     where: {
@@ -20,7 +19,6 @@ export async function listNotifiedDeliveryMenForZone(zoneId: number | null) {
       status: true,
       application_status: 'approved',
       zone_id: zoneId,
-      current_orders: { lt: BigInt(Math.max(maxOrders, 1)) },
     },
     select: {
       id: true,
@@ -75,8 +73,11 @@ export async function assignAdminOrderDeliveryMan(
   }
 
   const maxOrders = await getDmMaximumConcurrentOrders();
-  const activeAssigned = await countDmConcurrentAssignedOrders(deliveryManId);
-  if (activeAssigned >= maxOrders || Number(deliveryman.current_orders) >= maxOrders) {
+  let activeAssigned = await countDmConcurrentAssignedOrders(deliveryManId);
+  if (Number(deliveryman.current_orders) !== activeAssigned) {
+    activeAssigned = await syncDmCurrentOrdersCount(deliveryManId);
+  }
+  if (activeAssigned >= maxOrders) {
     return {
       ok: false,
       status: 400,
@@ -122,14 +123,7 @@ export async function assignAdminOrderDeliveryMan(
     }
 
     if (prevDmId != null && prevDmId !== deliveryManId) {
-      const prev = await tx.delivery_men.findUnique({ where: { id: BigInt(prevDmId) } });
-      if (prev) {
-        const nextCount = Math.max(0, Number(prev.current_orders) - 1);
-        await tx.delivery_men.update({
-          where: { id: BigInt(prevDmId) },
-          data: { current_orders: BigInt(nextCount), updated_at: new Date() },
-        });
-      }
+      await syncDmCurrentOrdersCount(prevDmId, tx);
     }
 
     const updated = await tx.orders.update({
@@ -145,11 +139,11 @@ export async function assignAdminOrderDeliveryMan(
     await tx.delivery_men.update({
       where: { id: BigInt(deliveryManId) },
       data: {
-        current_orders: { increment: 1 },
         assigned_order_count: { increment: 1 },
         updated_at: new Date(),
       },
     });
+    await syncDmCurrentOrdersCount(deliveryManId, tx);
 
     return updated;
   }, ORDER_SETTLEMENT_TX_OPTIONS);

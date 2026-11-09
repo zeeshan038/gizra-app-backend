@@ -67,15 +67,32 @@ export async function getDmMaximumConcurrentOrders(): Promise<number> {
   return resolveDmMaximumConcurrentOrdersFromSetting(raw);
 }
 
-export async function countDmConcurrentAssignedOrders(deliveryManId: number): Promise<number> {
+export async function countDmConcurrentAssignedOrders(
+  deliveryManId: number,
+  client: Prisma.TransactionClient | typeof prisma = prisma
+): Promise<number> {
   if (!Number.isFinite(deliveryManId) || deliveryManId <= 0) return 0;
-  return prisma.orders.count({
+  return client.orders.count({
     where: {
       delivery_man_id: deliveryManId,
       order_status: { in: [...DM_CONCURRENT_ORDER_STATUSES] },
       order_type: { not: 'pos' },
     },
   });
+}
+
+/** Keeps `delivery_men.current_orders` aligned with live in-flight assignments (admin display / legacy). */
+export async function syncDmCurrentOrdersCount(
+  deliveryManId: number,
+  client: Prisma.TransactionClient | typeof prisma = prisma
+): Promise<number> {
+  if (!Number.isFinite(deliveryManId) || deliveryManId <= 0) return 0;
+  const count = await countDmConcurrentAssignedOrders(deliveryManId, client);
+  await client.delivery_men.update({
+    where: { id: BigInt(deliveryManId) },
+    data: { current_orders: BigInt(count), updated_at: new Date() },
+  });
+  return count;
 }
 
 export async function deliveryManAtConcurrentOrderLimit(deliveryManId: number): Promise<boolean> {
