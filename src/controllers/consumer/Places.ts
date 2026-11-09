@@ -31,9 +31,17 @@ export const getPlaceAutocomplete = async (req: Request, res: Response): Promise
     return sendApiError(res, 403, joiFirstMessage(validated.error));
   }
   try {
-    const data = await placeAutocomplete(
-      (validated.value as { search_text: string }).search_text
-    );
+    const v = validated.value as {
+      search_text: string;
+      bias_lat?: number;
+      bias_lng?: number;
+      bias_radius_km?: number;
+    };
+    const data = await placeAutocomplete(v.search_text, {
+      biasLat: v.bias_lat,
+      biasLng: v.bias_lng,
+      biasRadiusKm: v.bias_radius_km,
+    });
     return res.status(200).json(data);
   } catch (e: unknown) {
     return sendApiError(res, 500, errorMessageFromUnknown(e));

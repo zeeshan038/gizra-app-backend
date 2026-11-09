@@ -51,9 +51,16 @@ Swagger: {BASE_URL}/swagger/customer — tags Consumer Config (Places, delivery-
 GET /consumer/config/place-autocomplete?search_text={query}
 ```
 
+Optional — rank results near the map / user (worldwide search by default):
+
+```http
+GET /consumer/config/place-autocomplete?search_text=hebron&bias_lat=31.53&bias_lng=35.10&bias_radius_km=85
+```
+
 - Debounce ~300ms; min length 1.
 - Parse body: Google shape — `status`, `predictions[]`, optional `error_message`.
 - On `status: "OK"`, show `predictions[].description`; store `predictions[].place_id`.
+- **After place-details (or map pin):** always `GET /consumer/config/zone-id?lat=&lng=`. On **404**, show *We don’t deliver here* — do not save the address.
 
 ### A2. Place details (user selected a row)
 

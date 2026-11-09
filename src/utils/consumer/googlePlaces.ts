@@ -18,11 +18,76 @@ function requireApiKey(): string {
 }
 
 function includedRegionCodes(): string[] {
-  const raw = process.env.GOOGLE_PLACES_REGION_CODES?.trim() || 'IL';
+  const raw = process.env.GOOGLE_PLACES_REGION_CODES?.trim();
+  if (!raw || raw === '*' || raw.toUpperCase() === 'ALL') return [];
   return raw
     .split(',')
     .map((c) => c.trim().toUpperCase())
     .filter((c) => /^[A-Z]{2}$/.test(c));
+}
+
+/** Geographic Israel + common delivery areas (not ISO `IL`-only, which can hide Hebron-area results). */
+const COUNTRY_RECTANGLE_LOW = { latitude: 29.45, longitude: 34.15 };
+const COUNTRY_RECTANGLE_HIGH = { latitude: 33.45, longitude: 35.95 };
+
+function applyAutocompleteRegionScope(requestBody: Record<string, unknown>) {
+  const codes = includedRegionCodes();
+  if (codes.length) {
+    requestBody.includedRegionCodes = codes;
+    return;
+  }
+  // Default: worldwide — no rectangle. Opt-in via GOOGLE_PLACES_USE_COUNTRY_BOUNDS=1.
+  if (process.env.GOOGLE_PLACES_USE_COUNTRY_BOUNDS === '1') {
+    requestBody.locationRestriction = {
+      rectangle: {
+        low: COUNTRY_RECTANGLE_LOW,
+        high: COUNTRY_RECTANGLE_HIGH,
+      },
+    };
+  }
+}
+
+/** Prefer delivery-area results (Hebron / Gush Etzion) over unrelated "Hebron Street" matches in TLV. */
+export type PlaceAutocompleteOptions = {
+  biasLat?: number;
+  biasLng?: number;
+  biasRadiusKm?: number;
+};
+
+function parseFiniteNumber(raw: string | undefined): number | null {
+  if (raw == null || !String(raw).trim()) return null;
+  const n = Number(String(raw).trim());
+  return Number.isFinite(n) ? n : null;
+}
+
+function resolvePlacesBias(options?: PlaceAutocompleteOptions): {
+  lat: number;
+  lng: number;
+  radiusM: number;
+} | null {
+  const envLat = parseFiniteNumber(process.env.GOOGLE_PLACES_BIAS_LAT);
+  const envLng = parseFiniteNumber(process.env.GOOGLE_PLACES_BIAS_LNG);
+  const envRadiusKm = parseFiniteNumber(process.env.GOOGLE_PLACES_BIAS_RADIUS_KM) ?? 85;
+
+  let lat = options?.biasLat;
+  let lng = options?.biasLng;
+  let radiusKm = options?.biasRadiusKm;
+
+  if (lat != null && lng != null) {
+    radiusKm = radiusKm ?? envRadiusKm;
+  } else if (envLat != null && envLng != null) {
+    lat = envLat;
+    lng = envLng;
+    radiusKm = radiusKm ?? envRadiusKm;
+  } else {
+    return null;
+  }
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return null;
+  }
+  const km = Math.min(500, Math.max(1, radiusKm ?? 85));
+  return { lat, lng, radiusM: km * 1000 };
 }
 
 /** Legacy Maps Platform GET (Geocoding, Distance Matrix). */
@@ -104,18 +169,28 @@ function mapNewAutocompleteToLegacy(body: NewAutocompleteBody): {
   };
 }
 
-async function placesNewAutocomplete(searchText: string) {
+async function placesNewAutocomplete(searchText: string, options?: PlaceAutocompleteOptions) {
   const key = requireApiKey();
+  const bias = resolvePlacesBias(options);
+  const requestBody: Record<string, unknown> = {
+    input: searchText,
+  };
+  applyAutocompleteRegionScope(requestBody);
+  if (bias) {
+    requestBody.locationBias = {
+      circle: {
+        center: { latitude: bias.lat, longitude: bias.lng },
+        radius: bias.radiusM,
+      },
+    };
+  }
   const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-Goog-Api-Key': key,
     },
-    body: JSON.stringify({
-      input: searchText,
-      includedRegionCodes: includedRegionCodes(),
-    }),
+    body: JSON.stringify(requestBody),
   });
   const body = (await res.json()) as NewAutocompleteBody & { error?: { message?: string } };
   if (!res.ok) {
@@ -178,8 +253,15 @@ async function placesNewPlaceDetails(placeId: string) {
 }
 
 /** Pass-through legacy GET when GOOGLE_PLACES_USE_LEGACY=1 */
-async function legacyPlaceAutocomplete(searchText: string) {
-  return googleGet('place/autocomplete/json', { input: searchText });
+async function legacyPlaceAutocomplete(searchText: string, options?: PlaceAutocompleteOptions) {
+  const bias = resolvePlacesBias(options);
+  const params: Record<string, string> = { input: searchText };
+  if (bias) {
+    params.location = `${bias.lat},${bias.lng}`;
+    params.radius = String(Math.round(bias.radiusM));
+    params.strictbounds = 'false';
+  }
+  return googleGet('place/autocomplete/json', params);
 }
 
 async function legacyPlaceDetails(placeId: string) {
@@ -190,11 +272,11 @@ function useLegacyPlaces(): boolean {
   return process.env.GOOGLE_PLACES_USE_LEGACY === '1';
 }
 
-export async function placeAutocomplete(searchText: string) {
+export async function placeAutocomplete(searchText: string, options?: PlaceAutocompleteOptions) {
   if (useLegacyPlaces()) {
-    return legacyPlaceAutocomplete(searchText);
+    return legacyPlaceAutocomplete(searchText, options);
   }
-  return placesNewAutocomplete(searchText);
+  return placesNewAutocomplete(searchText, options);
 }
 
 export async function placeDetails(placeId: string) {
