@@ -103,6 +103,7 @@ async function sendPlaceOrderCreatedResponse(
       orderResult.payment_method === 'digital_payment' &&
       !orderPayload.payment_request_id
     ) {
+      // Unpaid digital — socket only until payment completes (checkout hook calls sendNewOrderNotification).
       emitNewOrderRealtime(notifyPayload);
     } else {
       void sendNewOrderNotification(notifyPayload);

@@ -18,6 +18,7 @@ import {
   deleteNotification,
   getNotifications,
 } from '../../controllers/vendor/notification';
+import { testVendorPush } from '../../controllers/vendor/notificationTestPush';
 import { toggleVendorPushNotification } from '../../controllers/notifications/togglePushNotification';
 
 router.post('/login', login);
@@ -34,6 +35,7 @@ router.get('/whoami', whoami);
 router.get('/whoami-mobile', whoamiMobile);
 router.put('/password/change', changePassword);
 router.get('/notifications', getNotifications);
+router.post('/notifications/test-push', testVendorPush);
 router.put('/notifications/toggle', toggleVendorPushNotification);
 router.delete('/notifications/:id', deleteNotification);
 router.put('/fcm-token', updateFcmToken);

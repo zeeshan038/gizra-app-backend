@@ -278,6 +278,10 @@ Restaurant **web panel** already prompts for minutes on “Proceed For Cooking�
 
 ### POS / restaurant
 
+- [ ] **FCM (new order)** — after login or `PUT /api/vendor/fcm-token`, subscribe to **`data.fcm_topics`** (usually `restaurant_panel_{restaurantId}_message`). **Do not** use `zone_wise_topic` for new orders (that is zone-wide marketing/admin, not per-store orders).
+- [ ] **Debug push:** `POST /api/vendor/notifications/test-push` (Bearer vendor JWT) — sends a test notification and returns `firebase_ready`, `block_reason`, token length, `fcm_topics`.
+- [ ] Register token: `PUT /api/vendor/fcm-token` with `{ "fcm_token": "...", "platform": "mobile" }`; response includes `fcm_topics` again.
+- [ ] Handle FCM **data** keys: `type` = `new_order`, `body` / `description`, `order_id`, **`restaurant_id`** (ignore if it does not match the logged-in restaurant).
 - [ ] Order detail → show assigned driver from `GET /vendor/orders/:id`
 - [ ] Cooking action → `PUT .../status` with `processing` + `processing_time`
 - [ ] Optional: poll or socket for driver assignment updates

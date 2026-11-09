@@ -33,6 +33,9 @@ export async function sendNewOrderNotification(
   }
 
   try {
+    console.log(
+      `[notify] new_order push order=${payload.order_id} restaurant=${payload.restaurant_id} vendor=${payload.vendor_id} payment=${payload.payment_method ?? '-'}`
+    );
     const vendor = await prisma.vendors.findUnique({
       where: { id: BigInt(payload.vendor_id) },
       select: { firebase_token: true, fcm_token_web: true, is_notification_on: true },

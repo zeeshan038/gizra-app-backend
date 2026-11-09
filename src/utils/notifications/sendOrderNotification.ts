@@ -10,6 +10,7 @@ import {
 } from '../deliveryman/orderHelpers';
 import { sendFcmToDevice, sendFcmToTopic, type FcmPushData } from './fcm';
 import {
+  ensureRestaurantOrderPushSetup,
   isPushNotificationEnabled,
   isVendorPushEnabled,
   vendorPushBlockReason,
@@ -23,6 +24,7 @@ import {
   mapOrderCookingTimeForApi,
   parseCookingMinutes,
 } from '../vendor/order/cookingTime';
+import { vendorRestaurantMessageTopic } from '../vendor/pushTopics';
 import { orderIdentityFcmFields } from '../order/orderIdentity';
 
 const ORDER_PUSH_TITLE = 'Order notification';
@@ -148,8 +150,7 @@ async function pushVendorFcmDevices(
   pushAllowed: boolean,
   restaurantId: number | null,
   targets: VendorPushTargets,
-  data: FcmPushData,
-  vendorId?: number
+  data: FcmPushData
 ): Promise<void> {
   if (!pushAllowed) return;
 
@@ -161,24 +162,20 @@ async function pushVendorFcmDevices(
         : restaurantId ?? undefined,
   };
 
-  // One restaurant per push — topic `restaurant_panel_{id}_message` (not zone / vendor-wide token).
   if (restaurantId != null) {
+    const topic = vendorRestaurantMessageTopic(restaurantId);
     try {
-      await sendFcmToTopic(`restaurant_panel_${restaurantId}_message`, payload);
+      await sendFcmToTopic(topic, payload);
     } catch (e) {
       console.error('[notify] FCM restaurant panel topic send failed', e);
     }
 
-    let singleRestaurantVendor = false;
-    if (vendorId != null && Number.isFinite(vendorId)) {
-      const branchCount = await prisma.restaurants.count({
-        where: { vendor_id: vendorId },
-      });
-      singleRestaurantVendor = branchCount <= 1;
-    }
-
-    if (singleRestaurantVendor) {
-      const tokens = uniqueDeviceTokens(targets);
+    const tokens = uniqueDeviceTokens(targets);
+    if (tokens.length === 0) {
+      console.warn(
+        `[notify] vendor POS has no device token — subscribe to FCM topic ${topic} (login data.fcm_topics) or PUT /api/vendor/fcm-token`
+      );
+    } else {
       await Promise.all(tokens.map((token) => pushToDeviceIfEnabled(true, token, payload)));
     }
     return;
@@ -283,8 +280,7 @@ async function notifyVendor(
     enabled && isRecipientPushOn(recipientPushOn),
     restaurantId,
     targets,
-    data,
-    vendorId
+    data
   );
 }
 
@@ -545,6 +541,7 @@ export async function persistAndPushVendorNewOrder(input: {
   vendorTokens?: VendorPushTargets;
   recipientPushOn?: boolean;
 }): Promise<void> {
+  await ensureRestaurantOrderPushSetup(input.restaurant_id);
   const data: FcmPushData = {
     title: 'New order',
     description: `New order received — Order ID: ${input.order_id}`,

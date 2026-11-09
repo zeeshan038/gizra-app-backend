@@ -71,16 +71,24 @@ async function sendViaFirebaseAdmin(
 
   const stringData = buildStringData(data);
   try {
-    await getMessaging().send({
+    const messageId = await getMessaging().send({
       ...target,
       notification: {
         title: String(data.title),
         body: String(data.description),
       },
       data: stringData,
-      android: { notification: { channelId: 'stackfood', sound: 'notification.wav' } },
-      apns: { payload: { aps: { sound: 'notification.wav' } } },
+      android: {
+        priority: 'high',
+        notification: { channelId: 'stackfood', sound: 'notification.wav' },
+      },
+      apns: {
+        headers: { 'apns-priority': '10' },
+        payload: { aps: { sound: 'notification.wav' } },
+      },
     });
+    const targetLabel = 'token' in target ? 'device' : `topic:${target.topic}`;
+    console.log(`[notify] FCM ok (${targetLabel}) messageId=${messageId} type=${data.type}`);
     return true;
   } catch (error: unknown) {
     const code =
@@ -133,6 +141,7 @@ function legacyDataPayload(data: FcmPushData): Record<string, string> {
   const base: Record<string, string> = {
     title: String(data.title),
     body: String(data.description),
+    description: String(data.description),
     order_id: data.order_id != null ? String(data.order_id) : '',
     type: String(data.type),
     order_type: String(data.order_type ?? ''),
@@ -140,6 +149,9 @@ function legacyDataPayload(data: FcmPushData): Record<string, string> {
     image: String(data.image ?? ''),
     sound: 'notification.wav',
   };
+  if (data.restaurant_id != null && data.restaurant_id !== '') {
+    base.restaurant_id = String(data.restaurant_id);
+  }
   if (data.gizra_order_id) base.gizra_order_id = data.gizra_order_id;
   if (data.restaurant_order_ref) base.restaurant_order_ref = data.restaurant_order_ref;
   if (data.display_order_number) base.display_order_number = data.display_order_number;
@@ -158,7 +170,7 @@ export async function sendFcmToDevice(token: string, data: FcmPushData): Promise
   const projectId = process.env.FIREBASE_PROJECT_ID;
 
   if (serverKey) {
-    await fetch('https://fcm.googleapis.com/fcm/send', {
+    const res = await fetch('https://fcm.googleapis.com/fcm/send', {
       method: 'POST',
       headers: {
         Authorization: `key=${serverKey}`,
@@ -175,6 +187,12 @@ export async function sendFcmToDevice(token: string, data: FcmPushData): Promise
         },
       }),
     });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || (body as { failure?: number }).failure) {
+      console.error('[notify] FCM legacy device send failed', body);
+    } else {
+      console.log('[notify] FCM legacy device ok type=', data.type);
+    }
     return;
   }
 
@@ -205,14 +223,22 @@ export async function sendFcmToDevice(token: string, data: FcmPushData): Promise
           title: String(data.title),
           body: String(data.description),
         },
-        android: { notification: { channelId: 'stackfood', sound: 'notification.wav' } },
-        apns: { payload: { aps: { sound: 'notification.wav' } } },
+        android: {
+          priority: 'high',
+          notification: { channelId: 'stackfood', sound: 'notification.wav' },
+        },
+        apns: {
+          headers: { 'apns-priority': '10' },
+          payload: { aps: { sound: 'notification.wav' } },
+        },
       },
     }),
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     console.error('[notify] FCM device HTTP v1 failed', res.status, body.slice(0, 500));
+  } else {
+    console.log('[notify] FCM device HTTP v1 ok type=', data.type);
   }
 }
 
