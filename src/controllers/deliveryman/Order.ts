@@ -15,6 +15,7 @@ import {
   countDmConcurrentAssignedOrders,
   getBusinessSetting,
   getDmMaximumConcurrentOrders,
+  syncDmCurrentOrdersCount,
   getEligibleRestaurantIdsForDm,
   mapOrdersForDeliveryManList,
   passesNotDigitalPending,
@@ -270,11 +271,11 @@ export const acceptOrder = async (req: Request, res: Response): Promise<any> => 
     }
 
     const maxOrders = await getDmMaximumConcurrentOrders();
-    const activeAssigned = await countDmConcurrentAssignedOrders(deliveryManId);
-    if (
-      activeAssigned >= maxOrders ||
-      Number(dm.current_orders) >= maxOrders
-    ) {
+    let activeAssigned = await countDmConcurrentAssignedOrders(deliveryManId);
+    if (Number(dm.current_orders) !== activeAssigned) {
+      activeAssigned = await syncDmCurrentOrdersCount(deliveryManId);
+    }
+    if (activeAssigned >= maxOrders) {
       return res.status(405).json({
         status: false,
         msg: `You can accept at most ${maxOrders} orders at a time. Finish or cancel a trip before accepting another.`,
@@ -353,11 +354,11 @@ export const acceptOrder = async (req: Request, res: Response): Promise<any> => 
       await tx.delivery_men.update({
         where: { id: BigInt(deliveryManId) },
         data: {
-          current_orders: { increment: 1 },
           assigned_order_count: { increment: 1 },
           updated_at: new Date(),
         },
       });
+      await syncDmCurrentOrdersCount(deliveryManId, tx);
 
       return updated;
     }, ORDER_SETTLEMENT_TX_OPTIONS);
@@ -529,24 +530,13 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<an
       }
 
       if (status === 'delivered' || status === 'canceled') {
-        const dm = await tx.delivery_men.findUnique({
-          where: { id: BigInt(deliveryManId) },
-        });
-        if (dm) {
-          const nextCurrent =
-            Number(dm.current_orders) > 1 ? Number(dm.current_orders) - 1 : 0;
+        await syncDmCurrentOrdersCount(deliveryManId, tx);
+        if (status === 'delivered') {
           await tx.delivery_men.update({
             where: { id: BigInt(deliveryManId) },
-            data: {
-              current_orders: nextCurrent,
-              ...(status === 'delivered'
-                ? { order_count: { increment: 1 } }
-                : {}),
-              updated_at: now,
-            },
+            data: { order_count: { increment: 1 }, updated_at: now },
           });
         }
-
       }
 
       return updated;

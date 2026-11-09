@@ -2,6 +2,7 @@ import prisma from '../../../config/database';
 import { emitOrderStatusRealtime } from '../../../sockets/orderRealtime';
 import { createOrderTransactionIfNeeded, ORDER_SETTLEMENT_TX_OPTIONS } from '../../order/createOrderTransaction';
 import { notPosWhere } from '../../vendor/order/query';
+import { syncDmCurrentOrdersCount } from '../../deliveryman/orderHelpers';
 
 export async function updateAdminOrderStatus(
   orderId: number,
@@ -49,27 +50,20 @@ export async function updateAdminOrderStatus(
       });
     }
 
-    if ((status === 'delivered' || status === 'canceled') && prevDmId != null) {
-      const dm = await tx.delivery_men.findUnique({
-        where: { id: BigInt(prevDmId) },
-      });
-      if (dm) {
-        const nextCurrent = Number(dm.current_orders) > 0 ? Number(dm.current_orders) - 1 : 0;
-        await tx.delivery_men.update({
-          where: { id: BigInt(prevDmId) },
-          data: {
-            current_orders: BigInt(nextCurrent),
-            ...(status === 'delivered' ? { order_count: { increment: 1 } } : {}),
-            updated_at: now,
-          },
-        });
-      }
-    }
-
     const updated = await tx.orders.update({
       where: { id: BigInt(orderId) },
       data: updateData,
     });
+
+    if ((status === 'delivered' || status === 'canceled') && prevDmId != null) {
+      await syncDmCurrentOrdersCount(prevDmId, tx);
+      if (status === 'delivered') {
+        await tx.delivery_men.update({
+          where: { id: BigInt(prevDmId) },
+          data: { order_count: { increment: 1 }, updated_at: now },
+        });
+      }
+    }
 
     return updated;
   }, ORDER_SETTLEMENT_TX_OPTIONS);
