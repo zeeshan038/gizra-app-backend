@@ -18,6 +18,8 @@ Optional **notice message** (max 1000 chars) — shown in the customer app when 
 
 ## Customer app (Flutter)
 
+**Implementation brief for mobile team:** [`FLUTTER_EMERGENCY_SERVICE_PAUSE.md`](./FLUTTER_EMERGENCY_SERVICE_PAUSE.md)
+
 Read pause state from:
 
 1. **`GET /api/consumer/config/bootstrap`** — field `emergency_service_pause`

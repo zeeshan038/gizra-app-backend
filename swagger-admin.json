@@ -3834,6 +3834,9 @@
           "app_url_ios": {
             "type": "string",
             "nullable": true
+          },
+          "emergency_service_pause": {
+            "$ref": "#/components/schemas/EmergencyServicePausePublicPayload"
           }
         }
       },
@@ -4420,6 +4423,201 @@
           }
         }
       },
+      "AdminEmergencyServicePauseUpdateBody": {
+        "type": "object",
+        "minProperties": 1,
+        "properties": {
+          "pause_all": {
+            "type": "boolean",
+            "example": false
+          },
+          "zone_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "Zone Setup ids to pause (ignored when pause_all is true)",
+            "example": [
+              8,
+              9
+            ]
+          },
+          "notice_message": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 1000,
+            "description": "Customer security banner / checkout message when pause is active",
+            "example": "Due to a security situation, ordering is temporarily unavailable in your area."
+          }
+        }
+      },
+      "AdminEmergencyServicePauseGetResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "config": {
+                "type": "object",
+                "properties": {
+                  "pause_all": {
+                    "type": "boolean"
+                  },
+                  "zone_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  },
+                  "notice_message": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "zones": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/EmergencyServicePauseZoneStatus"
+                    }
+                  },
+                  "updated_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true
+                  }
+                }
+              },
+              "effective": {
+                "type": "object",
+                "properties": {
+                  "any_paused": {
+                    "type": "boolean"
+                  },
+                  "paused_zone_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  },
+                  "customer_notice": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "EmergencyServicePauseZoneStatus": {
+        "type": "object",
+        "properties": {
+          "zone_id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "paused": {
+            "type": "boolean"
+          }
+        }
+      },
+      "EmergencyServicePausePublicPayload": {
+        "type": "object",
+        "description": "Customer emergency pause — bootstrap, dedicated GET, and zone-id sub-object.",
+        "properties": {
+          "active": {
+            "type": "boolean",
+            "description": "True when at least one zone is paused"
+          },
+          "pause_all": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Banner text when active"
+          },
+          "paused_zone_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "zones": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmergencyServicePauseZoneStatus"
+            }
+          }
+        }
+      },
+      "ConsumerZoneEmergencyPauseHint": {
+        "type": "object",
+        "description": "On GET /consumer/config/zone-id when pin is in a paused zone",
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "paused_zone_id": {
+            "type": "integer",
+            "nullable": true
+          }
+        }
+      },
+      "EmergencyServicePausedError": {
+        "type": "object",
+        "description": "HTTP 403 when admin emergency pause blocks new orders (quote, place, delivery-fee).",
+        "required": [
+          "status",
+          "msg",
+          "code"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": false
+          },
+          "msg": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "EMERGENCY_SERVICE_PAUSED"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "paused_zone_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "integer",
+            "description": "Present on GET /consumer/config/delivery-fee",
+            "nullable": true
+          }
+        }
+      },
       "DeliveryDistanceTimeRestrictedError": {
         "type": "object",
         "description": "HTTP 403 when delivery distance exceeds admin max during scheduled restriction window (delivery orders only).",
@@ -4529,6 +4727,9 @@
             "items": {
               "$ref": "#/components/schemas/ConsumerZoneDataItem"
             }
+          },
+          "emergency_service_pause": {
+            "$ref": "#/components/schemas/ConsumerZoneEmergencyPauseHint"
           }
         }
       },
@@ -28236,6 +28437,233 @@
                     "restaurant_ids": [
                       3
                     ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/emergency-service-pause/": {
+      "get": {
+        "description": "Super admin only (`role_id` 1). Returns master **pause_all**, selected **zone_ids** to pause, optional **notice_message**, and **effective** paused zone list for customer enforcement.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Config and effective status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminEmergencyServicePauseGetResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not super admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin Business"
+        ],
+        "summary": "Get emergency service pause",
+        "operationId": "getAdminEmergencyServicePause",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "description": "Super admin only. Partial update (at least one field). **pause_all** pauses every zone. Otherwise set **zone_ids** from Zone Setup. **notice_message** (max 1000) is shown in the customer app banner and on checkout 403.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated config",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminEmergencyServicePauseGetResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not super admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin Business"
+        ],
+        "summary": "Update emergency service pause",
+        "operationId": "putAdminEmergencyServicePause",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminEmergencyServicePauseUpdateBody"
+              },
+              "examples": {
+                "pauseRegions": {
+                  "summary": "Pause specific zones",
+                  "value": {
+                    "pause_all": false,
+                    "zone_ids": [
+                      8,
+                      9
+                    ],
+                    "notice_message": "Due to a security situation, ordering is temporarily unavailable in your area."
+                  }
+                },
+                "pauseAll": {
+                  "summary": "Master pause",
+                  "value": {
+                    "pause_all": true
                   }
                 }
               }
