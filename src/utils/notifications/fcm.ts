@@ -22,25 +22,42 @@ export type FcmPushData = {
   is_manual_dispatch?: string;
 };
 
+/** FCM `data` map — StackFood / legacy PHP uses `body` (not `description`) for POS & driver apps. */
 function buildStringData(data: FcmPushData): Record<string, string> {
+  const description = data.description != null ? String(data.description) : '';
+  const type = data.type != null ? String(data.type) : '';
+  const orderId = data.order_id != null && data.order_id !== '' ? String(data.order_id) : '';
+
+  const raw: Record<string, string | undefined> = {
+    title: data.title != null ? String(data.title) : undefined,
+    description,
+    body: description,
+    order_id: orderId || undefined,
+    restaurant_id:
+      data.restaurant_id != null && data.restaurant_id !== ''
+        ? String(data.restaurant_id)
+        : undefined,
+    type: type || undefined,
+    order_type: data.order_type != null ? String(data.order_type) : undefined,
+    order_status: data.order_status != null ? String(data.order_status) : undefined,
+    image: data.image != null ? String(data.image) : undefined,
+    processing_time: data.processing_time,
+    cooking_time_minutes: data.cooking_time_minutes,
+    gizra_order_id: data.gizra_order_id,
+    restaurant_order_ref: data.restaurant_order_ref,
+    display_order_number: data.display_order_number,
+    order_source: data.order_source,
+    is_manual_dispatch: data.is_manual_dispatch,
+    sound: 'notification.wav',
+  };
+
+  if (orderId) {
+    raw.title_loc_key = orderId;
+    raw.body_loc_key = type || 'new_order';
+  }
+
   return Object.fromEntries(
-    Object.entries({
-      title: data.title,
-      description: data.description,
-      order_id: data.order_id,
-      restaurant_id: data.restaurant_id,
-      type: data.type,
-      order_type: data.order_type,
-      order_status: data.order_status,
-      image: data.image,
-      processing_time: data.processing_time,
-      cooking_time_minutes: data.cooking_time_minutes,
-      gizra_order_id: data.gizra_order_id,
-      restaurant_order_ref: data.restaurant_order_ref,
-      display_order_number: data.display_order_number,
-      order_source: data.order_source,
-      is_manual_dispatch: data.is_manual_dispatch,
-    })
+    Object.entries(raw)
       .filter(([, v]) => v != null && v !== '')
       .map(([k, v]) => [k, String(v)])
   );
@@ -162,16 +179,19 @@ export async function sendFcmToDevice(token: string, data: FcmPushData): Promise
   }
 
   if (!projectId || !process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-    console.warn('[notify] FCM not configured (set FCM_SERVER_KEY or FIREBASE_* env vars)');
+    console.warn('[notify] FCM device not sent — set FCM_SERVER_KEY or FIREBASE_* env vars');
     return;
   }
 
   const accessToken = await getGoogleAccessToken(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-  if (!accessToken) return;
+  if (!accessToken) {
+    console.warn('[notify] FCM device not sent — could not obtain Google access token');
+    return;
+  }
 
   const stringData = buildStringData(data);
 
-  await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
+  const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -190,6 +210,10 @@ export async function sendFcmToDevice(token: string, data: FcmPushData): Promise
       },
     }),
   });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    console.error('[notify] FCM device HTTP v1 failed', res.status, body.slice(0, 500));
+  }
 }
 
 /** Firebase topic — mirrors PHP `send_push_notif_to_topic` (type = order_request, etc.). */
@@ -223,16 +247,21 @@ export async function sendFcmToTopic(topic: string, data: FcmPushData): Promise<
   }
 
   if (!projectId || !process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-    console.warn('[notify] FCM not configured (set FCM_SERVER_KEY or FIREBASE_* env vars)');
+    console.warn(
+      `[notify] FCM topic not sent — set FCM_SERVER_KEY or FIREBASE_* env vars (topic=${topic.trim()})`
+    );
     return;
   }
 
   const accessToken = await getGoogleAccessToken(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-  if (!accessToken) return;
+  if (!accessToken) {
+    console.warn(`[notify] FCM topic not sent — Google access token failed (topic=${topic.trim()})`);
+    return;
+  }
 
   const stringData = buildStringData(data);
 
-  await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
+  const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -251,4 +280,12 @@ export async function sendFcmToTopic(topic: string, data: FcmPushData): Promise<
       },
     }),
   });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    console.error(
+      `[notify] FCM topic HTTP v1 failed topic=${topic.trim()}`,
+      res.status,
+      body.slice(0, 500)
+    );
+  }
 }

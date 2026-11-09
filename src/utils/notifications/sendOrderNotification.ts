@@ -12,6 +12,7 @@ import { sendFcmToDevice, sendFcmToTopic, type FcmPushData } from './fcm';
 import {
   isPushNotificationEnabled,
   isVendorPushEnabled,
+  vendorPushBlockReason,
 } from './notificationSettings';
 import { buildOrderStatusDescription } from './orderStatusMessage';
 import { sendOrderDeliveredSmsIfEnabled } from './sendOrderStatusSms';
@@ -147,30 +148,49 @@ async function pushVendorFcmDevices(
   pushAllowed: boolean,
   restaurantId: number | null,
   targets: VendorPushTargets,
-  data: FcmPushData
+  data: FcmPushData,
+  vendorId?: number
 ): Promise<void> {
   if (!pushAllowed) return;
 
-  const tokens = uniqueDeviceTokens(targets);
-  if (tokens.length === 0) {
-    if (restaurantId != null) {
-      try {
-        await sendFcmToTopic(`restaurant_panel_${restaurantId}_message`, data);
-      } catch (e) {
-        console.error('[notify] FCM restaurant panel topic send failed', e);
-      }
-    } else {
-      console.warn('[notify] vendor push skipped (no device token and no restaurant_id)');
+  const payload: FcmPushData = {
+    ...data,
+    restaurant_id:
+      data.restaurant_id != null && data.restaurant_id !== ''
+        ? data.restaurant_id
+        : restaurantId ?? undefined,
+  };
+
+  // One restaurant per push — topic `restaurant_panel_{id}_message` (not zone / vendor-wide token).
+  if (restaurantId != null) {
+    try {
+      await sendFcmToTopic(`restaurant_panel_${restaurantId}_message`, payload);
+    } catch (e) {
+      console.error('[notify] FCM restaurant panel topic send failed', e);
+    }
+
+    let singleRestaurantVendor = false;
+    if (vendorId != null && Number.isFinite(vendorId)) {
+      const branchCount = await prisma.restaurants.count({
+        where: { vendor_id: vendorId },
+      });
+      singleRestaurantVendor = branchCount <= 1;
+    }
+
+    if (singleRestaurantVendor) {
+      const tokens = uniqueDeviceTokens(targets);
+      await Promise.all(tokens.map((token) => pushToDeviceIfEnabled(true, token, payload)));
     }
     return;
   }
 
-  await Promise.all(tokens.map((token) => pushToDeviceIfEnabled(true, token, data)));
-}
+  const tokens = uniqueDeviceTokens(targets);
+  if (tokens.length === 0) {
+    console.warn('[notify] vendor push skipped (no restaurant_id and no device token)');
+    return;
+  }
 
-/** Per-restaurant POS topic only (`restaurant_panel_{id}_message`). Zone topics are for admin broadcasts, not new orders. */
-async function broadcastVendorPosTopics(restaurantId: number, data: FcmPushData): Promise<void> {
-  await sendFcmToTopic(`restaurant_panel_${restaurantId}_message`, data);
+  await Promise.all(tokens.map((token) => pushToDeviceIfEnabled(true, token, payload)));
 }
 
 async function notifyCustomerOrderStatus(
@@ -246,8 +266,12 @@ async function notifyVendor(
       : await isPushNotificationEnabled('restaurant', settingKey);
 
   if (!enabled) {
+    const reason =
+      restaurantId != null
+        ? await vendorPushBlockReason(restaurantId, settingKey)
+        : 'platform_notification_settings_off';
     console.warn(
-      `[notify] vendor push skipped (notification settings off): vendor=${vendorId} key=${settingKey}`
+      `[notify] vendor push skipped (notification settings off): vendor=${vendorId} key=${settingKey} reason=${reason ?? 'unknown'}`
     );
   } else if (uniqueDeviceTokens(targets).length === 0 && restaurantId == null) {
     console.warn(
@@ -259,7 +283,8 @@ async function notifyVendor(
     enabled && isRecipientPushOn(recipientPushOn),
     restaurantId,
     targets,
-    data
+    data,
+    vendorId
   );
 }
 
@@ -415,6 +440,7 @@ export async function sendOrderNotification(orderInput: orders | bigint): Promis
       title: ORDER_PUSH_TITLE,
       description,
       order_id: orderId,
+      restaurant_id: restaurantId ?? undefined,
       image: '',
       type: 'order_status',
       order_status: order.order_status,
@@ -444,6 +470,7 @@ export async function sendOrderNotification(orderInput: orders | bigint): Promis
       title: ORDER_PUSH_TITLE,
       description: vendorDescription,
       order_id: orderId,
+      restaurant_id: restaurantId ?? undefined,
       image: '',
       type: 'order_status',
       order_status: order.order_status,
@@ -536,11 +563,4 @@ export async function persistAndPushVendorNewOrder(input: {
     'restaurant_order_notification',
     input.recipientPushOn ?? true
   );
-
-  // Always topic-broadcast new orders — POS may have a stale `firebase_token` but still subscribe to FCM topics.
-  try {
-    await broadcastVendorPosTopics(input.restaurant_id, data);
-  } catch (e) {
-    console.error('[notify] vendor new order POS topic broadcast failed', e);
-  }
 }
