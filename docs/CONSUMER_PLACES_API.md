@@ -16,6 +16,14 @@ No `Authorization` header required (public).
 GET /consumer/config/place-autocomplete?search_text=Tel%20Aviv
 ```
 
+Optional query (override server default bias near Hebron / Gush Etzion):
+
+```http
+GET /consumer/config/place-autocomplete?search_text=hebron&bias_lat=31.53&bias_lng=35.10&bias_radius_km=85
+```
+
+Server env defaults: `GOOGLE_PLACES_BIAS_LAT`, `GOOGLE_PLACES_BIAS_LNG`, `GOOGLE_PLACES_BIAS_RADIUS_KM`.
+
 Response: Google Places Autocomplete JSON (`predictions`, `status`, …).
 
 ### 2. Place details (after user selects a prediction)
@@ -69,7 +77,15 @@ In [Google Cloud Console](https://console.cloud.google.com/) for that key’s pr
 - Geocoding API — optional; reverse geocode (`/geocode`) falls back to **Places (New) searchNearby** if Geocoding is off
 - Distance Matrix API — delivery distance fallback
 
-Optional env: `GOOGLE_PLACES_REGION_CODES=IL` (autocomplete country filter).  
+Autocomplete region scope (env):
+
+- **Default:** **worldwide** — no country code, no map rectangle, no server location bias.
+- **`GOOGLE_PLACES_REGION_CODES=IL`** — limit to ISO country (optional).
+- **`GOOGLE_PLACES_USE_COUNTRY_BOUNDS=1`** — restrict to Israel-area rectangle (optional).
+- **`GOOGLE_PLACES_BIAS_LAT` + `GOOGLE_PLACES_BIAS_LNG`** — optional ranking near a hub; or pass `bias_lat` / `bias_lng` on the API from the app.
+
+**Delivery** is enforced by **`GET /consumer/config/zone-id`** after the user picks an address (works in Pakistan, Israel, anywhere).
+
 `GOOGLE_PLACES_USE_LEGACY=1` only if you still use legacy Places on the key.
 
 Restrict the key to server IP on production; do **not** embed this key in Flutter.

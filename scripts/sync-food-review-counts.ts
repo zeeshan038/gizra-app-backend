@@ -1,9 +1,3 @@
-/**
- * Rebuild food.avg_rating / rating_count from reviews table (published rows only).
- *
- *   npx ts-node scripts/sync-food-review-counts.ts
- *   npx ts-node scripts/sync-food-review-counts.ts --food_id=136
- */
 import dotenv from 'dotenv';
 import path from 'path';
 import prisma from '../src/config/database';
