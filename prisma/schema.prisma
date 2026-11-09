@@ -1759,9 +1759,9 @@ model vendors {
   account_no        String?   @db.VarChar(191)
   image             String?   @db.VarChar(191)
   status            Boolean?  @default(true)
-  firebase_token    String?   @db.VarChar(191)
+  firebase_token    String?   @db.VarChar(512)
   auth_token        String?   @db.Text
-  fcm_token_web     String?   @db.VarChar(191)
+  fcm_token_web     String?   @db.VarChar(512)
   is_notification_on Boolean  @default(true)
   cloudflareId      String?   @unique
 }

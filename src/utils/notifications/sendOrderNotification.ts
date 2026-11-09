@@ -12,6 +12,7 @@ import { sendFcmToDevice, sendFcmToTopic, type FcmPushData } from './fcm';
 import {
   ensureRestaurantOrderPushSetup,
   isPushNotificationEnabled,
+  isVendorNewOrderPushEnabled,
   isVendorPushEnabled,
   vendorPushBlockReason,
 } from './notificationSettings';
@@ -552,12 +553,24 @@ export async function persistAndPushVendorNewOrder(input: {
     order_type: input.order_type,
   };
 
-  await notifyVendor(
-    input.vendor_id,
+  try {
+    await persistUserNotification({ vendor_id: input.vendor_id }, data);
+  } catch (e) {
+    console.error('[notify] failed to save vendor user_notifications', e);
+  }
+
+  const platformOn = await isVendorNewOrderPushEnabled();
+  const pushAllowed = platformOn && isRecipientPushOn(input.recipientPushOn ?? true);
+  if (!platformOn) {
+    console.warn(
+      `[notify] vendor new_order FCM skipped — enable Admin → Notification → Restaurant → restaurant_order_notification (push active)`
+    );
+  }
+
+  await pushVendorFcmDevices(
+    pushAllowed,
     input.restaurant_id,
     input.vendorTokens ?? {},
-    data,
-    'restaurant_order_notification',
-    input.recipientPushOn ?? true
+    data
   );
 }
