@@ -49,6 +49,7 @@ import {
   upsertLoginOtp,
   verifyLoginOtpToken,
 } from '../../utils/partner/loginOtpDb';
+import { getVendorFcmSubscribeTopics } from '../../utils/vendor/pushTopics';
 
 
 type ResetIdentityBody = {
@@ -647,6 +648,12 @@ export const updateFcmToken = async (req: Request, res: Response): Promise<any> 
     platform: 'mobile' | 'web';
   };
 
+  if (fcm_token.length > 191) {
+    console.warn(
+      `[vendor] FCM token length ${fcm_token.length} exceeds vendors.firebase_token varchar(191) — token may be truncated in DB`
+    );
+  }
+
   const data =
     platform === 'web'
       ? { fcm_token_web: fcm_token, updated_at: new Date() }
@@ -658,10 +665,29 @@ export const updateFcmToken = async (req: Request, res: Response): Promise<any> 
       data,
     });
 
+    const restaurantIdFromJwt = Number((req.user as { restaurant_id?: string })?.restaurant_id);
+    let restaurantId = Number.isFinite(restaurantIdFromJwt) && restaurantIdFromJwt > 0
+      ? restaurantIdFromJwt
+      : null;
+    if (restaurantId == null) {
+      const row = await prisma.restaurants.findFirst({
+        where: { vendor_id: vendorId },
+        orderBy: { id: 'asc' },
+        select: { id: true },
+      });
+      restaurantId = row ? Number(row.id) : null;
+    }
+    const fcm_topics = getVendorFcmSubscribeTopics(restaurantId);
+
     return res.status(200).json({
       status: true,
       msg: 'Successfully updated',
       message: 'successfully updated!',
+      data: {
+        restaurant_id: restaurantId,
+        restaurant_message_topic: fcm_topics[0] ?? null,
+        fcm_topics,
+      },
     });
   } catch (error: unknown) {
     console.error('vendor fcm update error:', error);
@@ -769,6 +795,8 @@ export const whoamiMobile = async (req: Request, res: Response): Promise<any> =>
     });
 
     const posSettings = readPosAppSettingsFromAdditionalData(restaurant?.additional_data ?? null);
+    const restaurantIdNum = restaurant ? Number(restaurant.id) : null;
+    const fcm_topics = getVendorFcmSubscribeTopics(restaurantIdNum);
 
     return res.status(200).json({
       status: true,
@@ -800,6 +828,8 @@ export const whoamiMobile = async (req: Request, res: Response): Promise<any> =>
         autoPrintOnAccept: posSettings.autoPrintOnAccept,
         use58mmPaper: posSettings.use58mmPaper,
         posSettings,
+        restaurant_message_topic: fcm_topics[0] ?? null,
+        fcm_topics,
       },
     });
   } catch (error: unknown) {

@@ -69,6 +69,30 @@ export async function isRestaurantPushNotificationEnabled(
   return row.push_notification_status === 'active';
 }
 
+/** PHP `restaurantNotificationDataSetup` — missing row defaults push on for new orders. */
+export async function ensureRestaurantOrderPushSetup(restaurantId: number): Promise<void> {
+  if (!Number.isFinite(restaurantId) || restaurantId <= 0) return;
+  const key = 'restaurant_order_notification';
+  const existing = await prisma.restaurant_notification_settings.findFirst({
+    where: { key, restaurant_id: new Prisma.Decimal(restaurantId) },
+    select: { id: true },
+  });
+  if (existing) return;
+  await prisma.restaurant_notification_settings.create({
+    data: {
+      title: 'restaurant_order_notification',
+      sub_title: 'Get_notification_on_restaurant_order_notification',
+      key,
+      restaurant_id: new Prisma.Decimal(restaurantId),
+      mail_status: 'disable',
+      sms_status: 'disable',
+      push_notification_status: 'active',
+      created_at: new Date(),
+      updated_at: new Date(),
+    },
+  });
+}
+
 /** Vendor device push requires platform + per-restaurant toggles (PHP parity). */
 export async function isVendorPushEnabled(restaurantId: number, key: string): Promise<boolean> {
   const [platform, restaurant] = await Promise.all([

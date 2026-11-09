@@ -2,6 +2,7 @@
 //NPM Packages
 import jwt from 'jsonwebtoken';
 import prisma from '../../config/database';
+import { getVendorFcmSubscribeTopics } from '../vendor/pushTopics';
 
 //Generate Token
 export const genrateToken = async (vendor: any, restaurant: any, JWT_SECRET: string) => {
@@ -27,9 +28,15 @@ export const genrateToken = async (vendor: any, restaurant: any, JWT_SECRET: str
             topic = zone.restaurant_wise_topic;
         }
     }
+    const restaurantId = restaurant?.id != null ? Number(restaurant.id) : null;
+    const fcm_topics = getVendorFcmSubscribeTopics(restaurantId);
+    const restaurant_message_topic = fcm_topics[0] ?? null;
+
     return {
         token,
-        zone_wise_topic: topic
-    }
-    
+        zone_wise_topic: topic,
+        /** Subscribe in Firebase Messaging — new orders are sent here (not zone_wise_topic). */
+        restaurant_message_topic,
+        fcm_topics,
+    };
 }
