@@ -1,4 +1,4 @@
-import { food, reviews } from '@prisma/client';
+import { food, Prisma, reviews } from '@prisma/client';
 import prisma from '../../config/database';
 import { publicFoodMediaUrl, publicMediaUrl } from '../mediaStorage';
 import { notPosWhere } from '../vendor/order/query';
@@ -70,6 +70,32 @@ export function updateRestaurantRatingHistogram(
   const idx = 5 - star;
   arr[idx] = (arr[idx] ?? 0) + 1;
   return JSON.stringify(arr);
+}
+
+type FoodDetailsSnapshot = Record<string, unknown>;
+
+/** Pending-review rows: expose `food_details.image` as a public CDN URL (prefer live `food.image`). */
+export function enrichFoodDetailsForReview(
+  raw: string | null | undefined,
+  liveFoodImage: string | null | undefined
+): FoodDetailsSnapshot | null {
+  if (!raw?.trim()) return null;
+  let parsed: FoodDetailsSnapshot;
+  try {
+    parsed = JSON.parse(raw) as FoodDetailsSnapshot;
+    if (!parsed || typeof parsed !== 'object') return null;
+  } catch {
+    return null;
+  }
+  const snapshotImage =
+    typeof parsed.image === 'string' && parsed.image.trim() ? parsed.image : null;
+  const stored = liveFoodImage?.trim() || snapshotImage;
+  const full = stored ? publicFoodMediaUrl(stored) : null;
+  if (full) {
+    parsed.image = full;
+    parsed.image_full_url = full;
+  }
+  return parsed;
 }
 
 export function parseReviewAttachments(raw: string | null | undefined): string[] {
@@ -181,12 +207,44 @@ export function restaurantAvgFromStoredRating(raw: string | null | undefined): {
   }
 }
 
+/** Legacy rows may have `status` NULL — treat as published; hide only explicit false. */
+export function consumerPublishedReviewWhere(
+  extra: Prisma.reviewsWhereInput = {}
+): Prisma.reviewsWhereInput {
+  return {
+    ...extra,
+    status: { not: false },
+  };
+}
+
+export async function aggregateFoodReviewStats(foodId: number): Promise<{
+  avg_rating: number;
+  rating_count: number;
+}> {
+  const where = consumerPublishedReviewWhere({
+    food_id: { equals: new Prisma.Decimal(foodId) },
+  });
+  const agg = await prisma.reviews.aggregate({
+    where,
+    _avg: { rating: true },
+    _count: { id: true },
+  });
+  const count = agg._count.id;
+  if (!count) {
+    return { avg_rating: 0, rating_count: 0 };
+  }
+  return {
+    avg_rating: Math.round(Number(agg._avg.rating ?? 0) * 100) / 100,
+    rating_count: count,
+  };
+}
+
 export async function aggregateRestaurantReviewStats(restaurantId: number): Promise<{
   avg_rating: number;
   rating_count: number;
 }> {
   const agg = await prisma.reviews.aggregate({
-    where: { restaurant_id: restaurantId, status: true },
+    where: consumerPublishedReviewWhere({ restaurant_id: restaurantId }),
     _avg: { rating: true },
     _count: { id: true },
   });
@@ -242,18 +300,11 @@ export async function loadRestaurantReviews(
     return null;
   }
 
-  const reviewWhere: {
-    restaurant_id: number;
-    status: boolean;
-    OR?: Array<{ comment?: { contains: string; mode: 'insensitive' } }>;
-  } = {
-    restaurant_id: restaurantId,
-    status: true,
-  };
   const q = search?.trim();
-  if (q) {
-    reviewWhere.OR = [{ comment: { contains: q, mode: 'insensitive' } }];
-  }
+  const reviewWhere = consumerPublishedReviewWhere({
+    restaurant_id: restaurantId,
+    ...(q ? { comment: { contains: q, mode: 'insensitive' as const } } : {}),
+  });
 
   const reviewRows = await prisma.reviews.findMany({
     where: reviewWhere,
@@ -328,16 +379,23 @@ export async function loadRestaurantReviews(
 export async function loadFoodReviews(foodId: number) {
   const food = await prisma.food.findUnique({
     where: { id: BigInt(foodId) },
-    select: { avg_rating: true, rating_count: true },
+    select: { id: true },
   });
   if (!food) {
     return null;
   }
 
-  const reviewRows = await prisma.reviews.findMany({
-    where: { food_id: foodId, status: true },
-    orderBy: { id: 'desc' },
+  const reviewWhere = consumerPublishedReviewWhere({
+    food_id: { equals: new Prisma.Decimal(foodId) },
   });
+
+  const [reviewRows, stats] = await Promise.all([
+    prisma.reviews.findMany({
+      where: reviewWhere,
+      orderBy: { id: 'desc' },
+    }),
+    aggregateFoodReviewStats(foodId),
+  ]);
 
   const userIds = [...new Set(reviewRows.map((r) => Number(r.user_id)))];
   const users =
@@ -361,10 +419,45 @@ export async function loadFoodReviews(foodId: number) {
   );
 
   return {
-    avg_rating: Number(food.avg_rating) || 0,
-    rating_count: Number(food.rating_count) || 0,
+    avg_rating: stats.avg_rating,
+    rating_count: stats.rating_count,
     reviews,
   };
+}
+
+/** Rebuild `food.avg_rating`, `rating_count`, and rating histogram from published review rows. */
+export async function syncFoodReviewDenormalized(foodId: number): Promise<void> {
+  const reviewRows = await prisma.reviews.findMany({
+    where: consumerPublishedReviewWhere({
+      food_id: { equals: new Prisma.Decimal(foodId) },
+    }),
+    select: { rating: true },
+  });
+
+  let ratingJson: string | null = null;
+  let avg = 0;
+  const count = reviewRows.length;
+
+  if (count) {
+    let histogram = emptyHistogram();
+    for (const row of reviewRows) {
+      const r = Number(row.rating);
+      const key = String(Math.min(5, Math.max(1, Math.round(r)))) as keyof RatingHistogram;
+      histogram[key] = (histogram[key] ?? 0) + 1;
+    }
+    ratingJson = JSON.stringify(histogram);
+    avg = averageFromHistogram(histogram);
+  }
+
+  await prisma.food.update({
+    where: { id: BigInt(foodId) },
+    data: {
+      rating: ratingJson,
+      avg_rating: avg,
+      rating_count: count,
+      updated_at: new Date(),
+    },
+  });
 }
 
 export async function loadPendingOrderReviews(orderId: number, userId: number) {
@@ -389,6 +482,15 @@ export async function loadPendingOrderReviews(orderId: number, userId: number) {
   });
 
   const foodIds = orderDetails.map((d) => Number(d.food_id)).filter((id) => id > 0);
+  const foods =
+    foodIds.length > 0
+      ? await prisma.food.findMany({
+          where: { id: { in: [...new Set(foodIds)].map((id) => BigInt(id)) } },
+          select: { id: true, image: true },
+        })
+      : [];
+  const foodImageById = new Map(foods.map((f) => [Number(f.id), f.image]));
+
   const itemIds = orderDetails
     .map((d) => (d.item_campaign_id != null ? Number(d.item_campaign_id) : 0))
     .filter((id) => id > 0);
@@ -425,7 +527,12 @@ export async function loadPendingOrderReviews(orderId: number, userId: number) {
         detail.item_campaign_id != null ? Number(detail.item_campaign_id) : null,
       quantity: Number(detail.quantity),
       price: Number(detail.price),
-      food_details: detail.food_details ? JSON.parse(detail.food_details) : null,
+      food_details: enrichFoodDetailsForReview(
+        detail.food_details,
+        detail.food_id != null
+          ? foodImageById.get(Number(detail.food_id)) ?? null
+          : null
+      ),
     }));
 
   return { details };

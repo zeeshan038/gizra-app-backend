@@ -5,6 +5,10 @@ import {
   resolveOrderDeliveryAddress,
 } from '../vendor/order/detailMapper';
 import { publicMediaUrl } from '../mediaStorage';
+import {
+  resolveDriverOrderPartyImageUrl,
+  resolveOrderListRestaurantLogoUrl,
+} from '../order/orderListImages';
 import { mapOrderCookingTimeForApi } from '../vendor/order/cookingTime';
 import { driverOrderListCardIdentity } from '../order/orderIdentity';
 
@@ -152,9 +156,8 @@ export type DmOrderListItem = {
 const DEFAULT_RESTAURANT_IMAGE = 'default_logo.png';
 const DEFAULT_CUSTOMER_IMAGE = 'def.png';
 
-function driverMediaUrl(stored: string | null | undefined, fallback: string): string {
-  const raw = stored?.trim() || fallback;
-  return publicMediaUrl(raw) ?? raw;
+function driverRestaurantImageUrl(stored: string | null | undefined, fallback: string): string | null {
+  return resolveOrderListRestaurantLogoUrl(stored) ?? resolveOrderListRestaurantLogoUrl(fallback);
 }
 
 async function loadFirstItemTitles(orderIds: bigint[]): Promise<Map<string, string>> {
@@ -302,8 +305,10 @@ export async function mapOrdersForDeliveryManList(
             cover_photo: restaurant.cover_photo,
           }
         : null,
-      restaurant_image_url: driverMediaUrl(restaurantImageStored, DEFAULT_RESTAURANT_IMAGE),
-      customer_image_url: driverMediaUrl(customerImageStored, DEFAULT_CUSTOMER_IMAGE),
+      restaurant_image_url:
+        driverRestaurantImageUrl(restaurantImageStored, DEFAULT_RESTAURANT_IMAGE) ?? '',
+      customer_image_url:
+        resolveDriverOrderPartyImageUrl(customerImageStored, DEFAULT_CUSTOMER_IMAGE) ?? '',
       ...cardIdentity,
       ...cookingTime,
     };

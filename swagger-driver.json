@@ -37,6 +37,10 @@
       "description": "GET /delivery-man/notifications, PUT /notifications/toggle, DELETE /notifications/{id}, PUT /fcm-token. Paginated inbox + push on/off + FCM device token."
     },
     {
+      "name": "Delivery Man Config",
+      "description": "GET /delivery-man/config/bootstrap plus Google Places proxy (`place-autocomplete`, `place-details`, `geocode`, `distance`). Public; backend `GOOGLE_MAPS_API_KEY`."
+    },
+    {
       "name": "Delivery Man Chat",
       "description": "Driver messaging (PHP /api/v1/delivery-man/message/*). Chat with customer and vendor. Socket: `delivery_man:{id}` room + `watch_conversation`."
     },
@@ -3800,6 +3804,139 @@
           }
         }
       },
+      "ConsumerBootstrapConfigurationResponse": {
+        "type": "object",
+        "description": "GET /consumer/config/bootstrap — customer launch only (maintenance + customer app store version rules).",
+        "required": [
+          "maintenance_mode",
+          "app_minimum_version_android",
+          "app_minimum_build_android",
+          "app_force_update_android",
+          "app_minimum_version_ios",
+          "app_minimum_build_ios",
+          "app_force_update_ios"
+        ],
+        "properties": {
+          "maintenance_mode": {
+            "type": "boolean"
+          },
+          "maintenance_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_minimum_version_android": {
+            "type": "string",
+            "example": "10.0.0"
+          },
+          "app_minimum_build_android": {
+            "type": "integer",
+            "example": 19
+          },
+          "app_force_update_android": {
+            "type": "boolean"
+          },
+          "app_url_android": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_minimum_version_ios": {
+            "type": "string",
+            "example": "9.0.0"
+          },
+          "app_minimum_build_ios": {
+            "type": "integer",
+            "example": 2
+          },
+          "app_force_update_ios": {
+            "type": "boolean"
+          },
+          "app_url_ios": {
+            "type": "string",
+            "nullable": true
+          },
+          "emergency_service_pause": {
+            "$ref": "#/components/schemas/EmergencyServicePausePublicPayload"
+          }
+        }
+      },
+      "VendorBootstrapConfigurationResponse": {
+        "type": "object",
+        "description": "GET /vendor/config/bootstrap — vendor launch (maintenance + restaurant app store version rules).",
+        "properties": {
+          "maintenance_mode": {
+            "type": "boolean"
+          },
+          "maintenance_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_minimum_version_android_restaurant": {
+            "type": "string"
+          },
+          "app_minimum_build_android_restaurant": {
+            "type": "integer"
+          },
+          "app_force_update_android_restaurant": {
+            "type": "boolean"
+          },
+          "app_url_android_restaurant": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_minimum_version_ios_restaurant": {
+            "type": "string"
+          },
+          "app_minimum_build_ios_restaurant": {
+            "type": "integer"
+          },
+          "app_force_update_ios_restaurant": {
+            "type": "boolean"
+          },
+          "app_url_ios_restaurant": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "DeliveryManBootstrapConfigurationResponse": {
+        "type": "object",
+        "description": "GET /delivery-man/config/bootstrap — driver launch (maintenance + delivery-man app store version rules).",
+        "properties": {
+          "maintenance_mode": {
+            "type": "boolean"
+          },
+          "maintenance_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_minimum_version_android_deliveryman": {
+            "type": "string"
+          },
+          "app_minimum_build_android_deliveryman": {
+            "type": "integer"
+          },
+          "app_force_update_android_deliveryman": {
+            "type": "boolean"
+          },
+          "app_url_android_deliveryman": {
+            "type": "string",
+            "nullable": true
+          },
+          "app_minimum_version_ios_deliveryman": {
+            "type": "string"
+          },
+          "app_minimum_build_ios_deliveryman": {
+            "type": "integer"
+          },
+          "app_force_update_ios_deliveryman": {
+            "type": "boolean"
+          },
+          "app_url_ios_deliveryman": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
       "AppConfigurationResponse": {
         "type": "object",
         "description": "Flat bootstrap payload (legacy StackFood config). Additional keys may be present.",
@@ -4044,6 +4181,526 @@
           }
         }
       },
+      "GooglePlacesAutocompleteResponse": {
+        "type": "object",
+        "description": "Pass-through from Google Places Autocomplete API. Mobile must not call Google directly.",
+        "properties": {
+          "predictions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GooglePlacesPrediction"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "ZERO_RESULTS",
+              "REQUEST_DENIED",
+              "INVALID_REQUEST",
+              "OVER_QUERY_LIMIT"
+            ],
+            "example": "OK"
+          },
+          "error_message": {
+            "type": "string",
+            "description": "Present when status is not OK"
+          }
+        }
+      },
+      "GooglePlacesPrediction": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "example": "Jerusalem, Israel"
+          },
+          "place_id": {
+            "type": "string",
+            "example": "ChIJecHC4jRkAhMRCpciZik3B00"
+          },
+          "structured_formatting": {
+            "type": "object",
+            "properties": {
+              "main_text": {
+                "type": "string"
+              },
+              "secondary_text": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "GooglePlaceDetailsResponse": {
+        "type": "object",
+        "properties": {
+          "result": {
+            "type": "object",
+            "properties": {
+              "formatted_address": {
+                "type": "string"
+              },
+              "geometry": {
+                "type": "object",
+                "properties": {
+                  "location": {
+                    "$ref": "#/components/schemas/GoogleLatLng"
+                  }
+                }
+              },
+              "place_id": {
+                "type": "string"
+              },
+              "types": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "example": "OK"
+          },
+          "error_message": {
+            "type": "string"
+          }
+        }
+      },
+      "GoogleGeocodeResponse": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "formatted_address": {
+                  "type": "string"
+                },
+                "geometry": {
+                  "type": "object",
+                  "properties": {
+                    "location": {
+                      "$ref": "#/components/schemas/GoogleLatLng"
+                    },
+                    "location_type": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "place_id": {
+                  "type": "string"
+                },
+                "types": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "example": "OK"
+          },
+          "error_message": {
+            "type": "string"
+          }
+        }
+      },
+      "GoogleLatLng": {
+        "type": "object",
+        "properties": {
+          "lat": {
+            "type": "number",
+            "example": 31.768319
+          },
+          "lng": {
+            "type": "number",
+            "example": 35.21371
+          }
+        }
+      },
+      "AdminDeliveryDistanceTimeRestrictionUpdateBody": {
+        "type": "object",
+        "minProperties": 1,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          },
+          "max_distance_km": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 500,
+            "example": 10
+          },
+          "start_time": {
+            "type": "string",
+            "pattern": "^([01]?\\d|2[0-3]):([0-5]\\d)$",
+            "example": "16:30"
+          },
+          "end_time": {
+            "type": "string",
+            "pattern": "^([01]?\\d|2[0-3]):([0-5]\\d)$",
+            "example": "20:30"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "Asia/Jerusalem"
+          },
+          "restaurant_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "example": [
+              3
+            ]
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 1000,
+            "description": "Optional customer message when delivery is blocked (road closure, accident, etc.)",
+            "example": "Main road blocked due to an accident — delivery limited to nearby addresses."
+          }
+        }
+      },
+      "AdminDeliveryDistanceTimeRestrictionGetResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "config": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "max_distance_km": {
+                    "type": "number"
+                  },
+                  "start_time": {
+                    "type": "string"
+                  },
+                  "end_time": {
+                    "type": "string"
+                  },
+                  "timezone": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 1000,
+                    "description": "Customer-facing reason shown on delivery-fee and order quote when blocked"
+                  },
+                  "restaurant_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  },
+                  "updated_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true
+                  }
+                }
+              },
+              "effective": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "description": "disabled | outside_window | in_window"
+                  },
+                  "in_window": {
+                    "type": "boolean"
+                  },
+                  "current_time_in_tz": {
+                    "type": "string",
+                    "example": "18:05"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "AdminEmergencyServicePauseUpdateBody": {
+        "type": "object",
+        "minProperties": 1,
+        "properties": {
+          "pause_all": {
+            "type": "boolean",
+            "example": false
+          },
+          "zone_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "Zone Setup ids to pause (ignored when pause_all is true)",
+            "example": [
+              8,
+              9
+            ]
+          },
+          "notice_message": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 1000,
+            "description": "Customer security banner / checkout message when pause is active",
+            "example": "Due to a security situation, ordering is temporarily unavailable in your area."
+          }
+        }
+      },
+      "AdminEmergencyServicePauseGetResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "config": {
+                "type": "object",
+                "properties": {
+                  "pause_all": {
+                    "type": "boolean"
+                  },
+                  "zone_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  },
+                  "notice_message": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "zones": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/EmergencyServicePauseZoneStatus"
+                    }
+                  },
+                  "updated_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true
+                  }
+                }
+              },
+              "effective": {
+                "type": "object",
+                "properties": {
+                  "any_paused": {
+                    "type": "boolean"
+                  },
+                  "paused_zone_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    }
+                  },
+                  "customer_notice": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "EmergencyServicePauseZoneStatus": {
+        "type": "object",
+        "properties": {
+          "zone_id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "paused": {
+            "type": "boolean"
+          }
+        }
+      },
+      "EmergencyServicePausePublicPayload": {
+        "type": "object",
+        "description": "Customer emergency pause — bootstrap, dedicated GET, and zone-id sub-object.",
+        "properties": {
+          "active": {
+            "type": "boolean",
+            "description": "True when at least one zone is paused"
+          },
+          "pause_all": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Banner text when active"
+          },
+          "paused_zone_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "zones": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmergencyServicePauseZoneStatus"
+            }
+          }
+        }
+      },
+      "ConsumerZoneEmergencyPauseHint": {
+        "type": "object",
+        "description": "On GET /consumer/config/zone-id when pin is in a paused zone",
+        "properties": {
+          "active": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "paused_zone_id": {
+            "type": "integer",
+            "nullable": true
+          }
+        }
+      },
+      "EmergencyServicePausedError": {
+        "type": "object",
+        "description": "HTTP 403 when admin emergency pause blocks new orders (quote, place, delivery-fee).",
+        "required": [
+          "status",
+          "msg",
+          "code"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": false
+          },
+          "msg": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "EMERGENCY_SERVICE_PAUSED"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "paused_zone_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "integer",
+            "description": "Present on GET /consumer/config/delivery-fee",
+            "nullable": true
+          }
+        }
+      },
+      "DeliveryDistanceTimeRestrictedError": {
+        "type": "object",
+        "description": "HTTP 403 when delivery distance exceeds admin max during scheduled restriction window (delivery orders only).",
+        "required": [
+          "status",
+          "msg",
+          "code"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": false
+          },
+          "msg": {
+            "type": "string",
+            "description": "Admin `description` when set; otherwise default km-limit message.",
+            "example": "Main road blocked due to an accident — delivery limited to nearby addresses."
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "DELIVERY_DISTANCE_TIME_RESTRICTED"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Admin-configured reason (same as msg when set). Null when default distance message is used.",
+            "example": "Main road blocked due to an accident — delivery limited to nearby addresses."
+          },
+          "max_distance_km": {
+            "type": "number",
+            "example": 10
+          },
+          "restriction_end_time": {
+            "type": "string",
+            "description": "Wall-clock end of restriction window (HH:mm) in configured timezone",
+            "example": "20:30"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "Asia/Jerusalem"
+          },
+          "restaurant_id": {
+            "type": "integer",
+            "description": "Present on GET /consumer/config/delivery-fee",
+            "example": 3
+          },
+          "distance_km": {
+            "type": "number",
+            "description": "Server-computed km (present on delivery-fee 403)",
+            "example": 14.02
+          },
+          "distance_source": {
+            "type": "string",
+            "enum": [
+              "google",
+              "haversine",
+              "client"
+            ],
+            "description": "Present on delivery-fee 403"
+          }
+        }
+      },
       "ConsumerDeliveryFeeQuoteResponse": {
         "type": "object",
         "properties": {
@@ -4089,6 +4746,9 @@
             "items": {
               "$ref": "#/components/schemas/ConsumerZoneDataItem"
             }
+          },
+          "emergency_service_pause": {
+            "$ref": "#/components/schemas/ConsumerZoneEmergencyPauseHint"
           }
         }
       },
@@ -4610,6 +5270,12 @@
             "type": "string",
             "nullable": true,
             "example": "+972501234567"
+          },
+          "food_image": {
+            "type": "string",
+            "nullable": true,
+            "description": "Public CDN URL of the first line item's food image (kitchen / order list thumbnail).",
+            "example": "https://cdn.example.com/product/2026-06-27-6a3fc643316c0.png"
           }
         }
       },
@@ -4678,7 +5344,9 @@
           },
           "food_image": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "description": "Public CDN URL for the food image (`product/{filename}`). Not the raw DB filename.",
+            "example": "https://cdn.example.com/product/2026-06-27-6a3fc643316c0.png"
           },
           "quantity": {
             "type": "integer",
@@ -6379,7 +7047,9 @@
           },
           "image": {
             "type": "string",
-            "example": "food/burger.png"
+            "nullable": true,
+            "description": "Public CDN URL — first food image, else restaurant logo (never a raw DB filename).",
+            "example": "https://cdn.example.com/product/burger.png"
           },
           "order_amount": {
             "type": "number",
@@ -7462,6 +8132,87 @@
           }
         }
       },
+      "GoogleDistanceMatrixResponse": {
+        "type": "object",
+        "description": "Pass-through from Google Distance Matrix API (walking mode).",
+        "properties": {
+          "destination_addresses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "origin_addresses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "elements": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "distance": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "example": "3.2 km"
+                          },
+                          "value": {
+                            "type": "integer",
+                            "description": "Meters",
+                            "example": 3200
+                          }
+                        }
+                      },
+                      "duration": {
+                        "type": "object",
+                        "properties": {
+                          "text": {
+                            "type": "string",
+                            "example": "38 mins"
+                          },
+                          "value": {
+                            "type": "integer",
+                            "description": "Seconds",
+                            "example": 2280
+                          }
+                        }
+                      },
+                      "status": {
+                        "type": "string",
+                        "example": "OK"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "OK",
+              "INVALID_REQUEST",
+              "MAX_ELEMENTS_EXCEEDED",
+              "OVER_QUERY_LIMIT",
+              "REQUEST_DENIED",
+              "UNKNOWN_ERROR"
+            ],
+            "example": "OK"
+          },
+          "error_message": {
+            "type": "string"
+          }
+        }
+      },
       "ChatUserInfo": {
         "type": "object",
         "properties": {
@@ -8098,7 +8849,7 @@
           "food_details": {
             "type": "object",
             "nullable": true,
-            "description": "Snapshot JSON from order (name, image, etc.)"
+            "description": "Order snapshot JSON. `image` and `image_full_url` are public CDN URLs (not raw filenames)."
           }
         }
       },
@@ -9735,6 +10486,106 @@
           "Legal Pages (All Apps)"
         ],
         "summary": "Single legal page by slug"
+      }
+    },
+    "/delivery-man/config/bootstrap": {
+      "get": {
+        "description": "Slim flat JSON for **delivery-man / driver** app on launch: `maintenance_mode`, `maintenance_message`, and `app_minimum_*_deliveryman` / `app_force_update_*_deliveryman` / `app_url_*_deliveryman` (Android + iOS). Public; no Bearer.\n\nLegacy full config: **GET /config**.",
+        "responses": {
+          "200": {
+            "description": "Launch configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManBootstrapConfigurationResponse"
+                },
+                "example": {
+                  "maintenance_mode": false,
+                  "maintenance_message": null,
+                  "app_minimum_version_android_deliveryman": "1.0.0",
+                  "app_minimum_build_android_deliveryman": 1,
+                  "app_force_update_android_deliveryman": false,
+                  "app_url_android_deliveryman": null,
+                  "app_minimum_version_ios_deliveryman": "1.0.0",
+                  "app_minimum_build_ios_deliveryman": 1,
+                  "app_force_update_ios_deliveryman": false,
+                  "app_url_ios_deliveryman": null
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Config"
+        ],
+        "summary": "Delivery-man app launch (maintenance + force update)",
+        "operationId": "getDeliveryManBootstrapConfiguration"
       }
     },
     "/delivery-man/zones": {
@@ -13090,7 +13941,7 @@
                         "order_number": "100178",
                         "item_name": "Classic Cheeseburger",
                         "item_count": 5,
-                        "image": "food/burger.png",
+                        "image": "https://cdn.example.com/product/burger.png",
                         "order_amount": 300,
                         "order_status": "delivered",
                         "status_label": "Completed",
@@ -14787,6 +15638,401 @@
             }
           }
         }
+      }
+    },
+    "/delivery-man/config/place-autocomplete": {
+      "get": {
+        "summary": "Places autocomplete (server proxy)",
+        "operationId": "getDeliveryManConfigPlaceAutocomplete",
+        "description": "Address search while the user types. **Mobile apps must use this route** — do not call Google Places from the client. The backend uses `GOOGLE_MAPS_API_KEY` (server `.env`). Returns Google Places Autocomplete JSON (`predictions`, `status`). Flow: autocomplete → user picks `place_id` → **GET /delivery-man/config/place-details**. Same server proxy as consumer; use this prefix from the driver app.",
+        "parameters": [
+          {
+            "name": "search_text",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "example": "Jerusalem"
+            },
+            "description": "Partial address or place name"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Google Places Autocomplete payload (pass-through)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GooglePlacesAutocompleteResponse"
+                },
+                "example": {
+                  "predictions": [
+                    {
+                      "description": "Jerusalem, Israel",
+                      "matched_substrings": [
+                        {
+                          "length": 5,
+                          "offset": 0
+                        }
+                      ],
+                      "place_id": "ChIJecHC4jRkAhMRCpciZik3B00",
+                      "reference": "ChIJecHC4jRkAhMRCpciZik3B00",
+                      "structured_formatting": {
+                        "main_text": "Jerusalem",
+                        "main_text_matched_substrings": [
+                          {
+                            "length": 5,
+                            "offset": 0
+                          }
+                        ],
+                        "secondary_text": "Israel"
+                      },
+                      "terms": [
+                        {
+                          "offset": 0,
+                          "value": "Jerusalem"
+                        },
+                        {
+                          "offset": 11,
+                          "value": "Israel"
+                        }
+                      ],
+                      "types": [
+                        "locality",
+                        "political",
+                        "geocode"
+                      ]
+                    }
+                  ],
+                  "status": "OK"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation — missing or empty search_text",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "search_text is required"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "GOOGLE_MAPS_API_KEY not set or Google upstream error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Google Maps API key is not configured. Set GOOGLE_MAPS_API_KEY in the backend .env."
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Config"
+        ]
+      }
+    },
+    "/delivery-man/config/place-details": {
+      "get": {
+        "summary": "Place details by place_id (server proxy)",
+        "operationId": "getDeliveryManConfigPlaceDetails",
+        "description": "Resolve a suggestion from autocomplete to coordinates and formatted address. Query param name is **`placeid`** (legacy PHP). Read `result.geometry.location` and `result.formatted_address`. Public; no Bearer. Same server proxy as consumer; use this prefix from the driver app.",
+        "parameters": [
+          {
+            "name": "placeid",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "ChIJecHC4jRkAhMRCpciZik3B00"
+            },
+            "description": "`place_id` from autocomplete prediction"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Google Place Details payload (pass-through)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GooglePlaceDetailsResponse"
+                },
+                "example": {
+                  "result": {
+                    "formatted_address": "Jerusalem",
+                    "geometry": {
+                      "location": {
+                        "lat": 31.768319,
+                        "lng": 35.21371
+                      },
+                      "viewport": {
+                        "northeast": {
+                          "lat": 31.882907,
+                          "lng": 35.261879
+                        },
+                        "southwest": {
+                          "lat": 31.709678,
+                          "lng": 35.085431
+                        }
+                      }
+                    },
+                    "place_id": "ChIJecHC4jRkAhMRCpciZik3B00",
+                    "types": [
+                      "locality",
+                      "political"
+                    ]
+                  },
+                  "status": "OK"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation — missing placeid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server or Google error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Config"
+        ]
+      }
+    },
+    "/delivery-man/config/geocode": {
+      "get": {
+        "summary": "Reverse geocode lat/lng (server proxy)",
+        "operationId": "getDeliveryManConfigGeocode",
+        "description": "Map pin flow: user selects coordinates without a `place_id` → get human-readable address. Backend uses `GOOGLE_MAPS_API_KEY`. Returns Google Geocoding JSON. Use `results[0].formatted_address` and geometry when status is `OK`. Same server proxy as consumer; use this prefix from the driver app.",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 31.768319
+            }
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 35.21371
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Google Geocoding payload (pass-through)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleGeocodeResponse"
+                },
+                "example": {
+                  "results": [
+                    {
+                      "formatted_address": "Jerusalem",
+                      "geometry": {
+                        "location": {
+                          "lat": 31.768319,
+                          "lng": 35.21371
+                        },
+                        "location_type": "APPROXIMATE",
+                        "viewport": {
+                          "northeast": {
+                            "lat": 31.882907,
+                            "lng": 35.261879
+                          },
+                          "southwest": {
+                            "lat": 31.709678,
+                            "lng": 35.085431
+                          }
+                        }
+                      },
+                      "place_id": "ChIJecHC4jRkAhMRCpciZik3B00",
+                      "types": [
+                        "locality",
+                        "political"
+                      ]
+                    }
+                  ],
+                  "status": "OK"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation — missing lat/lng",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server or Google error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Config"
+        ]
+      }
+    },
+    "/delivery-man/config/distance": {
+      "get": {
+        "summary": "Walking distance matrix (server proxy)",
+        "operationId": "getDeliveryManConfigDistance",
+        "description": "Route distance and duration between origin and destination (legacy PHP distance-api). **GET /delivery-man/config/distance** — backend uses `GOOGLE_MAPS_API_KEY`, mode `walking`. Returns Google Distance Matrix JSON (`rows[].elements[].distance`, `duration`, `status`). Public; no Bearer.",
+        "parameters": [
+          {
+            "name": "origin_lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 32.0853
+            },
+            "description": "Origin latitude"
+          },
+          {
+            "name": "origin_lng",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 34.7818
+            },
+            "description": "Origin longitude"
+          },
+          {
+            "name": "destination_lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 32.1093
+            },
+            "description": "Destination latitude"
+          },
+          {
+            "name": "destination_lng",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "example": 34.8555
+            },
+            "description": "Destination longitude"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Google Distance Matrix payload (pass-through)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleDistanceMatrixResponse"
+                },
+                "example": {
+                  "destination_addresses": [
+                    "Tel Aviv-Yafo, Israel"
+                  ],
+                  "origin_addresses": [
+                    "Jaffa, Tel Aviv-Yafo, Israel"
+                  ],
+                  "rows": [
+                    {
+                      "elements": [
+                        {
+                          "distance": {
+                            "text": "3.2 km",
+                            "value": 3200
+                          },
+                          "duration": {
+                            "text": "38 mins",
+                            "value": 2280
+                          },
+                          "status": "OK"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "OK"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation — missing origin/destination coordinates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "origin_lat is required"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "GOOGLE_MAPS_API_KEY not set or Google upstream error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Google Maps API key is not configured. Set GOOGLE_MAPS_API_KEY in the backend .env."
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Config"
+        ]
       }
     }
   }

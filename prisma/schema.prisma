@@ -320,6 +320,21 @@ model contact_messages {
   updated_at    DateTime? @db.Timestamptz(6)
 }
 
+/// Landing page merchant join form (gizra.app marketing site).
+model merchant_inquiries {
+  id              BigInt    @id @default(autoincrement())
+  business_name   String    @db.VarChar(200)
+  contact_person  String    @db.VarChar(200)
+  phone           String    @db.VarChar(30)
+  email           String?   @db.VarChar(255)
+  business_type   String    @db.VarChar(100)
+  seen            Boolean   @default(false)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@index([seen, created_at(sort: Desc)])
+}
+
 model conversations {
   id                   BigInt    @id(map: "idx_16741_primary") @default(autoincrement())
   sender_id            Decimal?  @db.Decimal
@@ -634,6 +649,8 @@ model food {
   sell_count            BigInt    @default(0)
   stock_type            String    @default("unlimited") @db.VarChar(20)
   is_draft              Int       @default(0) @db.SmallInt
+  /// Menu display order within restaurant + category (vendor drag-and-drop).
+  position              BigInt    @default(0)
 }
 
 model food_nutrition {
@@ -1818,6 +1835,62 @@ model wishlists {
   created_at    DateTime? @db.Timestamptz(6)
   updated_at    DateTime? @db.Timestamptz(6)
   restaurant_id Decimal?  @db.Decimal
+}
+
+/// Super-admin: time-based cap on delivery distance for selected restaurants (Asia/Jerusalem window).
+model delivery_distance_time_restriction_configs {
+  id                    BigInt    @id @default(autoincrement())
+  enabled               Boolean   @default(false)
+  max_distance_km       Decimal   @default(10.00) @db.Decimal(10, 2)
+  start_time            String    @default("16:30") @db.VarChar(16)
+  end_time              String    @default("20:30") @db.VarChar(16)
+  timezone              String    @default("Asia/Jerusalem") @db.VarChar(64)
+  /// Shown on delivery-fee / order quote when restriction blocks delivery (e.g. road closure).
+  description           String?   @db.VarChar(1000)
+  created_at            DateTime? @db.Timestamptz(6)
+  updated_at            DateTime? @db.Timestamptz(6)
+  updated_by_admin_id   BigInt?
+
+  restaurants           delivery_distance_time_restriction_restaurants[]
+}
+
+model delivery_distance_time_restriction_restaurants {
+  id             BigInt    @id @default(autoincrement())
+  config_id      BigInt
+  restaurant_id  BigInt
+  created_at     DateTime? @db.Timestamptz(6)
+
+  config         delivery_distance_time_restriction_configs @relation(fields: [config_id], references: [id], onDelete: Cascade)
+
+  @@unique([config_id, restaurant_id], map: "delivery_dtr_config_restaurant_unique")
+  @@index([restaurant_id], map: "delivery_dtr_restaurant_id_idx")
+}
+
+/// Super-admin: emergency pause of ordering per selected zone(s) or all zones.
+model emergency_service_pause_configs {
+  id                          BigInt    @id @default(autoincrement())
+  pause_all                   Boolean   @default(false)
+  pause_gush_etzion           Boolean   @default(false)
+  pause_kiryat_arba_hebron    Boolean   @default(false)
+  /// Security notice shown in the customer app when ordering is paused.
+  notice_message              String?   @db.VarChar(1000)
+  created_at                  DateTime? @db.Timestamptz(6)
+  updated_at                  DateTime? @db.Timestamptz(6)
+  updated_by_admin_id         BigInt?
+
+  zones                       emergency_service_pause_zones[]
+}
+
+model emergency_service_pause_zones {
+  id             BigInt    @id @default(autoincrement())
+  config_id      BigInt
+  zone_id        BigInt
+  created_at     DateTime? @db.Timestamptz(6)
+
+  config         emergency_service_pause_configs @relation(fields: [config_id], references: [id], onDelete: Cascade)
+
+  @@unique([config_id, zone_id], map: "emergency_pause_config_zone_unique")
+  @@index([zone_id], map: "emergency_pause_zone_id_idx")
 }
 
 model withdraw_requests {

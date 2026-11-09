@@ -37,7 +37,11 @@ function contactFromDeliveryAddress(raw: string | null | undefined): {
   }
 }
 
-export function mapOrderSummary(order: orders, customer?: OrderCustomerBrief | null) {
+export function mapOrderSummary(
+  order: orders,
+  customer?: OrderCustomerBrief | null,
+  foodImageUrl?: string | null
+) {
   const order_value = deriveOrderValueFromOrder(order);
   const restaurant_list_total = deriveRestaurantListTotal(order);
   return {
@@ -67,6 +71,7 @@ export function mapOrderSummary(order: orders, customer?: OrderCustomerBrief | n
       return fromAddress.phone ?? customer?.phone ?? null;
     })(),
     is_manual_dispatch: Boolean(order.is_manual_dispatch),
+    food_image: foodImageUrl ?? null,
     ...mapOrderIdentityFields(order),
   };
 }

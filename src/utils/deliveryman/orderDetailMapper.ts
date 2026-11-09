@@ -1,7 +1,12 @@
 import { delivery_men, orders } from '@prisma/client';
 import prisma from '../../config/database';
 import { orderStatusLabel } from '../consumer/orderListHelpers';
-import { publicMediaUrl } from '../mediaStorage';
+import { publicFoodMediaUrl, publicRestaurantMediaUrl } from '../mediaStorage';
+import {
+  resolveDriverOrderPartyImageUrl,
+  resolveOrderListFoodImageUrl,
+  resolveOrderListRestaurantLogoUrl,
+} from '../order/orderListImages';
 import {
   buildOrderPricing,
   mapOrderDetailLineItem,
@@ -24,11 +29,16 @@ import { mapOrderIdentityFields } from '../order/orderIdentity';
 
 const DEFAULT_RESTAURANT_IMAGE = 'default_logo.png';
 const DEFAULT_CUSTOMER_IMAGE = 'def.png';
-const DEFAULT_FOOD_IMAGE = 'def.png';
 
-function mediaUrl(stored: string | null | undefined, fallback: string): string {
-  const raw = stored?.trim() || fallback;
-  return publicMediaUrl(raw) ?? raw;
+function foodLineImageUrl(stored: string | null | undefined): string | null {
+  return resolveOrderListFoodImageUrl(stored) ?? resolveOrderListFoodImageUrl(DEFAULT_CUSTOMER_IMAGE);
+}
+
+function restaurantLineImageUrl(stored: string | null | undefined): string | null {
+  return (
+    resolveOrderListRestaurantLogoUrl(stored) ??
+    resolveOrderListRestaurantLogoUrl(DEFAULT_RESTAURANT_IMAGE)
+  );
 }
 
 function formatUnitLabel(variation: string | null): string {
@@ -182,7 +192,7 @@ export async function buildDeliveryManOrderDetail(
     food_id: string | null;
     food_name: string;
     food_image: string | null;
-    food_image_url: string;
+    food_image_url: string | null;
     quantity: number;
     unit_label: string;
     price: number;
@@ -194,7 +204,7 @@ export async function buildDeliveryManOrderDetail(
     food_id: mapped.food_id,
     food_name: mapped.food_name,
     food_image: mapped.food_image,
-    food_image_url: mediaUrl(mapped.food_image, DEFAULT_FOOD_IMAGE),
+    food_image_url: foodLineImageUrl(mapped.food_image),
     quantity: mapped.quantity,
     unit_label: formatUnitLabel(mapped.variation),
     price: mapped.price,
@@ -214,7 +224,8 @@ export async function buildDeliveryManOrderDetail(
         food_id: null,
         food_name: 'Manual Dispatch delivery request',
         food_image: null,
-        food_image_url: mediaUrl(restaurant?.logo ?? restaurant?.cover_photo, DEFAULT_FOOD_IMAGE),
+        food_image_url:
+          restaurantLineImageUrl(restaurant?.logo ?? restaurant?.cover_photo) ?? '',
         quantity: 1,
         unit_label: '',
         price: itemSubtotal,
@@ -281,7 +292,9 @@ export async function buildDeliveryManOrderDetail(
           address_snippet: restaurant.address,
           latitude: restaurant.latitude,
           longitude: restaurant.longitude,
-          image_url: mediaUrl(restaurantImageStored, DEFAULT_RESTAURANT_IMAGE),
+          image_url:
+            restaurantLineImageUrl(restaurantImageStored) ??
+            resolveOrderListRestaurantLogoUrl(DEFAULT_RESTAURANT_IMAGE),
         }
       : null,
     customer: {
@@ -291,7 +304,7 @@ export async function buildDeliveryManOrderDetail(
       address_snippet: addressSnippet(deliveryParsed),
       latitude: deliveryParsed?.latitude ?? null,
       longitude: deliveryParsed?.longitude ?? null,
-      image_url: mediaUrl(customerUser?.image, DEFAULT_CUSTOMER_IMAGE),
+      image_url: resolveDriverOrderPartyImageUrl(customerUser?.image, DEFAULT_CUSTOMER_IMAGE),
     },
     delivery_address: deliveryAddressRaw,
     delivery_address_parsed: deliveryParsed,

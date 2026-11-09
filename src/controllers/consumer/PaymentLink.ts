@@ -7,7 +7,7 @@ import {
   generateOrderPaymentLink,
 } from '../../utils/payment/generatePaymentLink';
 import { hyperPayLog } from '../../utils/payment/hyperPayLogger';
-import { executePlaceOrder, PlaceOrderError } from './placeOrderLogic';
+import { executePlaceOrder, placeOrderErrorToJsonBody, PlaceOrderError } from './placeOrderLogic';
 
 /**
  * @Description Create HyperPay (or other gateway) checkout URL — with or without an existing order
@@ -121,7 +121,7 @@ export const generatePaymentLink = async (req: Request, res: Response): Promise<
     });
   } catch (e: unknown) {
     if (e instanceof PlaceOrderError) {
-      return sendApiError(res, e.statusCode, e.message);
+      return res.status(e.statusCode).json(placeOrderErrorToJsonBody(e));
     }
     const msg = e instanceof Error ? e.message : 'Payment link failed';
     if (msg.includes('not found') || msg.includes('already paid')) {

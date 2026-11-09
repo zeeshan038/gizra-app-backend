@@ -1,0 +1,133 @@
+{
+  "generated_at": "2026-11-07T09:48:59.935Z",
+  "api_base": "http://127.0.0.1:3000/api",
+  "restaurant": {
+    "id": 3,
+    "name": "The Nickel Barn & Coffee Shop",
+    "latitude": 33.565204932572236,
+    "longitude": 73.15197478238653
+  },
+  "test_addresses": {
+    "near_5km": {
+      "lat": 33.61024997761728,
+      "lng": 73.15197478238653,
+      "note": "Should be allowed when restriction active"
+    },
+    "far_14km": {
+      "lat": 33.69133105869836,
+      "lng": 73.15197478238653,
+      "note": "Should return DELIVERY_DISTANCE_TIME_RESTRICTED when active"
+    }
+  },
+  "sample_food": {
+    "id": 56,
+    "name": "Simple burger",
+    "price": 0
+  },
+  "consumer_auth": {
+    "hint": "POST /api/consumer/login or set GIZRA_TOKEN",
+    "phone": "+972501000099",
+    "password": "password"
+  },
+  "error_code": "DELIVERY_DISTANCE_TIME_RESTRICTED",
+  "expected_when_active": {
+    "far_delivery_fee_http": 403,
+    "far_quote_http": 403,
+    "near_delivery_fee_http": 200,
+    "near_quote_http": 200,
+    "blocked_body_fields": [
+      "code",
+      "msg",
+      "max_distance_km",
+      "restriction_end_time",
+      "timezone"
+    ]
+  },
+  "cases": [
+    {
+      "label": "near_5km",
+      "lat": 33.61024997761728,
+      "lng": 73.15197478238653,
+      "delivery_fee": {
+        "status": 200,
+        "body": {
+          "restaurant_id": 3,
+          "distance_km": 5.009,
+          "distance_source": "haversine",
+          "delivery_fee": 1,
+          "original_delivery_fee": 1,
+          "pricing": {
+            "base_fee": 1,
+            "base_distance_km": 2,
+            "extra_per_km": 0.001,
+            "extra_km": 3.009,
+            "subtotal_before_surge": 1,
+            "surge_percent": 0
+          }
+        }
+      },
+      "quote": {
+        "status": 200,
+        "body": {
+          "status": true,
+          "total_ammount": 1,
+          "pricing_breakdown": {
+            "items_price": 0,
+            "addon_cost": 0,
+            "subtotal": 0,
+            "taxable_base": 0,
+            "restaurant_discount_amount": 0,
+            "coupon_discount_amount": 0,
+            "total_tax_amount": 0,
+            "tax_added_to_total": 0,
+            "tax_status": "excluded",
+            "tax_percentage": 5,
+            "tax_included": false,
+            "delivery_charge": 1,
+            "additional_charge": 0,
+            "extra_packaging_amount": 0,
+            "dm_tips": 0,
+            "order_amount": 1
+          }
+        }
+      }
+    },
+    {
+      "label": "far_14km",
+      "lat": 33.69133105869836,
+      "lng": 73.15197478238653,
+      "delivery_fee": {
+        "status": 403,
+        "body": {
+          "status": false,
+          "msg": "Delivery is temporarily limited to 10 km during restricted hours.",
+          "code": "DELIVERY_DISTANCE_TIME_RESTRICTED",
+          "max_distance_km": 10,
+          "restriction_end_time": "14:48",
+          "timezone": "Asia/Jerusalem",
+          "restaurant_id": 3,
+          "distance_km": 14.025,
+          "distance_source": "haversine"
+        }
+      },
+      "quote": {
+        "status": 403,
+        "body": {
+          "status": false,
+          "msg": "Delivery is temporarily limited to 10 km during restricted hours.",
+          "code": "DELIVERY_DISTANCE_TIME_RESTRICTED",
+          "max_distance_km": 10,
+          "restriction_end_time": "14:48",
+          "timezone": "Asia/Jerusalem"
+        }
+      }
+    }
+  ],
+  "place_near_cod": null,
+  "flutter_notes": [
+    "Call GET /consumer/config/delivery-fee before checkout to show banner.",
+    "Call POST /consumer/order/quote on address/restaurant change.",
+    "On 403 with code DELIVERY_DISTANCE_TIME_RESTRICTED, show max km and restriction end time.",
+    "Do not rely on client distance; server recomputes km."
+  ]
+}

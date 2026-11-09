@@ -5,6 +5,7 @@ export type FcmPushData = {
   title: string;
   description: string;
   order_id?: string | number;
+  restaurant_id?: string | number;
   image?: string;
   type: string;
   order_type?: string;
@@ -27,6 +28,7 @@ function buildStringData(data: FcmPushData): Record<string, string> {
       title: data.title,
       description: data.description,
       order_id: data.order_id,
+      restaurant_id: data.restaurant_id,
       type: data.type,
       order_type: data.order_type,
       order_status: data.order_status,

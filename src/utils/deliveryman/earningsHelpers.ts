@@ -1,6 +1,7 @@
 import { order_transactions, orders, Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import { parseFoodImageFromDetail } from '../consumer/orderListHelpers';
+import { resolveDriverOrderHistoryImage } from '../order/orderListImages';
 import { endOfDay, startOfDay, startOfMonth, startOfWeek } from './periodBounds';
 import { computeDeliveryManWithdrawableBalance } from './walletHelpers';
 
@@ -266,7 +267,10 @@ function buildHistoryItem(
     restaurant_logo: restaurant?.logo ?? null,
     item_name: firstItem?.name ?? restaurant?.name ?? null,
     item_count,
-    image: firstItem?.image ?? restaurant?.logo ?? null,
+    image: resolveDriverOrderHistoryImage(
+      firstItem?.image ?? null,
+      restaurant?.logo ?? null
+    ),
     order: {
       id: order.id.toString(),
       order_status: order.order_status,

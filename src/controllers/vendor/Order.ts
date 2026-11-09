@@ -15,6 +15,7 @@ import {
   OrderListStatus,
 } from '../../utils/vendor/order/query';
 import { mapOrderSummary } from '../../utils/vendor/order/mapper';
+import { loadVendorOrderFoodImageUrls } from '../../utils/vendor/order/listThumbnails';
 import {
   mapOrderDetailLineItem,
   mapVendorOrderDetail,
@@ -146,8 +147,13 @@ export const listOrders = async (req: Request, res: Response): Promise<any> => {
     ]);
 
     const customers = await loadCustomersForOrders(orders);
+    const foodImageUrls = await loadVendorOrderFoodImageUrls(orders);
     const data = orders.map((order) =>
-      mapOrderSummary(order, findCustomerForOrder(order, customers))
+      mapOrderSummary(
+        order,
+        findCustomerForOrder(order, customers),
+        foodImageUrls.get(Number(order.id)) ?? null
+      )
     );
 
     return res.status(200).json({
@@ -214,8 +220,13 @@ export const pollRecentOrders = async (req: Request, res: Response): Promise<any
     });
 
     const customers = await loadCustomersForOrders(orders);
+    const foodImageUrls = await loadVendorOrderFoodImageUrls(orders);
     const data = orders.map((order) =>
-      mapOrderSummary(order, findCustomerForOrder(order, customers))
+      mapOrderSummary(
+        order,
+        findCustomerForOrder(order, customers),
+        foodImageUrls.get(Number(order.id)) ?? null
+      )
     );
 
     const latestId = orders.length ? Number(orders[orders.length - 1].id) : after_id;

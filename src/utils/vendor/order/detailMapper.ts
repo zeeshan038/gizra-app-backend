@@ -9,7 +9,7 @@ import {
   gizraCommissionOnFood,
   gizraPaysRestaurant,
 } from './orderSettlement';
-import { publicMediaUrl } from '../../mediaStorage';
+import { publicFoodMediaUrl, publicMediaUrl, publicRestaurantMediaUrl } from '../../mediaStorage';
 import { mapOrderCookingTimeForApi } from './cookingTime';
 import { mapOrderIdentityFields } from '../../order/orderIdentity';
 
@@ -543,12 +543,23 @@ export function toVendorOrderPricing(p: OrderPricingBreakdown): VendorOrderPrici
   };
 }
 
+function vendorOrderLineFoodImageUrl(
+  item: ReturnType<typeof mapOrderDetailLineItem>
+): string | null {
+  const stored = item.food_image;
+  if (!stored?.trim()) return null;
+  if (item.id === 'manual-dispatch') {
+    return publicRestaurantMediaUrl(stored, 'logo');
+  }
+  return publicFoodMediaUrl(stored);
+}
+
 export function toVendorOrderLineItem(item: ReturnType<typeof mapOrderDetailLineItem>) {
   return {
     id: item.id,
     food_id: item.food_id,
     food_name: item.food_name,
-    food_image: item.food_image,
+    food_image: vendorOrderLineFoodImageUrl(item),
     quantity: item.quantity,
     unit_food_price: item.unit_food_price,
     addon_per_unit: item.addon_per_unit,

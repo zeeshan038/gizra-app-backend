@@ -1,7 +1,11 @@
 import express from 'express';
 const router = express.Router();
 
-import { createCategory, getCategories, updateCategory } from '../../controllers/vendor/catalog/Category';
+import {
+  createCategory,
+  getCategories,
+  updateCategory,
+} from '../../controllers/vendor/catalog/Category';
 import {
     createFood,
     getFoods,
@@ -13,6 +17,7 @@ import {
     publishAllDraftFoods,
     getFoodPublishQuotaHandler,
     duplicateFood,
+    reorderFoods,
 } from '../../controllers/vendor/catalog/Food';
 import { parsePdf, generateDescription, generateFoodImage, generateCategoryImage } from '../../controllers/vendor/catalog/AI';
 import { createAddon, getAddons } from '../../controllers/vendor/catalog/Addon';
@@ -37,6 +42,7 @@ router.get('/food/publish-quota', getFoodPublishQuotaHandler);
 router.post('/food/publish-all-drafts', publishAllDraftFoods);
 router.post('/food/bulk-publish', bulkPublishFoods);
 router.post('/food/bulk-delete', bulkDeleteFoods);
+router.put('/food/reorder', reorderFoods);
 router.post('/food/:id/duplicate', duplicateFood);
 router.get('/food/:id', getFoodById);
 router.patch('/food/:id', updateFood);

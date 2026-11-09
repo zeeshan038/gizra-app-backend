@@ -28,12 +28,14 @@ import vendorReviewRoutes from './vendor/review';
 import vendorWalletRoutes from './vendor/wallet';
 import vendorWithdrawMethodRoutes from './vendor/withdrawMethod';
 import vendorReportRoutes from './vendor/reports';
+import vendorConfigRoutes from './vendor/config';
 //consumer
 import consumerUserRoutes from './consumer/user';
 //deliveryman
 import dmUserRoutes from './deliveryman/user';
 import dmOrderRoutes from './deliveryman/order';
 import dmMessageRoutes from './deliveryman/message';
+import deliveryManConfigRoutes from './deliveryman/config';
 
 //admin
 import adminAuthRoutes from './admin/auth';
@@ -54,8 +56,12 @@ import adminPushNotificationRoutes from './admin/push-notifications';
 import adminDispatchRoutes from './admin/dispatch';
 import adminHomeCategoryRoutes from './admin/home-categories';
 import adminReportRoutes from './admin/reports';
+import adminMerchantInquiryRoutes from './admin/merchant-inquiries';
+import adminDeliveryDistanceTimeRestrictionRoutes from './admin/delivery-distance-time-restriction';
+import adminEmergencyServicePauseRoutes from './admin/emergency-service-pause';
 
 //vendor
+router.use('/vendor/config', vendorConfigRoutes);
 router.use('/vendor',vendorUserRoutes);
 router.use('/vendor/catalog', vendorCatalogRoutes);
 router.use('/vendor/orders', vendorOrderRoutes);
@@ -124,6 +130,7 @@ import uploadRouter from './upload';
 import storageRouter from './storage';
 
 //deliveryman
+router.use('/delivery-man/config', deliveryManConfigRoutes);
 router.use('/delivery-man', dmUserRoutes);
 router.use('/delivery-man/orders', dmOrderRoutes);
 router.use('/delivery-man/message', dmMessageRoutes);
@@ -147,6 +154,9 @@ router.use('/admin/push-notifications', adminPushNotificationRoutes);
 router.use('/admin/dispatch', adminDispatchRoutes);
 router.use('/admin/home-categories', adminHomeCategoryRoutes);
 router.use('/admin/reports', adminReportRoutes);
+router.use('/admin/merchant-inquiries', adminMerchantInquiryRoutes);
+router.use('/admin/delivery-distance-time-restriction', adminDeliveryDistanceTimeRestrictionRoutes);
+router.use('/admin/emergency-service-pause', adminEmergencyServicePauseRoutes);
 
 
 router.use('/upload', uploadRouter);

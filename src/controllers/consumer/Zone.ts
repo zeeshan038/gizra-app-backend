@@ -10,6 +10,7 @@ import {
   isPointInZone,
   listZonesWithGeo,
 } from '../../utils/zone/db';
+import { emergencyPauseAtCoordinates } from '../../utils/delivery/emergencyServicePause';
 
 
 /**
@@ -44,10 +45,18 @@ export const getZoneIdFromCoordinates = async (req: Request, res: Response): Pro
 
     const zone_data = active.map(formatZoneDataRow);
     const ids = active.map((z) => Number(z.id));
+    const emergency = await emergencyPauseAtCoordinates(lat, lng);
 
     return res.status(200).json({
       zone_id: JSON.stringify(ids),
       zone_data,
+      emergency_service_pause: emergency.active
+        ? {
+            active: true,
+            message: emergency.message,
+            paused_zone_id: emergency.paused_zone_id,
+          }
+        : { active: false, message: null, paused_zone_id: null },
     });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });

@@ -2,7 +2,7 @@ import { sendSmtpMail } from '../mail/smtpMail';
 
 /**
  * Sends password-reset OTP email for consumer / vendor / driver flows.
- * Uses admin Business Settings → Mail (`mail_config` in DB) or SMTP_* env vars.
+ * Uses Resend when `RESEND_API_KEY` is set, else admin mail_config or SMTP_* env vars.
  */
 export async function sendConsumerOtpEmail(email: string, otp: string): Promise<boolean> {
   if (process.env.APP_MODE === 'test') {
@@ -30,7 +30,9 @@ export async function sendConsumerOtpEmail(email: string, otp: string): Promise<
   });
 
   if (!sent) {
-    console.warn('[email] Consumer OTP email failed — check mail_config in business_settings or SMTP_* env');
+    console.warn(
+      '[email] Consumer OTP email failed — check RESEND_API_KEY / from address, mail_config, or SMTP_* env',
+    );
   }
 
   return sent;

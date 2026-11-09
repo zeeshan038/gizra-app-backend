@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import type SMTPTransport from 'nodemailer/lib/smtp-transport';
+import { Resend } from 'resend';
 import { getBusinessSetting, parseJsonSetting } from '../consumer/businessSettings';
 
 export type AdminMailConfig = {
@@ -80,6 +81,64 @@ export async function resolveAdminMailConfig(): Promise<AdminMailConfig | null> 
   return null;
 }
 
+function resendApiKey(): string {
+  return envValue(process.env.RESEND_API_KEY);
+}
+
+function resendFromAddress(cfg: AdminMailConfig | null): { name: string; address: string } | null {
+  const address =
+    envValue(process.env.RESEND_FROM) ||
+    envValue(process.env.MAIL_FROM_ADDRESS) ||
+    envValue(process.env.MAIL_FROM) ||
+    envValue(process.env.SMTP_FROM) ||
+    cfg?.email_id?.trim() ||
+    '';
+  if (!address) return null;
+  const name =
+    envValue(process.env.RESEND_FROM_NAME) ||
+    envValue(process.env.MAIL_FROM_NAME) ||
+    cfg?.name?.trim() ||
+    envValue(process.env.APP_NAME) ||
+    'Gizra';
+  return { name, address };
+}
+
+async function sendResendMail(params: {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+}): Promise<boolean> {
+  const apiKey = resendApiKey();
+  if (!apiKey) return false;
+
+  const cfg = await resolveAdminMailConfig();
+  const from = resendFromAddress(cfg);
+  if (!from) {
+    console.error('[mail] Resend configured but no from address (RESEND_FROM or MAIL_FROM_ADDRESS)');
+    return false;
+  }
+
+  try {
+    const resend = new Resend(apiKey);
+    const { error } = await resend.emails.send({
+      from: `${from.name} <${from.address}>`,
+      to: [params.to],
+      subject: params.subject,
+      text: params.text,
+      html: params.html ?? params.text.replace(/\n/g, '<br/>'),
+    });
+    if (error) {
+      console.error('[mail] Resend send failed:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[mail] Resend send failed:', err instanceof Error ? err.message : err);
+    return false;
+  }
+}
+
 function buildTransportOptions(cfg: AdminMailConfig): SMTPTransport.Options {
   const port = Number(cfg.port);
   const encryption = String(cfg.encryption ?? '').toLowerCase();
@@ -103,9 +162,15 @@ export async function sendSmtpMail(params: {
   text: string;
   html?: string;
 }): Promise<boolean> {
+  if (resendApiKey()) {
+    const sentViaResend = await sendResendMail(params);
+    if (sentViaResend) return true;
+    console.warn('[mail] Resend failed; falling back to SMTP if configured');
+  }
+
   const cfg = await resolveAdminMailConfig();
   if (!cfg?.email_id) {
-    console.error('[mail] SMTP not configured (admin mail_config or SMTP_* env)');
+    console.error('[mail] Mail not configured (RESEND_API_KEY + from, admin mail_config, or SMTP_* env)');
     return false;
   }
 

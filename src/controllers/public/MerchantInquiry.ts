@@ -1,17 +1,7 @@
 import { Request, Response } from 'express';
-import { getBusinessSetting } from '../../utils/consumer/businessSettings';
-import { sendSmtpMail } from '../../utils/mail/smtpMail';
 import { merchantInquirySchema } from '../../schemas/public/MerchantInquiry';
-
-const DEFAULT_INQUIRY_TO = 'Gizraapp@gmail.com';
-
-async function merchantInquiryRecipient(): Promise<string> {
-  const fromEnv = process.env.MERCHANT_INQUIRY_TO?.trim();
-  if (fromEnv) return fromEnv;
-  const fromSettings = (await getBusinessSetting('email_address'))?.trim();
-  if (fromSettings) return fromSettings;
-  return DEFAULT_INQUIRY_TO;
-}
+import { createMerchantInquiry } from '../../utils/admin/merchantInquiries/service';
+import { sendMerchantInquiryEmail } from '../../utils/public/merchantInquiryNotify';
 
 /**
  * @Route POST /api/public/merchant-inquiry
@@ -36,30 +26,27 @@ export const submitMerchantInquiry = async (req: Request, res: Response): Promis
   }
 
   const payload = validated.value;
-  const to = await merchantInquiryRecipient();
-  const emailLine = payload.email ? `Email: ${payload.email}\n` : 'Email: (not provided)\n';
 
-  const text = [
-    'New merchant join request from the Gizra landing page',
-    '',
-    `Business name: ${payload.business_name}`,
-    `Contact person: ${payload.contact_person}`,
-    `Phone: ${payload.phone}`,
-    emailLine.trimEnd(),
-    `Business type: ${payload.business_type}`,
-  ].join('\n');
-
-  const sent = await sendSmtpMail({
-    to,
-    subject: `Gizra — merchant inquiry: ${payload.business_name}`,
-    text,
-  });
-
-  if (!sent) {
+  let saved;
+  try {
+    saved = await createMerchantInquiry({
+      business_name: payload.business_name,
+      contact_person: payload.contact_person,
+      phone: payload.phone,
+      email: payload.email,
+      business_type: payload.business_type,
+    });
+  } catch (err) {
+    console.error('[merchant-inquiry] save failed:', err instanceof Error ? err.message : err);
     return res.status(503).json({
       status: false,
-      msg: 'Could not send your request right now. Please try again or contact us by phone.',
+      msg: 'Could not save your request right now. Please try again or contact us by phone.',
     });
+  }
+
+  const emailSent = await sendMerchantInquiryEmail(payload, saved.id);
+  if (!emailSent) {
+    console.warn('[merchant-inquiry] email failed for id', saved.id);
   }
 
   return res.status(200).json({

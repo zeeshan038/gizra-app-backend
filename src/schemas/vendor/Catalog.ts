@@ -11,6 +11,17 @@ export const updateCategorySchema = Joi.object({
   image: Joi.string().allow('').optional(),
 });
 
+export const catalogReorderSchema = Joi.object({
+  ordered_ids: Joi.array().items(Joi.number().integer().positive()).min(1).max(5000).required(),
+  category_id: Joi.number().integer().positive().optional(),
+});
+
+/** Menu item drag order — full menu (All Items) or one category block. */
+export const foodReorderSchema = Joi.object({
+  ordered_ids: Joi.array().items(Joi.number().integer().positive()).min(1).max(5000).required(),
+  category_id: Joi.number().integer().positive().optional(),
+});
+
 export const createFoodSchema = Joi.object({
   name: Joi.string().required(),
   description: Joi.string().allow('').optional().default(''),
