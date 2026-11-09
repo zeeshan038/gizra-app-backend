@@ -36,7 +36,7 @@ import { customerTrackingCopy } from '../../utils/consumer/customerOrderTracking
 import { sendNewOrderNotification } from '../../utils/notifications/sendNewOrderNotification';
 import { getBusinessSettingFlag } from '../../utils/consumer/businessSettings';
 import { createWalletTransaction } from '../../utils/consumer/walletTransactions';
-import { emitNewOrderRealtime, emitOrderStatusRealtime } from '../../sockets/orderRealtime';
+import { emitOrderStatusRealtime } from '../../sockets/orderRealtime';
 import { executePlaceOrder, placeOrderErrorToJsonBody, PlaceOrderError } from './placeOrderLogic';
 import { notPosWhere } from '../../utils/vendor/order/query';
 
@@ -99,15 +99,7 @@ async function sendPlaceOrderCreatedResponse(
       payment_method: orderResult.payment_method,
       order_amount: mappedOrder.order_amount,
     };
-    if (
-      orderResult.payment_method === 'digital_payment' &&
-      !orderPayload.payment_request_id
-    ) {
-      // Unpaid digital — socket only until payment completes (checkout hook calls sendNewOrderNotification).
-      emitNewOrderRealtime(notifyPayload);
-    } else {
-      void sendNewOrderNotification(notifyPayload);
-    }
+    void sendNewOrderNotification(notifyPayload);
   }
 
   const taxStatus = (orderResult.tax_status as 'included' | 'excluded') ?? 'excluded';

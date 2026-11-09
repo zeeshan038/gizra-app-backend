@@ -12,7 +12,6 @@ import { sendFcmToDevice, sendFcmToTopic, type FcmPushData } from './fcm';
 import {
   ensureRestaurantOrderPushSetup,
   isPushNotificationEnabled,
-  isVendorNewOrderPushEnabled,
   isVendorPushEnabled,
   vendorPushBlockReason,
 } from './notificationSettings';
@@ -559,18 +558,28 @@ export async function persistAndPushVendorNewOrder(input: {
     console.error('[notify] failed to save vendor user_notifications', e);
   }
 
-  const platformOn = await isVendorNewOrderPushEnabled();
-  const pushAllowed = platformOn && isRecipientPushOn(input.recipientPushOn ?? true);
-  if (!platformOn) {
-    console.warn(
-      `[notify] vendor new_order FCM skipped — enable Admin → Notification → Restaurant → restaurant_order_notification (push active)`
-    );
+  let targets: VendorPushTargets = input.vendorTokens ?? {};
+  if (uniqueDeviceTokens(targets).length === 0) {
+    const vendor = await prisma.vendors.findUnique({
+      where: { id: BigInt(input.vendor_id) },
+      select: { firebase_token: true, fcm_token_web: true },
+    });
+    targets = {
+      firebase_token: vendor?.firebase_token,
+      fcm_token_web: vendor?.fcm_token_web,
+    };
   }
 
-  await pushVendorFcmDevices(
-    pushAllowed,
-    input.restaurant_id,
-    input.vendorTokens ?? {},
-    data
+  // Operational new-order alert — do not gate on admin notification_settings (restaurant row is often `disable` while driver/customer are `active`).
+  const pushAllowed = isRecipientPushOn(input.recipientPushOn ?? true);
+  if (!pushAllowed) {
+    console.warn(`[notify] vendor new_order FCM skipped — vendor is_notification_on=false id=${input.vendor_id}`);
+  }
+
+  const tokens = uniqueDeviceTokens(targets);
+  console.log(
+    `[notify] vendor new_order FCM order=${input.order_id} restaurant=${input.restaurant_id} tokens=${tokens.length} push=${pushAllowed}`
   );
+
+  await pushVendorFcmDevices(pushAllowed, input.restaurant_id, targets, data);
 }
