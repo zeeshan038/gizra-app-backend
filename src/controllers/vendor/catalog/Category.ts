@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../../../config/database';
 import { createCategorySchema, updateCategorySchema } from '../../../schemas/vendor/Catalog';
+import { nextCategoryPosition } from '../../../utils/vendor/catalog/menuSortOrder';
 import {
   consumerCategoryMediaFields,
   fitDbString,
@@ -20,6 +21,7 @@ function serializeCategoryRow(row: Record<string, unknown>) {
   return {
     ...row,
     id: row.id != null ? String(row.id) : row.id,
+    position: row.position != null ? Number(row.position) : 0,
     image: media.image_full_url ?? imageRaw,
     image_full_url: media.image_full_url,
   };
@@ -100,12 +102,14 @@ export const createCategory = async (req: Request, res: Response): Promise<any> 
       });
     }
 
+    const position = await nextCategoryPosition(restaurantId);
+
     const category = await prisma.categories.create({
       data: {
         name: payload.name.trim(),
         image: storedCategoryImage(payload.image),
         parent_id: payload.parent_id || 0,
-        position: BigInt(1),
+        position,
         status: true,
         restaurant_id: restaurantId,
         slug: payload.name.toLowerCase().replace(/[^a-zA-Z0-9]/g, '-'),

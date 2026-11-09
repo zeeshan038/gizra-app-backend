@@ -2277,6 +2277,156 @@
         ]
       }
     },
+    "/vendor/catalog/category/reorder": {
+      "put": {
+        "description": "Persist category tab order for this restaurant (`categories.position`). Body: `ordered_ids` — owned category ids only.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order saved",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Category order saved",
+                  "data": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Category order saved"
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Category order saved",
+                    "data": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ],
+        "summary": "Reorder menu categories",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ordered_ids"
+                ],
+                "properties": {
+                  "ordered_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "example": [
+                      5,
+                      2,
+                      9
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/vendor/catalog/category/{id}": {
       "patch": {
         "description": "",
@@ -3616,6 +3766,160 @@
                     "items": {
                       "type": "integer"
                     }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vendor/catalog/food/reorder": {
+      "put": {
+        "description": "Persist display order for items in a category. Body: `ordered_ids` (every published item id in the category, top-to-bottom) and optional `category_id` (validated when set). Consumer menu uses `position` ascending.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Menu order saved"
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Menu order saved",
+                    "data": "…"
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Menu order saved",
+                  "data": "…"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or items not in category",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ],
+        "summary": "Reorder menu items (drag-and-drop)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ordered_ids"
+                ],
+                "properties": {
+                  "ordered_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "example": [
+                      12,
+                      8,
+                      15
+                    ]
+                  },
+                  "category_id": {
+                    "type": "integer",
+                    "example": 3
                   }
                 }
               }
@@ -29229,18 +29533,26 @@
     },
     "/delivery-man/config/bootstrap": {
       "get": {
-        "description": "",
+        "description": "Slim flat JSON for **delivery-man / driver** app on launch: `maintenance_mode`, `maintenance_message`, and `app_minimum_*_deliveryman` / `app_force_update_*_deliveryman` / `app_url_*_deliveryman` (Android + iOS). Public; no Bearer.\n\nLegacy full config: **GET /config**.",
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "Launch configuration",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/DeliveryManBootstrapConfigurationResponse"
                 },
                 "example": {
-                  "status": true,
-                  "msg": "Operation successful"
+                  "maintenance_mode": false,
+                  "maintenance_message": null,
+                  "app_minimum_version_android_deliveryman": "1.0.0",
+                  "app_minimum_build_android_deliveryman": 1,
+                  "app_force_update_android_deliveryman": false,
+                  "app_url_android_deliveryman": null,
+                  "app_minimum_version_ios_deliveryman": "1.0.0",
+                  "app_minimum_build_ios_deliveryman": 1,
+                  "app_force_update_ios_deliveryman": false,
+                  "app_url_ios_deliveryman": null
                 }
               }
             }
@@ -29302,23 +29614,21 @@
             }
           },
           "500": {
-            "description": "Internal Server Error - Something went wrong on the server",
+            "description": "Server error",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Internal Server Error"
                 }
               }
             }
           }
         },
         "tags": [
-          "Delivery Man Auth"
-        ]
+          "Delivery Man Config"
+        ],
+        "summary": "Delivery-man app launch (maintenance + force update)",
+        "operationId": "getDeliveryManBootstrapConfiguration"
       }
     },
     "/delivery-man/zones": {

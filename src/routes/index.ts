@@ -58,6 +58,7 @@ import adminHomeCategoryRoutes from './admin/home-categories';
 import adminReportRoutes from './admin/reports';
 import adminMerchantInquiryRoutes from './admin/merchant-inquiries';
 import adminDeliveryDistanceTimeRestrictionRoutes from './admin/delivery-distance-time-restriction';
+import adminEmergencyServicePauseRoutes from './admin/emergency-service-pause';
 
 //vendor
 router.use('/vendor/config', vendorConfigRoutes);
@@ -155,6 +156,7 @@ router.use('/admin/home-categories', adminHomeCategoryRoutes);
 router.use('/admin/reports', adminReportRoutes);
 router.use('/admin/merchant-inquiries', adminMerchantInquiryRoutes);
 router.use('/admin/delivery-distance-time-restriction', adminDeliveryDistanceTimeRestrictionRoutes);
+router.use('/admin/emergency-service-pause', adminEmergencyServicePauseRoutes);
 
 
 router.use('/upload', uploadRouter);

@@ -624,7 +624,7 @@ export const getRestaurantFoods = async (req: Request, res: Response): Promise<a
                 where: whereClause,
                 skip,
                 take: limit,
-                orderBy: [{ order_count: 'desc' }, { id: 'desc' }],
+                orderBy: [{ position: 'asc' }, { id: 'asc' }],
             }),
         ]);
 

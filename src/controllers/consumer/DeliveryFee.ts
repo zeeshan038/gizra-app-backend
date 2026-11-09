@@ -10,6 +10,10 @@ import {
   DELIVERY_DISTANCE_TIME_RESTRICTED_CODE,
   evaluateDeliveryDistanceTimeRestriction,
 } from '../../utils/delivery/deliveryDistanceTimeRestriction';
+import {
+  EMERGENCY_SERVICE_PAUSED_CODE,
+  evaluateEmergencyServicePause,
+} from '../../utils/delivery/emergencyServicePause';
 
 /**
  * @Description Quote delivery fee from restaurant to customer coordinates (tiered base + extra km).
@@ -73,6 +77,23 @@ export const getDeliveryFeeQuote = async (req: Request, res: Response): Promise<
     });
     const distance_km = resolved.distance_km;
     const distance_source = resolved.source;
+
+    const emergencyPause = await evaluateEmergencyServicePause({
+      orderType: 'delivery',
+      restaurantZoneId: restaurant.zone_id != null ? Number(restaurant.zone_id) : null,
+      destinationLat: destLat,
+      destinationLng: destLng,
+    });
+    if (emergencyPause.blocked) {
+      return res.status(403).json({
+        status: false,
+        msg: emergencyPause.message,
+        code: EMERGENCY_SERVICE_PAUSED_CODE,
+        description: emergencyPause.description,
+        paused_zone_id: emergencyPause.paused_zone_id,
+        restaurant_id: Number(restaurant.id),
+      });
+    }
 
     const timeRestrict = await evaluateDeliveryDistanceTimeRestriction({
       orderType: 'delivery',

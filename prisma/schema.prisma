@@ -649,6 +649,8 @@ model food {
   sell_count            BigInt    @default(0)
   stock_type            String    @default("unlimited") @db.VarChar(20)
   is_draft              Int       @default(0) @db.SmallInt
+  /// Menu display order within restaurant + category (vendor drag-and-drop).
+  position              BigInt    @default(0)
 }
 
 model food_nutrition {
@@ -1862,6 +1864,33 @@ model delivery_distance_time_restriction_restaurants {
 
   @@unique([config_id, restaurant_id], map: "delivery_dtr_config_restaurant_unique")
   @@index([restaurant_id], map: "delivery_dtr_restaurant_id_idx")
+}
+
+/// Super-admin: emergency pause of ordering per selected zone(s) or all zones.
+model emergency_service_pause_configs {
+  id                          BigInt    @id @default(autoincrement())
+  pause_all                   Boolean   @default(false)
+  pause_gush_etzion           Boolean   @default(false)
+  pause_kiryat_arba_hebron    Boolean   @default(false)
+  /// Security notice shown in the customer app when ordering is paused.
+  notice_message              String?   @db.VarChar(1000)
+  created_at                  DateTime? @db.Timestamptz(6)
+  updated_at                  DateTime? @db.Timestamptz(6)
+  updated_by_admin_id         BigInt?
+
+  zones                       emergency_service_pause_zones[]
+}
+
+model emergency_service_pause_zones {
+  id             BigInt    @id @default(autoincrement())
+  config_id      BigInt
+  zone_id        BigInt
+  created_at     DateTime? @db.Timestamptz(6)
+
+  config         emergency_service_pause_configs @relation(fields: [config_id], references: [id], onDelete: Cascade)
+
+  @@unique([config_id, zone_id], map: "emergency_pause_config_zone_unique")
+  @@index([zone_id], map: "emergency_pause_zone_id_idx")
 }
 
 model withdraw_requests {

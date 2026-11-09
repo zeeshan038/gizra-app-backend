@@ -12067,6 +12067,156 @@
         ]
       }
     },
+    "/vendor/catalog/category/reorder": {
+      "put": {
+        "description": "Persist category tab order for this restaurant (`categories.position`). Body: `ordered_ids` — owned category ids only.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order saved",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Category order saved",
+                  "data": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Category order saved"
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Category order saved",
+                    "data": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ],
+        "summary": "Reorder menu categories",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ordered_ids"
+                ],
+                "properties": {
+                  "ordered_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "example": [
+                      5,
+                      2,
+                      9
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/vendor/catalog/category/{id}": {
       "patch": {
         "description": "",
@@ -13406,6 +13556,160 @@
                     "items": {
                       "type": "integer"
                     }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vendor/catalog/food/reorder": {
+      "put": {
+        "description": "Persist display order for items in a category. Body: `ordered_ids` (every published item id in the category, top-to-bottom) and optional `category_id` (validated when set). Consumer menu uses `position` ascending.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Menu order saved"
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Menu order saved",
+                    "data": "…"
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Menu order saved",
+                  "data": "…"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or items not in category",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ],
+        "summary": "Reorder menu items (drag-and-drop)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ordered_ids"
+                ],
+                "properties": {
+                  "ordered_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "example": [
+                      12,
+                      8,
+                      15
+                    ]
+                  },
+                  "category_id": {
+                    "type": "integer",
+                    "example": 3
                   }
                 }
               }

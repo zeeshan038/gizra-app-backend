@@ -1634,6 +1634,54 @@
         ]
       }
     },
+    "/vendor/catalog/food/reorder": {
+      "put": {
+        "summary": "Reorder menu items (drag-and-drop)",
+        "description": "Restaurant panel drag-and-drop: set display order for **menu items inside one category** (not category tabs). Body: `category_id` + `ordered_ids` top-to-bottom. Consumer `GET /consumer/restaurants/{id}/foods?category_id=` sorts by `position` ascending.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ordered_ids",
+                  "category_id"
+                ],
+                "properties": {
+                  "ordered_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "example": [
+                      12,
+                      8,
+                      15
+                    ]
+                  },
+                  "category_id": {
+                    "type": "integer",
+                    "example": 3
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Order saved"
+          },
+          "400": {
+            "description": "Validation or items not in category"
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      }
+    },
     "/vendor/catalog/food/bulk-delete": {
       "post": {
         "description": "",
@@ -11804,6 +11852,50 @@
         },
         "tags": [
           "Delivery Man Orders"
+        ]
+      }
+    },
+    "/delivery-man/config/bootstrap": {
+      "get": {
+        "summary": "Delivery-man app launch (maintenance + force update)",
+        "operationId": "getDeliveryManBootstrapConfiguration",
+        "description": "Slim flat JSON for **delivery-man / driver** app on launch: `maintenance_mode`, `maintenance_message`, and `app_minimum_*_deliveryman` / `app_force_update_*_deliveryman` / `app_url_*_deliveryman` (Android + iOS). Public; no Bearer.\n\nLegacy full config: **GET /config**.",
+        "responses": {
+          "200": {
+            "description": "Launch configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryManBootstrapConfigurationResponse"
+                },
+                "example": {
+                  "maintenance_mode": false,
+                  "maintenance_message": null,
+                  "app_minimum_version_android_deliveryman": "1.0.0",
+                  "app_minimum_build_android_deliveryman": 1,
+                  "app_force_update_android_deliveryman": false,
+                  "app_url_android_deliveryman": null,
+                  "app_minimum_version_ios_deliveryman": "1.0.0",
+                  "app_minimum_build_ios_deliveryman": 1,
+                  "app_force_update_ios_deliveryman": false,
+                  "app_url_ios_deliveryman": null
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Delivery Man Config"
         ]
       }
     },

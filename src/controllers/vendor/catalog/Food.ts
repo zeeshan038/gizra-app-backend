@@ -1,6 +1,15 @@
 import { Request, Response } from 'express';
 import prisma from '../../../config/database';
-import { createFoodSchema, updateFoodSchema } from '../../../schemas/vendor/Catalog';
+import {
+    createFoodSchema,
+    foodReorderSchema,
+    updateFoodSchema,
+} from '../../../schemas/vendor/Catalog';
+import {
+    DEFAULT_MENU_FOOD_ORDER,
+    nextFoodPosition,
+    reorderFoodsForVendor,
+} from '../../../utils/vendor/catalog/menuSortOrder';
 import {
     applyVendorFoodDetailFields,
     serializeVendorFoodDetailFields,
@@ -102,6 +111,7 @@ function serializeFood(food: Record<string, unknown>) {
         variations,
         add_ons: food.add_ons,
         is_draft: food.is_draft != null ? Number(food.is_draft) : 0,
+        position: food.position != null ? Number(food.position) : 0,
         image_full_url: publicFoodMediaUrl(imageStored),
         ...detail,
     };
@@ -169,6 +179,10 @@ export const createFood = async (req: Request, res: Response): Promise<any> => {
                     : 0,
         };
         applyVendorFoodDetailFields(createData, body);
+        createData.position = await nextFoodPosition(
+            Number(body.restaurant_id),
+            body.category_id
+        );
 
         const food = await prisma.food.create({
             data: createData as any,
@@ -321,7 +335,7 @@ export const getFoods = async (req: Request, res: Response): Promise<any> => {
             where: whereClause,
             skip,
             take: limit,
-            orderBy: { id: 'desc' },
+            orderBy: DEFAULT_MENU_FOOD_ORDER,
         });
 
         const addonLookup = await buildAddonLookupFromFoodRows(foods);
@@ -386,6 +400,8 @@ export const duplicateFood = async (req: Request, res: Response): Promise<any> =
             }
         }
 
+        const position = await nextFoodPosition(restaurantId, source.category_id);
+
         const food = await prisma.food.create({
             data: {
                 name: source.name,
@@ -419,6 +435,7 @@ export const duplicateFood = async (req: Request, res: Response): Promise<any> =
                 sell_count: BigInt(0),
                 slug: null,
                 rating: null,
+                position,
             },
         });
 
@@ -618,5 +635,44 @@ export const bulkDeleteFoods = async (req: Request, res: Response): Promise<any>
         return res.status(200).json({ status: true, msg: 'Foods deleted successfully' });
     } catch (error: any) {
         return res.status(500).json({ status: false, msg: error.message });
+    }
+};
+
+/**
+ * @Description Reorder menu items (drag-and-drop) within a category
+ * @Route PUT /api/vendor/catalog/food/reorder
+ * @Access Private (Vendor)
+ */
+export const reorderFoods = async (req: Request, res: Response): Promise<any> => {
+    const validated = foodReorderSchema.validate(req.body, { stripUnknown: true });
+    if (validated.error) {
+        return res.status(400).json({
+            status: false,
+            msg: validated.error.details.map((d) => d.message).join(', '),
+        });
+    }
+
+    try {
+        const restaurant = await getVendorRestaurant(req);
+        if (!restaurant) {
+            return res.status(404).json({ status: false, msg: 'Restaurant not found for this vendor' });
+        }
+
+        const body = validated.value as { ordered_ids: number[]; category_id?: number };
+        const result = await reorderFoodsForVendor({
+            restaurantId: Number(restaurant.id),
+            orderedIds: body.ordered_ids,
+            categoryId: body.category_id,
+        });
+
+        return res.status(200).json({
+            status: true,
+            msg: 'Menu order saved',
+            data: result,
+        });
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'Reorder failed';
+        const status = msg.includes('invalid') || msg.includes('required') || msg.includes('must') ? 400 : 500;
+        return res.status(status).json({ status: false, msg });
     }
 };

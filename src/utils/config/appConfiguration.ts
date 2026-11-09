@@ -1,4 +1,5 @@
 import prisma from '../../config/database';
+import { buildEmergencyServicePausePublicPayload } from '../delivery/emergencyServicePause';
 import { publicMediaUrl } from '../mediaStorage';
 import { normalizeAppVersionString } from './appVersionConfig';
 import { CONFIG_BUSINESS_SETTING_KEYS } from './businessSettingKeys';
@@ -440,7 +441,9 @@ export async function buildAppLaunchBootstrapConfiguration(
 }
 
 export async function buildConsumerBootstrapConfiguration(): Promise<Record<string, unknown>> {
-  return buildAppLaunchBootstrapConfiguration('');
+  const launch = await buildAppLaunchBootstrapConfiguration('');
+  const emergency_service_pause = await buildEmergencyServicePausePublicPayload();
+  return { ...launch, emergency_service_pause };
 }
 
 export async function buildVendorBootstrapConfiguration(): Promise<Record<string, unknown>> {

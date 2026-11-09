@@ -11,11 +11,13 @@ import {
   getVehicles,
 } from '../../controllers/consumer/Places';
 import { getDeliveryFeeQuote } from '../../controllers/consumer/DeliveryFee';
+import { getConsumerEmergencyServicePause } from '../../controllers/consumer/EmergencyServicePause';
 import { registerPlacesConfigRoutes } from '../shared/placesConfigRoutes';
 
 const router = express.Router();
 
 router.get('/bootstrap', getConsumerBootstrapConfiguration);
+router.get('/emergency-service-pause', getConsumerEmergencyServicePause);
 router.get('/', getConsumerAppConfiguration);
 router.get('/zone-id', getZoneIdFromCoordinates);
 registerPlacesConfigRoutes(router);

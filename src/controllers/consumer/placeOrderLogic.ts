@@ -36,6 +36,10 @@ import {
   DELIVERY_DISTANCE_TIME_RESTRICTED_CODE,
   evaluateDeliveryDistanceTimeRestriction,
 } from '../../utils/delivery/deliveryDistanceTimeRestriction';
+import {
+  EMERGENCY_SERVICE_PAUSED_CODE,
+  evaluateEmergencyServicePause,
+} from '../../utils/delivery/emergencyServicePause';
 import { resolveDeliveryDistanceKm } from '../../utils/delivery/deliveryDistanceKm';
 import { parseRestaurantCoordinates } from '../../utils/consumer/restaurantDiscoverHelpers';
 import {
@@ -808,6 +812,34 @@ export async function executePlaceOrder(params: {
     const scheduleDate = new Date(payload.schedule_at);
     if (scheduleDate.getTime() < Date.now() - 5 * 60 * 1000) {
       throw new PlaceOrderError('You cannot schedule an order in the past', 403, 'order_time');
+    }
+  }
+
+  {
+    let destLat: number | null = null;
+    let destLng: number | null = null;
+    if (payload.order_type === 'delivery') {
+      const dest = await resolveDeliveryDestinationLatLng({
+        userId,
+        deliveryAddressId: payload.delivery_address_id,
+        latitude: payload.latitude,
+        longitude: payload.longitude,
+      });
+      destLat = dest.lat;
+      destLng = dest.lng;
+    }
+
+    const emergencyPause = await evaluateEmergencyServicePause({
+      orderType: payload.order_type,
+      restaurantZoneId: restaurant.zone_id != null ? Number(restaurant.zone_id) : null,
+      destinationLat: destLat,
+      destinationLng: destLng,
+    });
+    if (emergencyPause.blocked) {
+      throw new PlaceOrderError(emergencyPause.message, 403, EMERGENCY_SERVICE_PAUSED_CODE, {
+        description: emergencyPause.description,
+        paused_zone_id: emergencyPause.paused_zone_id,
+      });
     }
   }
 
