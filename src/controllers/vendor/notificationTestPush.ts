@@ -3,6 +3,7 @@ import prisma from '../../config/database';
 import { isFirebaseReady } from '../../config/firebase';
 import { sendFcmToDevice, sendFcmToTopic } from '../../utils/notifications/fcm';
 import {
+  isVendorNewOrderPushEnabled,
   isVendorPushEnabled,
   vendorPushBlockReason,
 } from '../../utils/notifications/notificationSettings';
@@ -40,10 +41,16 @@ export const testVendorPush = async (req: Request, res: Response): Promise<any> 
     return res.status(404).json({ status: false, msg: 'Vendor not found' });
   }
 
-  const pushEnabled = await isVendorPushEnabled(ctx.restaurantId, 'restaurant_order_notification');
+  const pushEnabled = await isVendorNewOrderPushEnabled();
+  const strictRestaurantGate = await isVendorPushEnabled(
+    ctx.restaurantId,
+    'restaurant_order_notification'
+  );
   const blockReason = pushEnabled
-    ? null
-    : await vendorPushBlockReason(ctx.restaurantId, 'restaurant_order_notification');
+    ? strictRestaurantGate
+      ? null
+      : 'per_restaurant_notification_settings_off (new_order uses platform toggle only; this is informational)'
+    : 'platform_notification_settings_off:restaurant_order_notification';
   const recipientOn = isRecipientPushOn(vendor.is_notification_on);
   const fcmTopics = getVendorFcmSubscribeTopics(ctx.restaurantId);
   const topic = vendorRestaurantMessageTopic(ctx.restaurantId);

@@ -102,6 +102,15 @@ export async function isVendorPushEnabled(restaurantId: number, key: string): Pr
   return platform && restaurant;
 }
 
+/**
+ * Incoming customer orders (POS) — same gate as driver/customer: **platform** `notification_settings` only.
+ * `restaurant_notification_settings` often has `push_notification_status = disable` after MySQL migration
+ * even when admin expects pushes on; that table is restaurant-panel prefs, not the operational new-order FCM gate.
+ */
+export async function isVendorNewOrderPushEnabled(): Promise<boolean> {
+  return isPushNotificationEnabled('restaurant', 'restaurant_order_notification');
+}
+
 export async function vendorPushBlockReason(
   restaurantId: number,
   key: string
