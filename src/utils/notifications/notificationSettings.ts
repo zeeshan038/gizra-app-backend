@@ -78,6 +78,19 @@ export async function isVendorPushEnabled(restaurantId: number, key: string): Pr
   return platform && restaurant;
 }
 
+export async function vendorPushBlockReason(
+  restaurantId: number,
+  key: string
+): Promise<string | null> {
+  const [platform, restaurant] = await Promise.all([
+    isPushNotificationEnabled('restaurant', key),
+    isRestaurantPushNotificationEnabled(restaurantId, key),
+  ]);
+  if (platform && restaurant) return null;
+  if (!platform) return `platform_notification_settings_off:${key}`;
+  return `restaurant_notification_settings_off:restaurant=${restaurantId},key=${key}`;
+}
+
 /** PHP `getNotificationStatusData(...)->sms_status == 'active'`. */
 export async function isSmsNotificationEnabled(
   userType: NotificationUserType,

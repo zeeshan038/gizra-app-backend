@@ -33,9 +33,8 @@ export function publishOrderNew(payload: OrderNewPayload, vendorId?: number): vo
     return;
   }
   const restaurant = restaurantRoom(payload.restaurant_id);
-  // Union of rooms: a socket in both still receives the event once.
-  const target = vendorId != null ? io.to(restaurant).to(vendorRoom(vendorId)) : io.to(restaurant);
-  target.emit(SocketEvents.NEW_ORDER, payload);
+  // Restaurant-scoped only — do not emit on vendor:{id} or every branch under one vendor gets new_order.
+  io.to(restaurant).emit(SocketEvents.NEW_ORDER, payload);
   console.log(
     `[socket] new_order order=${payload.order_id} room=${restaurant} vendor=${vendorId ?? '-'}`
   );
