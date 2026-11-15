@@ -234,6 +234,7 @@ model carts {
   created_at        DateTime? @db.Timestamptz(6)
   updated_at        DateTime? @db.Timestamptz(6)
   variation_options String?
+  add_on_placements String?
 }
 
 model cash_back_histories {

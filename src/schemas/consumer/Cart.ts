@@ -8,6 +8,10 @@ export const addToCartSchema = Joi.object({
   quantity: Joi.number().integer().min(1).required(),
   add_on_ids: Joi.array().items(Joi.number()).optional().default([]),
   add_on_qtys: Joi.array().items(Joi.number()).optional().default([]),
+  add_on_placements: Joi.array()
+    .items(Joi.string().valid('whole', 'half_a', 'half_b').insensitive())
+    .optional()
+    .default([]),
   variations: Joi.array().items(Joi.object()).optional().default([]),
   variation_options: Joi.array().items(Joi.object()).optional().default([]),
 });
@@ -28,6 +32,10 @@ export const addMultipleCartSchema = Joi.object({
         quantity: Joi.number().integer().min(1).required(),
         add_on_ids: Joi.array().items(Joi.number()).optional().default([]),
         add_on_qtys: Joi.array().items(Joi.number()).optional().default([]),
+        add_on_placements: Joi.array()
+          .items(Joi.string().valid('whole', 'half_a', 'half_b').insensitive())
+          .optional()
+          .default([]),
         variations: Joi.array().items(Joi.object()).optional().default([]),
         variation_options: Joi.array().items(Joi.object()).optional().default([]),
       })

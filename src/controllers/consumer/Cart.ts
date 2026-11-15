@@ -28,6 +28,24 @@ function cartStockResponse(err: CartFoodStockError) {
   };
 }
 
+/** Uniqueness for cart rows (incl. pizza placements on add-ons and variation_options). */
+function cartLineIdentityWhere(userId: number, itemId: number, isGuest: boolean, line: {
+  variations?: unknown[];
+  variation_options?: unknown[];
+  add_on_ids?: number[];
+  add_on_placements?: unknown[];
+}) {
+  return {
+    user_id: userId,
+    item_id: itemId,
+    is_guest: isGuest,
+    variations: JSON.stringify(line.variations ?? []),
+    variation_options: JSON.stringify(line.variation_options ?? []),
+    add_on_ids: JSON.stringify(line.add_on_ids ?? []),
+    add_on_placements: JSON.stringify(line.add_on_placements ?? []),
+  };
+}
+
 /**
  * @Description Get all cart items for a user or guest
  * @Route GET /api/consumer/cart
@@ -67,6 +85,7 @@ export const getCart = async (req: Request, res: Response): Promise<any> => {
             price: Number(cart.price),
             add_on_ids: cart.add_on_ids ? JSON.parse(cart.add_on_ids) : [],
             add_on_qtys: cart.add_on_qtys ? JSON.parse(cart.add_on_qtys) : [],
+            add_on_placements: cart.add_on_placements ? JSON.parse(cart.add_on_placements) : [],
             variations: cart.variations ? JSON.parse(cart.variations) : [],
             variation_options: cart.variation_options ? JSON.parse(cart.variation_options) : []
         }));
@@ -107,14 +126,16 @@ export const addToCart = async (req: Request, res: Response): Promise<any> => {
         });
     }
 
+    const body = result.value;
+
     try {
-        const itemType = String(payload.item_type ?? 'Food');
+        const itemType = String(body.item_type ?? 'Food');
         if (itemType.toLowerCase() === 'food') {
             try {
-                await assertCartFoodSellableNow(Number(payload.item_id));
+                await assertCartFoodSellableNow(Number(body.item_id));
                 await assertCartFoodStockAvailable({
-                    itemId: Number(payload.item_id),
-                    quantity: Number(payload.quantity) || 1,
+                    itemId: Number(body.item_id),
+                    quantity: Number(body.quantity) || 1,
                     userId: user_id,
                     isGuest: is_guest,
                 });
@@ -129,33 +150,27 @@ export const addToCart = async (req: Request, res: Response): Promise<any> => {
             }
         }
 
-        // Check if item already exists in cart with same variations
         const existingCartItem = await prisma.carts.findFirst({
-            where: {
-                user_id: user_id,
-                item_id: payload.item_id,
-                is_guest: is_guest,
-                variations: JSON.stringify(payload.variations)
-            }
+            where: cartLineIdentityWhere(user_id, body.item_id, is_guest, body),
         });
 
         if (existingCartItem) {
             return res.status(400).json({ status: false, msg: 'Item with these variations already exists in cart' });
         } else {
-            // Create new cart item
             const cart = await prisma.carts.create({
                 data: {
                     user_id: user_id,
-                    item_id: payload.item_id,
+                    item_id: body.item_id,
                     is_guest: is_guest,
-                    item_type: payload.item_type,
-                    price: payload.price,
-                    quantity: payload.quantity,
-                    add_on_ids: JSON.stringify(payload.add_on_ids),
-                    add_on_qtys: JSON.stringify(payload.add_on_qtys),
-                    variations: JSON.stringify(payload.variations),
-                    variation_options: JSON.stringify(payload.variation_options)
-                }
+                    item_type: body.item_type,
+                    price: body.price,
+                    quantity: body.quantity,
+                    add_on_ids: JSON.stringify(body.add_on_ids),
+                    add_on_qtys: JSON.stringify(body.add_on_qtys),
+                    add_on_placements: JSON.stringify(body.add_on_placements ?? []),
+                    variations: JSON.stringify(body.variations),
+                    variation_options: JSON.stringify(body.variation_options),
+                },
             });
 
             const mappedCart = {
@@ -166,6 +181,7 @@ export const addToCart = async (req: Request, res: Response): Promise<any> => {
                 price: Number(cart.price),
                 add_on_ids: cart.add_on_ids ? JSON.parse(cart.add_on_ids) : [],
                 add_on_qtys: cart.add_on_qtys ? JSON.parse(cart.add_on_qtys) : [],
+                add_on_placements: cart.add_on_placements ? JSON.parse(cart.add_on_placements) : [],
                 variations: cart.variations ? JSON.parse(cart.variations) : [],
                 variation_options: cart.variation_options ? JSON.parse(cart.variation_options) : []
             };
@@ -273,6 +289,7 @@ function mapCartRow(cart: {
   price: number;
   add_on_ids: string | null;
   add_on_qtys: string | null;
+  add_on_placements?: string | null;
   variations: string | null;
   variation_options: string | null;
   [key: string]: unknown;
@@ -285,6 +302,7 @@ function mapCartRow(cart: {
     price: Number(cart.price),
     add_on_ids: cart.add_on_ids ? JSON.parse(cart.add_on_ids) : [],
     add_on_qtys: cart.add_on_qtys ? JSON.parse(cart.add_on_qtys) : [],
+    add_on_placements: cart.add_on_placements ? JSON.parse(cart.add_on_placements) : [],
     variations: cart.variations ? JSON.parse(cart.variations) : [],
     variation_options: cart.variation_options ? JSON.parse(cart.variation_options) : [],
   };
@@ -324,6 +342,7 @@ export const addMultipleToCart = async (req: Request, res: Response): Promise<an
     quantity: number;
     add_on_ids?: number[];
     add_on_qtys?: number[];
+    add_on_placements?: unknown[];
     variations?: unknown[];
     variation_options?: unknown[];
   }>;
@@ -371,6 +390,7 @@ export const addMultipleToCart = async (req: Request, res: Response): Promise<an
           quantity: single.quantity,
           add_on_ids: JSON.stringify(single.add_on_ids ?? []),
           add_on_qtys: JSON.stringify(single.add_on_qtys ?? []),
+          add_on_placements: JSON.stringify(single.add_on_placements ?? []),
           variations: JSON.stringify(single.variations ?? []),
           variation_options: JSON.stringify(single.variation_options ?? []),
         },

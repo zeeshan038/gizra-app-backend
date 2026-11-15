@@ -21,6 +21,7 @@ export const FOOD_LIST_SELECT = {
   status: true,
   variations: true,
   add_ons: true,
+  attributes: true,
   avg_rating: true,
   rating_count: true,
   order_count: true,

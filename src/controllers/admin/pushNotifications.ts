@@ -2,11 +2,8 @@ import { Request, Response } from 'express';
 import prisma from '../../config/database';
 import { adminSendPushNotificationSchema } from '../../schemas/admin/PushNotification';
 import { fitDbString, normalizeStoredMedia, publicMediaUrl } from '../../utils/mediaStorage';
-import { sendFcmToTopic } from '../../utils/notifications/fcm';
-import {
-  resolvePushBroadcastTopic,
-  type PushBroadcastTarget,
-} from '../../utils/notifications/pushBroadcastTopic';
+import { sendAdminPushBroadcast } from '../../utils/notifications/sendAdminPushBroadcast';
+import type { PushBroadcastTarget } from '../../utils/notifications/pushBroadcastTopic';
 
 /**
  * @Description Send admin broadcast push (PHP POST admin notification store)
@@ -55,25 +52,29 @@ export const sendAdminPushNotification = async (req: Request, res: Response): Pr
     },
   });
 
-  const topic = resolvePushBroadcastTopic(tergat as PushBroadcastTarget, zoneKey);
   const imageUrl = storedImage ? publicMediaUrl(storedImage) ?? '' : '';
 
-  try {
-    await sendFcmToTopic(topic, {
-      title,
-      description,
-      type: 'general',
-      image: imageUrl,
-    });
-  } catch (e) {
-    console.error('[notify] admin push broadcast failed', e);
+  const delivery = await sendAdminPushBroadcast(tergat as PushBroadcastTarget, zoneKey, {
+    title,
+    description,
+    type: 'general',
+    image: imageUrl,
+  });
+
+  if (!delivery.push_sent) {
+    const noDevices = delivery.device_tokens === 0;
     return res.status(201).json({
       status: true,
-      msg: 'Notification saved but push delivery failed',
+      msg: noDevices
+        ? 'Notification saved but no devices with FCM tokens were found for this audience'
+        : 'Notification saved but push delivery failed',
       data: {
         id: row.id.toString(),
-        topic,
+        topic: delivery.topic,
         push_sent: false,
+        device_tokens: delivery.device_tokens,
+        devices_delivered: delivery.devices_delivered,
+        topic_delivered: delivery.topic_delivered,
       },
     });
   }
@@ -83,8 +84,11 @@ export const sendAdminPushNotification = async (req: Request, res: Response): Pr
     msg: 'Notification sent successfully',
     data: {
       id: row.id.toString(),
-      topic,
+      topic: delivery.topic,
       push_sent: true,
+      device_tokens: delivery.device_tokens,
+      devices_delivered: delivery.devices_delivered,
+      topic_delivered: delivery.topic_delivered,
     },
   });
 };

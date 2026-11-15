@@ -16,6 +16,7 @@ import {
 } from './restaurantAvailability';
 import { resolveFoodSellingTime } from './foodSellingTime';
 import { resolveFoodStockSnapshot } from './foodStock';
+import { parseFoodAttributes } from '../vendor/catalog/foodAttributes';
 
 type FoodRow = {
   id: bigint;
@@ -31,6 +32,7 @@ type FoodRow = {
   status: boolean;
   variations: string | null;
   add_ons: string | null;
+  attributes?: string | null;
   avg_rating?: number;
   rating_count?: bigint | number;
   available_time_starts?: unknown;
@@ -263,6 +265,7 @@ export function formatRestaurantMenuFood(
       : null;
 
   const stock = resolveFoodStockSnapshot(f);
+  const foodAttrs = parseFoodAttributes(f.attributes ?? null);
 
   return {
     id: f.id.toString(),
@@ -281,6 +284,7 @@ export function formatRestaurantMenuFood(
     status: f.status,
     variations: parsedVariations,
     add_ons: parsedAddOns,
+    addons_pizza_half_whole: Boolean(foodAttrs.addons_pizza_half_whole),
     ...(selling
       ? {
           available_time_starts: selling.available_time_starts,

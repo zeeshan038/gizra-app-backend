@@ -23,6 +23,7 @@ import {
 import { publicFoodMediaUrl } from '../../../utils/mediaStorage';
 import { getFoodPublishQuota } from '../../../utils/vendor/catalog/foodPublishLimits';
 import { sanitizeVariationGroupsForStorage } from '../../../utils/consumer/variationGroupOptions';
+import { mergeFoodAttributesPatch, parseFoodAttributes } from '../../../utils/vendor/catalog/foodAttributes';
 
 const FOOD_LIST_MAX_LIMIT = 5000;
 
@@ -100,6 +101,9 @@ function serializeFood(food: Record<string, unknown>) {
     const imageStored =
         typeof food.image === 'string' ? food.image : food.image != null ? String(food.image) : null;
     const detail = serializeVendorFoodDetailFields(food);
+    const attrs = parseFoodAttributes(
+        typeof food.attributes === 'string' ? food.attributes : null
+    );
     return {
         id: String(food.id),
         name: food.name,
@@ -113,6 +117,7 @@ function serializeFood(food: Record<string, unknown>) {
         is_draft: food.is_draft != null ? Number(food.is_draft) : 0,
         position: food.position != null ? Number(food.position) : 0,
         image_full_url: publicFoodMediaUrl(imageStored),
+        addons_pizza_half_whole: Boolean(attrs.addons_pizza_half_whole),
         ...detail,
     };
 }
@@ -179,6 +184,11 @@ export const createFood = async (req: Request, res: Response): Promise<any> => {
                     : 0,
         };
         applyVendorFoodDetailFields(createData, body);
+        if (body.addons_pizza_half_whole !== undefined) {
+            createData.attributes = mergeFoodAttributesPatch(null, {
+                addons_pizza_half_whole: Boolean(body.addons_pizza_half_whole),
+            });
+        }
         createData.position = await nextFoodPosition(
             Number(body.restaurant_id),
             body.category_id
@@ -248,6 +258,11 @@ export const updateFood = async (req: Request, res: Response): Promise<any> => {
         }
         if (body.is_draft !== undefined) dataToUpdate.is_draft = body.is_draft;
         applyVendorFoodDetailFields(dataToUpdate, body);
+        if (body.addons_pizza_half_whole !== undefined) {
+            dataToUpdate.attributes = mergeFoodAttributesPatch(existing.attributes, {
+                addons_pizza_half_whole: Boolean(body.addons_pizza_half_whole),
+            });
+        }
 
         const food = await prisma.food.update({
             where: { id: Number(id) },

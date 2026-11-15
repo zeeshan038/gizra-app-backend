@@ -160,11 +160,11 @@ function legacyDataPayload(data: FcmPushData): Record<string, string> {
   return base;
 }
 
-/** Device token — mirrors PHP `send_push_notif_to_device`. */
-export async function sendFcmToDevice(token: string, data: FcmPushData): Promise<void> {
-  if (!token?.trim()) return;
+/** Device token — mirrors PHP `send_push_notif_to_device`. Returns true when FCM accepted the message. */
+export async function sendFcmToDevice(token: string, data: FcmPushData): Promise<boolean> {
+  if (!token?.trim()) return false;
 
-  if (await sendViaFirebaseAdmin({ token: token.trim() }, data)) return;
+  if (await sendViaFirebaseAdmin({ token: token.trim() }, data)) return true;
 
   const serverKey = process.env.FCM_SERVER_KEY;
   const projectId = process.env.FIREBASE_PROJECT_ID;
@@ -190,21 +190,21 @@ export async function sendFcmToDevice(token: string, data: FcmPushData): Promise
     const body = await res.json().catch(() => ({}));
     if (!res.ok || (body as { failure?: number }).failure) {
       console.error('[notify] FCM legacy device send failed', body);
-    } else {
-      console.log('[notify] FCM legacy device ok type=', data.type);
+      return false;
     }
-    return;
+    console.log('[notify] FCM legacy device ok type=', data.type);
+    return true;
   }
 
   if (!projectId || !process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
     console.warn('[notify] FCM device not sent — set FCM_SERVER_KEY or FIREBASE_* env vars');
-    return;
+    return false;
   }
 
   const accessToken = await getGoogleAccessToken(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
   if (!accessToken) {
     console.warn('[notify] FCM device not sent — could not obtain Google access token');
-    return;
+    return false;
   }
 
   const stringData = buildStringData(data);
@@ -237,22 +237,23 @@ export async function sendFcmToDevice(token: string, data: FcmPushData): Promise
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     console.error('[notify] FCM device HTTP v1 failed', res.status, body.slice(0, 500));
-  } else {
-    console.log('[notify] FCM device HTTP v1 ok type=', data.type);
+    return false;
   }
+  console.log('[notify] FCM device HTTP v1 ok type=', data.type);
+  return true;
 }
 
 /** Firebase topic — mirrors PHP `send_push_notif_to_topic` (type = order_request, etc.). */
-export async function sendFcmToTopic(topic: string, data: FcmPushData): Promise<void> {
-  if (!topic?.trim()) return;
+export async function sendFcmToTopic(topic: string, data: FcmPushData): Promise<boolean> {
+  if (!topic?.trim()) return false;
 
-  if (await sendViaFirebaseAdmin({ topic: topic.trim() }, data)) return;
+  if (await sendViaFirebaseAdmin({ topic: topic.trim() }, data)) return true;
 
   const serverKey = process.env.FCM_SERVER_KEY;
   const projectId = process.env.FIREBASE_PROJECT_ID;
 
   if (serverKey) {
-    await fetch('https://fcm.googleapis.com/fcm/send', {
+    const res = await fetch('https://fcm.googleapis.com/fcm/send', {
       method: 'POST',
       headers: {
         Authorization: `key=${serverKey}`,
@@ -269,20 +270,25 @@ export async function sendFcmToTopic(topic: string, data: FcmPushData): Promise<
         },
       }),
     });
-    return;
+    const topicBody = await res.json().catch(() => ({}));
+    if (!res.ok || (topicBody as { failure?: number }).failure) {
+      console.error('[notify] FCM legacy topic send failed', topicBody);
+      return false;
+    }
+    return true;
   }
 
   if (!projectId || !process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
     console.warn(
       `[notify] FCM topic not sent — set FCM_SERVER_KEY or FIREBASE_* env vars (topic=${topic.trim()})`
     );
-    return;
+    return false;
   }
 
   const accessToken = await getGoogleAccessToken(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
   if (!accessToken) {
     console.warn(`[notify] FCM topic not sent — Google access token failed (topic=${topic.trim()})`);
-    return;
+    return false;
   }
 
   const stringData = buildStringData(data);
@@ -313,5 +319,7 @@ export async function sendFcmToTopic(topic: string, data: FcmPushData): Promise<
       res.status,
       body.slice(0, 500)
     );
+    return false;
   }
+  return true;
 }
