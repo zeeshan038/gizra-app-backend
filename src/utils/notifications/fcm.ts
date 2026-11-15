@@ -41,6 +41,7 @@ function buildStringData(data: FcmPushData): Record<string, string> {
     order_type: data.order_type != null ? String(data.order_type) : undefined,
     order_status: data.order_status != null ? String(data.order_status) : undefined,
     image: data.image != null ? String(data.image) : undefined,
+    image_full_url: data.image != null ? String(data.image) : undefined,
     processing_time: data.processing_time,
     cooking_time_minutes: data.cooking_time_minutes,
     gizra_order_id: data.gizra_order_id,
@@ -54,6 +55,8 @@ function buildStringData(data: FcmPushData): Record<string, string> {
   if (orderId) {
     raw.title_loc_key = orderId;
     raw.body_loc_key = type || 'new_order';
+  } else if (type) {
+    raw.body_loc_key = type;
   }
 
   return Object.fromEntries(
@@ -113,7 +116,10 @@ async function sendViaFirebaseAdmin(
       data: stringData,
     });
     const targetLabel = 'token' in target ? 'device' : `topic:${target.topic}`;
-    console.log(`[notify] FCM ok (${targetLabel}) messageId=${messageId} type=${data.type}`);
+    const img = fcmImageUrl(data);
+    console.log(
+      `[notify] FCM ok (${targetLabel}) messageId=${messageId} type=${data.type}${img ? ' image=yes' : ' image=no'}`
+    );
     return true;
   } catch (error: unknown) {
     const code =

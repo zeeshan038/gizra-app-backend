@@ -4,7 +4,7 @@ import { adminSendPushNotificationSchema } from '../../schemas/admin/PushNotific
 import {
   fitDbString,
   normalizeStoredMedia,
-  publicNotificationMediaUrl,
+  resolveAbsoluteNotificationImageUrl,
 } from '../../utils/mediaStorage';
 import { sendAdminPushBroadcast } from '../../utils/notifications/sendAdminPushBroadcast';
 import type { PushBroadcastTarget } from '../../utils/notifications/pushBroadcastTopic';
@@ -55,13 +55,16 @@ export const sendAdminPushNotification = async (req: Request, res: Response): Pr
     },
   });
 
-  const imageUrl = publicNotificationMediaUrl(normalizedImage || storedImage) ?? '';
+  const imageUrl = resolveAbsoluteNotificationImageUrl(image) ?? '';
+  if (image?.trim() && !imageUrl) {
+    console.warn('[notify] admin push skipped image — not a public HTTPS URL', image);
+  }
 
   const delivery = await sendAdminPushBroadcast(tergat as PushBroadcastTarget, zoneKey, {
     title,
     description,
     type: 'general',
-    image: imageUrl,
+    image: imageUrl || undefined,
   });
 
   if (!delivery.push_sent) {
@@ -75,6 +78,7 @@ export const sendAdminPushNotification = async (req: Request, res: Response): Pr
         id: row.id.toString(),
         topic: delivery.topic,
         push_sent: false,
+        image_url: imageUrl || null,
         device_tokens: delivery.device_tokens,
         devices_delivered: delivery.devices_delivered,
         topic_delivered: delivery.topic_delivered,
@@ -89,6 +93,7 @@ export const sendAdminPushNotification = async (req: Request, res: Response): Pr
       id: row.id.toString(),
       topic: delivery.topic,
       push_sent: true,
+      image_url: imageUrl || null,
       device_tokens: delivery.device_tokens,
       devices_delivered: delivery.devices_delivered,
       topic_delivered: delivery.topic_delivered,
