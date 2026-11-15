@@ -381,15 +381,30 @@
       },
       "ConsumerCartLineItem": {
         "type": "object",
-        "description": "Cart row with optional selling-time and stock flags on GET (Food items only).",
+        "description": "Server-authoritative cart line — display fields enriched on every GET/add/update/add-multiple response.",
         "properties": {
           "id": {
             "type": "string",
+            "description": "Cart row id (for update/remove)",
             "example": "501"
           },
           "user_id": {
             "type": "string",
             "nullable": true
+          },
+          "is_guest": {
+            "type": "boolean",
+            "example": false
+          },
+          "restaurant_id": {
+            "type": "string",
+            "nullable": true,
+            "example": "3"
+          },
+          "restaurant_name": {
+            "type": "string",
+            "nullable": true,
+            "example": "Pizza Palace"
           },
           "item_id": {
             "type": "string",
@@ -399,24 +414,77 @@
             "type": "string",
             "example": "Food"
           },
+          "title": {
+            "type": "string",
+            "nullable": true,
+            "example": "Morning Shakshuka"
+          },
+          "image_url": {
+            "type": "string",
+            "nullable": true
+          },
           "quantity": {
             "type": "integer",
-            "example": 1
+            "example": 2
           },
           "price": {
             "type": "number",
+            "description": "Unit price including add-ons",
+            "example": 55
+          },
+          "unit_base_price": {
+            "type": "number",
             "example": 45
+          },
+          "unit_addons_total": {
+            "type": "number",
+            "example": 10
+          },
+          "add_on_ids": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "add_on_qtys": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "add_on_placements": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "whole",
+                "half_a",
+                "half_b"
+              ]
+            }
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "variation_options": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
           },
           "is_available_now": {
             "type": "boolean",
-            "description": "Present on GET cart when item_type is Food"
+            "description": "Food items only"
           },
           "availability_status": {
             "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
           },
           "is_in_stock": {
             "type": "boolean",
-            "description": "Present on GET cart when item_type is Food"
+            "description": "Food items only"
           },
           "stock_status": {
             "$ref": "#/components/schemas/ConsumerFoodStockStatus"

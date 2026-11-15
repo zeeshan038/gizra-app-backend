@@ -429,15 +429,30 @@
       },
       "ConsumerCartLineItem": {
         "type": "object",
-        "description": "Cart row with optional selling-time and stock flags on GET (Food items only).",
+        "description": "Server-authoritative cart line — display fields enriched on every GET/add/update/add-multiple response.",
         "properties": {
           "id": {
             "type": "string",
+            "description": "Cart row id (for update/remove)",
             "example": "501"
           },
           "user_id": {
             "type": "string",
             "nullable": true
+          },
+          "is_guest": {
+            "type": "boolean",
+            "example": false
+          },
+          "restaurant_id": {
+            "type": "string",
+            "nullable": true,
+            "example": "3"
+          },
+          "restaurant_name": {
+            "type": "string",
+            "nullable": true,
+            "example": "Pizza Palace"
           },
           "item_id": {
             "type": "string",
@@ -447,24 +462,77 @@
             "type": "string",
             "example": "Food"
           },
+          "title": {
+            "type": "string",
+            "nullable": true,
+            "example": "Morning Shakshuka"
+          },
+          "image_url": {
+            "type": "string",
+            "nullable": true
+          },
           "quantity": {
             "type": "integer",
-            "example": 1
+            "example": 2
           },
           "price": {
             "type": "number",
+            "description": "Unit price including add-ons",
+            "example": 55
+          },
+          "unit_base_price": {
+            "type": "number",
             "example": 45
+          },
+          "unit_addons_total": {
+            "type": "number",
+            "example": 10
+          },
+          "add_on_ids": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "add_on_qtys": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "add_on_placements": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "whole",
+                "half_a",
+                "half_b"
+              ]
+            }
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "variation_options": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
           },
           "is_available_now": {
             "type": "boolean",
-            "description": "Present on GET cart when item_type is Food"
+            "description": "Food items only"
           },
           "availability_status": {
             "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
           },
           "is_in_stock": {
             "type": "boolean",
-            "description": "Present on GET cart when item_type is Food"
+            "description": "Food items only"
           },
           "stock_status": {
             "$ref": "#/components/schemas/ConsumerFoodStockStatus"
@@ -16549,17 +16617,6 @@
     "/consumer/cart/": {
       "get": {
         "description": "**Customer:** `Authorization: Bearer <customer JWT>` from login.\n\n**Guest (preferred):** `Authorization: Bearer <guest JWT>` from POST `/consumer/guest/request` — no extra query params.\n\n**Guest (legacy):** `is_guest=true` and `guest_id=<id>` with optional Bearer bypass via middleware.\n\nEach **Food** line may include selling-time fields (`is_available_now`, `availability_status`) and stock fields (`is_in_stock`, `stock_status`, `current_stock`) so the app can warn on stale or out-of-stock cart lines.",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/ConsumerCartAuthHeader"
-          },
-          {
-            "$ref": "#/components/parameters/ConsumerCartIsGuest"
-          },
-          {
-            "$ref": "#/components/parameters/ConsumerCartGuestId"
-          }
-        ],
         "responses": {
           "200": {
             "description": "Cart line items",
@@ -16677,24 +16734,74 @@
         "tags": [
           "Consumer Cart"
         ],
-        "summary": "Get cart"
+        "summary": "Get cart",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ConsumerCartAuthHeader"
+          },
+          {
+            "$ref": "#/components/parameters/ConsumerCartIsGuest"
+          },
+          {
+            "$ref": "#/components/parameters/ConsumerCartGuestId"
+          }
+        ]
       }
     },
     "/consumer/cart/add": {
       "post": {
-        "description": "Same auth as GET `/consumer/cart/`. With **guest Bearer token**, set `is_guest: true` in body or omit — server infers guest from JWT. Legacy: `is_guest: true` and `guest_id` without Bearer.\n\nReturns **403** with `code: food_selling_time` when outside the selling window, or `code: food_stock` when limited stock is exhausted or quantity exceeds `current_stock`.",
+        "description": "Same auth as GET `/consumer/cart/`. Requires `restaurant_id` (one restaurant per cart). Duplicate line identity merges quantity (**200**); new line **201**. Response `data` is a full `ConsumerCartLineItem`.\n\nReturns **403** with `code: food_selling_time`, `code: food_stock`, or another restaurant in cart.",
         "responses": {
-          "201": {
-            "description": "Item added",
+          "200": {
+            "description": "Existing line quantity increased",
             "content": {
               "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ConsumerCartLineItem"
+                    }
+                  }
+                },
                 "example": {
                   "status": true,
                   "msg": "Added to cart successfully",
-                  "data": {}
-                },
+                  "data": "…"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "New cart line created",
+            "content": {
+              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ConsumerCartLineItem"
+                    }
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Added to cart successfully",
+                  "data": "…"
                 }
               }
             }
@@ -16807,6 +16914,15 @@
             "description": "Service Unavailable"
           }
         },
+        "tags": [
+          "Consumer Cart"
+        ],
+        "summary": "Add to cart",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ConsumerCartAuthHeader"
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -16847,16 +16963,7 @@
               }
             }
           }
-        },
-        "tags": [
-          "Consumer Cart"
-        ],
-        "summary": "Add to cart",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/ConsumerCartAuthHeader"
-          }
-        ]
+        }
       }
     },
     "/consumer/cart/add-multiple": {
@@ -16864,9 +16971,12 @@
         "description": "",
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "OK",
             "content": {
               "application/json": {
+                "example": {
+                  "status": true
+                },
                 "schema": {
                   "type": "object",
                   "properties": {
@@ -16881,15 +16991,12 @@
                   "example": {
                     "status": true
                   }
-                },
-                "example": {
-                  "status": true
                 }
               }
             }
           },
           "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
+            "description": "Bad Request",
             "content": {
               "application/json": {
                 "schema": {
@@ -16917,7 +17024,7 @@
             }
           },
           "403": {
-            "description": "Forbidden - You do not have permission to access this resource",
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": {
@@ -16945,7 +17052,7 @@
             }
           },
           "500": {
-            "description": "Internal Server Error - Something went wrong on the server",
+            "description": "Internal Server Error",
             "content": {
               "application/json": {
                 "schema": {
@@ -16975,12 +17082,32 @@
             "description": "OK",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                },
                 "example": {
                   "status": true,
-                  "msg": "Operation successful"
+                  "msg": "Cart updated successfully",
+                  "data": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Cart updated successfully"
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Cart updated successfully",
+                    "data": "…"
+                  }
                 }
               }
             }
@@ -17059,6 +17186,18 @@
             "description": "Service Unavailable"
           }
         },
+        "tags": [
+          "Consumer Cart"
+        ],
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -17075,19 +17214,7 @@
               }
             }
           }
-        },
-        "tags": [
-          "Consumer Cart"
-        ],
-        "parameters": [
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ]
+        }
       }
     },
     "/consumer/cart/remove-item/{id}": {
@@ -17115,12 +17242,26 @@
             "description": "OK",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                },
                 "example": {
                   "status": true,
-                  "msg": "Operation successful"
+                  "msg": "Removed"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Removed"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Removed"
+                  }
                 }
               }
             }

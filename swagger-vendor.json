@@ -391,15 +391,30 @@
       },
       "ConsumerCartLineItem": {
         "type": "object",
-        "description": "Cart row with optional selling-time and stock flags on GET (Food items only).",
+        "description": "Server-authoritative cart line — display fields enriched on every GET/add/update/add-multiple response.",
         "properties": {
           "id": {
             "type": "string",
+            "description": "Cart row id (for update/remove)",
             "example": "501"
           },
           "user_id": {
             "type": "string",
             "nullable": true
+          },
+          "is_guest": {
+            "type": "boolean",
+            "example": false
+          },
+          "restaurant_id": {
+            "type": "string",
+            "nullable": true,
+            "example": "3"
+          },
+          "restaurant_name": {
+            "type": "string",
+            "nullable": true,
+            "example": "Pizza Palace"
           },
           "item_id": {
             "type": "string",
@@ -409,24 +424,77 @@
             "type": "string",
             "example": "Food"
           },
+          "title": {
+            "type": "string",
+            "nullable": true,
+            "example": "Morning Shakshuka"
+          },
+          "image_url": {
+            "type": "string",
+            "nullable": true
+          },
           "quantity": {
             "type": "integer",
-            "example": 1
+            "example": 2
           },
           "price": {
             "type": "number",
+            "description": "Unit price including add-ons",
+            "example": 55
+          },
+          "unit_base_price": {
+            "type": "number",
             "example": 45
+          },
+          "unit_addons_total": {
+            "type": "number",
+            "example": 10
+          },
+          "add_on_ids": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "add_on_qtys": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "add_on_placements": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "whole",
+                "half_a",
+                "half_b"
+              ]
+            }
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "variation_options": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
           },
           "is_available_now": {
             "type": "boolean",
-            "description": "Present on GET cart when item_type is Food"
+            "description": "Food items only"
           },
           "availability_status": {
             "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
           },
           "is_in_stock": {
             "type": "boolean",
-            "description": "Present on GET cart when item_type is Food"
+            "description": "Food items only"
           },
           "stock_status": {
             "$ref": "#/components/schemas/ConsumerFoodStockStatus"
@@ -11542,6 +11610,193 @@
         "summary": "Notification inbox (paginated)"
       }
     },
+    "/vendor/notifications/test-push": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Test push sent — check device notification tray",
+                  "data": {
+                    "firebase_ready": "…",
+                    "push_enabled": true,
+                    "recipient_notification_on": "…",
+                    "block_reason": "…",
+                    "firebase_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
+                    "fcm_token_web": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
+                    "fcm_topics": "…",
+                    "delivery": "…"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Test push sent — check device notification tray"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "firebase_ready": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "push_enabled": {
+                          "type": "boolean",
+                          "example": true
+                        },
+                        "recipient_notification_on": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "block_reason": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "firebase_token": {
+                          "type": "string",
+                          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…"
+                        },
+                        "fcm_token_web": {
+                          "type": "string",
+                          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…"
+                        },
+                        "fcm_topics": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "delivery": {
+                          "type": "string",
+                          "example": "…"
+                        }
+                      },
+                      "example": {
+                        "firebase_ready": "…",
+                        "push_enabled": true,
+                        "recipient_notification_on": "…",
+                        "block_reason": "…",
+                        "firebase_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
+                        "fcm_token_web": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
+                        "fcm_topics": "…",
+                        "delivery": "…"
+                      }
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Test push sent — check device notification tray",
+                    "data": {
+                      "firebase_ready": "…",
+                      "push_enabled": true,
+                      "recipient_notification_on": "…",
+                      "block_reason": "…",
+                      "firebase_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
+                      "fcm_token_web": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
+                      "fcm_topics": "…",
+                      "delivery": "…"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable"
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
     "/vendor/notifications/toggle": {
       "put": {
         "description": "Updates `is_notification_on` on the vendor row (POS mobile `firebase_token` and web `fcm_token_web`). When **false**, direct FCM pushes are skipped. Optional body `{ \"enabled\": boolean }`; empty body **flips** current value.",
@@ -11803,7 +12058,12 @@
                 "example": {
                   "status": true,
                   "msg": "Successfully updated",
-                  "message": "successfully updated!"
+                  "message": "successfully updated!",
+                  "data": {
+                    "restaurant_id": 1,
+                    "restaurant_message_topic": 0,
+                    "fcm_topics": "…"
+                  }
                 }
               }
             }
