@@ -57,6 +57,58 @@ export function activeCouponWhere(extra?: Prisma.couponsWhereInput): Prisma.coup
   };
 }
 
+const notPosWhere: Prisma.ordersWhereInput = { order_type: { not: 'pos' } };
+
+/** Orders that consumed a coupon (failed/canceled do not count against one-time use). */
+const couponConsumptionWhere = (
+  userId: number,
+  code: string | null | undefined
+): Prisma.ordersWhereInput => ({
+  user_id: userId,
+  coupon_code: code ?? undefined,
+  order_status: { notIn: ['canceled', 'failed'] },
+  ...notPosWhere,
+});
+
+/** Max successful uses per customer for this coupon (default **1** when admin leaves limit empty). */
+export function couponPerCustomerUseLimit(coupon: coupons): number {
+  if (coupon.coupon_type === 'first_order') {
+    return 1;
+  }
+  if (coupon.limit != null && Number(coupon.limit) > 0) {
+    return Number(coupon.limit);
+  }
+  return 1;
+}
+
+export async function countCouponUsesForUser(
+  coupon: coupons,
+  userId: number
+): Promise<number> {
+  return prisma.orders.count({
+    where: couponConsumptionWhere(userId, coupon.code),
+  });
+}
+
+export async function assertCouponUsableByCustomer(
+  coupon: coupons,
+  userId: number
+): Promise<CouponValidationResult> {
+  const maxUses = couponPerCustomerUseLimit(coupon);
+  const uses = await countCouponUsesForUser(coupon, userId);
+  if (uses >= maxUses) {
+    return {
+      httpStatus: 406,
+      code: 'coupon',
+      message:
+        maxUses === 1
+          ? 'This coupon has already been used on your account'
+          : 'Coupon usage limit over',
+    };
+  }
+  return { ok: true };
+}
+
 /** PHP CouponLogic::is_valide — status codes 200, 404, 406, 407, 408 */
 export async function validateCouponForUser(
   coupon: coupons,
@@ -105,30 +157,18 @@ export async function validateCouponForUser(
     const totalOrders = await prisma.orders.count({
       where: { user_id: userId, ...notPosWhere },
     });
-    const limit = coupon.limit != null ? Number(coupon.limit) : 0;
-    if (totalOrders >= limit) {
-      return { httpStatus: 406, code: 'coupon', message: 'Coupon usage limit over' };
+    if (totalOrders >= 1) {
+      return {
+        httpStatus: 406,
+        code: 'coupon',
+        message: 'Coupon valid for first order only',
+      };
     }
     return { ok: true };
   }
 
-  if (coupon.limit == null) {
-    return { ok: true };
-  }
-
-  const uses = await prisma.orders.count({
-    where: {
-      user_id: userId,
-      coupon_code: coupon.code ?? undefined,
-    },
-  });
-  if (uses < Number(coupon.limit)) {
-    return { ok: true };
-  }
-  return { httpStatus: 406, code: 'coupon', message: 'Coupon usage limit over' };
+  return assertCouponUsableByCustomer(coupon, userId);
 }
-
-const notPosWhere: Prisma.ordersWhereInput = { order_type: { not: 'pos' } };
 
 export function calculateCouponDiscount(coupon: coupons, orderAmount: number): number {
   let discount = 0;
@@ -144,14 +184,20 @@ export function calculateCouponDiscount(coupon: coupons, orderAmount: number): n
   return Math.round(discount * 100) / 100;
 }
 
+export type FormatConsumerCouponOptions = {
+  restaurantName?: string | null;
+  dataLabel?: string | null;
+  includeCode?: boolean;
+};
+
+/** Checkout preview only — never includes `code` unless explicitly requested (admin tools). */
 export function formatConsumerCoupon(
   coupon: coupons,
-  options?: { restaurantName?: string | null; dataLabel?: string | null }
+  options?: FormatConsumerCouponOptions
 ): Record<string, unknown> {
-  return {
+  const base: Record<string, unknown> = {
     id: Number(coupon.id),
     title: coupon.title,
-    code: coupon.code,
     start_date: coupon.start_date,
     expire_date: coupon.expire_date,
     min_purchase: Number(coupon.min_purchase),
@@ -159,20 +205,20 @@ export function formatConsumerCoupon(
     discount: Number(coupon.discount),
     discount_type: coupon.discount_type,
     coupon_type: coupon.coupon_type,
-    limit: coupon.limit != null ? Number(coupon.limit) : null,
     status: coupon.status,
     data: options?.dataLabel ?? coupon.data,
-    total_uses: coupon.total_uses != null ? Number(coupon.total_uses) : 0,
-    created_by: coupon.created_by,
-    customer_id: coupon.customer_id,
-    slug: coupon.slug,
     restaurant_id: coupon.restaurant_id != null ? Number(coupon.restaurant_id) : null,
     restaurant: options?.restaurantName
       ? { id: Number(coupon.restaurant_id ?? 0), name: options.restaurantName }
       : undefined,
-    created_at: coupon.created_at,
-    updated_at: coupon.updated_at,
+    enter_code_at_checkout: true,
   };
+
+  if (options?.includeCode) {
+    base.code = coupon.code;
+  }
+
+  return base;
 }
 
 async function restaurantActiveInZones(restaurantId: number, zoneIds: number[]): Promise<boolean> {

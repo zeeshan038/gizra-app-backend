@@ -1,8 +1,9 @@
 import Joi from 'joi';
 
 export const couponApplyQuerySchema = Joi.object({
-  code: Joi.string().required(),
+  code: Joi.string().trim().required(),
   restaurant_id: Joi.number().integer().positive().required(),
+  order_amount: Joi.number().min(0).optional(),
 });
 
 export const couponListQuerySchema = Joi.object({

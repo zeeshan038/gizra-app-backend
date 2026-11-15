@@ -1,12 +1,13 @@
 import { Request, Response } from 'express';
 import prisma from '../../config/database';
 import { adminSendPushNotificationSchema } from '../../schemas/admin/PushNotification';
-import { fitDbString, normalizeStoredMedia, publicMediaUrl } from '../../utils/mediaStorage';
-import { sendFcmToTopic } from '../../utils/notifications/fcm';
 import {
-  resolvePushBroadcastTopic,
-  type PushBroadcastTarget,
-} from '../../utils/notifications/pushBroadcastTopic';
+  fitDbString,
+  normalizeStoredMedia,
+  resolveAbsoluteNotificationImageUrl,
+} from '../../utils/mediaStorage';
+import { sendAdminPushBroadcast } from '../../utils/notifications/sendAdminPushBroadcast';
+import type { PushBroadcastTarget } from '../../utils/notifications/pushBroadcastTopic';
 
 /**
  * @Description Send admin broadcast push (PHP POST admin notification store)
@@ -38,9 +39,8 @@ export const sendAdminPushNotification = async (req: Request, res: Response): Pr
     }
   }
 
-  const storedImage = image?.trim()
-    ? fitDbString(normalizeStoredMedia(image, '', 50), 50)
-    : null;
+  const normalizedImage = image?.trim() ? normalizeStoredMedia(image, '', 191) : '';
+  const storedImage = normalizedImage ? fitDbString(normalizedImage, 50) : null;
 
   const row = await prisma.notifications.create({
     data: {
@@ -55,25 +55,33 @@ export const sendAdminPushNotification = async (req: Request, res: Response): Pr
     },
   });
 
-  const topic = resolvePushBroadcastTopic(tergat as PushBroadcastTarget, zoneKey);
-  const imageUrl = storedImage ? publicMediaUrl(storedImage) ?? '' : '';
+  const imageUrl = resolveAbsoluteNotificationImageUrl(image) ?? '';
+  if (image?.trim() && !imageUrl) {
+    console.warn('[notify] admin push skipped image — not a public HTTPS URL', image);
+  }
 
-  try {
-    await sendFcmToTopic(topic, {
-      title,
-      description,
-      type: 'general',
-      image: imageUrl,
-    });
-  } catch (e) {
-    console.error('[notify] admin push broadcast failed', e);
+  const delivery = await sendAdminPushBroadcast(tergat as PushBroadcastTarget, zoneKey, {
+    title,
+    description,
+    type: 'general',
+    image: imageUrl || undefined,
+  });
+
+  if (!delivery.push_sent) {
+    const noDevices = delivery.device_tokens === 0;
     return res.status(201).json({
       status: true,
-      msg: 'Notification saved but push delivery failed',
+      msg: noDevices
+        ? 'Notification saved but no devices with FCM tokens were found for this audience'
+        : 'Notification saved but push delivery failed',
       data: {
         id: row.id.toString(),
-        topic,
+        topic: delivery.topic,
         push_sent: false,
+        image_url: imageUrl || null,
+        device_tokens: delivery.device_tokens,
+        devices_delivered: delivery.devices_delivered,
+        topic_delivered: delivery.topic_delivered,
       },
     });
   }
@@ -83,8 +91,12 @@ export const sendAdminPushNotification = async (req: Request, res: Response): Pr
     msg: 'Notification sent successfully',
     data: {
       id: row.id.toString(),
-      topic,
+      topic: delivery.topic,
       push_sent: true,
+      image_url: imageUrl || null,
+      device_tokens: delivery.device_tokens,
+      devices_delivered: delivery.devices_delivered,
+      topic_delivered: delivery.topic_delivered,
     },
   });
 };

@@ -1,0 +1,1 @@
+ALTER TABLE carts ADD COLUMN IF NOT EXISTS add_on_placements TEXT;

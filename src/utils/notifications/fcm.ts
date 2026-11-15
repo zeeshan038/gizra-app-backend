@@ -41,6 +41,7 @@ function buildStringData(data: FcmPushData): Record<string, string> {
     order_type: data.order_type != null ? String(data.order_type) : undefined,
     order_status: data.order_status != null ? String(data.order_status) : undefined,
     image: data.image != null ? String(data.image) : undefined,
+    image_full_url: data.image != null ? String(data.image) : undefined,
     processing_time: data.processing_time,
     cooking_time_minutes: data.cooking_time_minutes,
     gizra_order_id: data.gizra_order_id,
@@ -54,6 +55,8 @@ function buildStringData(data: FcmPushData): Record<string, string> {
   if (orderId) {
     raw.title_loc_key = orderId;
     raw.body_loc_key = type || 'new_order';
+  } else if (type) {
+    raw.body_loc_key = type;
   }
 
   return Object.fromEntries(
@@ -63,6 +66,41 @@ function buildStringData(data: FcmPushData): Record<string, string> {
   );
 }
 
+function fcmImageUrl(data: FcmPushData): string | undefined {
+  const image = data.image?.trim();
+  return image || undefined;
+}
+
+/** Legacy PHP puts image on notification + android + data; required for rich pushes / Flutter. */
+function buildDisplayNotification(data: FcmPushData) {
+  const imageUrl = fcmImageUrl(data);
+  return {
+    notification: {
+      title: String(data.title),
+      body: String(data.description),
+      ...(imageUrl ? { imageUrl } : {}),
+    },
+    android: {
+      priority: 'high' as const,
+      notification: {
+        channelId: 'stackfood',
+        sound: 'notification.wav',
+        ...(imageUrl ? { imageUrl } : {}),
+      },
+    },
+    apns: {
+      headers: { 'apns-priority': '10' },
+      payload: {
+        aps: {
+          sound: 'notification.wav',
+          ...(imageUrl ? { 'mutable-content': 1 } : {}),
+        },
+      },
+      ...(imageUrl ? { fcmOptions: { imageUrl } } : {}),
+    },
+  };
+}
+
 async function sendViaFirebaseAdmin(
   target: { token: string } | { topic: string },
   data: FcmPushData
@@ -70,25 +108,18 @@ async function sendViaFirebaseAdmin(
   if (!isFirebaseReady) return false;
 
   const stringData = buildStringData(data);
+  const display = buildDisplayNotification(data);
   try {
     const messageId = await getMessaging().send({
       ...target,
-      notification: {
-        title: String(data.title),
-        body: String(data.description),
-      },
+      ...display,
       data: stringData,
-      android: {
-        priority: 'high',
-        notification: { channelId: 'stackfood', sound: 'notification.wav' },
-      },
-      apns: {
-        headers: { 'apns-priority': '10' },
-        payload: { aps: { sound: 'notification.wav' } },
-      },
     });
     const targetLabel = 'token' in target ? 'device' : `topic:${target.topic}`;
-    console.log(`[notify] FCM ok (${targetLabel}) messageId=${messageId} type=${data.type}`);
+    const img = fcmImageUrl(data);
+    console.log(
+      `[notify] FCM ok (${targetLabel}) messageId=${messageId} type=${data.type}${img ? ' image=yes' : ' image=no'}`
+    );
     return true;
   } catch (error: unknown) {
     const code =
@@ -160,14 +191,16 @@ function legacyDataPayload(data: FcmPushData): Record<string, string> {
   return base;
 }
 
-/** Device token — mirrors PHP `send_push_notif_to_device`. */
-export async function sendFcmToDevice(token: string, data: FcmPushData): Promise<void> {
-  if (!token?.trim()) return;
+/** Device token — mirrors PHP `send_push_notif_to_device`. Returns true when FCM accepted the message. */
+export async function sendFcmToDevice(token: string, data: FcmPushData): Promise<boolean> {
+  if (!token?.trim()) return false;
 
-  if (await sendViaFirebaseAdmin({ token: token.trim() }, data)) return;
+  if (await sendViaFirebaseAdmin({ token: token.trim() }, data)) return true;
 
   const serverKey = process.env.FCM_SERVER_KEY;
   const projectId = process.env.FIREBASE_PROJECT_ID;
+
+  const imageUrl = fcmImageUrl(data);
 
   if (serverKey) {
     const res = await fetch('https://fcm.googleapis.com/fcm/send', {
@@ -184,30 +217,32 @@ export async function sendFcmToDevice(token: string, data: FcmPushData): Promise
           title: String(data.title),
           body: String(data.description),
           sound: 'notification.wav',
+          ...(imageUrl ? { image: imageUrl } : {}),
         },
       }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok || (body as { failure?: number }).failure) {
       console.error('[notify] FCM legacy device send failed', body);
-    } else {
-      console.log('[notify] FCM legacy device ok type=', data.type);
+      return false;
     }
-    return;
+    console.log('[notify] FCM legacy device ok type=', data.type);
+    return true;
   }
 
   if (!projectId || !process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
     console.warn('[notify] FCM device not sent — set FCM_SERVER_KEY or FIREBASE_* env vars');
-    return;
+    return false;
   }
 
   const accessToken = await getGoogleAccessToken(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
   if (!accessToken) {
     console.warn('[notify] FCM device not sent — could not obtain Google access token');
-    return;
+    return false;
   }
 
   const stringData = buildStringData(data);
+  const display = buildDisplayNotification(data);
 
   const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
     method: 'POST',
@@ -219,40 +254,34 @@ export async function sendFcmToDevice(token: string, data: FcmPushData): Promise
       message: {
         token: token.trim(),
         data: stringData,
-        notification: {
-          title: String(data.title),
-          body: String(data.description),
-        },
-        android: {
-          priority: 'high',
-          notification: { channelId: 'stackfood', sound: 'notification.wav' },
-        },
-        apns: {
-          headers: { 'apns-priority': '10' },
-          payload: { aps: { sound: 'notification.wav' } },
-        },
+        notification: display.notification,
+        android: display.android,
+        apns: display.apns,
       },
     }),
   });
   if (!res.ok) {
     const body = await res.text().catch(() => '');
     console.error('[notify] FCM device HTTP v1 failed', res.status, body.slice(0, 500));
-  } else {
-    console.log('[notify] FCM device HTTP v1 ok type=', data.type);
+    return false;
   }
+  console.log('[notify] FCM device HTTP v1 ok type=', data.type);
+  return true;
 }
 
 /** Firebase topic — mirrors PHP `send_push_notif_to_topic` (type = order_request, etc.). */
-export async function sendFcmToTopic(topic: string, data: FcmPushData): Promise<void> {
-  if (!topic?.trim()) return;
+export async function sendFcmToTopic(topic: string, data: FcmPushData): Promise<boolean> {
+  if (!topic?.trim()) return false;
 
-  if (await sendViaFirebaseAdmin({ topic: topic.trim() }, data)) return;
+  if (await sendViaFirebaseAdmin({ topic: topic.trim() }, data)) return true;
 
   const serverKey = process.env.FCM_SERVER_KEY;
   const projectId = process.env.FIREBASE_PROJECT_ID;
 
+  const imageUrl = fcmImageUrl(data);
+
   if (serverKey) {
-    await fetch('https://fcm.googleapis.com/fcm/send', {
+    const res = await fetch('https://fcm.googleapis.com/fcm/send', {
       method: 'POST',
       headers: {
         Authorization: `key=${serverKey}`,
@@ -266,26 +295,33 @@ export async function sendFcmToTopic(topic: string, data: FcmPushData): Promise<
           title: String(data.title),
           body: String(data.description),
           sound: 'notification.wav',
+          ...(imageUrl ? { image: imageUrl } : {}),
         },
       }),
     });
-    return;
+    const topicBody = await res.json().catch(() => ({}));
+    if (!res.ok || (topicBody as { failure?: number }).failure) {
+      console.error('[notify] FCM legacy topic send failed', topicBody);
+      return false;
+    }
+    return true;
   }
 
   if (!projectId || !process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
     console.warn(
       `[notify] FCM topic not sent — set FCM_SERVER_KEY or FIREBASE_* env vars (topic=${topic.trim()})`
     );
-    return;
+    return false;
   }
 
   const accessToken = await getGoogleAccessToken(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
   if (!accessToken) {
     console.warn(`[notify] FCM topic not sent — Google access token failed (topic=${topic.trim()})`);
-    return;
+    return false;
   }
 
   const stringData = buildStringData(data);
+  const display = buildDisplayNotification(data);
 
   const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
     method: 'POST',
@@ -297,12 +333,9 @@ export async function sendFcmToTopic(topic: string, data: FcmPushData): Promise<
       message: {
         topic: topic.trim(),
         data: stringData,
-        notification: {
-          title: String(data.title),
-          body: String(data.description),
-        },
-        android: { notification: { channelId: 'stackfood', sound: 'notification.wav' } },
-        apns: { payload: { aps: { sound: 'notification.wav' } } },
+        notification: display.notification,
+        android: display.android,
+        apns: display.apns,
       },
     }),
   });
@@ -313,5 +346,7 @@ export async function sendFcmToTopic(topic: string, data: FcmPushData): Promise<
       res.status,
       body.slice(0, 500)
     );
+    return false;
   }
+  return true;
 }

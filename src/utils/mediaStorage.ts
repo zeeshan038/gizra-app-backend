@@ -54,6 +54,39 @@ export function publicFoodMediaUrl(stored: string | null | undefined): string | 
 
 const CATEGORY_IMAGE_PLACEHOLDERS = new Set(['def.png', 'default.png']);
 
+/** Admin push / notification banner (legacy `notification/` folder on public disk). */
+export function publicNotificationMediaUrl(stored: string | null | undefined): string | null {
+  const raw = stored?.trim();
+  if (!raw) return null;
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  if (raw.includes('/')) {
+    return publicMediaUrl(raw.replace(/^\//, ''));
+  }
+  const path = raw.startsWith('notification/') ? raw : `notification/${raw}`;
+  return publicMediaUrl(path);
+}
+
+/** FCM requires a public HTTPS URL — relative paths are ignored by mobile clients. */
+export function resolveAbsoluteNotificationImageUrl(
+  incoming: string | null | undefined
+): string | null {
+  const raw = incoming?.trim();
+  if (!raw) return null;
+  if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    return raw;
+  }
+  const resolved = publicNotificationMediaUrl(normalizeStoredMedia(raw, '', 191));
+  if (!resolved) return null;
+  if (resolved.startsWith('http://') || resolved.startsWith('https://')) {
+    return resolved;
+  }
+  console.warn(
+    '[notify] push image is not absolute — set CLOUDFLARE_PUBLIC_URL or POST the full upload URL',
+    resolved
+  );
+  return null;
+}
+
 /** Category tiles (home + restaurant menu chips). */
 export function publicCategoryMediaUrl(stored: string | null | undefined): string | null {
   const raw = stored?.trim();

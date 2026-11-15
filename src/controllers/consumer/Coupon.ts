@@ -8,11 +8,11 @@ import {
   restaurantWiseCouponQuerySchema,
 } from '../../schemas/consumer/Coupon';
 import {
-  filterCouponsForCustomerList,
+  calculateCouponDiscount,
   formatConsumerCoupon,
-  loadCouponsForRestaurantFilter,
   validateCouponForUser,
 } from '../../utils/consumer/couponHelpers';
+
 
 /**
  * @Description Customer coupon list (PHP GET /api/v1/coupon/list)
@@ -30,22 +30,13 @@ export const listCoupons = async (req: Request, res: Response): Promise<any> => 
     return sendApiError(res, 403, joiFirstMessage(validated.error));
   }
 
-  const { restaurant_id: restaurantId } = validated.value as { restaurant_id?: number };
-  const customerId = Number(req.user?.id);
-
-  try {
-    const rows = await loadCouponsForRestaurantFilter(restaurantId);
-    const data = await filterCouponsForCustomerList({
-      coupons: rows,
-      zoneIds,
-      customerId,
-      restaurantId,
-    });
-    return res.status(200).json(data);
-  } catch (e: unknown) {
-    return sendApiError(res, 403, errorMessageFromUnknown(e));
-  }
+  return res.status(200).json({
+    status: true,
+    data: [],
+    msg: 'Coupons are applied at checkout with a code you received separately',
+  });
 };
+
 
 /**
  * @Description Validate & return coupon (PHP GET /api/v1/coupon/apply)
@@ -58,15 +49,16 @@ export const applyCoupon = async (req: Request, res: Response): Promise<any> => 
     return sendApiError(res, 403, joiFirstMessage(validated.error));
   }
 
-  const { code, restaurant_id: restaurantId } = validated.value as {
+  const { code, restaurant_id: restaurantId, order_amount: orderAmount } = validated.value as {
     code: string;
     restaurant_id: number;
+    order_amount?: number;
   };
   const userId = Number(req.user?.id);
 
   try {
     const coupon = await prisma.coupons.findFirst({
-      where: { code, status: true },
+      where: { code: code.trim(), status: true },
     });
     if (!coupon) {
       return sendApiError(res, 404, 'Coupon not found');
@@ -77,7 +69,20 @@ export const applyCoupon = async (req: Request, res: Response): Promise<any> => 
       return sendApiError(res, check.httpStatus, check.message);
     }
 
-    return res.status(200).json(formatConsumerCoupon(coupon));
+    const subtotal =
+      orderAmount != null && Number.isFinite(Number(orderAmount)) ? Number(orderAmount) : 0;
+    if (Number(coupon.min_purchase) > 0 && subtotal > 0 && subtotal < Number(coupon.min_purchase)) {
+      return sendApiError(res, 403, 'Minimum purchase not met for coupon');
+    }
+
+    const preview = subtotal > 0 ? calculateCouponDiscount(coupon, subtotal) : null;
+    return res.status(200).json({
+      status: true,
+      data: {
+        ...formatConsumerCoupon(coupon),
+        coupon_discount_amount: preview,
+      },
+    });
   } catch (e: unknown) {
     return sendApiError(res, 403, errorMessageFromUnknown(e));
   }
@@ -99,19 +104,9 @@ export const restaurantWiseCoupons = async (req: Request, res: Response): Promis
     return sendApiError(res, 403, joiFirstMessage(validated.error, 'Restaurant id is required'));
   }
 
-  const { restaurant_id: restaurantId } = validated.value as { restaurant_id: number };
-
-  try {
-    const rows = await loadCouponsForRestaurantFilter(restaurantId);
-    const data = await filterCouponsForCustomerList({
-      coupons: rows,
-      zoneIds,
-      customerId: null,
-      restaurantId,
-      publicRestaurantCoupons: true,
-    });
-    return res.status(200).json(data);
-  } catch (e: unknown) {
-    return sendApiError(res, 403, errorMessageFromUnknown(e));
-  }
+  return res.status(200).json({
+    status: true,
+    data: [],
+    msg: 'Coupons are applied at checkout with a code you received separately',
+  });
 };

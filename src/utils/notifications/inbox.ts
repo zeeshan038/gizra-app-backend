@@ -1,6 +1,6 @@
 import { Prisma, notifications, user_notifications } from '@prisma/client';
 import prisma from '../../config/database';
-import { publicMediaUrl } from '../mediaStorage';
+import { publicMediaUrl, publicNotificationMediaUrl } from '../mediaStorage';
 import { paginationSkip } from '../consumer/orderListHelpers';
 
 export type InboxBroadcastTarget = 'deliveryman' | 'restaurant' | 'customer';
@@ -38,7 +38,7 @@ function mapBroadcastRow(n: notifications) {
       image: n.image,
       type: 'push_notification',
     },
-    image_full_url: publicMediaUrl(n.image ?? '') ?? n.image,
+    image_full_url: publicNotificationMediaUrl(n.image) ?? publicMediaUrl(n.image) ?? n.image,
     source: 'broadcast' as const,
   };
 }

@@ -6,6 +6,7 @@ const CHAT_OVERLAY_FILE = path.join(__dirname, 'swagger.chat.overlay.json');
 const REVIEWS_OVERLAY_FILE = path.join(__dirname, 'swagger.reviews.overlay.json');
 const PAYMENT_OVERLAY_FILE = path.join(__dirname, 'swagger.payment.overlay.json');
 const COUPON_OVERLAY_FILE = path.join(__dirname, 'swagger.coupon.overlay.json');
+const ADMIN_COUPON_OVERLAY_FILE = path.join(__dirname, 'swagger.admin.coupon.overlay.json');
 const CATALOG_OVERLAY_FILE = path.join(__dirname, 'swagger.catalog.overlay.json');
 const HOME_CATEGORIES_OVERLAY_FILE = path.join(__dirname, 'swagger.homeCategories.overlay.json');
 
@@ -73,6 +74,15 @@ function loadOverlay() {
     mergeComponents(main, coupon.components);
     if (Array.isArray(coupon.tags) && coupon.tags.length) {
       main.tags = [...(main.tags || []), ...coupon.tags];
+    }
+  }
+
+  const adminCoupon = loadOverlayFile(ADMIN_COUPON_OVERLAY_FILE, 'swagger.admin.coupon.overlay.json');
+  if (adminCoupon) {
+    main.paths = { ...(main.paths || {}), ...(adminCoupon.paths || {}) };
+    mergeComponents(main, adminCoupon.components);
+    if (Array.isArray(adminCoupon.tags) && adminCoupon.tags.length) {
+      main.tags = [...(main.tags || []), ...adminCoupon.tags];
     }
   }
 

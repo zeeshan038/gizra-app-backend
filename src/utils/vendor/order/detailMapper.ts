@@ -4,6 +4,10 @@ import { ORDER_PRICE_TOLERANCE, resolveUnitFoodPrice } from '../../consumer/orde
 import { computeVariationExtra } from '../../consumer/variationPricing';
 import { mapOrderSummary, mapOrderLineItem, OrderCustomerBrief } from './mapper';
 import {
+  formatKitchenModifierName,
+  variationKitchenLinesFromStored,
+} from '../../order/pizzaPlacement';
+import {
   deriveOrderValueFromOrder,
   GIZRA_COMMISSION_PERCENT,
   gizraCommissionOnFood,
@@ -121,11 +125,15 @@ export function parseAddonLines(raw: string | null): AddonDisplayLine[] {
     if (Array.isArray(parsed)) {
       return parsed
         .filter((a) => a && typeof a === 'object')
-        .map((a) => ({
-          name: String(a.name ?? 'Addon'),
-          quantity: Number(a.quantity) || 1,
-          price: Number(a.price) || 0,
-        }));
+        .map((a) => {
+          const placement = (a as Record<string, unknown>).pizza_placement;
+          const rawName = String((a as Record<string, unknown>).name ?? 'Addon');
+          return {
+            name: formatKitchenModifierName(rawName, placement),
+            quantity: Number((a as Record<string, unknown>).quantity) || 1,
+            price: Number((a as Record<string, unknown>).price) || 0,
+          };
+        });
     }
     return [];
   } catch {
@@ -362,6 +370,8 @@ export function mapOrderDetailLineItem(
   const line_addon_total = roundMoney(addon_per_unit * quantity);
   const line_subtotal = roundMoney(line_food_total + line_addon_total);
 
+  const variation_kitchen_lines = variationKitchenLinesFromStored(row.variation);
+
   return {
     ...base,
     /** Food + variations only (excludes add-ons). */
@@ -369,6 +379,7 @@ export function mapOrderDetailLineItem(
     unit_food_price,
     addon_per_unit,
     addon_lines,
+    variation_kitchen_lines,
     line_food_total,
     line_addon_total,
     line_subtotal,
@@ -568,6 +579,7 @@ export function toVendorOrderLineItem(item: ReturnType<typeof mapOrderDetailLine
     line_addon_total: item.line_addon_total,
     line_subtotal: item.line_subtotal,
     variation: item.variation,
+    variation_kitchen_lines: item.variation_kitchen_lines ?? [],
   };
 }
 
@@ -598,6 +610,7 @@ function manualDispatchPlaceholderItem(
     unit_food_price: itemSubtotal,
     addon_per_unit: 0,
     addon_lines: [],
+    variation_kitchen_lines: [],
     line_food_total: itemSubtotal,
     line_addon_total: 0,
     line_subtotal: itemSubtotal,

@@ -63,6 +63,7 @@ cd gizra-backend && npm run swagger:gen
 | **`selectionMode`** | `"standard"` \| **`opt_out`** \| **`opt_in`** | See §3 |
 | **`defaultSelectAll`** | boolean | If true, pre-select every option in this group on open |
 | **`priceDisplay`** | `"included"` \| `"price"` | UI hint for zero-price included rows |
+| **`enablePizzaHalfWhole`** | boolean | Pizza shops: show half/whole selector per topping in this group (no price change) |
 | `values` | array | Options (**always** `values` on consumer APIs, not `options`) |
 
 ### 2.2 New / important option fields (`ConsumerFoodVariationOption`)
@@ -199,8 +200,9 @@ double unitTotal = product.price + variationExtra;
 - Send selected variations in existing StackFood format (`name` + selected labels / `values`).
 - **Avoid double submission:** if both `variations` and `variation_options` are sent with the same picks, server uses one path — prefer **one** consistent field (see server `mergeCartLineVariations`).
 - Add-ons: continue `add_on_ids` + `add_on_qtys`; do not mix paid upgrades into add-ons if they are configured as variation group `opt_in`.
+- **Pizza half/whole (display only):** see **[FLUTTER-PIZZA-HALF-WHOLE.md](./FLUTTER-PIZZA-HALF-WHOLE.md)** (full UX, payloads, cart merge).
 
-Server recomputes unit food with `resolveCheckoutServerUnitBase` + `computeVariationExtra` — client total should match within normal rounding.
+Server recomputes unit food with `resolveCheckoutServerUnitBase` + `computeVariationExtra` — client total should match within normal rounding. Kitchen labels on receipts come from the API (`addon_lines[].name`, `variation_kitchen_lines`).
 
 ---
 

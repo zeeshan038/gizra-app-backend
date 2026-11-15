@@ -52,6 +52,12 @@ import {
   applyBundledAddonLinePriceRule,
   resolveCartLineUnitFoodPrice,
 } from '../../utils/consumer/orderLinePricing';
+import {
+  enrichVariationSelectionsForKitchen,
+  formatKitchenModifierName,
+  normalizeAddOnPlacements,
+  normalizePizzaPlacement,
+} from '../../utils/order/pizzaPlacement';
 
 
 function roundMoney(value: number): number {
@@ -91,10 +97,15 @@ function parseJson<T>(value: string | null | undefined, fallback: T): T {
 }
 
 /** Add-on totals from DB (legacy Helpers::calculate_addon_price). */
-async function calculateAddonPrice(addOnIds: number[], addOnQtys: number[]) {
+async function calculateAddonPrice(
+  addOnIds: number[],
+  addOnQtys: number[],
+  addOnPlacements?: unknown[]
+) {
   if (!addOnIds.length) {
     return { total_add_on_price: 0, addons: [] as unknown[] };
   }
+  const placements = normalizeAddOnPlacements(addOnIds, addOnPlacements);
   const addons = await prisma.add_ons.findMany({
     where: { id: { in: addOnIds.map((id) => BigInt(id)) }, status: true },
   });
@@ -106,11 +117,13 @@ async function calculateAddonPrice(addOnIds: number[], addOnQtys: number[]) {
     if (!addon) continue;
     const line = Number(addon.price) * qty;
     total += line;
+    const placement = placements[i];
     details.push({
       id: Number(addon.id),
-      name: addon.name,
+      name: formatKitchenModifierName(addon.name, placement),
       price: Number(addon.price),
       quantity: qty,
+      pizza_placement: normalizePizzaPlacement(placement),
     });
   }
   return { total_add_on_price: roundMoney(total), addons: details };
@@ -445,6 +458,7 @@ type CartLineInput = {
   quantity: number;
   add_on_ids?: number[];
   add_on_qtys?: number[];
+  add_on_placements?: unknown[];
   variations?: unknown[];
   variation_options?: unknown[];
 };
@@ -470,6 +484,7 @@ function normalizeCartRow(row: {
   quantity: bigint;
   add_on_ids: string | null;
   add_on_qtys: string | null;
+  add_on_placements?: string | null;
   variations: string | null;
   variation_options: string | null;
 }): ResolvedCartLine {
@@ -481,6 +496,7 @@ function normalizeCartRow(row: {
     quantity: Number(row.quantity),
     add_on_ids: parseJsonField<number[]>(row.add_on_ids, []),
     add_on_qtys: parseJsonField<number[]>(row.add_on_qtys, []),
+    add_on_placements: parseJsonField<unknown[]>(row.add_on_placements ?? null, []),
     variations: parseJsonField<unknown[]>(row.variations, []),
     variation_options: parseJsonField<unknown[]>(row.variation_options, []),
   };
@@ -925,7 +941,14 @@ export async function executePlaceOrder(params: {
       legacyVariations: legacyVariationsByFoodId.get(Number(food.id)),
       selectedVariations,
     });
-    const addonData = await calculateAddonPrice(line.add_on_ids ?? [], line.add_on_qtys ?? []);
+    const addonData = await calculateAddonPrice(
+      line.add_on_ids ?? [],
+      line.add_on_qtys ?? [],
+      line.add_on_placements
+    );
+    const variationForStorage = enrichVariationSelectionsForKitchen(
+      mergeCartLineVariations(line) ?? []
+    );
     const addonPerUnit = addonData.total_add_on_price;
     const clientLineUnit = coerceCartLinePriceToUnit({
       linePrice: line.price,
@@ -967,7 +990,7 @@ export async function executePlaceOrder(params: {
       food_id: line.item_id,
       price: roundMoney(unitBase),
       quantity: BigInt(line.quantity),
-      variation: JSON.stringify(line.variations ?? []),
+      variation: JSON.stringify(variationForStorage),
       add_ons: JSON.stringify(addonData.addons),
       discount_on_food: discountOnFood,
       discount_type: 'discount_on_product',

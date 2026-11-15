@@ -5891,21 +5891,53 @@
     "/consumer/cart/add": {
       "post": {
         "summary": "Add to cart",
-        "description": "Same auth as GET `/consumer/cart/`. With **guest Bearer token**, set `is_guest: true` in body or omit — server infers guest from JWT. Legacy: `is_guest: true` and `guest_id` without Bearer.\n\nReturns **403** with `code: food_selling_time` when outside the selling window, or `code: food_stock` when limited stock is exhausted or quantity exceeds `current_stock`.",
+        "description": "Same auth as GET `/consumer/cart/`. Requires `restaurant_id` (one restaurant per cart). Duplicate line identity merges quantity (**200**); new line **201**. Response `data` is a full `ConsumerCartLineItem`.\n\nReturns **403** with `code: food_selling_time`, `code: food_stock`, or another restaurant in cart.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerCartAuthHeader"
           }
         ],
         "responses": {
-          "201": {
-            "description": "Item added",
+          "200": {
+            "description": "Existing line quantity increased",
             "content": {
               "application/json": {
-                "example": {
-                  "status": true,
-                  "msg": "Added to cart successfully",
-                  "data": {}
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ConsumerCartLineItem"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "New cart line created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ConsumerCartLineItem"
+                    }
+                  }
                 }
               }
             }
@@ -13440,15 +13472,30 @@
       },
       "ConsumerCartLineItem": {
         "type": "object",
-        "description": "Cart row with optional selling-time and stock flags on GET (Food items only).",
+        "description": "Server-authoritative cart line — display fields enriched on every GET/add/update/add-multiple response.",
         "properties": {
           "id": {
             "type": "string",
+            "description": "Cart row id (for update/remove)",
             "example": "501"
           },
           "user_id": {
             "type": "string",
             "nullable": true
+          },
+          "is_guest": {
+            "type": "boolean",
+            "example": false
+          },
+          "restaurant_id": {
+            "type": "string",
+            "nullable": true,
+            "example": "3"
+          },
+          "restaurant_name": {
+            "type": "string",
+            "nullable": true,
+            "example": "Pizza Palace"
           },
           "item_id": {
             "type": "string",
@@ -13458,24 +13505,77 @@
             "type": "string",
             "example": "Food"
           },
+          "title": {
+            "type": "string",
+            "nullable": true,
+            "example": "Morning Shakshuka"
+          },
+          "image_url": {
+            "type": "string",
+            "nullable": true
+          },
           "quantity": {
             "type": "integer",
-            "example": 1
+            "example": 2
           },
           "price": {
             "type": "number",
+            "description": "Unit price including add-ons",
+            "example": 55
+          },
+          "unit_base_price": {
+            "type": "number",
             "example": 45
+          },
+          "unit_addons_total": {
+            "type": "number",
+            "example": 10
+          },
+          "add_on_ids": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "add_on_qtys": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "add_on_placements": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "whole",
+                "half_a",
+                "half_b"
+              ]
+            }
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "variation_options": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
           },
           "is_available_now": {
             "type": "boolean",
-            "description": "Present on GET cart when item_type is Food"
+            "description": "Food items only"
           },
           "availability_status": {
             "$ref": "#/components/schemas/ConsumerFoodAvailabilityStatus"
           },
           "is_in_stock": {
             "type": "boolean",
-            "description": "Present on GET cart when item_type is Food"
+            "description": "Food items only"
           },
           "stock_status": {
             "$ref": "#/components/schemas/ConsumerFoodStockStatus"

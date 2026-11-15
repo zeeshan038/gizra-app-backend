@@ -52,6 +52,7 @@ export const createFoodSchema = Joi.object({
   available_time_starts: Joi.string().allow('', null).optional(),
   available_time_ends: Joi.string().allow('', null).optional(),
   veg: Joi.boolean().optional().default(false),
+  addons_pizza_half_whole: Joi.boolean().optional(),
 });
 
 const foodAddOnsSchema = Joi.array()
@@ -86,6 +87,7 @@ export const updateFoodSchema = Joi.object({
   available_time_starts: Joi.string().allow('', null).optional(),
   available_time_ends: Joi.string().allow('', null).optional(),
   veg: Joi.boolean().optional(),
+  addons_pizza_half_whole: Joi.boolean().optional(),
 });
 
 export const aiTextSchema = Joi.object({

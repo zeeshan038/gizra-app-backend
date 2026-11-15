@@ -51,9 +51,7 @@ function buildCouponWriteData(body: CouponBody) {
   const limit =
     body.coupon_type === 'first_order'
       ? BigInt(1)
-      : body.limit != null
-        ? BigInt(body.limit)
-        : null;
+      : BigInt(body.limit != null && Number(body.limit) > 0 ? Number(body.limit) : 1);
 
   const maxDiscount =
     body.discount_type === 'amount' || body.coupon_type === 'free_delivery' ? 0 : body.max_discount;

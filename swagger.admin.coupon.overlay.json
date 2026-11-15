@@ -1,0 +1,300 @@
+{
+  "tags": [
+    {
+      "name": "Admin Coupons",
+      "description": "Create and manage **private promo codes** for the customer app. Codes are **not** shown in the mobile coupon list — admin copies the `code` and shares it (video, SMS, etc.). Customers type it at checkout (`GET /consumer/coupon/apply`, `POST /consumer/order/place`).\n\n**Base URL:** `https://backend-dev.gizra.app/api` (paths relative to `/api`).\n\n**Auth:** Admin JWT on all routes (`verifyAdmin`).\n\n**Default:** `limit` = **1 use per customer** when omitted.\n\nSee `docs/ADMIN-COUPON-API.md`."
+    }
+  ],
+  "paths": {
+    "/admin/coupons/list": {
+      "get": {
+        "summary": "List admin coupons (paginated)",
+        "tags": ["Admin Coupons"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" },
+            "description": "Search title or code"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": { "type": "integer", "default": 1, "minimum": 1 }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 15, "minimum": 1, "maximum": 100 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminCouponListResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/coupons/": {
+      "post": {
+        "summary": "Create coupon",
+        "tags": ["Admin Coupons"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AdminCouponCreateBody" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminCouponMutationResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or duplicate code",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "example": { "status": false, "msg": "Coupon code already exists" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/coupons/{id}": {
+      "get": {
+        "summary": "Get coupon by id",
+        "tags": ["Admin Coupons"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminCouponMutationResponse" }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update coupon",
+        "tags": ["Admin Coupons"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AdminCouponCreateBody" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AdminCouponMutationResponse" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete coupon",
+        "tags": ["Admin Coupons"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": { "status": true, "msg": "Coupon deleted successfully" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/coupons/{id}/status": {
+      "patch": {
+        "summary": "Enable or disable coupon",
+        "tags": ["Admin Coupons"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "boolean", "example": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "example": { "status": true, "msg": "Coupon status updated" }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AdminCouponListResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "boolean", "example": true },
+          "msg": { "type": "string", "example": "Success" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/AdminCouponRow" }
+              },
+              "total": { "type": "integer" },
+              "page": { "type": "integer" },
+              "limit": { "type": "integer" }
+            }
+          }
+        }
+      },
+      "AdminCouponMutationResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "boolean" },
+          "msg": { "type": "string" },
+          "data": { "$ref": "#/components/schemas/AdminCouponRow" }
+        }
+      },
+      "AdminCouponCreateBody": {
+        "type": "object",
+        "required": ["titles", "code", "coupon_type", "start_date", "expire_date", "discount"],
+        "properties": {
+          "titles": {
+            "type": "object",
+            "required": ["default"],
+            "properties": {
+              "default": { "type": "string", "example": "Summer 10%" },
+              "en": { "type": "string" },
+              "he": { "type": "string" }
+            }
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 100,
+            "example": "SUMMER20",
+            "description": "Share this externally — not shown in customer app lists"
+          },
+          "coupon_type": {
+            "type": "string",
+            "enum": ["zone_wise", "restaurant_wise", "free_delivery", "first_order", "default"]
+          },
+          "zone_ids": {
+            "type": "array",
+            "items": { "type": "integer" },
+            "description": "Required when coupon_type is zone_wise"
+          },
+          "restaurant_ids": {
+            "type": "array",
+            "items": { "type": "integer" },
+            "description": "Required when coupon_type is restaurant_wise"
+          },
+          "customer_ids": {
+            "type": "array",
+            "items": {
+              "oneOf": [{ "type": "integer" }, { "type": "string", "enum": ["all"] }]
+            },
+            "default": ["all"],
+            "description": "Restrict to specific customer user ids, or [\"all\"]"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "nullable": true,
+            "description": "Uses per customer; server defaults to 1 if omitted",
+            "example": 1
+          },
+          "start_date": { "type": "string", "format": "date", "example": "2026-01-01" },
+          "expire_date": { "type": "string", "format": "date", "example": "2026-12-31" },
+          "discount": { "type": "number", "minimum": 0, "example": 10 },
+          "discount_type": {
+            "type": "string",
+            "enum": ["amount", "percent", "percentage"],
+            "default": "amount"
+          },
+          "max_discount": { "type": "number", "minimum": 0, "default": 0 },
+          "min_purchase": { "type": "number", "minimum": 0, "default": 0 }
+        }
+      },
+      "AdminCouponRow": {
+        "type": "object",
+        "description": "Includes full code for admin panel",
+        "properties": {
+          "id": { "type": "integer" },
+          "title": { "type": "string" },
+          "titles": { "type": "object" },
+          "code": { "type": "string" },
+          "coupon_type": { "type": "string" },
+          "zone_ids": { "type": "array", "items": { "type": "integer" } },
+          "restaurant_ids": { "type": "array", "items": { "type": "integer" } },
+          "customer_ids": { "type": "array" },
+          "customer_type": { "type": "string", "enum": ["all", "selected"] },
+          "limit": { "type": "integer", "nullable": true },
+          "start_date": { "type": "string", "format": "date-time" },
+          "expire_date": { "type": "string", "format": "date-time" },
+          "min_purchase": { "type": "number" },
+          "max_discount": { "type": "number" },
+          "discount": { "type": "number" },
+          "discount_type": { "type": "string" },
+          "status": { "type": "boolean" },
+          "total_uses": { "type": "number" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}
