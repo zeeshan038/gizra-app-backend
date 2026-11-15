@@ -1,5 +1,7 @@
 # Server-authoritative consumer cart (Flutter handoff)
 
+**Implementation guide (screens, flows, examples):** [FLUTTER-CART-IMPLEMENTATION.md](./FLUTTER-CART-IMPLEMENTATION.md)
+
 Base path: `/api/consumer/cart` — all routes require `verifyConsumer` (customer or guest Bearer JWT). Legacy `is_guest` + `guest_id` in body/query remains a fallback when no guest JWT is present.
 
 ## Auth

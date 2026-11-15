@@ -18,12 +18,6 @@ import {
 } from '../../utils/consumer/restaurantMenuHelpers';
 import { paginationSkip } from '../../utils/consumer/orderListHelpers';
 import {
-  filterCouponsForCustomerList,
-  loadCouponsForRestaurantFilter,
-  resolveCouponZoneIds,
-} from '../../utils/consumer/couponHelpers';
-import { parseZoneIdsFromRequest } from '../../utils/consumer/favouriteHelpers';
-import {
   findRestaurantIdsForConsumerSearch,
   parseConsumerSearchQuery,
   tokenizeSearchQuery,
@@ -356,17 +350,10 @@ export const getRestaurantCoupons = async (req: Request, res: Response): Promise
     return sendApiError(res, 403, 'restaurant_id is required');
   }
   const customerId = req.user?.id ? Number(req.user.id) : Number(req.query.customer_id) || null;
-  try {
-    const zoneIds = await resolveCouponZoneIds(parseZoneIdsFromRequest(req) ?? [], restaurantId);
-    const rows = await loadCouponsForRestaurantFilter(restaurantId);
-    const data = await filterCouponsForCustomerList({
-      coupons: rows,
-      zoneIds,
-      customerId,
-      restaurantId,
-    });
-    return res.status(200).json({ status: true, data });
-  } catch (e: unknown) {
-    return sendApiError(res, 500, errorMessageFromUnknown(e));
-  }
+  void customerId;
+  return res.status(200).json({
+    status: true,
+    data: [],
+    msg: 'Coupons are applied at checkout with a code you received separately',
+  });
 };

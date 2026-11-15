@@ -23,6 +23,10 @@
       "description": "Delivery zones (PostGIS polygons). Admin JWT. Assign restaurants via PUT /admin/zones/restaurant/{restaurantId}."
     },
     {
+      "name": "Admin Coupons",
+      "description": "Create and manage **private promo codes** for the customer app. Codes are **not** shown in the mobile coupon list — admin copies the `code` and shares it (video, SMS, etc.). Customers type it at checkout (`GET /consumer/coupon/apply`, `POST /consumer/order/place`).\n\n**Base URL:** `https://backend-dev.gizra.app/api` (paths relative to `/api`).\n\n**Auth:** Admin JWT on all routes (`verifyAdmin`).\n\n**Default:** `limit` = **1 use per customer** when omitted.\n\nSee `docs/ADMIN-COUPON-API.md`."
+    },
+    {
       "name": "App Config (All Apps)"
     },
     {
@@ -9055,19 +9059,59 @@
           }
         }
       },
-      "ConsumerCouponItem": {
+      "ConsumerCouponListResponse": {
         "type": "object",
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConsumerCouponPreview"
+            },
+            "description": "Always empty array in current product"
+          },
+          "msg": {
+            "type": "string",
+            "nullable": true,
+            "example": "Coupons are applied at checkout with a code you received separately"
+          }
+        }
+      },
+      "ConsumerCouponApplyResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "data"
+        ],
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConsumerCouponPreview"
+          }
+        }
+      },
+      "ConsumerCouponPreview": {
+        "type": "object",
+        "description": "Checkout preview — **no `code` field**. Customer must remember the code they typed.",
         "properties": {
           "id": {
-            "type": "integer"
+            "type": "integer",
+            "example": 12
           },
           "title": {
             "type": "string",
-            "nullable": true
-          },
-          "code": {
-            "type": "string",
-            "nullable": true
+            "nullable": true,
+            "example": "10% off"
           },
           "start_date": {
             "type": "string",
@@ -9080,52 +9124,38 @@
             "nullable": true
           },
           "min_purchase": {
-            "type": "number"
+            "type": "number",
+            "example": 50
           },
           "max_discount": {
-            "type": "number"
+            "type": "number",
+            "example": 25
           },
           "discount": {
-            "type": "number"
+            "type": "number",
+            "example": 10
           },
           "discount_type": {
             "type": "string",
-            "description": "percent | amount (etc.)"
+            "enum": [
+              "percent",
+              "percentage",
+              "amount",
+              ""
+            ],
+            "example": "percent"
           },
           "coupon_type": {
             "type": "string",
-            "description": "default | restaurant_wise | zone_wise | first_order | …"
-          },
-          "limit": {
-            "type": "integer",
-            "nullable": true,
-            "description": "Max uses per customer when set"
+            "description": "default | restaurant_wise | zone_wise | first_order | free_delivery",
+            "example": "default"
           },
           "status": {
             "type": "boolean"
           },
           "data": {
             "nullable": true,
-            "description": "JSON string or restaurant name label depending on coupon_type"
-          },
-          "total_uses": {
-            "type": "integer"
-          },
-          "created_by": {
-            "type": "string",
-            "enum": [
-              "admin",
-              "vendor"
-            ]
-          },
-          "customer_id": {
-            "type": "string",
-            "nullable": true,
-            "description": "JSON array e.g. [\"all\"] or customer ids"
-          },
-          "slug": {
-            "type": "string",
-            "nullable": true
+            "description": "Restaurant name label for restaurant_wise coupons"
           },
           "restaurant_id": {
             "type": "integer",
@@ -9143,15 +9173,294 @@
               }
             }
           },
+          "coupon_discount_amount": {
+            "type": "number",
+            "nullable": true,
+            "description": "Computed discount when order_amount was sent on apply",
+            "example": 15.05
+          },
+          "enter_code_at_checkout": {
+            "type": "boolean",
+            "example": true,
+            "description": "Always true — UI should use manual entry"
+          }
+        }
+      },
+      "ConsumerCouponItem": {
+        "description": "Deprecated alias — use ConsumerCouponPreview (no code).",
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ConsumerCouponPreview"
+          }
+        ]
+      },
+      "ConsumerPlaceOrderCouponSnippet": {
+        "type": "object",
+        "description": "Subset of POST /consumer/order/place used for coupons. Full body: ConsumerPlaceOrderRequest in Consumer Order tag.",
+        "properties": {
+          "restaurant_id": {
+            "type": "integer",
+            "example": 3
+          },
+          "coupon_code": {
+            "type": "string",
+            "description": "Same string the customer typed; validated again server-side",
+            "example": "SUMMER20"
+          }
+        },
+        "required": [
+          "restaurant_id",
+          "coupon_code"
+        ]
+      },
+      "AdminCouponListResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AdminCouponRow"
+                }
+              },
+              "total": {
+                "type": "integer"
+              },
+              "page": {
+                "type": "integer"
+              },
+              "limit": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "AdminCouponMutationResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AdminCouponRow"
+          }
+        }
+      },
+      "AdminCouponCreateBody": {
+        "type": "object",
+        "required": [
+          "titles",
+          "code",
+          "coupon_type",
+          "start_date",
+          "expire_date",
+          "discount"
+        ],
+        "properties": {
+          "titles": {
+            "type": "object",
+            "required": [
+              "default"
+            ],
+            "properties": {
+              "default": {
+                "type": "string",
+                "example": "Summer 10%"
+              },
+              "en": {
+                "type": "string"
+              },
+              "he": {
+                "type": "string"
+              }
+            }
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 100,
+            "example": "SUMMER20",
+            "description": "Share this externally — not shown in customer app lists"
+          },
+          "coupon_type": {
+            "type": "string",
+            "enum": [
+              "zone_wise",
+              "restaurant_wise",
+              "free_delivery",
+              "first_order",
+              "default"
+            ]
+          },
+          "zone_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "Required when coupon_type is zone_wise"
+          },
+          "restaurant_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "Required when coupon_type is restaurant_wise"
+          },
+          "customer_ids": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "all"
+                  ]
+                }
+              ]
+            },
+            "default": [
+              "all"
+            ],
+            "description": "Restrict to specific customer user ids, or [\"all\"]"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "nullable": true,
+            "description": "Uses per customer; server defaults to 1 if omitted",
+            "example": 1
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-01-01"
+          },
+          "expire_date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-12-31"
+          },
+          "discount": {
+            "type": "number",
+            "minimum": 0,
+            "example": 10
+          },
+          "discount_type": {
+            "type": "string",
+            "enum": [
+              "amount",
+              "percent",
+              "percentage"
+            ],
+            "default": "amount"
+          },
+          "max_discount": {
+            "type": "number",
+            "minimum": 0,
+            "default": 0
+          },
+          "min_purchase": {
+            "type": "number",
+            "minimum": 0,
+            "default": 0
+          }
+        }
+      },
+      "AdminCouponRow": {
+        "type": "object",
+        "description": "Includes full code for admin panel",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "titles": {
+            "type": "object"
+          },
+          "code": {
+            "type": "string"
+          },
+          "coupon_type": {
+            "type": "string"
+          },
+          "zone_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "restaurant_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "customer_ids": {
+            "type": "array"
+          },
+          "customer_type": {
+            "type": "string",
+            "enum": [
+              "all",
+              "selected"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "nullable": true
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expire_date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "min_purchase": {
+            "type": "number"
+          },
+          "max_discount": {
+            "type": "number"
+          },
+          "discount": {
+            "type": "number"
+          },
+          "discount_type": {
+            "type": "string"
+          },
+          "status": {
+            "type": "boolean"
+          },
+          "total_uses": {
+            "type": "number"
+          },
           "created_at": {
             "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "format": "date-time"
           },
           "updated_at": {
             "type": "string",
-            "format": "date-time",
-            "nullable": true
+            "format": "date-time"
           }
         }
       },
@@ -19126,18 +19435,42 @@
         "description": "",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
+            "name": "search",
+            "in": "query",
+            "required": false,
             "schema": {
               "type": "string"
+            },
+            "description": "Search title or code"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 15,
+              "minimum": 1,
+              "maximum": 100
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Paginated list",
             "content": {
               "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCouponListResponse"
+                },
                 "example": {
                   "status": true,
                   "msg": "Success",
@@ -19145,53 +19478,6 @@
                     "data": "…",
                     "total": 42,
                     "page": 1
-                  }
-                },
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "Success"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "data": {
-                          "type": "string",
-                          "example": "…"
-                        },
-                        "total": {
-                          "type": "number",
-                          "example": 42
-                        },
-                        "page": {
-                          "type": "number",
-                          "example": 1
-                        },
-                        "limit": {
-                          "type": "string"
-                        }
-                      },
-                      "example": {
-                        "data": "…",
-                        "total": 42,
-                        "page": 1
-                      }
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "msg": "Success",
-                    "data": {
-                      "data": "…",
-                      "total": 42,
-                      "page": 1
-                    }
                   }
                 }
               }
@@ -19269,7 +19555,13 @@
           }
         },
         "tags": [
-          "Admin"
+          "Admin Coupons"
+        ],
+        "summary": "List admin coupons (paginated)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
         ]
       }
     },
@@ -19282,14 +19574,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
+              "type": "integer"
             }
           }
         ],
@@ -19298,32 +19583,13 @@
             "description": "OK",
             "content": {
               "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCouponMutationResponse"
+                },
                 "example": {
                   "status": true,
                   "msg": "Success",
                   "data": "…"
-                },
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "Success"
-                    },
-                    "data": {
-                      "type": "string",
-                      "example": "…"
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "msg": "Success",
-                    "data": "…"
-                  }
                 }
               }
             }
@@ -19376,10 +19642,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
-                },
-                "example": {
-                  "status": false,
-                  "msg": "Not Found"
                 }
               }
             }
@@ -19400,7 +19662,13 @@
           }
         },
         "tags": [
-          "Admin"
+          "Admin Coupons"
+        ],
+        "summary": "Get coupon by id",
+        "security": [
+          {
+            "bearerAuth": []
+          }
         ]
       },
       "put": {
@@ -19411,14 +19679,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
+              "type": "integer"
             }
           }
         ],
@@ -19427,32 +19688,13 @@
             "description": "OK",
             "content": {
               "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCouponMutationResponse"
+                },
                 "example": {
                   "status": true,
                   "msg": "Coupon updated successfully",
                   "data": "…"
-                },
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "Coupon updated successfully"
-                    },
-                    "data": {
-                      "type": "string",
-                      "example": "…"
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "msg": "Coupon updated successfully",
-                    "data": "…"
-                  }
                 }
               }
             }
@@ -19529,8 +19771,24 @@
           }
         },
         "tags": [
-          "Admin"
-        ]
+          "Admin Coupons"
+        ],
+        "summary": "Update coupon",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCouponCreateBody"
+              }
+            }
+          }
+        }
       },
       "delete": {
         "description": "",
@@ -19540,14 +19798,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
+              "type": "integer"
             }
           }
         ],
@@ -19561,21 +19812,7 @@
                   "msg": "Coupon deleted successfully"
                 },
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "Coupon deleted successfully"
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "msg": "Coupon deleted successfully"
-                  }
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -19652,7 +19889,13 @@
           }
         },
         "tags": [
-          "Admin"
+          "Admin Coupons"
+        ],
+        "summary": "Delete coupon",
+        "security": [
+          {
+            "bearerAuth": []
+          }
         ]
       }
     },
@@ -19674,7 +19917,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
+                  "$ref": "#/components/schemas/AdminCouponMutationResponse"
                 },
                 "example": {
                   "status": true,
@@ -19684,7 +19927,7 @@
             }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "Validation or duplicate code",
             "content": {
               "application/json": {
                 "schema": {
@@ -19692,7 +19935,7 @@
                 },
                 "example": {
                   "status": false,
-                  "msg": "Bad Request"
+                  "msg": "Coupon code already exists"
                 }
               }
             }
@@ -19755,8 +19998,24 @@
           }
         },
         "tags": [
-          "Admin"
-        ]
+          "Admin Coupons"
+        ],
+        "summary": "Create coupon",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCouponCreateBody"
+              }
+            }
+          }
+        }
       }
     },
     "/admin/coupons/{id}/status": {
@@ -19768,14 +20027,7 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
+              "type": "integer"
             }
           }
         ],
@@ -19806,6 +20058,10 @@
                   }
                 }
               }
+            },
+            "example": {
+              "status": true,
+              "msg": "Coupon status updated"
             }
           },
           "400": {
@@ -19880,8 +20136,33 @@
           }
         },
         "tags": [
-          "Admin"
-        ]
+          "Admin Coupons"
+        ],
+        "summary": "Enable or disable coupon",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "type": "boolean",
+                    "example": true
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/admin/disbursement/restaurant/list": {

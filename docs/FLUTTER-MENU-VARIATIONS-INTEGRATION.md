@@ -200,7 +200,7 @@ double unitTotal = product.price + variationExtra;
 - Send selected variations in existing StackFood format (`name` + selected labels / `values`).
 - **Avoid double submission:** if both `variations` and `variation_options` are sent with the same picks, server uses one path — prefer **one** consistent field (see server `mergeCartLineVariations`).
 - Add-ons: continue `add_on_ids` + `add_on_qtys`; do not mix paid upgrades into add-ons if they are configured as variation group `opt_in`.
-- **Pizza half/whole (display only):** when `enablePizzaHalfWhole` on a group (or `addons_pizza_half_whole` on the food), send `pizzaPlacement` per selected option: `whole` (default), `half_a`, `half_b`. For add-ons, send parallel `add_on_placements` aligned with `add_on_ids`. **Do not change prices.**
+- **Pizza half/whole (display only):** see **[FLUTTER-PIZZA-HALF-WHOLE.md](./FLUTTER-PIZZA-HALF-WHOLE.md)** (full UX, payloads, cart merge).
 
 Server recomputes unit food with `resolveCheckoutServerUnitBase` + `computeVariationExtra` — client total should match within normal rounding. Kitchen labels on receipts come from the API (`addon_lines[].name`, `variation_kitchen_lines`).
 
