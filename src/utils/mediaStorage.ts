@@ -54,6 +54,18 @@ export function publicFoodMediaUrl(stored: string | null | undefined): string | 
 
 const CATEGORY_IMAGE_PLACEHOLDERS = new Set(['def.png', 'default.png']);
 
+/** Admin push / notification banner (legacy `notification/` folder on public disk). */
+export function publicNotificationMediaUrl(stored: string | null | undefined): string | null {
+  const raw = stored?.trim();
+  if (!raw) return null;
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  if (raw.includes('/')) {
+    return publicMediaUrl(raw.replace(/^\//, ''));
+  }
+  const path = raw.startsWith('notification/') ? raw : `notification/${raw}`;
+  return publicMediaUrl(path);
+}
+
 /** Category tiles (home + restaurant menu chips). */
 export function publicCategoryMediaUrl(stored: string | null | undefined): string | null {
   const raw = stored?.trim();

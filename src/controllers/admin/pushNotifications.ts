@@ -1,7 +1,11 @@
 import { Request, Response } from 'express';
 import prisma from '../../config/database';
 import { adminSendPushNotificationSchema } from '../../schemas/admin/PushNotification';
-import { fitDbString, normalizeStoredMedia, publicMediaUrl } from '../../utils/mediaStorage';
+import {
+  fitDbString,
+  normalizeStoredMedia,
+  publicNotificationMediaUrl,
+} from '../../utils/mediaStorage';
 import { sendAdminPushBroadcast } from '../../utils/notifications/sendAdminPushBroadcast';
 import type { PushBroadcastTarget } from '../../utils/notifications/pushBroadcastTopic';
 
@@ -35,9 +39,8 @@ export const sendAdminPushNotification = async (req: Request, res: Response): Pr
     }
   }
 
-  const storedImage = image?.trim()
-    ? fitDbString(normalizeStoredMedia(image, '', 50), 50)
-    : null;
+  const normalizedImage = image?.trim() ? normalizeStoredMedia(image, '', 191) : '';
+  const storedImage = normalizedImage ? fitDbString(normalizedImage, 50) : null;
 
   const row = await prisma.notifications.create({
     data: {
@@ -52,7 +55,7 @@ export const sendAdminPushNotification = async (req: Request, res: Response): Pr
     },
   });
 
-  const imageUrl = storedImage ? publicMediaUrl(storedImage) ?? '' : '';
+  const imageUrl = publicNotificationMediaUrl(normalizedImage || storedImage) ?? '';
 
   const delivery = await sendAdminPushBroadcast(tergat as PushBroadcastTarget, zoneKey, {
     title,

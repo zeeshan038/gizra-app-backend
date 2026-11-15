@@ -63,6 +63,41 @@ function buildStringData(data: FcmPushData): Record<string, string> {
   );
 }
 
+function fcmImageUrl(data: FcmPushData): string | undefined {
+  const image = data.image?.trim();
+  return image || undefined;
+}
+
+/** Legacy PHP puts image on notification + android + data; required for rich pushes / Flutter. */
+function buildDisplayNotification(data: FcmPushData) {
+  const imageUrl = fcmImageUrl(data);
+  return {
+    notification: {
+      title: String(data.title),
+      body: String(data.description),
+      ...(imageUrl ? { imageUrl } : {}),
+    },
+    android: {
+      priority: 'high' as const,
+      notification: {
+        channelId: 'stackfood',
+        sound: 'notification.wav',
+        ...(imageUrl ? { imageUrl } : {}),
+      },
+    },
+    apns: {
+      headers: { 'apns-priority': '10' },
+      payload: {
+        aps: {
+          sound: 'notification.wav',
+          ...(imageUrl ? { 'mutable-content': 1 } : {}),
+        },
+      },
+      ...(imageUrl ? { fcmOptions: { imageUrl } } : {}),
+    },
+  };
+}
+
 async function sendViaFirebaseAdmin(
   target: { token: string } | { topic: string },
   data: FcmPushData
@@ -70,22 +105,12 @@ async function sendViaFirebaseAdmin(
   if (!isFirebaseReady) return false;
 
   const stringData = buildStringData(data);
+  const display = buildDisplayNotification(data);
   try {
     const messageId = await getMessaging().send({
       ...target,
-      notification: {
-        title: String(data.title),
-        body: String(data.description),
-      },
+      ...display,
       data: stringData,
-      android: {
-        priority: 'high',
-        notification: { channelId: 'stackfood', sound: 'notification.wav' },
-      },
-      apns: {
-        headers: { 'apns-priority': '10' },
-        payload: { aps: { sound: 'notification.wav' } },
-      },
     });
     const targetLabel = 'token' in target ? 'device' : `topic:${target.topic}`;
     console.log(`[notify] FCM ok (${targetLabel}) messageId=${messageId} type=${data.type}`);
@@ -169,6 +194,8 @@ export async function sendFcmToDevice(token: string, data: FcmPushData): Promise
   const serverKey = process.env.FCM_SERVER_KEY;
   const projectId = process.env.FIREBASE_PROJECT_ID;
 
+  const imageUrl = fcmImageUrl(data);
+
   if (serverKey) {
     const res = await fetch('https://fcm.googleapis.com/fcm/send', {
       method: 'POST',
@@ -184,6 +211,7 @@ export async function sendFcmToDevice(token: string, data: FcmPushData): Promise
           title: String(data.title),
           body: String(data.description),
           sound: 'notification.wav',
+          ...(imageUrl ? { image: imageUrl } : {}),
         },
       }),
     });
@@ -208,6 +236,7 @@ export async function sendFcmToDevice(token: string, data: FcmPushData): Promise
   }
 
   const stringData = buildStringData(data);
+  const display = buildDisplayNotification(data);
 
   const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
     method: 'POST',
@@ -219,18 +248,9 @@ export async function sendFcmToDevice(token: string, data: FcmPushData): Promise
       message: {
         token: token.trim(),
         data: stringData,
-        notification: {
-          title: String(data.title),
-          body: String(data.description),
-        },
-        android: {
-          priority: 'high',
-          notification: { channelId: 'stackfood', sound: 'notification.wav' },
-        },
-        apns: {
-          headers: { 'apns-priority': '10' },
-          payload: { aps: { sound: 'notification.wav' } },
-        },
+        notification: display.notification,
+        android: display.android,
+        apns: display.apns,
       },
     }),
   });
@@ -252,6 +272,8 @@ export async function sendFcmToTopic(topic: string, data: FcmPushData): Promise<
   const serverKey = process.env.FCM_SERVER_KEY;
   const projectId = process.env.FIREBASE_PROJECT_ID;
 
+  const imageUrl = fcmImageUrl(data);
+
   if (serverKey) {
     const res = await fetch('https://fcm.googleapis.com/fcm/send', {
       method: 'POST',
@@ -267,6 +289,7 @@ export async function sendFcmToTopic(topic: string, data: FcmPushData): Promise<
           title: String(data.title),
           body: String(data.description),
           sound: 'notification.wav',
+          ...(imageUrl ? { image: imageUrl } : {}),
         },
       }),
     });
@@ -292,6 +315,7 @@ export async function sendFcmToTopic(topic: string, data: FcmPushData): Promise<
   }
 
   const stringData = buildStringData(data);
+  const display = buildDisplayNotification(data);
 
   const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
     method: 'POST',
@@ -303,12 +327,9 @@ export async function sendFcmToTopic(topic: string, data: FcmPushData): Promise<
       message: {
         topic: topic.trim(),
         data: stringData,
-        notification: {
-          title: String(data.title),
-          body: String(data.description),
-        },
-        android: { notification: { channelId: 'stackfood', sound: 'notification.wav' } },
-        apns: { payload: { aps: { sound: 'notification.wav' } } },
+        notification: display.notification,
+        android: display.android,
+        apns: display.apns,
       },
     }),
   });
