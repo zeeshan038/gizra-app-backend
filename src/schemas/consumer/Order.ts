@@ -14,6 +14,17 @@ export const placeOrderItemSchema = Joi.object({
     .default([]),
   variations: Joi.array().items(Joi.object()).optional().default([]),
   variation_options: Joi.array().items(Joi.object()).optional().default([]),
+  combo_selections: Joi.array()
+    .items(
+      Joi.object({
+        slot_index: Joi.number().integer().min(1).required(),
+        slot_label: Joi.string().allow('').optional(),
+        variations: Joi.array().items(Joi.object()).optional().default([]),
+        variation_options: Joi.array().items(Joi.object()).optional().default([]),
+      }).unknown(true)
+    )
+    .optional()
+    .default([]),
 });
 
 export const placeOrderSchema = Joi.object({

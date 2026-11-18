@@ -20,6 +20,10 @@ import {
   CartRestaurantMismatchError,
 } from '../../utils/consumer/cartRestaurantGuard';
 import { cartRowOwnedBy, resolveCartSessionFromRequest } from '../../utils/consumer/cartSession';
+import {
+  parseComboDefinition,
+  validateComboSelections,
+} from '../../utils/consumer/comboDefinition';
 
 function cartSellingTimeResponse(err: CartFoodSellingTimeError) {
   return {
@@ -57,6 +61,42 @@ async function assertFoodLineRules(params: {
     isGuest: params.isGuest,
     excludeCartId: params.excludeCartId,
   });
+}
+
+class CartComboValidationError extends Error {
+  code: string;
+  constructor(msg: string, code: string) {
+    super(msg);
+    this.code = code;
+  }
+}
+
+/** When food has combo_definition.enabled, require complete combo_selections. */
+async function assertComboSelectionsForFood(params: {
+  itemId: number;
+  itemType: string;
+  combo_selections?: unknown[];
+}): Promise<unknown[]> {
+  if (String(params.itemType).toLowerCase() !== 'food') {
+    return Array.isArray(params.combo_selections) ? params.combo_selections : [];
+  }
+  const food = await prisma.food.findUnique({
+    where: { id: BigInt(params.itemId) },
+    select: { combo_definition: true, variations: true },
+  });
+  const def = parseComboDefinition(food?.combo_definition ?? null);
+  if (!def) {
+    return Array.isArray(params.combo_selections) ? params.combo_selections : [];
+  }
+  const result = validateComboSelections({
+    definition: def,
+    selections: params.combo_selections,
+    productVariationsJson: food?.variations ?? null,
+  });
+  if (!result.ok) {
+    throw new CartComboValidationError(result.msg, result.code);
+  }
+  return result.selections;
 }
 
 /**
@@ -104,6 +144,21 @@ export const addToCart = async (req: Request, res: Response): Promise<any> => {
 
   const body = result.value;
   const itemType = String(body.item_type ?? 'Food');
+
+  let comboSelections: unknown[] = [];
+  try {
+    comboSelections = await assertComboSelectionsForFood({
+      itemId: Number(body.item_id),
+      itemType,
+      combo_selections: body.combo_selections,
+    });
+  } catch (e: unknown) {
+    if (e instanceof CartComboValidationError) {
+      return res.status(400).json({ status: false, msg: e.message, code: e.code });
+    }
+    throw e;
+  }
+  body.combo_selections = comboSelections;
 
   try {
     await assertSingleRestaurantCart({
@@ -194,6 +249,7 @@ export const addToCart = async (req: Request, res: Response): Promise<any> => {
         add_on_placements: JSON.stringify(body.add_on_placements ?? []),
         variations: JSON.stringify(body.variations),
         variation_options: JSON.stringify(body.variation_options),
+        combo_selections: JSON.stringify(comboSelections),
       },
     });
 
@@ -317,6 +373,7 @@ type AddMultipleLine = {
   add_on_placements?: unknown[];
   variations?: unknown[];
   variation_options?: unknown[];
+  combo_selections?: unknown[];
 };
 
 /**
@@ -389,11 +446,29 @@ export const addMultipleToCart = async (req: Request, res: Response): Promise<an
       }
     }
 
+    const normalizedItems: Array<(typeof items)[number] & { combo_selections: unknown[] }> = [];
+    for (const single of items) {
+      const itemType = String(single.item_type ?? single.model ?? 'Food');
+      try {
+        const combo_selections = await assertComboSelectionsForFood({
+          itemId: Number(single.item_id),
+          itemType,
+          combo_selections: single.combo_selections,
+        });
+        normalizedItems.push({ ...single, combo_selections });
+      } catch (e: unknown) {
+        if (e instanceof CartComboValidationError) {
+          return res.status(400).json({ status: false, msg: e.message, code: e.code });
+        }
+        throw e;
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
       await tx.carts.deleteMany({
         where: { user_id: session.user_id, is_guest: session.is_guest },
       });
-      for (const single of items) {
+      for (const single of normalizedItems) {
         const itemType = single.item_type ?? single.model ?? 'Food';
         await tx.carts.create({
           data: {
@@ -408,6 +483,7 @@ export const addMultipleToCart = async (req: Request, res: Response): Promise<an
             add_on_placements: JSON.stringify(single.add_on_placements ?? []),
             variations: JSON.stringify(single.variations ?? []),
             variation_options: JSON.stringify(single.variation_options ?? []),
+            combo_selections: JSON.stringify(single.combo_selections ?? []),
           },
         });
       }

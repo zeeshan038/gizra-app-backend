@@ -49,10 +49,19 @@ export const verifyVendor = async (req: Request, res: Response, next: NextFuncti
         });
       }
 
-      let restaurantId = tokenRestaurantId;
+      let restaurantId: number | null = null;
+      if (tokenRestaurantId) {
+        // Never trust JWT restaurant_id without ownership check (wrong outlet = wrong orders/earnings).
+        const owned = await prisma.restaurants.findFirst({
+          where: { id: BigInt(tokenRestaurantId), vendor_id: Number(vendor.id) },
+          select: { id: true },
+        });
+        restaurantId = owned ? Number(owned.id) : null;
+      }
       if (!restaurantId) {
         const restaurant = await prisma.restaurants.findFirst({
           where: { vendor_id: Number(vendor.id) },
+          orderBy: { id: 'asc' },
           select: { id: true },
         });
         restaurantId = restaurant ? Number(restaurant.id) : null;

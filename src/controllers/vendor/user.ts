@@ -120,6 +120,7 @@ type VendorRecord = NonNullable<Awaited<ReturnType<typeof prisma.vendors.findFir
 async function issueVendorLoginSession(vendor: VendorRecord, res: Response): Promise<any> {
   const restaurants = await prisma.restaurants.findMany({
     where: { vendor_id: Number(vendor.id) },
+    orderBy: { id: 'asc' },
   });
 
   const restaurant = restaurants[0];

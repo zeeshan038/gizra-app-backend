@@ -17,6 +17,7 @@ import {
 import { resolveFoodSellingTime } from './foodSellingTime';
 import { resolveFoodStockSnapshot } from './foodStock';
 import { parseFoodAttributes } from '../vendor/catalog/foodAttributes';
+import { comboDefinitionForClient } from './comboDefinition';
 
 type FoodRow = {
   id: bigint;
@@ -33,6 +34,7 @@ type FoodRow = {
   variations: string | null;
   add_ons: string | null;
   attributes?: string | null;
+  combo_definition?: string | null;
   avg_rating?: number;
   rating_count?: bigint | number;
   available_time_starts?: unknown;
@@ -285,6 +287,9 @@ export function formatRestaurantMenuFood(
     variations: parsedVariations,
     add_ons: parsedAddOns,
     addons_pizza_half_whole: Boolean(foodAttrs.addons_pizza_half_whole),
+    combo_definition: comboDefinitionForClient(
+      (f as FoodRow).combo_definition ?? null
+    ),
     ...(selling
       ? {
           available_time_starts: selling.available_time_starts,

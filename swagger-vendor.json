@@ -154,6 +154,14 @@
               "type": "object"
             },
             "example": []
+          },
+          "combo_selections": {
+            "type": "array",
+            "description": "Per-slot modifiers for multi-item combos (food.combo_definition.enabled). Empty for normal items.",
+            "items": {
+              "$ref": "#/components/schemas/ComboSlotSelection"
+            },
+            "example": []
           }
         }
       },
@@ -389,6 +397,101 @@
           }
         }
       },
+      "ConsumerCartAddBody": {
+        "type": "object",
+        "required": [
+          "restaurant_id",
+          "item_id",
+          "price",
+          "quantity"
+        ],
+        "description": "Add a cart line. For combo foods send complete `combo_selections` (slot_index 1..N).",
+        "properties": {
+          "restaurant_id": {
+            "type": "number",
+            "example": 3
+          },
+          "item_id": {
+            "type": "number",
+            "example": 9002
+          },
+          "item_type": {
+            "type": "string",
+            "enum": [
+              "Food",
+              "ItemCampaign"
+            ],
+            "default": "Food"
+          },
+          "price": {
+            "type": "number",
+            "description": "Unit total: base + all slot extras + add-ons",
+            "example": 129
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 1
+          },
+          "add_on_ids": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "default": []
+          },
+          "add_on_qtys": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "default": []
+          },
+          "add_on_placements": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "whole",
+                "half_a",
+                "half_b"
+              ]
+            },
+            "default": []
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Normal items. For combos usually empty — use combo_selections instead.",
+            "default": []
+          },
+          "variation_options": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "default": []
+          },
+          "combo_selections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComboSlotSelection"
+            },
+            "description": "Required when food.combo_definition.enabled — one object per slot",
+            "default": []
+          },
+          "is_guest": {
+            "type": "boolean",
+            "default": false
+          },
+          "guest_id": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      },
       "ConsumerCartLineItem": {
         "type": "object",
         "description": "Server-authoritative cart line — display fields enriched on every GET/add/update/add-multiple response.",
@@ -483,6 +586,13 @@
             "type": "array",
             "items": {
               "type": "object"
+            }
+          },
+          "combo_selections": {
+            "type": "array",
+            "description": "Per-slot modifiers for multi-item combos. Empty for normal items. See docs/FLUTTER-COMBO-STEP-FLOW.md.",
+            "items": {
+              "$ref": "#/components/schemas/ComboSlotSelection"
             }
           },
           "is_available_now": {
@@ -9766,6 +9876,10 @@
               }
             ]
           },
+          "combo_definition": {
+            "$ref": "#/components/schemas/FoodComboDefinitionInput",
+            "description": "Multi-slot combo (e.g. 4-burger deal). When enabled, customer app shows step-by-step slots; `variations` are the shared template per slot."
+          },
           "status": {
             "type": "boolean",
             "example": true
@@ -9789,6 +9903,120 @@
             "nullable": true,
             "example": "11:00:00",
             "description": "End of selling window (inclusive), HH:mm:ss in business timezone."
+          }
+        }
+      },
+      "FoodComboDefinitionInput": {
+        "type": "object",
+        "nullable": true,
+        "required": [
+          "enabled"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          },
+          "slot_count": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 20,
+            "example": 4,
+            "description": "Required when enabled is true"
+          },
+          "slot_label": {
+            "type": "string",
+            "maxLength": 40,
+            "example": "Burger",
+            "description": "Becomes Burger #1 … Burger #N in the customer app"
+          }
+        },
+        "example": {
+          "enabled": true,
+          "slot_count": 4,
+          "slot_label": "Burger"
+        }
+      },
+      "FoodComboDefinition": {
+        "type": "object",
+        "nullable": true,
+        "description": "Present on consumer menu foods when the item is a multi-slot combo. Null when not a combo.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          },
+          "slot_count": {
+            "type": "integer",
+            "example": 4
+          },
+          "slot_label": {
+            "type": "string",
+            "example": "Burger"
+          },
+          "slot_labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Burger #1",
+              "Burger #2",
+              "Burger #3",
+              "Burger #4"
+            ]
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "slot_index": {
+                  "type": "integer",
+                  "example": 1
+                },
+                "label": {
+                  "type": "string",
+                  "example": "Burger #1"
+                },
+                "required": {
+                  "type": "boolean",
+                  "example": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "ComboSlotSelection": {
+        "type": "object",
+        "required": [
+          "slot_index"
+        ],
+        "description": "One configured slot inside a multi-item combo cart/order line.",
+        "properties": {
+          "slot_index": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 1
+          },
+          "slot_label": {
+            "type": "string",
+            "example": "Burger #1"
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Same group shape as normal cart variations"
+          },
+          "variation_options": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Preferred StackFood-style picks for this slot"
           }
         }
       },
@@ -9837,6 +10065,10 @@
             "items": {
               "$ref": "#/components/schemas/FoodAddonExpanded"
             }
+          },
+          "combo_definition": {
+            "$ref": "#/components/schemas/FoodComboDefinition",
+            "nullable": true
           },
           "available_time_starts": {
             "type": "string",
@@ -10005,6 +10237,11 @@
             "items": {
               "$ref": "#/components/schemas/FoodAddonExpanded"
             }
+          },
+          "combo_definition": {
+            "$ref": "#/components/schemas/FoodComboDefinition",
+            "nullable": true,
+            "description": "When enabled, customer app must use step-by-step slot UI. See docs/FLUTTER-COMBO-STEP-FLOW.md."
           },
           "available_time_starts": {
             "type": "string",

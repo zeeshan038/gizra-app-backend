@@ -22,27 +22,32 @@ type MonthlyRow = {
 };
 
 /**
- * Yearly bar chart — PHP Vendor\\DashboardController (OrderTransaction, current calendar year).
+ * Yearly bar chart for the logged-in restaurant only.
+ * Must join orders — order_transactions has vendor_id but not restaurant_id.
+ * Filtering by vendor_id alone incorrectly shows other outlets' money on a new restaurant.
  */
-export async function getVendorDashboardYearlyChart(vendorId: number): Promise<VendorDashboardYearlyChart> {
+export async function getVendorDashboardYearlyChart(
+  restaurantId: number
+): Promise<VendorDashboardYearlyChart> {
   const year = new Date().getFullYear();
   const from = new Date(year, 0, 1, 0, 0, 0, 0);
   const to = new Date(year, 11, 31, 23, 59, 59, 999);
 
   const rows = await prisma.$queryRaw<MonthlyRow[]>`
     SELECT
-      EXTRACT(MONTH FROM created_at)::int AS month,
-      COALESCE(SUM(restaurant_amount), 0)::double precision AS earning,
-      COALESCE(SUM(admin_commission + COALESCE(admin_expense, 0)), 0)::double precision AS commission
-    FROM order_transactions
-    WHERE vendor_id = ${vendorId}
-      AND created_at >= ${from}
-      AND created_at <= ${to}
+      EXTRACT(MONTH FROM ot.created_at)::int AS month,
+      COALESCE(SUM(ot.restaurant_amount), 0)::double precision AS earning,
+      COALESCE(SUM(ot.admin_commission + COALESCE(ot.admin_expense, 0)), 0)::double precision AS commission
+    FROM order_transactions ot
+    INNER JOIN orders o ON o.id = ot.order_id
+    WHERE o.restaurant_id = ${restaurantId}
+      AND ot.created_at >= ${from}
+      AND ot.created_at <= ${to}
       AND (
-        status NOT IN ('refunded_with_delivery_charge', 'refunded_without_delivery_charge')
-        OR status IS NULL
+        ot.status NOT IN ('refunded_with_delivery_charge', 'refunded_without_delivery_charge')
+        OR ot.status IS NULL
       )
-    GROUP BY EXTRACT(MONTH FROM created_at)
+    GROUP BY EXTRACT(MONTH FROM ot.created_at)
     ORDER BY month
   `;
 

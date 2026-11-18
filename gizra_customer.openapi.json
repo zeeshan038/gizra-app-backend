@@ -192,6 +192,14 @@
               "type": "object"
             },
             "example": []
+          },
+          "combo_selections": {
+            "type": "array",
+            "description": "Per-slot modifiers for multi-item combos (food.combo_definition.enabled). Empty for normal items.",
+            "items": {
+              "$ref": "#/components/schemas/ComboSlotSelection"
+            },
+            "example": []
           }
         }
       },
@@ -427,6 +435,101 @@
           }
         }
       },
+      "ConsumerCartAddBody": {
+        "type": "object",
+        "required": [
+          "restaurant_id",
+          "item_id",
+          "price",
+          "quantity"
+        ],
+        "description": "Add a cart line. For combo foods send complete `combo_selections` (slot_index 1..N).",
+        "properties": {
+          "restaurant_id": {
+            "type": "number",
+            "example": 3
+          },
+          "item_id": {
+            "type": "number",
+            "example": 9002
+          },
+          "item_type": {
+            "type": "string",
+            "enum": [
+              "Food",
+              "ItemCampaign"
+            ],
+            "default": "Food"
+          },
+          "price": {
+            "type": "number",
+            "description": "Unit total: base + all slot extras + add-ons",
+            "example": 129
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 1
+          },
+          "add_on_ids": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "default": []
+          },
+          "add_on_qtys": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "default": []
+          },
+          "add_on_placements": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "whole",
+                "half_a",
+                "half_b"
+              ]
+            },
+            "default": []
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Normal items. For combos usually empty — use combo_selections instead.",
+            "default": []
+          },
+          "variation_options": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "default": []
+          },
+          "combo_selections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComboSlotSelection"
+            },
+            "description": "Required when food.combo_definition.enabled — one object per slot",
+            "default": []
+          },
+          "is_guest": {
+            "type": "boolean",
+            "default": false
+          },
+          "guest_id": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      },
       "ConsumerCartLineItem": {
         "type": "object",
         "description": "Server-authoritative cart line — display fields enriched on every GET/add/update/add-multiple response.",
@@ -521,6 +624,13 @@
             "type": "array",
             "items": {
               "type": "object"
+            }
+          },
+          "combo_selections": {
+            "type": "array",
+            "description": "Per-slot modifiers for multi-item combos. Empty for normal items. See docs/FLUTTER-COMBO-STEP-FLOW.md.",
+            "items": {
+              "$ref": "#/components/schemas/ComboSlotSelection"
             }
           },
           "is_available_now": {
@@ -9804,6 +9914,10 @@
               }
             ]
           },
+          "combo_definition": {
+            "$ref": "#/components/schemas/FoodComboDefinitionInput",
+            "description": "Multi-slot combo (e.g. 4-burger deal). When enabled, customer app shows step-by-step slots; `variations` are the shared template per slot."
+          },
           "status": {
             "type": "boolean",
             "example": true
@@ -9827,6 +9941,120 @@
             "nullable": true,
             "example": "11:00:00",
             "description": "End of selling window (inclusive), HH:mm:ss in business timezone."
+          }
+        }
+      },
+      "FoodComboDefinitionInput": {
+        "type": "object",
+        "nullable": true,
+        "required": [
+          "enabled"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          },
+          "slot_count": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 20,
+            "example": 4,
+            "description": "Required when enabled is true"
+          },
+          "slot_label": {
+            "type": "string",
+            "maxLength": 40,
+            "example": "Burger",
+            "description": "Becomes Burger #1 … Burger #N in the customer app"
+          }
+        },
+        "example": {
+          "enabled": true,
+          "slot_count": 4,
+          "slot_label": "Burger"
+        }
+      },
+      "FoodComboDefinition": {
+        "type": "object",
+        "nullable": true,
+        "description": "Present on consumer menu foods when the item is a multi-slot combo. Null when not a combo.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          },
+          "slot_count": {
+            "type": "integer",
+            "example": 4
+          },
+          "slot_label": {
+            "type": "string",
+            "example": "Burger"
+          },
+          "slot_labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Burger #1",
+              "Burger #2",
+              "Burger #3",
+              "Burger #4"
+            ]
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "slot_index": {
+                  "type": "integer",
+                  "example": 1
+                },
+                "label": {
+                  "type": "string",
+                  "example": "Burger #1"
+                },
+                "required": {
+                  "type": "boolean",
+                  "example": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "ComboSlotSelection": {
+        "type": "object",
+        "required": [
+          "slot_index"
+        ],
+        "description": "One configured slot inside a multi-item combo cart/order line.",
+        "properties": {
+          "slot_index": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 1
+          },
+          "slot_label": {
+            "type": "string",
+            "example": "Burger #1"
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Same group shape as normal cart variations"
+          },
+          "variation_options": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Preferred StackFood-style picks for this slot"
           }
         }
       },
@@ -9875,6 +10103,10 @@
             "items": {
               "$ref": "#/components/schemas/FoodAddonExpanded"
             }
+          },
+          "combo_definition": {
+            "$ref": "#/components/schemas/FoodComboDefinition",
+            "nullable": true
           },
           "available_time_starts": {
             "type": "string",
@@ -10043,6 +10275,11 @@
             "items": {
               "$ref": "#/components/schemas/FoodAddonExpanded"
             }
+          },
+          "combo_definition": {
+            "$ref": "#/components/schemas/FoodComboDefinition",
+            "nullable": true,
+            "description": "When enabled, customer app must use step-by-step slot UI. See docs/FLUTTER-COMBO-STEP-FLOW.md."
           },
           "available_time_starts": {
             "type": "string",
@@ -14629,6 +14866,7 @@
                         "id": "9001",
                         "name": "TEST Burger Box",
                         "price": 59,
+                        "combo_definition": null,
                         "variations": [
                           {
                             "name": "Ingredients to Remove",
@@ -14665,6 +14903,86 @@
                             "selectionMode": "opt_in",
                             "defaultSelectAll": false,
                             "priceDisplay": "price",
+                            "values": [
+                              {
+                                "label": "Extra Cheese",
+                                "optionPrice": 5,
+                                "price": 5,
+                                "showPrice": true
+                              },
+                              {
+                                "label": "Egg",
+                                "optionPrice": 4,
+                                "price": 4,
+                                "showPrice": true
+                              }
+                            ]
+                          }
+                        ],
+                        "add_ons": []
+                      },
+                      {
+                        "id": "9002",
+                        "name": "TEST 4-Burger Combo",
+                        "price": 120,
+                        "combo_definition": {
+                          "enabled": true,
+                          "slot_count": 4,
+                          "slot_label": "Burger",
+                          "slot_labels": [
+                            "Burger #1",
+                            "Burger #2",
+                            "Burger #3",
+                            "Burger #4"
+                          ],
+                          "steps": [
+                            {
+                              "slot_index": 1,
+                              "label": "Burger #1",
+                              "required": true
+                            },
+                            {
+                              "slot_index": 2,
+                              "label": "Burger #2",
+                              "required": true
+                            },
+                            {
+                              "slot_index": 3,
+                              "label": "Burger #3",
+                              "required": true
+                            },
+                            {
+                              "slot_index": 4,
+                              "label": "Burger #4",
+                              "required": true
+                            }
+                          ]
+                        },
+                        "variations": [
+                          {
+                            "name": "Doneness",
+                            "type": "single",
+                            "required": true,
+                            "selectionMode": "standard",
+                            "values": [
+                              {
+                                "label": "Medium",
+                                "optionPrice": 0,
+                                "price": 0
+                              },
+                              {
+                                "label": "Well Done",
+                                "optionPrice": 0,
+                                "price": 0
+                              }
+                            ]
+                          },
+                          {
+                            "name": "Paid Upgrades",
+                            "type": "multi",
+                            "required": false,
+                            "selectionMode": "opt_in",
+                            "max": "4",
                             "values": [
                               {
                                 "label": "Extra Cheese",
@@ -17050,7 +17368,7 @@
     },
     "/consumer/cart/add": {
       "post": {
-        "description": "Same auth as GET `/consumer/cart/`. Requires `restaurant_id` (one restaurant per cart). Duplicate line identity merges quantity (**200**); new line **201**. Response `data` is a full `ConsumerCartLineItem`.\n\nReturns **403** with `code: food_selling_time`, `code: food_stock`, or another restaurant in cart.",
+        "description": "Same auth as GET `/consumer/cart/`. Requires `restaurant_id` (one restaurant per cart). Duplicate line identity merges quantity (**200**); new line **201**. Response `data` is a full `ConsumerCartLineItem`.\n\nFor multi-slot combos (`food.combo_definition.enabled`), send complete `combo_selections` (one entry per slot). Incomplete combo → **400** `combo_incomplete` / `combo_slot_incomplete`.\n\nReturns **403** with `code: food_selling_time`, `code: food_stock`, or another restaurant in cart.",
         "responses": {
           "200": {
             "description": "Existing line quantity increased",
@@ -17107,15 +17425,28 @@
             }
           },
           "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
+            "description": "Bad Request — validation error or incomplete multi-slot combo",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
                 },
-                "example": {
-                  "status": false,
-                  "msg": "Bad Request"
+                "examples": {
+                  "validation": {
+                    "summary": "Invalid body",
+                    "value": {
+                      "status": false,
+                      "msg": "Bad Request"
+                    }
+                  },
+                  "combo_incomplete": {
+                    "summary": "Combo slots incomplete",
+                    "value": {
+                      "status": false,
+                      "msg": "Please complete all 4 burger selections",
+                      "code": "combo_incomplete"
+                    }
+                  }
                 }
               }
             }
@@ -17224,40 +17555,115 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "is_guest": {
-                    "example": "any"
-                  },
-                  "guest_id": {
-                    "example": "any"
-                  },
-                  "item_id": {
-                    "example": "any"
-                  },
-                  "variations": {
-                    "example": "any"
-                  },
-                  "item_type": {
-                    "example": "any"
-                  },
-                  "price": {
-                    "example": "any"
-                  },
-                  "quantity": {
-                    "example": "any"
-                  },
-                  "add_on_ids": {
-                    "example": "any"
-                  },
-                  "add_on_qtys": {
-                    "example": "any"
-                  },
-                  "variation_options": {
-                    "example": "any"
+                "$ref": "#/components/schemas/ConsumerCartAddBody"
+              },
+              "examples": {
+                "normalItem": {
+                  "summary": "Normal food with variations",
+                  "value": {
+                    "restaurant_id": 3,
+                    "item_id": 102,
+                    "item_type": "Food",
+                    "price": 68,
+                    "quantity": 1,
+                    "add_on_ids": [],
+                    "add_on_qtys": [],
+                    "variations": [],
+                    "variation_options": [
+                      {
+                        "name": "Paid Upgrades",
+                        "values": {
+                          "label": [
+                            "Extra Cheese"
+                          ]
+                        }
+                      }
+                    ],
+                    "combo_selections": []
+                  }
+                },
+                "fourBurgerCombo": {
+                  "summary": "4-burger combo (all slots required)",
+                  "value": {
+                    "restaurant_id": 3,
+                    "item_id": 9002,
+                    "item_type": "Food",
+                    "price": 129,
+                    "quantity": 1,
+                    "add_on_ids": [],
+                    "add_on_qtys": [],
+                    "variations": [],
+                    "variation_options": [],
+                    "combo_selections": [
+                      {
+                        "slot_index": 1,
+                        "slot_label": "Burger #1",
+                        "variation_options": [
+                          {
+                            "name": "Doneness",
+                            "values": {
+                              "label": [
+                                "Medium"
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "slot_index": 2,
+                        "slot_label": "Burger #2",
+                        "variation_options": [
+                          {
+                            "name": "Doneness",
+                            "values": {
+                              "label": [
+                                "Well Done"
+                              ]
+                            }
+                          },
+                          {
+                            "name": "Paid Upgrades",
+                            "values": {
+                              "label": [
+                                "Extra Cheese"
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "slot_index": 3,
+                        "slot_label": "Burger #3",
+                        "variation_options": [
+                          {
+                            "name": "Doneness",
+                            "values": {
+                              "label": [
+                                "Medium"
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "slot_index": 4,
+                        "slot_label": "Burger #4",
+                        "variation_options": [
+                          {
+                            "name": "Doneness",
+                            "values": {
+                              "label": [
+                                "Medium"
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    ]
                   }
                 }
               }

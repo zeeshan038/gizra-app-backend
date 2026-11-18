@@ -49,6 +49,12 @@ import {
   resolveCheckoutServerUnitBase,
 } from '../../utils/consumer/checkoutFoodUnitPrice';
 import {
+  flattenComboSelectionsForKitchen,
+  parseComboDefinition,
+  parseComboSelections,
+  validateComboSelections,
+} from '../../utils/consumer/comboDefinition';
+import {
   applyBundledAddonLinePriceRule,
   resolveCartLineUnitFoodPrice,
 } from '../../utils/consumer/orderLinePricing';
@@ -461,6 +467,7 @@ type CartLineInput = {
   add_on_placements?: unknown[];
   variations?: unknown[];
   variation_options?: unknown[];
+  combo_selections?: unknown[];
 };
 
 type ResolvedCartLine = CartLineInput & {
@@ -487,6 +494,7 @@ function normalizeCartRow(row: {
   add_on_placements?: string | null;
   variations: string | null;
   variation_options: string | null;
+  combo_selections?: string | null;
 }): ResolvedCartLine {
   return {
     cart_id: row.id,
@@ -499,6 +507,7 @@ function normalizeCartRow(row: {
     add_on_placements: parseJsonField<unknown[]>(row.add_on_placements ?? null, []),
     variations: parseJsonField<unknown[]>(row.variations, []),
     variation_options: parseJsonField<unknown[]>(row.variation_options, []),
+    combo_selections: parseJsonField<unknown[]>(row.combo_selections ?? null, []),
   };
 }
 
@@ -934,20 +943,39 @@ export async function executePlaceOrder(params: {
       throw new PlaceOrderError('Maximum cart quantity exceeded', 406, 'quantity');
     }
 
+    const comboDef = parseComboDefinition(
+      (food as { combo_definition?: string | null }).combo_definition ?? null
+    );
+    if (comboDef) {
+      const comboCheck = validateComboSelections({
+        definition: comboDef,
+        selections: line.combo_selections,
+        productVariationsJson: food.variations,
+      });
+      if (!comboCheck.ok) {
+        throw new PlaceOrderError(comboCheck.msg, 400, comboCheck.code);
+      }
+      line.combo_selections = comboCheck.selections;
+    }
+
     const selectedVariations = mergeCartLineVariations(line);
     const serverUnitBase = resolveCheckoutServerUnitBase({
       catalogBasePrice: Number(food.price),
       productVariationsJson: food.variations,
       legacyVariations: legacyVariationsByFoodId.get(Number(food.id)),
       selectedVariations,
+      comboSelections: line.combo_selections,
     });
     const addonData = await calculateAddonPrice(
       line.add_on_ids ?? [],
       line.add_on_qtys ?? [],
       line.add_on_placements
     );
+    const comboSlots = parseComboSelections(line.combo_selections);
     const variationForStorage = enrichVariationSelectionsForKitchen(
-      mergeCartLineVariations(line) ?? []
+      comboSlots.length
+        ? flattenComboSelectionsForKitchen(comboSlots, comboDef)
+        : mergeCartLineVariations(line) ?? []
     );
     const addonPerUnit = addonData.total_add_on_price;
     const clientLineUnit = coerceCartLinePriceToUnit({
