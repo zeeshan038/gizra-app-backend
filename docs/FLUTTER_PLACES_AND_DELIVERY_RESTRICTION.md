@@ -80,7 +80,11 @@ GET /consumer/config/place-details?placeid={place_id}
 GET /consumer/config/geocode?lat={lat}&lng={lng}
 ```
 
-- On `status: "OK"`: use `results[0].formatted_address` and geometry.
+- On `status: "OK"`:
+  - **Keep the pin’s request `lat`/`lng` as the delivery coordinates** (source of truth).
+  - `results[0].formatted_address` — street address, often prefixed with a nearby place name when found (e.g. `Palace Bakers, 2 Soan Ave…`).
+  - `results[0].name` — nearby POI / shop name when within ~80m (may be `null`).
+  - Show `name` (if present) + address in the UI; never replace pin coords with `geometry.location` unless the user explicitly picked that place.
 
 ### Flow diagram
 

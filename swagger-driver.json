@@ -4449,14 +4449,23 @@
       },
       "GoogleGeocodeResponse": {
         "type": "object",
+        "description": "Reverse geocode response. Street address from Google Geocoding, enriched with nearby POI `name` when found within ~80m.",
         "properties": {
           "results": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
+                "name": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Nearby place / business name when the pin is close to a POI (e.g. Palace Bakers). Null if none within ~80m.",
+                  "example": "Palace Bakers"
+                },
                 "formatted_address": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Human-readable address. Often prefixed with `name` when a nearby POI is found (e.g. `Palace Bakers, 2 Soan Ave…`).",
+                  "example": "Palace Bakers, 2 Soan Ave, Soan Gardens Block B Islamabad, Pakistan"
                 },
                 "geometry": {
                   "type": "object",
@@ -4465,7 +4474,9 @@
                       "$ref": "#/components/schemas/GoogleLatLng"
                     },
                     "location_type": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "`ROOFTOP` when a nearby place name was attached; otherwise often `APPROXIMATE`.",
+                      "example": "ROOFTOP"
                     }
                   }
                 },
@@ -16697,7 +16708,7 @@
       "get": {
         "summary": "Reverse geocode lat/lng (server proxy)",
         "operationId": "getDeliveryManConfigGeocode",
-        "description": "Map pin flow: user selects coordinates without a `place_id` → get human-readable address. Backend uses `GOOGLE_MAPS_API_KEY`. Returns Google Geocoding JSON. Use `results[0].formatted_address` and geometry when status is `OK`. Same server proxy as consumer; use this prefix from the driver app.",
+        "description": "Same as **GET /consumer/config/geocode**: street address + optional nearby POI `name` within ~80m. Keep request lat/lng as coordinates; use `name` + `formatted_address` for display. Driver app prefix.",
         "parameters": [
           {
             "name": "lat",
@@ -16705,7 +16716,7 @@
             "required": true,
             "schema": {
               "type": "number",
-              "example": 31.768319
+              "example": 33.565098
             }
           },
           {
@@ -16714,47 +16725,39 @@
             "required": true,
             "schema": {
               "type": "number",
-              "example": 35.21371
+              "example": 73.151956
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Google Geocoding payload (pass-through)",
+            "description": "Geocode payload (street address + optional nearby place `name`)",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/GoogleGeocodeResponse"
                 },
                 "example": {
+                  "status": "OK",
                   "results": [
                     {
-                      "formatted_address": "Jerusalem",
+                      "name": "Palace Bakers",
+                      "formatted_address": "Palace Bakers, 2 Soan Ave, Soan Gardens Block B Islamabad, Pakistan",
                       "geometry": {
                         "location": {
-                          "lat": 31.768319,
-                          "lng": 35.21371
+                          "lat": 33.5650926,
+                          "lng": 73.1519571
                         },
-                        "location_type": "APPROXIMATE",
-                        "viewport": {
-                          "northeast": {
-                            "lat": 31.882907,
-                            "lng": 35.261879
-                          },
-                          "southwest": {
-                            "lat": 31.709678,
-                            "lng": 35.085431
-                          }
-                        }
+                        "location_type": "ROOFTOP"
                       },
-                      "place_id": "ChIJecHC4jRkAhMRCpciZik3B00",
+                      "place_id": "ChIJmx6kh0zs3zgRVVvhr0MjOZ8",
                       "types": [
-                        "locality",
-                        "political"
+                        "establishment",
+                        "point_of_interest",
+                        "geocode"
                       ]
                     }
-                  ],
-                  "status": "OK"
+                  ]
                 }
               }
             }

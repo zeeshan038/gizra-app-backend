@@ -4438,14 +4438,23 @@
       },
       "GoogleGeocodeResponse": {
         "type": "object",
+        "description": "Reverse geocode response. Street address from Google Geocoding, enriched with nearby POI `name` when found within ~80m.",
         "properties": {
           "results": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
+                "name": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Nearby place / business name when the pin is close to a POI (e.g. Palace Bakers). Null if none within ~80m.",
+                  "example": "Palace Bakers"
+                },
                 "formatted_address": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Human-readable address. Often prefixed with `name` when a nearby POI is found (e.g. `Palace Bakers, 2 Soan Ave…`).",
+                  "example": "Palace Bakers, 2 Soan Ave, Soan Gardens Block B Islamabad, Pakistan"
                 },
                 "geometry": {
                   "type": "object",
@@ -4454,7 +4463,9 @@
                       "$ref": "#/components/schemas/GoogleLatLng"
                     },
                     "location_type": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "`ROOFTOP` when a nearby place name was attached; otherwise often `APPROXIMATE`.",
+                      "example": "ROOFTOP"
                     }
                   }
                 },
