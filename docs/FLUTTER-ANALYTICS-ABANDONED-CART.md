@@ -8,6 +8,8 @@ No Firebase Analytics / PostHog required for v1. Twilio/WhatsApp keys are option
 `POST /api/consumer/analytics/events`  
 Auth: consumer JWT (or guest via existing `is_guest` + `guest_id` / guest token).
 
+**OpenAPI / codegen:** `swagger-customer.json` and `gizra_customer.openapi.json` — tag **Consumer Analytics**, operationId `trackConsumerAnalyticsEvents`. Swagger UI: `{BASE}/swagger/customer`.
+
 **Single event**
 
 ```json

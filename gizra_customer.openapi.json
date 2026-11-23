@@ -68,6 +68,10 @@
       "description": "**Private admin-issued codes** — customers type a code at checkout (video/SMS). Coupon **codes are not listed** in the app.\n\n**Base URL:** `https://backend-dev.gizra.app/api` (paths below are relative to `/api`). Full reference: `docs/CONSUMER-COUPON-API.md`.\n\n| Step | Method | Path | Body |\n|------|--------|------|------|\n| Preview | `GET` | `/consumer/coupon/apply?code=&restaurant_id=&order_amount=` | — |\n| Place order | `POST` | `/consumer/order/place` | `coupon_code` in JSON (see `ConsumerPlaceOrderRequest`) |\n\n**List routes** (`/coupon/list`, `/coupon/restaurant-wise`, `/restaurants/coupons`) always return `{ \"status\": true, \"data\": [] }`.\n\n**Auth:** `apply` + `list` = registered customer JWT. **One use per customer** (default) → HTTP **406** if reused.\n\nErrors: `{ \"status\": false, \"msg\": \"...\" }`."
     },
     {
+      "name": "Consumer Analytics",
+      "description": "In-app funnel events for Super Admin + abandoned-cart timer.\n\n**Docs:** `docs/FLUTTER-ANALYTICS-ABANDONED-CART.md`\n\n**Auth:** Consumer Bearer JWT (or guest token / `is_guest` + `guest_id`).\n\nEvent names: `app_opened`, `store_viewed`, `product_viewed`, `added_to_cart`, `checkout_started`, `payment_failed`, `distance_blocked`, `order_completed`."
+    },
+    {
       "name": "App Config (All Apps)"
     },
     {
@@ -10452,6 +10456,248 @@
             }
           }
         }
+      },
+      "ConsumerAnalyticsEventName": {
+        "type": "string",
+        "enum": [
+          "app_opened",
+          "store_viewed",
+          "product_viewed",
+          "added_to_cart",
+          "checkout_started",
+          "payment_failed",
+          "distance_blocked",
+          "order_completed"
+        ]
+      },
+      "ConsumerAnalyticsEventItem": {
+        "type": "object",
+        "required": [
+          "event_name"
+        ],
+        "properties": {
+          "event_name": {
+            "$ref": "#/components/schemas/ConsumerAnalyticsEventName"
+          },
+          "client_session": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 128
+          },
+          "restaurant_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "zone_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "properties": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true,
+            "description": "Free-form JSON (lat/lng, food_id, cart_total, error reason, …)"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Optional client timestamp (currently accepted; server uses ingest time)"
+          }
+        }
+      },
+      "ConsumerAnalyticsEventsRequest": {
+        "type": "object",
+        "description": "Send either `events` (batch) or top-level `event_name` (single).",
+        "properties": {
+          "events": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/ConsumerAnalyticsEventItem"
+            }
+          },
+          "event_name": {
+            "$ref": "#/components/schemas/ConsumerAnalyticsEventName"
+          },
+          "client_session": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "zone_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "properties": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "is_guest": {
+            "type": "boolean"
+          },
+          "guest_id": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerAnalyticsEventsResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Events recorded"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "recorded": {
+                "type": "integer",
+                "example": 4
+              }
+            }
+          }
+        }
+      },
+      "AdminAnalyticsFunnelResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "to": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "funnel": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "step": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "users": {
+                      "type": "integer"
+                    },
+                    "conversion_from_previous": {
+                      "type": "number",
+                      "nullable": true
+                    },
+                    "conversion_from_open": {
+                      "type": "number",
+                      "nullable": true
+                    }
+                  }
+                }
+              },
+              "config": {
+                "type": "object",
+                "properties": {
+                  "abandoned_cart_enabled": {
+                    "type": "boolean"
+                  },
+                  "abandoned_cart_minutes": {
+                    "type": "integer"
+                  },
+                  "whatsapp_recovery_enabled": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "AdminAbandonedCartsResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "page": {
+                "type": "integer"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "total": {
+                "type": "integer"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "restaurant_name": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customer_name": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customer_phone": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "cart_total": {
+                      "type": "number"
+                    },
+                    "whatsapp_status": {
+                      "type": "string"
+                    },
+                    "deeplink": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "abandoned_at": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "last_activity_at": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "parameters": {
@@ -18200,6 +18446,176 @@
         "tags": [
           "Consumer Cart"
         ]
+      }
+    },
+    "/consumer/analytics/events": {
+      "post": {
+        "description": "Ingest Customer App funnel events. Prefer batch `events[]`.\n\n`added_to_cart` / `checkout_started` also refresh the abandoned-cart timer for **logged-in** users.\n\nSee `docs/FLUTTER-ANALYTICS-ABANDONED-CART.md`.",
+        "responses": {
+          "200": {
+            "description": "Events recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerAnalyticsEventsResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Events recorded",
+                  "data": {
+                    "recorded": 4
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "\"event_name\" is required"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing/invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not authorized, no token"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable"
+          }
+        },
+        "tags": [
+          "Consumer Analytics"
+        ],
+        "summary": "Track funnel events (batch or single)",
+        "operationId": "trackConsumerAnalyticsEvents",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Bearer consumer JWT (or guest JWT)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumerAnalyticsEventsRequest"
+              },
+              "examples": {
+                "batch": {
+                  "summary": "Batch (preferred)",
+                  "value": {
+                    "events": [
+                      {
+                        "event_name": "app_opened",
+                        "zone_id": 1,
+                        "client_session": "uuid-optional",
+                        "properties": {
+                          "lat": 32.08,
+                          "lng": 34.78
+                        }
+                      },
+                      {
+                        "event_name": "store_viewed",
+                        "restaurant_id": 12
+                      },
+                      {
+                        "event_name": "added_to_cart",
+                        "restaurant_id": 12,
+                        "properties": {
+                          "cart_total": 85.5
+                        }
+                      },
+                      {
+                        "event_name": "checkout_started",
+                        "restaurant_id": 12
+                      }
+                    ]
+                  }
+                },
+                "single": {
+                  "summary": "Single event",
+                  "value": {
+                    "event_name": "payment_failed",
+                    "properties": {
+                      "reason": "card_declined"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/consumer/coupon/restaurant-wise": {

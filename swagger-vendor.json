@@ -10414,6 +10414,248 @@
             }
           }
         }
+      },
+      "ConsumerAnalyticsEventName": {
+        "type": "string",
+        "enum": [
+          "app_opened",
+          "store_viewed",
+          "product_viewed",
+          "added_to_cart",
+          "checkout_started",
+          "payment_failed",
+          "distance_blocked",
+          "order_completed"
+        ]
+      },
+      "ConsumerAnalyticsEventItem": {
+        "type": "object",
+        "required": [
+          "event_name"
+        ],
+        "properties": {
+          "event_name": {
+            "$ref": "#/components/schemas/ConsumerAnalyticsEventName"
+          },
+          "client_session": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 128
+          },
+          "restaurant_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "zone_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "properties": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true,
+            "description": "Free-form JSON (lat/lng, food_id, cart_total, error reason, …)"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Optional client timestamp (currently accepted; server uses ingest time)"
+          }
+        }
+      },
+      "ConsumerAnalyticsEventsRequest": {
+        "type": "object",
+        "description": "Send either `events` (batch) or top-level `event_name` (single).",
+        "properties": {
+          "events": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/ConsumerAnalyticsEventItem"
+            }
+          },
+          "event_name": {
+            "$ref": "#/components/schemas/ConsumerAnalyticsEventName"
+          },
+          "client_session": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "zone_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "properties": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "is_guest": {
+            "type": "boolean"
+          },
+          "guest_id": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerAnalyticsEventsResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Events recorded"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "recorded": {
+                "type": "integer",
+                "example": 4
+              }
+            }
+          }
+        }
+      },
+      "AdminAnalyticsFunnelResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "to": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "funnel": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "step": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "users": {
+                      "type": "integer"
+                    },
+                    "conversion_from_previous": {
+                      "type": "number",
+                      "nullable": true
+                    },
+                    "conversion_from_open": {
+                      "type": "number",
+                      "nullable": true
+                    }
+                  }
+                }
+              },
+              "config": {
+                "type": "object",
+                "properties": {
+                  "abandoned_cart_enabled": {
+                    "type": "boolean"
+                  },
+                  "abandoned_cart_minutes": {
+                    "type": "integer"
+                  },
+                  "whatsapp_recovery_enabled": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "AdminAbandonedCartsResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "page": {
+                "type": "integer"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "total": {
+                "type": "integer"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "restaurant_name": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customer_name": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customer_phone": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "cart_total": {
+                      "type": "number"
+                    },
+                    "whatsapp_status": {
+                      "type": "string"
+                    },
+                    "deeplink": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "abandoned_at": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "last_activity_at": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "parameters": {

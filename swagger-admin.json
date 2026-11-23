@@ -27,6 +27,10 @@
       "description": "Create and manage **private promo codes** for the customer app. Codes are **not** shown in the mobile coupon list — admin copies the `code` and shares it (video, SMS, etc.). Customers type it at checkout (`GET /consumer/coupon/apply`, `POST /consumer/order/place`).\n\n**Base URL:** `https://backend-dev.gizra.app/api` (paths relative to `/api`).\n\n**Auth:** Admin JWT on all routes (`verifyAdmin`).\n\n**Default:** `limit` = **1 use per customer** when omitted.\n\nSee `docs/ADMIN-COUPON-API.md`."
     },
     {
+      "name": "Admin Analytics",
+      "description": "Super Admin conversion funnel and abandoned-cart list. Auth: Admin JWT."
+    },
+    {
       "name": "App Config (All Apps)"
     },
     {
@@ -10405,6 +10409,248 @@
             "type": "array",
             "items": {
               "type": "integer"
+            }
+          }
+        }
+      },
+      "ConsumerAnalyticsEventName": {
+        "type": "string",
+        "enum": [
+          "app_opened",
+          "store_viewed",
+          "product_viewed",
+          "added_to_cart",
+          "checkout_started",
+          "payment_failed",
+          "distance_blocked",
+          "order_completed"
+        ]
+      },
+      "ConsumerAnalyticsEventItem": {
+        "type": "object",
+        "required": [
+          "event_name"
+        ],
+        "properties": {
+          "event_name": {
+            "$ref": "#/components/schemas/ConsumerAnalyticsEventName"
+          },
+          "client_session": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 128
+          },
+          "restaurant_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "zone_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "properties": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true,
+            "description": "Free-form JSON (lat/lng, food_id, cart_total, error reason, …)"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Optional client timestamp (currently accepted; server uses ingest time)"
+          }
+        }
+      },
+      "ConsumerAnalyticsEventsRequest": {
+        "type": "object",
+        "description": "Send either `events` (batch) or top-level `event_name` (single).",
+        "properties": {
+          "events": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/ConsumerAnalyticsEventItem"
+            }
+          },
+          "event_name": {
+            "$ref": "#/components/schemas/ConsumerAnalyticsEventName"
+          },
+          "client_session": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "zone_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "properties": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "is_guest": {
+            "type": "boolean"
+          },
+          "guest_id": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerAnalyticsEventsResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Events recorded"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "recorded": {
+                "type": "integer",
+                "example": 4
+              }
+            }
+          }
+        }
+      },
+      "AdminAnalyticsFunnelResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "to": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "funnel": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "step": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "users": {
+                      "type": "integer"
+                    },
+                    "conversion_from_previous": {
+                      "type": "number",
+                      "nullable": true
+                    },
+                    "conversion_from_open": {
+                      "type": "number",
+                      "nullable": true
+                    }
+                  }
+                }
+              },
+              "config": {
+                "type": "object",
+                "properties": {
+                  "abandoned_cart_enabled": {
+                    "type": "boolean"
+                  },
+                  "abandoned_cart_minutes": {
+                    "type": "integer"
+                  },
+                  "whatsapp_recovery_enabled": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "AdminAbandonedCartsResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "page": {
+                "type": "integer"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "total": {
+                "type": "integer"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "restaurant_name": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customer_name": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customer_phone": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "cart_total": {
+                      "type": "number"
+                    },
+                    "whatsapp_status": {
+                      "type": "string"
+                    },
+                    "deeplink": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "abandoned_at": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "last_activity_at": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -30784,6 +31030,454 @@
         },
         "tags": [
           "Admin"
+        ]
+      }
+    },
+    "/admin/analytics/funnel": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Funnel steps",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAnalyticsFunnelResponse"
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "from": "…",
+                    "to": "…",
+                    "funnel": "…",
+                    "config": {
+                      "abandoned_cart_enabled": "…",
+                      "abandoned_cart_minutes": "…",
+                      "whatsapp_recovery_enabled": "…"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin Analytics"
+        ],
+        "summary": "Conversion funnel (unique users per step)",
+        "operationId": "adminAnalyticsFunnel",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/analytics/events/summary": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Counts by event_name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "to": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "counts": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "from": "…",
+                    "to": "…",
+                    "counts": 5,
+                    "rows": "…",
+                    "count": 5
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin Analytics"
+        ],
+        "summary": "Event volume by name",
+        "operationId": "adminAnalyticsEventsSummary",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/analytics/abandoned-carts": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "abandoned",
+                "recovered",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 25
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated sessions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAbandonedCartsResponse"
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 42,
+                    "items": "1",
+                    "user_id": 1,
+                    "status": "…",
+                    "restaurant_id": 0,
+                    "restaurant_name": "…",
+                    "customer_name": "…",
+                    "customer_phone": "+1234567890",
+                    "cart_total": "…",
+                    "last_activity_at": 0,
+                    "abandoned_at": 0,
+                    "recovered_at": 0,
+                    "recovered_order_id": 0,
+                    "deeplink": "…",
+                    "whatsapp_status": "…",
+                    "whatsapp_sent_at": 0,
+                    "whatsapp_attempts": "…",
+                    "whatsapp_last_error": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin Analytics"
+        ],
+        "summary": "List abandoned / recovery cart sessions",
+        "operationId": "adminAbandonedCartsList",
+        "security": [
+          {
+            "bearerAuth": []
+          }
         ]
       }
     },
