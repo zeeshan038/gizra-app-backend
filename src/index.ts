@@ -8,6 +8,8 @@ import apiRouter from './routes/index';
 import hyperPayRoutes from './routes/payment/hyperpay';
 import './config/firebase';
 import { connectDB, startKeepalive } from './config/database';
+import { startPosWebhookWorker } from './utils/pos/queue/worker';
+import { startAbandonedCartWorker } from './utils/analytics/worker';
 import swaggerUi from 'swagger-ui-express';
 import fs from 'fs';
 import path from 'path';
@@ -125,6 +127,8 @@ const port = process.env.PORT || 3000;
 connectDB()
   .then(async () => {
     startKeepalive();
+    startPosWebhookWorker();
+    startAbandonedCartWorker();
     const httpServer = http.createServer(app);
     await initSocketServer(httpServer);
     httpServer.listen(port, () => {

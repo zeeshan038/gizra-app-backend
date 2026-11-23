@@ -275,6 +275,8 @@ export async function buildDeliveryManOrderDetail(
     is_manual_dispatch: Boolean(order.is_manual_dispatch),
     ...identity,
     order_note: order.order_note,
+    /** Customer "Note to Driver" (הערה לשליח) from checkout. */
+    delivery_instruction: order.delivery_instruction ?? null,
     dispatch_summary: order.is_manual_dispatch
       ? {
           title: 'Gizra ride — restaurant requested driver',

@@ -48,6 +48,7 @@ import {
   mergeCartLineVariations,
   resolveCheckoutServerUnitBase,
 } from '../../utils/consumer/checkoutFoodUnitPrice';
+import { markAbandonedCartRecovered } from '../../utils/analytics/abandonedCart';
 import {
   flattenComboSelectionsForKitchen,
   parseComboDefinition,
@@ -1403,6 +1404,12 @@ export async function executePlaceOrder(params: {
     isGuest,
     isBuyNow: payload.is_buy_now ?? false,
     cartIds: cartLines.map((l) => l.cart_id).filter(Boolean) as bigint[],
+  });
+
+  void markAbandonedCartRecovered({
+    userId,
+    isGuest,
+    orderId: order.id,
   });
 
   return {

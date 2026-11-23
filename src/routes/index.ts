@@ -59,6 +59,10 @@ import adminReportRoutes from './admin/reports';
 import adminMerchantInquiryRoutes from './admin/merchant-inquiries';
 import adminDeliveryDistanceTimeRestrictionRoutes from './admin/delivery-distance-time-restriction';
 import adminEmergencyServicePauseRoutes from './admin/emergency-service-pause';
+import adminPosRoutes from './admin/pos';
+import adminAnalyticsRoutes from './admin/analytics';
+import posRoutes from './pos';
+import consumerAnalyticsRoutes from './consumer/analytics';
 
 //vendor
 router.use('/vendor/config', vendorConfigRoutes);
@@ -110,6 +114,7 @@ router.use('/consumer/restaurants', consumerRestaurantRoutes);
 router.use('/consumer/foods', consumerFoodRoutes);
 router.use('/consumer', consumerDashboardRoutes);
 router.use('/consumer/cart', consumerCartRoutes);
+router.use('/consumer/analytics', consumerAnalyticsRoutes);
 router.use('/consumer/coupon', consumerCouponRoutes);
 router.use('/consumer/reviews', consumerReviewRoutes);
 router.use('/consumer/order', consumerOrderRoutes);
@@ -157,7 +162,11 @@ router.use('/admin/reports', adminReportRoutes);
 router.use('/admin/merchant-inquiries', adminMerchantInquiryRoutes);
 router.use('/admin/delivery-distance-time-restriction', adminDeliveryDistanceTimeRestrictionRoutes);
 router.use('/admin/emergency-service-pause', adminEmergencyServicePauseRoutes);
+router.use('/admin/pos', adminPosRoutes);
+router.use('/admin/analytics', adminAnalyticsRoutes);
 
+/** Third-party POS partner APIs (Bearer API token — not vendor JWT) */
+router.use('/v1/pos', posRoutes);
 
 router.use('/upload', uploadRouter);
 router.use('/storage', storageRouter);

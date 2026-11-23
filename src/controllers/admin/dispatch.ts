@@ -1,9 +1,59 @@
 import { Request, Response } from 'express';
 import { adminRequestDriverSchema } from '../../schemas/admin/dispatch';
+import { adminDispatchDeliveryFeeQuerySchema } from '../../schemas/dispatch/deliveryFee';
 import {
   requestManualDispatchDriver,
   ManualDispatchRequestBody,
 } from '../../utils/order/requestManualDispatchDriver';
+import { quoteDeliveryFeeForDestination } from '../../utils/delivery/quoteDeliveryFee';
+import { errorMessageFromUnknown, joiFirstMessage, sendApiError } from '../../utils/apiErrorResponse';
+
+/**
+ * Quote delivery fee for admin Request Gizra driver (same tiered formula as customer app).
+ *
+ * @Route GET /api/admin/dispatch/delivery-fee
+ * @Access Private (Admin JWT)
+ */
+export const adminGetDispatchDeliveryFeeQuote = async (
+  req: Request,
+  res: Response
+): Promise<any> => {
+  const validated = adminDispatchDeliveryFeeQuerySchema.validate(req.query, {
+    stripUnknown: true,
+  });
+  if (validated.error) {
+    return sendApiError(res, 403, joiFirstMessage(validated.error));
+  }
+
+  const v = validated.value as {
+    restaurant_id: number;
+    destination_lat: string | number;
+    destination_lng: string | number;
+  };
+
+  try {
+    const result = await quoteDeliveryFeeForDestination({
+      restaurantId: Number(v.restaurant_id),
+      destinationLat: Number(v.destination_lat),
+      destinationLng: Number(v.destination_lng),
+      applyFreeDelivery: false,
+      enforceRestrictions: false,
+    });
+
+    if (!result.ok) {
+      return res.status(result.status).json({ status: false, msg: result.msg });
+    }
+
+    const { ok: _ok, ...data } = result;
+    return res.status(200).json({
+      status: true,
+      msg: 'Delivery fee quoted',
+      data,
+    });
+  } catch (e: unknown) {
+    return sendApiError(res, 500, errorMessageFromUnknown(e));
+  }
+};
 
 /**
  * Admin requests a Gizra driver on behalf of a restaurant (manual dispatch).

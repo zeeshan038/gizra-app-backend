@@ -167,6 +167,9 @@ export type DmOrderListItem = {
   restaurant_order_number: string | null;
   /** Restaurant ticket when set, else gizra_order_id — show as main order # on cards. */
   display_order_number: string;
+  /** Customer "Note to Driver" (הערה לשליח) from checkout. */
+  delivery_instruction: string | null;
+  order_note: string | null;
   dispatch_summary?: DmOrderListDispatchSummary | null;
 };
 
@@ -326,6 +329,8 @@ export async function mapOrdersForDeliveryManList(
         driverRestaurantImageUrl(restaurantImageStored, DEFAULT_RESTAURANT_IMAGE) ?? '',
       customer_image_url:
         resolveDriverOrderPartyImageUrl(customerImageStored, DEFAULT_CUSTOMER_IMAGE) ?? '',
+      delivery_instruction: order.delivery_instruction ?? null,
+      order_note: order.order_note ?? null,
       ...cardIdentity,
       ...cookingTime,
     };

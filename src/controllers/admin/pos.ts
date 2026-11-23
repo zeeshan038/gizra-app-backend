@@ -1,0 +1,353 @@
+import crypto from 'crypto';
+import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
+import prisma from '../../config/database';
+import {
+  createPosApiKeySchema,
+  createPosConnectionSchema,
+  updatePosConnectionSchema,
+} from '../../schemas/admin/pos';
+import { generatePosApiToken, PosEnvironment } from '../../utils/pos/auth/token';
+import { replayPosWebhookDelivery } from '../../utils/pos/queue/worker';
+
+/**
+ * @Description Issue a POS partner API token (shown once)
+ * @Route POST /api/admin/pos/api-keys
+ * @Access Super Admin
+ */
+export const createPosApiKey = async (req: Request, res: Response): Promise<any> => {
+  const validated = createPosApiKeySchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(', '),
+    });
+  }
+
+  const { restaurant_id, name, provider, environment, scopes } = validated.value;
+
+  try {
+    const restaurant = await prisma.restaurants.findUnique({
+      where: { id: BigInt(restaurant_id) },
+      select: { id: true, name: true },
+    });
+    if (!restaurant) {
+      return res.status(404).json({ status: false, msg: 'Restaurant not found' });
+    }
+
+    const env = environment as PosEnvironment;
+    const generated = generatePosApiToken(env);
+    const now = new Date();
+
+    const row = await prisma.partner_api_keys.create({
+      data: {
+        restaurant_id: new Prisma.Decimal(restaurant_id),
+        name,
+        key_id: generated.keyId,
+        secret_hash: generated.secretHash,
+        scopes: JSON.stringify(scopes),
+        environment: env,
+        provider,
+        key_prefix: generated.keyPrefix,
+        created_at: now,
+        updated_at: now,
+      },
+    });
+
+    return res.status(201).json({
+      status: true,
+      msg: 'POS API token created. Store the token now — it will not be shown again.',
+      data: {
+        id: row.id.toString(),
+        restaurant_id: String(restaurant_id),
+        restaurant_name: restaurant.name,
+        name: row.name,
+        provider: row.provider,
+        environment: row.environment,
+        key_prefix: row.key_prefix,
+        scopes,
+        token: generated.token,
+        created_at: row.created_at,
+      },
+    });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message || 'Failed to create API key' });
+  }
+};
+
+/**
+ * @Description List POS API keys (never returns full token)
+ * @Route GET /api/admin/pos/api-keys
+ * @Access Super Admin
+ */
+export const listPosApiKeys = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const restaurantId = req.query.restaurant_id ? Number(req.query.restaurant_id) : null;
+    const rows = await prisma.partner_api_keys.findMany({
+      where:
+        restaurantId != null && Number.isFinite(restaurantId)
+          ? { restaurant_id: new Prisma.Decimal(restaurantId) }
+          : undefined,
+      orderBy: { id: 'desc' },
+    });
+
+    return res.status(200).json({
+      status: true,
+      data: rows.map((row) => ({
+        id: row.id.toString(),
+        restaurant_id: Number(row.restaurant_id),
+        name: row.name,
+        provider: row.provider,
+        environment: row.environment,
+        key_prefix: row.key_prefix,
+        scopes: row.scopes,
+        revoked_at: row.revoked_at,
+        last_used_at: row.last_used_at,
+        created_at: row.created_at,
+      })),
+    });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message || 'Failed to list API keys' });
+  }
+};
+
+/**
+ * @Description Revoke a POS API key
+ * @Route POST /api/admin/pos/api-keys/:id/revoke
+ * @Access Super Admin
+ */
+export const revokePosApiKey = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const id = BigInt(String(req.params.id));
+    const now = new Date();
+    const row = await prisma.partner_api_keys.update({
+      where: { id },
+      data: { revoked_at: now, updated_at: now },
+    });
+    return res.status(200).json({
+      status: true,
+      msg: 'POS API key revoked',
+      data: { id: row.id.toString(), revoked_at: row.revoked_at },
+    });
+  } catch (e: any) {
+    if (e?.code === 'P2025') {
+      return res.status(404).json({ status: false, msg: 'API key not found' });
+    }
+    return res.status(500).json({ status: false, msg: e.message || 'Failed to revoke key' });
+  }
+};
+
+/**
+ * @Description Create POS webhook connection (restaurant → partner endpoint)
+ * @Route POST /api/admin/pos/connections
+ * @Access Super Admin
+ */
+export const createPosConnection = async (req: Request, res: Response): Promise<any> => {
+  const validated = createPosConnectionSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(', '),
+    });
+  }
+
+  const body = validated.value;
+  try {
+    const restaurant = await prisma.restaurants.findUnique({
+      where: { id: BigInt(body.restaurant_id) },
+      select: { id: true, name: true },
+    });
+    if (!restaurant) {
+      return res.status(404).json({ status: false, msg: 'Restaurant not found' });
+    }
+
+    const signingSecret =
+      body.signing_secret || crypto.randomBytes(32).toString('base64url');
+    const now = new Date();
+
+    const row = await prisma.partner_webhooks.create({
+      data: {
+        restaurant_id: new Prisma.Decimal(body.restaurant_id),
+        url: body.url,
+        events: JSON.stringify(body.events),
+        signing_secret: signingSecret,
+        active: body.active !== false,
+        provider: body.provider,
+        external_merchant_id: body.external_merchant_id || null,
+        created_at: now,
+        updated_at: now,
+      },
+    });
+
+    return res.status(201).json({
+      status: true,
+      msg: 'POS connection created',
+      data: {
+        id: row.id.toString(),
+        restaurant_id: Number(row.restaurant_id),
+        restaurant_name: restaurant.name,
+        url: row.url,
+        provider: row.provider,
+        external_merchant_id: row.external_merchant_id,
+        events: body.events,
+        active: row.active,
+        signing_secret: signingSecret,
+        created_at: row.created_at,
+      },
+    });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message || 'Failed to create connection' });
+  }
+};
+
+/**
+ * @Description List POS webhook connections
+ * @Route GET /api/admin/pos/connections
+ * @Access Super Admin
+ */
+export const listPosConnections = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const restaurantId = req.query.restaurant_id ? Number(req.query.restaurant_id) : null;
+    const rows = await prisma.partner_webhooks.findMany({
+      where:
+        restaurantId != null && Number.isFinite(restaurantId)
+          ? { restaurant_id: new Prisma.Decimal(restaurantId) }
+          : undefined,
+      orderBy: { id: 'desc' },
+    });
+
+    return res.status(200).json({
+      status: true,
+      data: rows.map((row) => ({
+        id: row.id.toString(),
+        restaurant_id: Number(row.restaurant_id),
+        url: row.url,
+        provider: row.provider,
+        external_merchant_id: row.external_merchant_id,
+        events: row.events,
+        active: row.active,
+        consecutive_failures: Number(row.consecutive_failures),
+        disabled_at: row.disabled_at,
+        created_at: row.created_at,
+        // Do not expose signing_secret in list
+      })),
+    });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message || 'Failed to list connections' });
+  }
+};
+
+/**
+ * @Description Update POS connection
+ * @Route PATCH /api/admin/pos/connections/:id
+ * @Access Super Admin
+ */
+export const updatePosConnection = async (req: Request, res: Response): Promise<any> => {
+  const validated = updatePosConnectionSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(', '),
+    });
+  }
+
+  try {
+    const id = BigInt(String(req.params.id));
+    const data: Record<string, unknown> = { updated_at: new Date() };
+    const body = validated.value;
+    if (body.url != null) data.url = body.url;
+    if (body.provider != null) data.provider = body.provider;
+    if (body.external_merchant_id !== undefined) {
+      data.external_merchant_id = body.external_merchant_id || null;
+    }
+    if (body.events != null) data.events = JSON.stringify(body.events);
+    if (body.signing_secret != null) data.signing_secret = body.signing_secret;
+    if (body.active != null) {
+      data.active = body.active;
+      data.disabled_at = body.active ? null : new Date();
+    }
+
+    const row = await prisma.partner_webhooks.update({
+      where: { id },
+      data,
+    });
+
+    return res.status(200).json({
+      status: true,
+      msg: 'POS connection updated',
+      data: {
+        id: row.id.toString(),
+        restaurant_id: Number(row.restaurant_id),
+        url: row.url,
+        provider: row.provider,
+        external_merchant_id: row.external_merchant_id,
+        events: row.events,
+        active: row.active,
+      },
+    });
+  } catch (e: any) {
+    if (e?.code === 'P2025') {
+      return res.status(404).json({ status: false, msg: 'Connection not found' });
+    }
+    return res.status(500).json({ status: false, msg: e.message || 'Failed to update connection' });
+  }
+};
+
+/**
+ * @Description List webhook delivery attempts
+ * @Route GET /api/admin/pos/deliveries
+ * @Access Super Admin
+ */
+export const listPosDeliveries = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const orderId = req.query.order_id ? Number(req.query.order_id) : null;
+    const rows = await prisma.partner_webhook_deliveries.findMany({
+      where:
+        orderId != null && Number.isFinite(orderId)
+          ? { order_id: new Prisma.Decimal(orderId) }
+          : undefined,
+      orderBy: { id: 'desc' },
+      take: limit,
+    });
+
+    return res.status(200).json({
+      status: true,
+      data: rows.map((row) => ({
+        id: row.id.toString(),
+        partner_webhook_id: Number(row.partner_webhook_id),
+        delivery_id: row.delivery_id,
+        event_id: row.event_id,
+        event: row.event,
+        order_id: row.order_id != null ? Number(row.order_id) : null,
+        attempts: row.attempts,
+        last_response_code: row.last_response_code,
+        last_error: row.last_error,
+        delivered_at: row.delivered_at,
+        given_up_at: row.given_up_at,
+        next_attempt_at: row.next_attempt_at,
+        created_at: row.created_at,
+      })),
+    });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message || 'Failed to list deliveries' });
+  }
+};
+
+/**
+ * @Description Replay a failed webhook delivery
+ * @Route POST /api/admin/pos/deliveries/:id/replay
+ * @Access Super Admin
+ */
+export const replayPosDelivery = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const id = BigInt(String(req.params.id));
+    await replayPosWebhookDelivery(id);
+    return res.status(200).json({ status: true, msg: 'Delivery replay queued/processed' });
+  } catch (e: any) {
+    if (e?.code === 'P2025') {
+      return res.status(404).json({ status: false, msg: 'Delivery not found' });
+    }
+    return res.status(500).json({ status: false, msg: e.message || 'Replay failed' });
+  }
+};

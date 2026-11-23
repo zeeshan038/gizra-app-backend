@@ -6756,6 +6756,15 @@
             "type": "string",
             "description": "restaurant_order_ref if set, else gizra_order_id — use for list card title"
           },
+          "delivery_instruction": {
+            "type": "string",
+            "nullable": true,
+            "description": "Customer note to driver (הערה לשליח) from checkout"
+          },
+          "order_note": {
+            "type": "string",
+            "nullable": true
+          },
           "dispatch_summary": {
             "type": "object",
             "nullable": true,
@@ -6798,6 +6807,8 @@
           "restaurant_order_ref": "4521",
           "restaurant_order_number": "4521",
           "display_order_number": "4521",
+          "delivery_instruction": "Gate 2, call on arrival",
+          "order_note": null,
           "dispatch_summary": {
             "title": "Gizra ride — restaurant requested driver",
             "restaurant_order_ref": "4521",
@@ -6902,6 +6913,11 @@
           "order_note": {
             "type": "string",
             "nullable": true
+          },
+          "delivery_instruction": {
+            "type": "string",
+            "nullable": true,
+            "description": "Customer note to driver (הערה לשליח) from checkout"
           },
           "processing_time": {
             "type": "string",

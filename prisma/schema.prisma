@@ -239,6 +239,58 @@ model carts {
   combo_selections  String?
 }
 
+/// In-app funnel events from Customer App (and server-side cart hooks).
+model user_analytics_events {
+  id             BigInt    @id @default(autoincrement())
+  user_id        Decimal?  @db.Decimal
+  guest_id       Decimal?  @db.Decimal
+  is_guest       Boolean   @default(false)
+  event_name     String    @db.VarChar(64)
+  client_session String?   @db.VarChar(128)
+  restaurant_id  Decimal?  @db.Decimal
+  zone_id        Decimal?  @db.Decimal
+  /// JSON payload (product ids, cart value, error reason, lat/lng, etc.)
+  properties     String?
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([event_name, created_at], map: "user_analytics_events_name_created_idx")
+  @@index([user_id, created_at], map: "user_analytics_events_user_created_idx")
+  @@index([created_at], map: "user_analytics_events_created_idx")
+}
+
+/// Logged-in customer cart sessions for abandon detection + WhatsApp recovery.
+model abandoned_cart_sessions {
+  id                   BigInt    @id @default(autoincrement())
+  user_id              Decimal   @db.Decimal
+  restaurant_id        Decimal?  @db.Decimal
+  restaurant_name      String?   @db.VarChar(255)
+  zone_id              Decimal?  @db.Decimal
+  /// active | abandoned | recovered | cancelled
+  status               String    @default("active") @db.VarChar(32)
+  last_activity_at     DateTime  @db.Timestamptz(6)
+  abandoned_at         DateTime? @db.Timestamptz(6)
+  recovered_at         DateTime? @db.Timestamptz(6)
+  cancelled_at         DateTime? @db.Timestamptz(6)
+  recovered_order_id   Decimal?  @db.Decimal
+  customer_name        String?   @db.VarChar(255)
+  customer_phone       String?   @db.VarChar(64)
+  cart_total           Float     @default(0)
+  /// JSON: { items: [...], total, restaurant_id, restaurant_name }
+  cart_snapshot        String?
+  deeplink             String?   @db.VarChar(512)
+  /// pending | sent | skipped | failed
+  whatsapp_status      String    @default("pending") @db.VarChar(32)
+  whatsapp_sent_at     DateTime? @db.Timestamptz(6)
+  whatsapp_attempts    Int       @default(0)
+  whatsapp_last_error  String?
+  created_at           DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([status, last_activity_at], map: "abandoned_cart_sessions_status_activity_idx")
+  @@index([user_id, status], map: "abandoned_cart_sessions_user_status_idx")
+  @@index([whatsapp_status, abandoned_at], map: "abandoned_cart_sessions_wa_idx")
+}
+
 model cash_back_histories {
   id                BigInt    @id(map: "idx_16695_primary") @default(autoincrement())
   cash_back_id      Decimal?  @db.Decimal
@@ -1121,6 +1173,12 @@ model partner_api_keys {
   revoked_at    DateTime? @db.Timestamptz(6)
   created_at    DateTime? @db.Timestamptz(6)
   updated_at    DateTime? @db.Timestamptz(6)
+  /// sandbox | live
+  environment   String    @default("live") @db.VarChar(16)
+  /// e.g. verifone, generic
+  provider      String    @default("generic") @db.VarChar(64)
+  /// Public prefix shown once after create, e.g. gz_test_ab12
+  key_prefix    String?   @db.VarChar(32)
 
   @@index([restaurant_id], map: "idx_17314_partner_api_keys_restaurant_id_index")
 }
@@ -1139,6 +1197,9 @@ model partner_webhook_deliveries {
   given_up_at        DateTime? @db.Timestamptz(6)
   created_at         DateTime? @db.Timestamptz(6)
   updated_at         DateTime? @db.Timestamptz(6)
+  last_error         String?
+  event_id           String?   @unique(map: "partner_webhook_deliveries_event_id_unique") @db.VarChar(64)
+  response_body      String?
 
   @@index([partner_webhook_id, delivered_at], map: "idx_17330_partner_webhook_deliveries_partner_webhook_id_deliver")
 }
@@ -1154,6 +1215,8 @@ model partner_webhooks {
   disabled_at          DateTime? @db.Timestamptz(6)
   created_at           DateTime? @db.Timestamptz(6)
   updated_at           DateTime? @db.Timestamptz(6)
+  provider             String    @default("generic") @db.VarChar(64)
+  external_merchant_id String?   @db.VarChar(128)
 
   @@index([restaurant_id], map: "idx_17321_partner_webhooks_restaurant_id_index")
 }

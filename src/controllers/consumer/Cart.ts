@@ -24,6 +24,30 @@ import {
   parseComboDefinition,
   validateComboSelections,
 } from '../../utils/consumer/comboDefinition';
+import {
+  cancelActiveAbandonedCartSessions,
+  touchAbandonedCartSession,
+} from '../../utils/analytics/abandonedCart';
+import { recordAnalyticsEvent } from '../../utils/analytics/events';
+
+async function afterCartMutation(session: {
+  user_id: number;
+  is_guest: boolean;
+}, sourceEvent: 'added_to_cart' | 'cart_updated') {
+  void touchAbandonedCartSession({
+    userId: session.user_id,
+    isGuest: session.is_guest,
+    sourceEvent,
+  });
+  if (!session.is_guest && sourceEvent === 'added_to_cart') {
+    void recordAnalyticsEvent({
+      event_name: 'added_to_cart',
+      user_id: session.user_id,
+      is_guest: false,
+      properties: { source: 'server_cart' },
+    });
+  }
+}
 
 function cartSellingTimeResponse(err: CartFoodSellingTimeError) {
   return {
@@ -211,6 +235,7 @@ export const addToCart = async (req: Request, res: Response): Promise<any> => {
         data: { quantity: newQty },
       });
       const data = await formatConsumerCartLine(parsePrismaCartRow(cart));
+      void afterCartMutation(session, 'added_to_cart');
       return res.status(200).json({
         status: true,
         msg: 'Cart updated successfully',
@@ -254,6 +279,7 @@ export const addToCart = async (req: Request, res: Response): Promise<any> => {
     });
 
     const data = await formatConsumerCartLine(parsePrismaCartRow(cart));
+    void afterCartMutation(session, 'added_to_cart');
     return res.status(201).json({
       status: true,
       msg: 'Added to cart successfully',
@@ -297,6 +323,7 @@ export const updateCart = async (req: Request, res: Response): Promise<any> => {
 
     if (Number(quantity) < 1) {
       await prisma.carts.delete({ where: { id: existing.id } });
+      void afterCartMutation(session, 'cart_updated');
       return res.status(200).json({ status: true, msg: 'Cart updated successfully', data: null });
     }
 
@@ -325,6 +352,7 @@ export const updateCart = async (req: Request, res: Response): Promise<any> => {
     });
 
     const data = await formatConsumerCartLine(parsePrismaCartRow(cart));
+    void afterCartMutation(session, 'cart_updated');
     return res.status(200).json({
       status: true,
       msg: 'Cart updated successfully',
@@ -356,6 +384,7 @@ export const removeCartItem = async (req: Request, res: Response): Promise<any> 
       return res.status(403).json({ status: false, msg: 'Forbidden' });
     }
     await prisma.carts.delete({ where: { id: existing.id } });
+    void afterCartMutation(session, 'cart_updated');
     return res.status(200).json({ status: true, msg: 'Removed' });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });
@@ -493,6 +522,7 @@ export const addMultipleToCart = async (req: Request, res: Response): Promise<an
       where: { user_id: session.user_id, is_guest: session.is_guest },
     });
     const data = await formatConsumerCartLines(carts.map(parsePrismaCartRow));
+    void afterCartMutation(session, 'added_to_cart');
     return res.status(200).json({ status: true, data });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });
@@ -521,6 +551,9 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
         is_guest: session.is_guest,
       },
     });
+    if (!session.is_guest) {
+      void cancelActiveAbandonedCartSessions(session.user_id, 'cart_cleared');
+    }
     return res.status(200).json({ status: true, msg: 'Cart cleared completely' });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });

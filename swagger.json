@@ -7631,6 +7631,129 @@
         ]
       }
     },
+    "/vendor/dispatch/delivery-fee": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Delivery fee quoted",
+                  "data": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Delivery fee quoted"
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Delivery fee quoted",
+                    "data": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
     "/vendor/dispatch/request-driver": {
       "post": {
         "description": "Creates a **manual dispatch** delivery order (`is_manual_dispatch=true`, `order_status=confirmed`) for phone/walk-in orders from the **Vendor POS** app. Requires **`manual_dispatch`** enabled on the restaurant (Business Setup toggle) or restaurant id listed in admin `manual_dispatch_restaurants`.\n\n**Order ID:** Same shared `orders.id` sequence as consumer app orders (database autoincrement). Response `data.order_id` is that id as a string — not a separate 100000+ range (legacy PHP behavior).\n\n**Idempotency:** repeat calls with the same `idempotency_key` return the existing order summary (no duplicate jobs).\n\n**Side effects (drivers):**\n1. **FCM** — `order_request` push to all vehicle topics in the restaurant zone + zone-wide topic.\n2. **Socket.IO** — event **`order_request`** on the same FCM topic rooms (drivers connected with delivery-man JWT). Request-tab clients should refetch `GET /delivery-man/orders/latest` on this event.\n3. **`user_notifications`** — inbox row for each approved driver in the zone.\n\nMirrors legacy PHP `POST /vendor/dispatch/request-driver` except order id assignment.",
@@ -49562,6 +49685,129 @@
         ]
       }
     },
+    "/admin/dispatch/delivery-fee": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Delivery fee quoted",
+                  "data": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Delivery fee quoted"
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Delivery fee quoted",
+                    "data": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
     "/admin/dispatch/request-driver": {
       "post": {
         "description": "",
@@ -49618,7 +49864,7 @@
             }
           },
           "403": {
-            "description": "Forbidden",
+            "description": "Forbidden - You do not have permission to access this resource",
             "content": {
               "application/json": {
                 "schema": {
@@ -52951,6 +53197,2022 @@
                   "value": {
                     "pause_all": true
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/pos/api-keys": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "POS API token created. Store the token now — it will not be shown again.",
+                  "data": {
+                    "id": "1",
+                    "restaurant_id": 1,
+                    "restaurant_name": "…",
+                    "name": "Example",
+                    "provider": "…",
+                    "environment": "…",
+                    "key_prefix": "…",
+                    "scopes": "…",
+                    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
+                    "created_at": "…"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "POS API token created. Store the token now — it will not be shown again."
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "1"
+                        },
+                        "restaurant_id": {
+                          "type": "number",
+                          "example": 1
+                        },
+                        "restaurant_name": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "name": {
+                          "type": "string",
+                          "example": "Example"
+                        },
+                        "provider": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "environment": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "key_prefix": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "scopes": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "token": {
+                          "type": "string",
+                          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "example": "…"
+                        }
+                      },
+                      "example": {
+                        "id": "1",
+                        "restaurant_id": 1,
+                        "restaurant_name": "…",
+                        "name": "Example",
+                        "provider": "…",
+                        "environment": "…",
+                        "key_prefix": "…",
+                        "scopes": "…",
+                        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
+                        "created_at": "…"
+                      }
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "POS API token created. Store the token now — it will not be shown again.",
+                    "data": {
+                      "id": "1",
+                      "restaurant_id": 1,
+                      "restaurant_name": "…",
+                      "name": "Example",
+                      "provider": "…",
+                      "environment": "…",
+                      "key_prefix": "…",
+                      "scopes": "…",
+                      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
+                      "created_at": "…"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      },
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "data": "1",
+                  "restaurant_id": 1,
+                  "name": "Example",
+                  "provider": "…",
+                  "environment": "…",
+                  "key_prefix": "…",
+                  "scopes": "…",
+                  "revoked_at": "…",
+                  "last_used_at": "…",
+                  "created_at": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "1"
+                    },
+                    "restaurant_id": {
+                      "type": "number",
+                      "example": 1
+                    },
+                    "name": {
+                      "type": "string",
+                      "example": "Example"
+                    },
+                    "provider": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "environment": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "key_prefix": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "scopes": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "revoked_at": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "last_used_at": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "data": "1",
+                    "restaurant_id": 1,
+                    "name": "Example",
+                    "provider": "…",
+                    "environment": "…",
+                    "key_prefix": "…",
+                    "scopes": "…",
+                    "revoked_at": "…",
+                    "last_used_at": "…",
+                    "created_at": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/pos/api-keys/{id}/revoke": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "POS API key revoked",
+                  "data": {
+                    "id": "1",
+                    "revoked_at": "…"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "POS API key revoked"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "1"
+                        },
+                        "revoked_at": {
+                          "type": "string",
+                          "example": "…"
+                        }
+                      },
+                      "example": {
+                        "id": "1",
+                        "revoked_at": "…"
+                      }
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "POS API key revoked",
+                    "data": {
+                      "id": "1",
+                      "revoked_at": "…"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/pos/connections": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "POS connection created"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "1"
+                        },
+                        "restaurant_id": {
+                          "type": "number",
+                          "example": 1
+                        },
+                        "restaurant_name": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "url": {
+                          "type": "string",
+                          "example": "https://cdn.example.com/assets/file.png"
+                        },
+                        "provider": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "external_merchant_id": {
+                          "type": "number",
+                          "example": 1
+                        },
+                        "events": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "active": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "signing_secret": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "example": "…"
+                        }
+                      },
+                      "example": {
+                        "id": "1",
+                        "restaurant_id": 1,
+                        "restaurant_name": "…",
+                        "url": "https://cdn.example.com/assets/file.png",
+                        "provider": "…",
+                        "external_merchant_id": 1,
+                        "events": "…",
+                        "active": "…",
+                        "signing_secret": "…",
+                        "created_at": "…"
+                      }
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "POS connection created",
+                    "data": {
+                      "id": "1",
+                      "restaurant_id": 1,
+                      "restaurant_name": "…",
+                      "url": "https://cdn.example.com/assets/file.png",
+                      "provider": "…",
+                      "external_merchant_id": 1,
+                      "events": "…",
+                      "active": "…",
+                      "signing_secret": "…",
+                      "created_at": "…"
+                    }
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "msg": "POS connection created",
+                  "data": {
+                    "id": "1",
+                    "restaurant_id": 1,
+                    "restaurant_name": "…",
+                    "url": "https://cdn.example.com/assets/file.png",
+                    "provider": "…",
+                    "external_merchant_id": 1,
+                    "events": "…",
+                    "active": "…",
+                    "signing_secret": "…",
+                    "created_at": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      },
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "1"
+                    },
+                    "restaurant_id": {
+                      "type": "number",
+                      "example": 1
+                    },
+                    "url": {
+                      "type": "string",
+                      "example": "https://cdn.example.com/assets/file.png"
+                    },
+                    "provider": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "external_merchant_id": {
+                      "type": "number",
+                      "example": 1
+                    },
+                    "events": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "active": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "consecutive_failures": {
+                      "type": "number",
+                      "example": 1
+                    },
+                    "disabled_at": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "data": "1",
+                    "restaurant_id": 1,
+                    "url": "https://cdn.example.com/assets/file.png",
+                    "provider": "…",
+                    "external_merchant_id": 1,
+                    "events": "…",
+                    "active": "…",
+                    "consecutive_failures": 1,
+                    "disabled_at": "…",
+                    "created_at": "…"
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "data": "1",
+                  "restaurant_id": 1,
+                  "url": "https://cdn.example.com/assets/file.png",
+                  "provider": "…",
+                  "external_merchant_id": 1,
+                  "events": "…",
+                  "active": "…",
+                  "consecutive_failures": 1,
+                  "disabled_at": "…",
+                  "created_at": "…"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/pos/connections/{id}": {
+      "patch": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "POS connection updated"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "1"
+                        },
+                        "restaurant_id": {
+                          "type": "number",
+                          "example": 1
+                        },
+                        "url": {
+                          "type": "string",
+                          "example": "https://cdn.example.com/assets/file.png"
+                        },
+                        "provider": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "external_merchant_id": {
+                          "type": "number",
+                          "example": 1
+                        },
+                        "events": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "active": {
+                          "type": "string",
+                          "example": "…"
+                        }
+                      },
+                      "example": {
+                        "id": "1",
+                        "restaurant_id": 1,
+                        "url": "https://cdn.example.com/assets/file.png",
+                        "provider": "…",
+                        "external_merchant_id": 1,
+                        "events": "…",
+                        "active": "…"
+                      }
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "POS connection updated",
+                    "data": {
+                      "id": "1",
+                      "restaurant_id": 1,
+                      "url": "https://cdn.example.com/assets/file.png",
+                      "provider": "…",
+                      "external_merchant_id": 1,
+                      "events": "…",
+                      "active": "…"
+                    }
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "msg": "POS connection updated",
+                  "data": {
+                    "id": "1",
+                    "restaurant_id": 1,
+                    "url": "https://cdn.example.com/assets/file.png",
+                    "provider": "…",
+                    "external_merchant_id": 1,
+                    "events": "…",
+                    "active": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/pos/deliveries": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "1"
+                    },
+                    "partner_webhook_id": {
+                      "type": "number",
+                      "example": 1
+                    },
+                    "delivery_id": {
+                      "type": "number",
+                      "example": 1
+                    },
+                    "event_id": {
+                      "type": "number",
+                      "example": 1
+                    },
+                    "event": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "order_id": {
+                      "type": "number",
+                      "example": 0
+                    },
+                    "attempts": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "last_response_code": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "last_error": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "delivered_at": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "given_up_at": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "next_attempt_at": {
+                      "type": "string",
+                      "example": "…"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "data": "1",
+                    "partner_webhook_id": 1,
+                    "delivery_id": 1,
+                    "event_id": 1,
+                    "event": "…",
+                    "order_id": 0,
+                    "attempts": "…",
+                    "last_response_code": "…",
+                    "last_error": "…",
+                    "delivered_at": "…",
+                    "given_up_at": "…",
+                    "next_attempt_at": "…",
+                    "created_at": "…"
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "data": "1",
+                  "partner_webhook_id": 1,
+                  "delivery_id": 1,
+                  "event_id": 1,
+                  "event": "…",
+                  "order_id": 0,
+                  "attempts": "…",
+                  "last_response_code": "…",
+                  "last_error": "…",
+                  "delivered_at": "…",
+                  "given_up_at": "…",
+                  "next_attempt_at": "…",
+                  "created_at": "…"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/pos/deliveries/{id}/replay": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Delivery replay queued/processed"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Delivery replay queued/processed"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Delivery replay queued/processed"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/v1/pos/orders/": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/pos/orders/{id}": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "data": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "data": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/pos/orders/{id}/accept": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Order accepted",
+                  "data": {
+                    "id": "1001",
+                    "order_status": "confirmed",
+                    "order_type": "delivery",
+                    "payment_status": "paid",
+                    "order_amount": 45.5,
+                    "created_at": "2026-01-15T10:30:00.000Z",
+                    "customer_name": "John Doe",
+                    "customer_phone": "+1234567890",
+                    "food_image": "https://cdn.example.com/product/cheese-pizza.png"
+                  },
+                  "null": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Order accepted"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "1001"
+                        },
+                        "order_status": {
+                          "type": "string",
+                          "example": "confirmed"
+                        },
+                        "order_type": {
+                          "type": "string",
+                          "example": "delivery"
+                        },
+                        "payment_status": {
+                          "type": "string",
+                          "example": "paid"
+                        },
+                        "order_amount": {
+                          "type": "number",
+                          "example": 45.5
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "example": "2026-01-15T10:30:00.000Z"
+                        },
+                        "customer_name": {
+                          "type": "string",
+                          "example": "John Doe"
+                        },
+                        "customer_phone": {
+                          "type": "string",
+                          "example": "+1234567890"
+                        },
+                        "food_image": {
+                          "type": "string",
+                          "example": "https://cdn.example.com/product/cheese-pizza.png"
+                        }
+                      },
+                      "example": {
+                        "id": "1001",
+                        "order_status": "confirmed",
+                        "order_type": "delivery",
+                        "payment_status": "paid",
+                        "order_amount": 45.5,
+                        "created_at": "2026-01-15T10:30:00.000Z",
+                        "customer_name": "John Doe",
+                        "customer_phone": "+1234567890",
+                        "food_image": "https://cdn.example.com/product/cheese-pizza.png"
+                      }
+                    },
+                    "null": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Order accepted",
+                    "data": {
+                      "id": "1001",
+                      "order_status": "confirmed",
+                      "order_type": "delivery",
+                      "payment_status": "paid",
+                      "order_amount": 45.5,
+                      "created_at": "2026-01-15T10:30:00.000Z",
+                      "customer_name": "John Doe",
+                      "customer_phone": "+1234567890",
+                      "food_image": "https://cdn.example.com/product/cheese-pizza.png"
+                    },
+                    "null": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/pos/orders/{id}/reject": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Order rejected",
+                  "data": {
+                    "id": "1001",
+                    "order_status": "confirmed",
+                    "order_type": "delivery",
+                    "payment_status": "paid",
+                    "order_amount": 45.5,
+                    "created_at": "2026-01-15T10:30:00.000Z",
+                    "customer_name": "John Doe",
+                    "customer_phone": "+1234567890",
+                    "food_image": "https://cdn.example.com/product/cheese-pizza.png"
+                  },
+                  "null": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Order rejected"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "1001"
+                        },
+                        "order_status": {
+                          "type": "string",
+                          "example": "confirmed"
+                        },
+                        "order_type": {
+                          "type": "string",
+                          "example": "delivery"
+                        },
+                        "payment_status": {
+                          "type": "string",
+                          "example": "paid"
+                        },
+                        "order_amount": {
+                          "type": "number",
+                          "example": 45.5
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "example": "2026-01-15T10:30:00.000Z"
+                        },
+                        "customer_name": {
+                          "type": "string",
+                          "example": "John Doe"
+                        },
+                        "customer_phone": {
+                          "type": "string",
+                          "example": "+1234567890"
+                        },
+                        "food_image": {
+                          "type": "string",
+                          "example": "https://cdn.example.com/product/cheese-pizza.png"
+                        }
+                      },
+                      "example": {
+                        "id": "1001",
+                        "order_status": "confirmed",
+                        "order_type": "delivery",
+                        "payment_status": "paid",
+                        "order_amount": 45.5,
+                        "created_at": "2026-01-15T10:30:00.000Z",
+                        "customer_name": "John Doe",
+                        "customer_phone": "+1234567890",
+                        "food_image": "https://cdn.example.com/product/cheese-pizza.png"
+                      }
+                    },
+                    "null": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Order rejected",
+                    "data": {
+                      "id": "1001",
+                      "order_status": "confirmed",
+                      "order_type": "delivery",
+                      "payment_status": "paid",
+                      "order_amount": 45.5,
+                      "created_at": "2026-01-15T10:30:00.000Z",
+                      "customer_name": "John Doe",
+                      "customer_phone": "+1234567890",
+                      "food_image": "https://cdn.example.com/product/cheese-pizza.png"
+                    },
+                    "null": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
                 }
               }
             }
@@ -61407,6 +63669,15 @@
             "type": "string",
             "description": "restaurant_order_ref if set, else gizra_order_id — use for list card title"
           },
+          "delivery_instruction": {
+            "type": "string",
+            "nullable": true,
+            "description": "Customer note to driver (הערה לשליח) from checkout"
+          },
+          "order_note": {
+            "type": "string",
+            "nullable": true
+          },
           "dispatch_summary": {
             "type": "object",
             "nullable": true,
@@ -61449,6 +63720,8 @@
           "restaurant_order_ref": "4521",
           "restaurant_order_number": "4521",
           "display_order_number": "4521",
+          "delivery_instruction": "Gate 2, call on arrival",
+          "order_note": null,
           "dispatch_summary": {
             "title": "Gizra ride — restaurant requested driver",
             "restaurant_order_ref": "4521",
@@ -61553,6 +63826,11 @@
           "order_note": {
             "type": "string",
             "nullable": true
+          },
+          "delivery_instruction": {
+            "type": "string",
+            "nullable": true,
+            "description": "Customer note to driver (הערה לשליח) from checkout"
           },
           "processing_time": {
             "type": "string",
