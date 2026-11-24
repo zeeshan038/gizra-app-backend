@@ -5,13 +5,39 @@ import prisma from '../../config/database';
 import {
   createPosApiKeySchema,
   createPosConnectionSchema,
+  revokePosApiKeySchema,
   updatePosConnectionSchema,
+  viewPosApiKeyTokenSchema,
 } from '../../schemas/admin/pos';
 import { generatePosApiToken, PosEnvironment } from '../../utils/pos/auth/token';
+import { decryptPosToken, encryptPosToken } from '../../utils/pos/auth/tokenVault';
 import { replayPosWebhookDelivery } from '../../utils/pos/queue/worker';
 
+function mapPosCredentialRow(row: any) {
+  return {
+    id: row.id.toString(),
+    restaurant_id: Number(row.restaurant_id),
+    name: row.name,
+    provider: row.provider,
+    scopes: row.scopes,
+    revoked_at: row.revoked_at,
+    last_used_at: row.last_used_at,
+    created_at: row.created_at,
+    sandbox: {
+      key_prefix: row.sandbox_key_prefix || null,
+      has_token: Boolean(row.sandbox_token_encrypted || row.sandbox_secret_hash),
+      can_view: Boolean(row.sandbox_token_encrypted),
+    },
+    live: {
+      key_prefix: row.live_key_prefix || null,
+      has_token: Boolean(row.live_token_encrypted || row.live_secret_hash),
+      can_view: Boolean(row.live_token_encrypted),
+    },
+  };
+}
+
 /**
- * @Description Issue a POS partner API token (shown once)
+ * @Description Create/rotate sandbox or live token on one restaurant credential row
  * @Route POST /api/admin/pos/api-keys
  * @Access Super Admin
  */
@@ -38,36 +64,80 @@ export const createPosApiKey = async (req: Request, res: Response): Promise<any>
     const env = environment as PosEnvironment;
     const generated = generatePosApiToken(env);
     const now = new Date();
+    const encrypted = encryptPosToken(generated.token);
 
-    const row = await prisma.partner_api_keys.create({
-      data: {
+    // Always reuse the latest credential row for this restaurant (even if previously revoked)
+    // so sandbox + live stay on one entry.
+    const existing = await prisma.partner_api_keys.findFirst({
+      where: {
         restaurant_id: new Prisma.Decimal(restaurant_id),
-        name,
-        key_id: generated.keyId,
-        secret_hash: generated.secretHash,
-        scopes: JSON.stringify(scopes),
-        environment: env,
-        provider,
-        key_prefix: generated.keyPrefix,
-        created_at: now,
-        updated_at: now,
       },
+      orderBy: { id: 'desc' },
     });
 
-    return res.status(201).json({
+    const envData =
+      env === 'sandbox'
+        ? {
+            sandbox_key_id: generated.keyId,
+            sandbox_secret_hash: generated.secretHash,
+            sandbox_key_prefix: generated.keyPrefix,
+            sandbox_token_encrypted: encrypted,
+          }
+        : {
+            live_key_id: generated.keyId,
+            live_secret_hash: generated.secretHash,
+            live_key_prefix: generated.keyPrefix,
+            live_token_encrypted: encrypted,
+          };
+
+    let row;
+    if (existing) {
+      row = await prisma.partner_api_keys.update({
+        where: { id: existing.id },
+        data: {
+          name: name || existing.name,
+          provider: provider || existing.provider,
+          scopes: JSON.stringify(scopes),
+          environment: 'both',
+          revoked_at: null,
+          // Keep legacy columns in sync with the env just issued (auth still supports them).
+          key_id: generated.keyId,
+          secret_hash: generated.secretHash,
+          key_prefix: generated.keyPrefix,
+          token_encrypted: encrypted,
+          ...envData,
+          updated_at: now,
+        },
+      });
+    } else {
+      row = await prisma.partner_api_keys.create({
+        data: {
+          restaurant_id: new Prisma.Decimal(restaurant_id),
+          name,
+          provider,
+          scopes: JSON.stringify(scopes),
+          environment: 'both',
+          key_id: generated.keyId,
+          secret_hash: generated.secretHash,
+          key_prefix: generated.keyPrefix,
+          token_encrypted: encrypted,
+          ...envData,
+          created_at: now,
+          updated_at: now,
+        },
+      });
+    }
+
+    return res.status(existing ? 200 : 201).json({
       status: true,
-      msg: 'POS API token created. Store the token now — it will not be shown again.',
+      msg: existing
+        ? `POS ${env} token saved on the restaurant credential. You can View it anytime.`
+        : `POS credential created with ${env} token. Add the other environment on the same row.`,
       data: {
-        id: row.id.toString(),
-        restaurant_id: String(restaurant_id),
+        ...mapPosCredentialRow(row),
         restaurant_name: restaurant.name,
-        name: row.name,
-        provider: row.provider,
-        environment: row.environment,
-        key_prefix: row.key_prefix,
-        scopes,
+        environment: env,
         token: generated.token,
-        created_at: row.created_at,
       },
     });
   } catch (e: any) {
@@ -76,7 +146,7 @@ export const createPosApiKey = async (req: Request, res: Response): Promise<any>
 };
 
 /**
- * @Description List POS API keys (never returns full token)
+ * @Description List POS credentials (one row per restaurant; sandbox + live)
  * @Route GET /api/admin/pos/api-keys
  * @Access Super Admin
  */
@@ -84,27 +154,18 @@ export const listPosApiKeys = async (req: Request, res: Response): Promise<any> 
   try {
     const restaurantId = req.query.restaurant_id ? Number(req.query.restaurant_id) : null;
     const rows = await prisma.partner_api_keys.findMany({
-      where:
-        restaurantId != null && Number.isFinite(restaurantId)
+      where: {
+        revoked_at: null,
+        ...(restaurantId != null && Number.isFinite(restaurantId)
           ? { restaurant_id: new Prisma.Decimal(restaurantId) }
-          : undefined,
+          : {}),
+      },
       orderBy: { id: 'desc' },
     });
 
     return res.status(200).json({
       status: true,
-      data: rows.map((row) => ({
-        id: row.id.toString(),
-        restaurant_id: Number(row.restaurant_id),
-        name: row.name,
-        provider: row.provider,
-        environment: row.environment,
-        key_prefix: row.key_prefix,
-        scopes: row.scopes,
-        revoked_at: row.revoked_at,
-        last_used_at: row.last_used_at,
-        created_at: row.created_at,
-      })),
+      data: rows.map(mapPosCredentialRow),
     });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message || 'Failed to list API keys' });
@@ -112,22 +173,112 @@ export const listPosApiKeys = async (req: Request, res: Response): Promise<any> 
 };
 
 /**
- * @Description Revoke a POS API key
+ * @Description View sandbox or live token for a credential
+ * @Route GET /api/admin/pos/api-keys/:id/token?environment=sandbox|live
+ * @Access Super Admin
+ */
+export const viewPosApiKeyToken = async (req: Request, res: Response): Promise<any> => {
+  const validated = viewPosApiKeyTokenSchema.validate(req.query, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(', '),
+    });
+  }
+
+  try {
+    const id = BigInt(String(req.params.id));
+    const env = validated.value.environment as PosEnvironment;
+    const row = await prisma.partner_api_keys.findUnique({ where: { id } });
+    if (!row) {
+      return res.status(404).json({ status: false, msg: 'API key not found' });
+    }
+    if (row.revoked_at) {
+      return res.status(400).json({ status: false, msg: 'This credential is revoked' });
+    }
+
+    const encrypted =
+      env === 'sandbox' ? row.sandbox_token_encrypted : row.live_token_encrypted;
+    const prefix = env === 'sandbox' ? row.sandbox_key_prefix : row.live_key_prefix;
+    const token = decryptPosToken(encrypted);
+    if (!token) {
+      return res.status(404).json({
+        status: false,
+        msg: `No ${env} token available. Generate a ${env} token for this restaurant.`,
+      });
+    }
+    return res.status(200).json({
+      status: true,
+      data: {
+        id: row.id.toString(),
+        name: row.name,
+        environment: env,
+        key_prefix: prefix,
+        restaurant_id: Number(row.restaurant_id),
+        token,
+      },
+    });
+  } catch (e: any) {
+    return res.status(500).json({ status: false, msg: e.message || 'Failed to view token' });
+  }
+};
+
+/**
+ * @Description Revoke whole credential or clear one environment token
  * @Route POST /api/admin/pos/api-keys/:id/revoke
  * @Access Super Admin
  */
 export const revokePosApiKey = async (req: Request, res: Response): Promise<any> => {
+  const validated = revokePosApiKeySchema.validate(req.body || {}, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(', '),
+    });
+  }
+
   try {
     const id = BigInt(String(req.params.id));
     const now = new Date();
+    const scope = validated.value.environment as 'sandbox' | 'live' | 'all';
+
+    if (scope === 'all') {
+      const row = await prisma.partner_api_keys.update({
+        where: { id },
+        data: { revoked_at: now, updated_at: now },
+      });
+      return res.status(200).json({
+        status: true,
+        msg: 'POS credential revoked',
+        data: { id: row.id.toString(), revoked_at: row.revoked_at },
+      });
+    }
+
+    const clearData =
+      scope === 'sandbox'
+        ? {
+            sandbox_key_id: null,
+            sandbox_secret_hash: null,
+            sandbox_key_prefix: null,
+            sandbox_token_encrypted: null,
+            updated_at: now,
+          }
+        : {
+            live_key_id: null,
+            live_secret_hash: null,
+            live_key_prefix: null,
+            live_token_encrypted: null,
+            updated_at: now,
+          };
+
     const row = await prisma.partner_api_keys.update({
       where: { id },
-      data: { revoked_at: now, updated_at: now },
+      data: clearData,
     });
     return res.status(200).json({
       status: true,
-      msg: 'POS API key revoked',
-      data: { id: row.id.toString(), revoked_at: row.revoked_at },
+      msg: `POS ${scope} token removed`,
+      data: mapPosCredentialRow(row),
     });
   } catch (e: any) {
     if (e?.code === 'P2025') {

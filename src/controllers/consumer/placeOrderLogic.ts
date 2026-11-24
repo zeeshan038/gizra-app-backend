@@ -20,6 +20,7 @@ import {
 import {
   computeAvailabilityForRestaurant,
   getDefaultRestaurantTimeZone,
+  isScheduleAtWithinTimedPause,
 } from '../../utils/consumer/restaurantAvailability';
 import {
   foodSellingTimeErrorMessage,
@@ -824,10 +825,20 @@ export async function executePlaceOrder(params: {
   if (!payload.schedule_at) {
     const availability = await computeAvailabilityForRestaurant(
       restaurant.id,
-      restaurant.active
+      restaurant.active,
+      {
+        paused_until: restaurant.paused_until,
+        pause_message: restaurant.pause_message,
+        pause_type: restaurant.pause_type,
+      }
     );
     if (!availability.can_order) {
-      throw new PlaceOrderError('Restaurant is closed', 403, 'order_time');
+      throw new PlaceOrderError('Restaurant is closed', 403, 'order_time', {
+        is_temporarily_closed: availability.is_temporarily_closed,
+        paused_until: availability.paused_until,
+        pause_message: availability.pause_message,
+        pause_type: availability.pause_type,
+      });
     }
   }
 
@@ -838,6 +849,22 @@ export async function executePlaceOrder(params: {
     const scheduleDate = new Date(payload.schedule_at);
     if (scheduleDate.getTime() < Date.now() - 5 * 60 * 1000) {
       throw new PlaceOrderError('You cannot schedule an order in the past', 403, 'order_time');
+    }
+    // Timed pause only — indefinite active=false keeps existing scheduled-order behavior.
+    if (isScheduleAtWithinTimedPause(scheduleDate, restaurant.paused_until)) {
+      throw new PlaceOrderError(
+        'Restaurant is temporarily closed at the selected time',
+        403,
+        'order_time',
+        {
+          is_temporarily_closed: true,
+          paused_until: restaurant.paused_until
+            ? new Date(restaurant.paused_until).toISOString()
+            : null,
+          pause_message: restaurant.pause_message,
+          pause_type: restaurant.pause_type,
+        }
+      );
     }
   }
 

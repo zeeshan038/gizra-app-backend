@@ -22,6 +22,11 @@ export const foodReorderSchema = Joi.object({
   category_id: Joi.number().integer().positive().optional(),
 });
 
+/** Category drag order for a restaurant menu. */
+export const categoryReorderSchema = Joi.object({
+  ordered_ids: Joi.array().items(Joi.number().integer().positive()).min(1).max(5000).required(),
+});
+
 export const createFoodSchema = Joi.object({
   name: Joi.string().required(),
   description: Joi.string().allow('').optional().default(''),

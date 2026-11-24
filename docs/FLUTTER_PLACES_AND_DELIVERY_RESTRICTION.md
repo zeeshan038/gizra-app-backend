@@ -48,14 +48,18 @@ Swagger: {BASE_URL}/swagger/customer — tags Consumer Config (Places, delivery-
 ### A1. Autocomplete (user typing)
 
 ```http
-GET /consumer/config/place-autocomplete?search_text={query}
+GET /consumer/config/place-autocomplete?search_text={query}&lat={userLat}&lng={userLng}
 ```
 
-Optional — rank results near the map / user (worldwide search by default):
+**Required for good ranking:** pass the user’s current map pin / GPS as `lat`+`lng` (or `bias_lat`+`bias_lng`).  
+Without location, Google returns worldwide matches (e.g. “McDonald Island” instead of local McDonald’s / KFC).
 
 ```http
-GET /consumer/config/place-autocomplete?search_text=hebron&bias_lat=31.53&bias_lng=35.10&bias_radius_km=85
+GET /consumer/config/place-autocomplete?search_text=KFC&lat=33.6844&lng=73.0479&bias_radius_km=40
+GET /vendor/config/place-autocomplete?search_text=KFC&lat=33.6844&lng=73.0479
 ```
+
+Optional `region=PK` (or `IL`) to limit to one country.
 
 - Debounce ~300ms; min length 1.
 - Parse body: Google shape — `status`, `predictions[]`, optional `error_message`.

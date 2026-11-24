@@ -19,6 +19,7 @@ import {
     isRestaurantInsideBounds,
     loadActiveDiscountRestaurantIds,
     restaurantAvailabilityResponseFields,
+    closedAvailability,
     parseDiscoverType,
     parseMapBoundsFromQuery,
     parseRestaurantCoordinates,
@@ -104,6 +105,9 @@ export const getRestaurants = async (req: Request, res: Response): Promise<any> 
                 rating: true,
                 address: true,
                 active: true,
+                paused_until: true,
+                pause_message: true,
+                pause_type: true,
                 latitude: true,
                 longitude: true,
                 order_count: true,
@@ -151,13 +155,7 @@ export const getRestaurants = async (req: Request, res: Response): Promise<any> 
 
         const formattedRestaurants = pageSlice.map(({ r, availability, distKm }) => {
             const availabilityFields = restaurantAvailabilityResponseFields(
-                availability ?? {
-                    status: 'CLOSED',
-                    can_order: false,
-                    next_open_at: null,
-                    next_close_at: null,
-                    is_temporarily_closed: r.active === false,
-                }
+                availability ?? closedAvailability(r.active === false)
             );
             const distance =
                 coords && Number.isFinite(distKm)
@@ -867,6 +865,9 @@ export const getRestaurantDetails = async (req: Request, res: Response): Promise
                 veg: true,
                 non_veg: true,
                 active: true,
+                paused_until: true,
+                pause_message: true,
+                pause_type: true,
                 latitude: true,
                 longitude: true,
                 reviews_section: true,
@@ -882,7 +883,11 @@ export const getRestaurantDetails = async (req: Request, res: Response): Promise
         }
 
         const [availability, categories, reviewStats] = await Promise.all([
-            computeAvailabilityForRestaurant(restaurant.id, restaurant.active),
+            computeAvailabilityForRestaurant(restaurant.id, restaurant.active, {
+                paused_until: restaurant.paused_until,
+                pause_message: restaurant.pause_message,
+                pause_type: restaurant.pause_type,
+            }),
             loadRestaurantMenuCategories(id),
             aggregateRestaurantReviewStats(id),
         ]);

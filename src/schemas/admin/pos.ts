@@ -11,6 +11,14 @@ export const createPosApiKeySchema = Joi.object({
     .default(['orders:read', 'orders:write']),
 });
 
+export const viewPosApiKeyTokenSchema = Joi.object({
+  environment: Joi.string().valid('sandbox', 'live').required(),
+});
+
+export const revokePosApiKeySchema = Joi.object({
+  environment: Joi.string().valid('sandbox', 'live', 'all').default('all'),
+});
+
 export const createPosConnectionSchema = Joi.object({
   restaurant_id: Joi.number().integer().positive().required(),
   url: Joi.string().uri({ scheme: ['https', 'http'] }).max(2048).required(),

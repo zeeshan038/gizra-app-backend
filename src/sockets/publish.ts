@@ -6,12 +6,14 @@ import type {
   OrderNewPayload,
   OrderRequestPayload,
   OrderUpdatedPayload,
+  RestaurantAvailabilityChangedPayload,
 } from '../types/sockets/realtime';
 import {
   conversationRoom,
   deliveryManRoom,
   fcmTopicRoom,
   orderRoom,
+  restaurantAvailabilityRoom,
   restaurantRoom,
   userRoom,
   vendorRoom,
@@ -84,6 +86,21 @@ export function publishChatMessage(payload: ChatMessagePayload): void {
 
   io.to(conversationRoom(payload.conversation_id)).emit(SocketEvents.CHAT_MESSAGE, payload);
   void emitChatMessageToReceiverInbox(payload);
+}
+
+/**
+ * Restaurant open/pause changes — HTTP availability remains source of truth.
+ * Vendors auto-join `restaurant_availability:{id}`; customers opt in via watch_restaurant.
+ */
+export function publishRestaurantAvailabilityChanged(
+  payload: RestaurantAvailabilityChangedPayload
+): void {
+  if (!io) return;
+  const room = restaurantAvailabilityRoom(payload.restaurant_id);
+  io.to(room).emit(SocketEvents.RESTAURANT_AVAILABILITY_CHANGED, payload);
+  console.log(
+    `[socket] restaurant_availability_changed restaurant=${payload.restaurant_id} can_order=${payload.can_order} temp=${payload.is_temporarily_closed}`
+  );
 }
 
 async function emitChatMessageToReceiverInbox(payload: ChatMessagePayload): Promise<void> {

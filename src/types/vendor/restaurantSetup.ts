@@ -136,10 +136,18 @@ export type RestaurantSetupOptions = {
   languages: RestaurantSetupLanguageOption[];
 };
 
+export type RestaurantSetupTemporaryPause = {
+  is_paused: boolean;
+  pause_type: string | null;
+  paused_until: string | null;
+  pause_message: string | null;
+};
+
 export type RestaurantSetupPayload = {
   id: number;
   name: string;
   active: boolean;
+  temporary_pause: RestaurantSetupTemporaryPause;
   schedule_order: boolean;
   delivery: boolean;
   take_away: boolean;

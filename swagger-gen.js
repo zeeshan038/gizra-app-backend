@@ -54,6 +54,13 @@ const ROLES = [
     title: 'Gizra Admin API',
     description: 'Admin dashboard endpoints',
     prefixes: ['/config', '/pages', '/admin', '/upload', '/storage']
+  },
+  {
+    file: './swagger-pos.json',
+    title: 'Gizra Third-Party POS API',
+    description:
+      'Partner-facing POS APIs only. Auth with Bearer API token (gz_test_/gz_live_). Super Admin creates tokens in the Admin Panel (System → 3rd Party POS).',
+    prefixes: ['/v1/pos']
   }
 ];
 

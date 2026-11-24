@@ -31,6 +31,10 @@
       "description": "Super Admin conversion funnel and abandoned-cart list. Auth: Admin JWT."
     },
     {
+      "name": "Admin POS Integration",
+      "description": "Super Admin POS partner setup (also available in Admin Panel → System → 3rd Party POS)."
+    },
+    {
       "name": "App Config (All Apps)"
     },
     {
@@ -56,6 +60,12 @@
         "scheme": "bearer",
         "bearerFormat": "JWT",
         "description": "**Customer JWT** — from POST `/consumer/login` or `/consumer/sign-in-with-google` (`data.token`). **Guest JWT** — from POST `/consumer/guest/request` (`data.token`, claim `role: guest`); valid for cart (and guest checkout flows), not for profile/favourites/addresses."
+      },
+      "posApiKeyAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "POS API Token",
+        "description": "Partner token from Admin Panel (shown once when created). Example: `gz_test_abcd1234.xxxxx`"
       }
     },
     "schemas": {
@@ -1985,7 +1995,33 @@
             "type": "string"
           },
           "active": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Indefinite open/close (`PUT /vendor/restaurant/active-status`)."
+          },
+          "temporary_pause": {
+            "type": "object",
+            "description": "Timed pause snapshot (same semantics as GET /vendor/restaurant/temporary-pause). Null fields when not paused.",
+            "properties": {
+              "is_paused": {
+                "type": "boolean"
+              },
+              "pause_type": {
+                "nullable": true,
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RestaurantPauseType"
+                  }
+                ]
+              },
+              "paused_until": {
+                "type": "string",
+                "nullable": true
+              },
+              "pause_message": {
+                "type": "string",
+                "nullable": true
+              }
+            }
           },
           "schedule_order": {
             "type": "boolean"
@@ -5023,7 +5059,7 @@
           "CLOSED",
           "OPENS_SOON"
         ],
-        "description": "Computed on the backend from weekly `restaurant_schedule`, admin business `timezone` (business_settings), and vendor temporary close (`restaurants.active` / PUT /vendor/restaurant/active-status)."
+        "description": "Computed from weekly `restaurant_schedule`, business timezone, indefinite vendor close (`restaurants.active` / PUT /vendor/restaurant/active-status), and timed pause (`paused_until` / POST /vendor/restaurant/temporary-pause)."
       },
       "ConsumerRestaurantAvailabilityFields": {
         "type": "object",
@@ -5033,7 +5069,10 @@
           "next_open_at",
           "next_close_at",
           "is_temporarily_closed",
-          "open"
+          "open",
+          "paused_until",
+          "pause_message",
+          "pause_type"
         ],
         "properties": {
           "status": {
@@ -5046,7 +5085,7 @@
           "next_open_at": {
             "type": "string",
             "nullable": true,
-            "description": "ISO-8601 datetime with offset; next opening instant (CLOSED, OPENS_SOON, or temporarily closed)."
+            "description": "ISO-8601 datetime with offset; next opening instant (CLOSED, OPENS_SOON, or temporarily closed). For timed pause with active=true, first schedule-open moment at/after pause expiry."
           },
           "next_close_at": {
             "type": "string",
@@ -5055,11 +5094,32 @@
           },
           "is_temporarily_closed": {
             "type": "boolean",
-            "description": "True when the vendor set temporary close (active=false)."
+            "description": "True when vendor indefinite close (`active=false`) OR an unexpired timed pause is active."
           },
           "open": {
             "type": "boolean",
             "description": "Legacy alias of can_order."
+          },
+          "paused_until": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-8601 with offset. Present only while a timed pause is active; null when expired or unset.",
+            "example": "2026-11-25T14:30:00+02:00"
+          },
+          "pause_message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Customer-facing reason while timed pause is active; null when expired or unset.",
+            "example": "We are currently busy. Please try again shortly."
+          },
+          "pause_type": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RestaurantPauseType"
+              }
+            ],
+            "description": "Timed pause type while active; null when expired or unset."
           }
         }
       },
@@ -10663,6 +10723,256 @@
                 }
               }
             }
+          }
+        }
+      },
+      "PosRejectRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "example": "Out of stock"
+          },
+          "cancellation_reason": {
+            "type": "string",
+            "maxLength": 500,
+            "example": "Kitchen closed"
+          }
+        }
+      },
+      "PosOrderSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "1025"
+          },
+          "restaurant_id": {
+            "type": "string",
+            "example": "3"
+          },
+          "order_status": {
+            "type": "string",
+            "example": "pending"
+          },
+          "order_amount": {
+            "type": "number",
+            "example": 84.5
+          },
+          "payment_method": {
+            "type": "string",
+            "example": "cash_on_delivery"
+          },
+          "order_type": {
+            "type": "string",
+            "example": "delivery"
+          },
+          "customer_name": {
+            "type": "string"
+          },
+          "customer_phone": {
+            "type": "string"
+          }
+        }
+      },
+      "RestaurantPauseType": {
+        "type": "string",
+        "enum": [
+          "EARLY_CLOSE",
+          "PAUSE_30",
+          "PAUSE_60"
+        ],
+        "description": "Timed pause kind. Expiry is always computed on the server."
+      },
+      "VendorRestaurantTemporaryPauseBody": {
+        "type": "object",
+        "required": [
+          "pause_type"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "pause_type": {
+            "$ref": "#/components/schemas/RestaurantPauseType",
+            "example": "PAUSE_30"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255,
+            "description": "Optional custom customer-facing reason. Wins over message_preset when non-empty.",
+            "example": "Kitchen is slammed — back soon"
+          },
+          "message_preset": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "busy",
+              "break",
+              "early_close",
+              "kitchen"
+            ],
+            "description": "Optional preset reason key when message is omitted.",
+            "example": "busy"
+          }
+        }
+      },
+      "VendorRestaurantTemporaryPauseState": {
+        "type": "object",
+        "required": [
+          "is_paused",
+          "pause_type",
+          "paused_until",
+          "pause_message",
+          "active",
+          "availability"
+        ],
+        "properties": {
+          "is_paused": {
+            "type": "boolean",
+            "description": "True when an unexpired timed pause is active."
+          },
+          "pause_type": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RestaurantPauseType"
+              }
+            ]
+          },
+          "paused_until": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-8601 with offset while paused; null otherwise."
+          },
+          "pause_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Current `restaurants.active` (indefinite open/close). Independent of timed pause."
+          },
+          "availability": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityFields"
+          }
+        }
+      },
+      "VendorRestaurantTemporaryPauseResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Temporary pause status fetched"
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VendorRestaurantTemporaryPauseState"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "message_presets": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "Preset keys for UI chips on GET only.",
+                    "example": {
+                      "busy": "We are currently busy. Please try again shortly.",
+                      "break": "Taking a short break. Back soon!",
+                      "early_close": "We closed early for today. See you next shift!",
+                      "kitchen": "Kitchen temporarily unavailable. Back soon!"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "VendorRestaurantTemporaryPauseApplyResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Temporary pause applied"
+          },
+          "data": {
+            "$ref": "#/components/schemas/VendorRestaurantTemporaryPauseState"
+          }
+        }
+      },
+      "SocketRestaurantAvailabilityChangedPayload": {
+        "type": "object",
+        "description": "Socket.IO server → client event `restaurant_availability_changed` on room `restaurant_availability:{restaurantId}`. Vendors auto-join; customers emit `watch_restaurant` / `unwatch_restaurant`. HTTP availability remains source of truth.",
+        "required": [
+          "restaurant_id",
+          "status",
+          "can_order",
+          "open",
+          "next_open_at",
+          "next_close_at",
+          "is_temporarily_closed",
+          "paused_until",
+          "pause_message",
+          "pause_type",
+          "updated_at"
+        ],
+        "properties": {
+          "restaurant_id": {
+            "type": "integer",
+            "example": 12
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean"
+          },
+          "open": {
+            "type": "boolean"
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_temporarily_closed": {
+            "type": "boolean"
+          },
+          "paused_until": {
+            "type": "string",
+            "nullable": true
+          },
+          "pause_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "pause_type": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RestaurantPauseType"
+              }
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-25T14:00:05.123Z"
           }
         }
       }
@@ -29667,111 +29977,34 @@
           }
         ],
         "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
+          },
           "201": {
-            "description": "Created",
+            "description": "Token created",
             "content": {
               "application/json": {
                 "example": {
                   "status": true,
-                  "msg": "POS API token created. Store the token now — it will not be shown again.",
                   "data": {
                     "id": "1",
-                    "restaurant_id": 1,
-                    "restaurant_name": "…",
-                    "name": "Example",
-                    "provider": "…",
-                    "environment": "…",
-                    "key_prefix": "…",
-                    "scopes": "…",
-                    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
-                    "created_at": "…"
+                    "token": "gz_test_ab12cd34.secret",
+                    "environment": "sandbox"
                   }
                 },
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "POS API token created. Store the token now — it will not be shown again."
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "example": "1"
-                        },
-                        "restaurant_id": {
-                          "type": "number",
-                          "example": 1
-                        },
-                        "restaurant_name": {
-                          "type": "string",
-                          "example": "…"
-                        },
-                        "name": {
-                          "type": "string",
-                          "example": "Example"
-                        },
-                        "provider": {
-                          "type": "string",
-                          "example": "…"
-                        },
-                        "environment": {
-                          "type": "string",
-                          "example": "…"
-                        },
-                        "key_prefix": {
-                          "type": "string",
-                          "example": "…"
-                        },
-                        "scopes": {
-                          "type": "string",
-                          "example": "…"
-                        },
-                        "token": {
-                          "type": "string",
-                          "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…"
-                        },
-                        "created_at": {
-                          "type": "string",
-                          "example": "…"
-                        }
-                      },
-                      "example": {
-                        "id": "1",
-                        "restaurant_id": 1,
-                        "restaurant_name": "…",
-                        "name": "Example",
-                        "provider": "…",
-                        "environment": "…",
-                        "key_prefix": "…",
-                        "scopes": "…",
-                        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
-                        "created_at": "…"
-                      }
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "msg": "POS API token created. Store the token now — it will not be shown again.",
-                    "data": {
-                      "id": "1",
-                      "restaurant_id": 1,
-                      "restaurant_name": "…",
-                      "name": "Example",
-                      "provider": "…",
-                      "environment": "…",
-                      "key_prefix": "…",
-                      "scopes": "…",
-                      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…",
-                      "created_at": "…"
-                    }
-                  }
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -29848,106 +30081,83 @@
           }
         },
         "tags": [
-          "Admin"
-        ]
+          "Admin POS Integration"
+        ],
+        "summary": "Create POS API key (token shown once)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "name"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "integer",
+                    "example": 3
+                  },
+                  "name": {
+                    "type": "string",
+                    "example": "Sandbox Verifone"
+                  },
+                  "provider": {
+                    "type": "string",
+                    "example": "verifone"
+                  },
+                  "environment": {
+                    "type": "string",
+                    "enum": [
+                      "sandbox",
+                      "live"
+                    ],
+                    "example": "sandbox"
+                  },
+                  "scopes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "example": [
+                      "orders:read",
+                      "orders:write"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
       },
       "get": {
         "description": "",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "name": "restaurant_id",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Keys",
             "content": {
               "application/json": {
                 "example": {
                   "status": true,
-                  "data": "1",
-                  "restaurant_id": 1,
-                  "name": "Example",
-                  "provider": "…",
-                  "environment": "…",
-                  "key_prefix": "…",
-                  "scopes": "…",
-                  "revoked_at": "…",
-                  "last_used_at": "…",
-                  "created_at": "…"
+                  "data": []
                 },
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "data": {
-                      "type": "string",
-                      "example": "1"
-                    },
-                    "restaurant_id": {
-                      "type": "number",
-                      "example": 1
-                    },
-                    "name": {
-                      "type": "string",
-                      "example": "Example"
-                    },
-                    "provider": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "environment": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "key_prefix": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "scopes": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "revoked_at": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "last_used_at": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "created_at": {
-                      "type": "string",
-                      "example": "…"
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "data": "1",
-                    "restaurant_id": 1,
-                    "name": "Example",
-                    "provider": "…",
-                    "environment": "…",
-                    "key_prefix": "…",
-                    "scopes": "…",
-                    "revoked_at": "…",
-                    "last_used_at": "…",
-                    "created_at": "…"
-                  }
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -30024,12 +30234,18 @@
           }
         },
         "tags": [
-          "Admin"
+          "Admin POS Integration"
+        ],
+        "summary": "List POS API keys",
+        "security": [
+          {
+            "bearerAuth": []
+          }
         ]
       }
     },
-    "/admin/pos/api-keys/{id}/revoke": {
-      "post": {
+    "/admin/pos/api-keys/{id}/token": {
+      "get": {
         "description": "",
         "parameters": [
           {
@@ -30050,54 +30266,15 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Successful operation",
             "content": {
               "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
                 "example": {
                   "status": true,
-                  "msg": "POS API key revoked",
-                  "data": {
-                    "id": "1",
-                    "revoked_at": "…"
-                  }
-                },
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "POS API key revoked"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "example": "1"
-                        },
-                        "revoked_at": {
-                          "type": "string",
-                          "example": "…"
-                        }
-                      },
-                      "example": {
-                        "id": "1",
-                        "revoked_at": "…"
-                      }
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "msg": "POS API key revoked",
-                    "data": {
-                      "id": "1",
-                      "revoked_at": "…"
-                    }
-                  }
+                  "msg": "Operation successful"
                 }
               }
             }
@@ -30145,7 +30322,7 @@
             }
           },
           "404": {
-            "description": "Not Found",
+            "description": "Not Found - The requested resource could not be found",
             "content": {
               "application/json": {
                 "schema": {
@@ -30159,7 +30336,7 @@
             }
           },
           "500": {
-            "description": "Internal Server Error",
+            "description": "Internal Server Error - Something went wrong on the server",
             "content": {
               "application/json": {
                 "schema": {
@@ -30175,6 +30352,116 @@
         },
         "tags": [
           "Admin"
+        ]
+      }
+    },
+    "/admin/pos/api-keys/{id}/revoke": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Revoked",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "POS API key revoked"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin POS Integration"
+        ],
+        "summary": "Revoke POS API key",
+        "security": [
+          {
+            "bearerAuth": []
+          }
         ]
       }
     },
@@ -30300,6 +30587,22 @@
               }
             }
           },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "data": {
+                    "id": "1"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
           "400": {
             "description": "Bad Request - Invalid input or missing parameters",
             "content": {
@@ -30372,99 +30675,74 @@
           }
         },
         "tags": [
-          "Admin"
-        ]
+          "Admin POS Integration"
+        ],
+        "summary": "Create POS webhook connection",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "url"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "integer"
+                  },
+                  "url": {
+                    "type": "string"
+                  },
+                  "provider": {
+                    "type": "string"
+                  },
+                  "external_merchant_id": {
+                    "type": "string"
+                  },
+                  "events": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "active": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
       },
       "get": {
         "description": "",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
+            "name": "restaurant_id",
+            "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "Connections",
             "content": {
               "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "data": {
-                      "type": "string",
-                      "example": "1"
-                    },
-                    "restaurant_id": {
-                      "type": "number",
-                      "example": 1
-                    },
-                    "url": {
-                      "type": "string",
-                      "example": "https://cdn.example.com/assets/file.png"
-                    },
-                    "provider": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "external_merchant_id": {
-                      "type": "number",
-                      "example": 1
-                    },
-                    "events": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "active": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "consecutive_failures": {
-                      "type": "number",
-                      "example": 1
-                    },
-                    "disabled_at": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "created_at": {
-                      "type": "string",
-                      "example": "…"
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "data": "1",
-                    "restaurant_id": 1,
-                    "url": "https://cdn.example.com/assets/file.png",
-                    "provider": "…",
-                    "external_merchant_id": 1,
-                    "events": "…",
-                    "active": "…",
-                    "consecutive_failures": 1,
-                    "disabled_at": "…",
-                    "created_at": "…"
-                  }
-                },
                 "example": {
                   "status": true,
-                  "data": "1",
-                  "restaurant_id": 1,
-                  "url": "https://cdn.example.com/assets/file.png",
-                  "provider": "…",
-                  "external_merchant_id": 1,
-                  "events": "…",
-                  "active": "…",
-                  "consecutive_failures": 1,
-                  "disabled_at": "…",
-                  "created_at": "…"
+                  "data": []
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -30541,7 +30819,13 @@
           }
         },
         "tags": [
-          "Admin"
+          "Admin POS Integration"
+        ],
+        "summary": "List POS connections",
+        "security": [
+          {
+            "bearerAuth": []
+          }
         ]
       }
     },
@@ -30556,100 +30840,19 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "Updated",
             "content": {
               "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "POS connection updated"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "id": {
-                          "type": "string",
-                          "example": "1"
-                        },
-                        "restaurant_id": {
-                          "type": "number",
-                          "example": 1
-                        },
-                        "url": {
-                          "type": "string",
-                          "example": "https://cdn.example.com/assets/file.png"
-                        },
-                        "provider": {
-                          "type": "string",
-                          "example": "…"
-                        },
-                        "external_merchant_id": {
-                          "type": "number",
-                          "example": 1
-                        },
-                        "events": {
-                          "type": "string",
-                          "example": "…"
-                        },
-                        "active": {
-                          "type": "string",
-                          "example": "…"
-                        }
-                      },
-                      "example": {
-                        "id": "1",
-                        "restaurant_id": 1,
-                        "url": "https://cdn.example.com/assets/file.png",
-                        "provider": "…",
-                        "external_merchant_id": 1,
-                        "events": "…",
-                        "active": "…"
-                      }
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "msg": "POS connection updated",
-                    "data": {
-                      "id": "1",
-                      "restaurant_id": 1,
-                      "url": "https://cdn.example.com/assets/file.png",
-                      "provider": "…",
-                      "external_merchant_id": 1,
-                      "events": "…",
-                      "active": "…"
-                    }
-                  }
-                },
                 "example": {
                   "status": true,
-                  "msg": "POS connection updated",
-                  "data": {
-                    "id": "1",
-                    "restaurant_id": 1,
-                    "url": "https://cdn.example.com/assets/file.png",
-                    "provider": "…",
-                    "external_merchant_id": 1,
-                    "events": "…",
-                    "active": "…"
-                  }
+                  "msg": "POS connection updated"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -30726,7 +30929,13 @@
           }
         },
         "tags": [
-          "Admin"
+          "Admin POS Integration"
+        ],
+        "summary": "Update POS connection",
+        "security": [
+          {
+            "bearerAuth": []
+          }
         ]
       }
     },
@@ -30735,110 +30944,31 @@
         "description": "",
         "parameters": [
           {
-            "name": "authorization",
-            "in": "header",
+            "name": "order_id",
+            "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "Deliveries",
             "content": {
               "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "data": {
-                      "type": "string",
-                      "example": "1"
-                    },
-                    "partner_webhook_id": {
-                      "type": "number",
-                      "example": 1
-                    },
-                    "delivery_id": {
-                      "type": "number",
-                      "example": 1
-                    },
-                    "event_id": {
-                      "type": "number",
-                      "example": 1
-                    },
-                    "event": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "order_id": {
-                      "type": "number",
-                      "example": 0
-                    },
-                    "attempts": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "last_response_code": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "last_error": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "delivered_at": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "given_up_at": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "next_attempt_at": {
-                      "type": "string",
-                      "example": "…"
-                    },
-                    "created_at": {
-                      "type": "string",
-                      "example": "…"
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "data": "1",
-                    "partner_webhook_id": 1,
-                    "delivery_id": 1,
-                    "event_id": 1,
-                    "event": "…",
-                    "order_id": 0,
-                    "attempts": "…",
-                    "last_response_code": "…",
-                    "last_error": "…",
-                    "delivered_at": "…",
-                    "given_up_at": "…",
-                    "next_attempt_at": "…",
-                    "created_at": "…"
-                  }
-                },
                 "example": {
                   "status": true,
-                  "data": "1",
-                  "partner_webhook_id": 1,
-                  "delivery_id": 1,
-                  "event_id": 1,
-                  "event": "…",
-                  "order_id": 0,
-                  "attempts": "…",
-                  "last_response_code": "…",
-                  "last_error": "…",
-                  "delivered_at": "…",
-                  "given_up_at": "…",
-                  "next_attempt_at": "…",
-                  "created_at": "…"
+                  "data": []
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -30915,7 +31045,13 @@
           }
         },
         "tags": [
-          "Admin"
+          "Admin POS Integration"
+        ],
+        "summary": "List webhook delivery attempts",
+        "security": [
+          {
+            "bearerAuth": []
+          }
         ]
       }
     },
@@ -30930,18 +31066,11 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "authorization",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Replay queued",
             "content": {
               "application/json": {
                 "example": {
@@ -30949,21 +31078,7 @@
                   "msg": "Delivery replay queued/processed"
                 },
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "msg": {
-                      "type": "string",
-                      "example": "Delivery replay queued/processed"
-                    }
-                  },
-                  "example": {
-                    "status": true,
-                    "msg": "Delivery replay queued/processed"
-                  }
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
@@ -31040,7 +31155,13 @@
           }
         },
         "tags": [
-          "Admin"
+          "Admin POS Integration"
+        ],
+        "summary": "Replay failed webhook delivery",
+        "security": [
+          {
+            "bearerAuth": []
+          }
         ]
       }
     },

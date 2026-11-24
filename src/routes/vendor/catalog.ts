@@ -4,6 +4,7 @@ const router = express.Router();
 import {
   createCategory,
   getCategories,
+  reorderCategories,
   updateCategory,
 } from '../../controllers/vendor/catalog/Category';
 import {
@@ -29,6 +30,7 @@ router.use(verifyVendor);
 // Categories
 router.post('/category', createCategory);
 router.get('/category', getCategories);
+router.put('/category/reorder', reorderCategories);
 router.patch('/category/:id', updateCategory);
 
 

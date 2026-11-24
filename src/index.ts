@@ -68,6 +68,7 @@ const swaggerCustomer = loadOpenApi('swagger-customer.json');
 const swaggerVendor = loadOpenApi('swagger-vendor.json');
 const swaggerDriver = loadOpenApi('swagger-driver.json');
 const swaggerAdmin = loadOpenApi('swagger-admin.json');
+const swaggerPos = loadOpenApi('swagger-pos.json');
 const swaggerCombined = loadOpenApi('swagger.json');
 
 const sendJson =
@@ -81,6 +82,7 @@ app.get('/swagger-customer.json', sendJson(swaggerCustomer));
 app.get('/swagger-vendor.json', sendJson(swaggerVendor));
 app.get('/swagger-driver.json', sendJson(swaggerDriver));
 app.get('/swagger-admin.json', sendJson(swaggerAdmin));
+app.get('/swagger-pos.json', sendJson(swaggerPos));
 app.get('/swagger.json', sendJson(swaggerCombined));
 
 // serveFiles embeds each spec in its own swagger-ui-init.js (shared swaggerUi.serve breaks multi-spec)
@@ -92,6 +94,7 @@ const swaggerExplorerOpts = {
       { url: '/swagger-vendor.json', name: 'Vendor' },
       { url: '/swagger-driver.json', name: 'Driver' },
       { url: '/swagger-admin.json', name: 'Admin' },
+      { url: '/swagger-pos.json', name: 'POS Partner' },
     ],
   },
 };
@@ -115,6 +118,11 @@ app.use(
   '/swagger/admin',
   ...swaggerUi.serveFiles(swaggerAdmin),
   swaggerUi.setup(swaggerAdmin, { customSiteTitle: 'Gizra Admin API' })
+);
+app.use(
+  '/swagger/pos',
+  ...swaggerUi.serveFiles(swaggerPos),
+  swaggerUi.setup(swaggerPos, { customSiteTitle: 'Gizra Third-Party POS API' })
 );
 app.use(
   '/swagger',

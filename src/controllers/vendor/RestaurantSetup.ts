@@ -6,6 +6,7 @@ import {
   restaurantMetaSchema,
   restaurantScheduleSchema,
   restaurantSetupSchema,
+  restaurantTemporaryPauseSchema,
   restaurantToggleSchema,
 } from '../../schemas/vendor/RestaurantSetup';
 import { posAppSettingsSchema } from '../../schemas/vendor/PosAppSettings';
@@ -16,6 +17,12 @@ import {
   addRestaurantScheduleSlot,
   removeRestaurantScheduleSlot,
 } from '../../utils/vendor/restaurantSetup/schedule';
+import {
+  applyRestaurantTemporaryPause,
+  cancelRestaurantTemporaryPause,
+  getRestaurantTemporaryPause,
+  PAUSE_MESSAGE_PRESETS,
+} from '../../utils/vendor/restaurantSetup/temporaryPause';
 import { applyRestaurantToggleSetting } from '../../utils/vendor/restaurantSetup/toggleSetting';
 import { setRestaurantActive } from '../../utils/vendor/restaurantSetup/updateActive';
 import { applyRestaurantMetaFields } from '../../utils/vendor/restaurantSetup/updateMetaFields';
@@ -88,6 +95,101 @@ export const updateRestaurantActive = async (req: Request, res: Response): Promi
     return res.status(200).json({ status: true, msg, data: { active } });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });
+  }
+};
+
+/**
+ * @Description Get current timed temporary pause (early close / 30 / 60 min)
+ * @Route GET /api/vendor/restaurant/temporary-pause
+ * @Access Vendor
+ */
+export const getTemporaryPause = async (req: Request, res: Response): Promise<any> => {
+  const ctx = getVendorContext(req);
+  if (!ctx) {
+    return res.status(403).json({ status: false, msg: 'Restaurant context not found for vendor' });
+  }
+
+  try {
+    const loaded = await loadVendorRestaurant(req);
+    if (!loaded) {
+      return res.status(404).json({ status: false, msg: 'Restaurant not found for this vendor' });
+    }
+
+    const data = await getRestaurantTemporaryPause(loaded.restaurant.id);
+    return res.status(200).json({
+      status: true,
+      msg: 'Temporary pause status fetched',
+      data: {
+        ...data,
+        message_presets: PAUSE_MESSAGE_PRESETS,
+      },
+    });
+  } catch (e: any) {
+    const code = e.statusCode === 404 ? 404 : 500;
+    return res.status(code).json({ status: false, msg: e.message });
+  }
+};
+
+/**
+ * @Description Apply timed temporary pause (expiry calculated server-side)
+ * @Route POST /api/vendor/restaurant/temporary-pause
+ * @Access Vendor
+ */
+export const applyTemporaryPause = async (req: Request, res: Response): Promise<any> => {
+  const ctx = getVendorContext(req);
+  if (!ctx) {
+    return res.status(403).json({ status: false, msg: 'Restaurant context not found for vendor' });
+  }
+
+  const validated = restaurantTemporaryPauseSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({ status: false, msg: validationMsg(validated.error) });
+  }
+
+  try {
+    const loaded = await loadVendorRestaurant(req);
+    if (!loaded) {
+      return res.status(404).json({ status: false, msg: 'Restaurant not found for this vendor' });
+    }
+
+    const data = await applyRestaurantTemporaryPause(loaded.restaurant.id, validated.value);
+    return res.status(200).json({
+      status: true,
+      msg: 'Temporary pause applied',
+      data,
+    });
+  } catch (e: any) {
+    const code = typeof e.statusCode === 'number' ? e.statusCode : 500;
+    return res.status(code).json({ status: false, msg: e.message });
+  }
+};
+
+/**
+ * @Description Cancel timed temporary pause without changing active/status
+ * @Route DELETE /api/vendor/restaurant/temporary-pause
+ * @Access Vendor
+ */
+export const cancelTemporaryPause = async (req: Request, res: Response): Promise<any> => {
+  const ctx = getVendorContext(req);
+  if (!ctx) {
+    return res.status(403).json({ status: false, msg: 'Restaurant context not found for vendor' });
+  }
+
+  try {
+    const loaded = await loadVendorRestaurant(req);
+    if (!loaded) {
+      return res.status(404).json({ status: false, msg: 'Restaurant not found for this vendor' });
+    }
+
+    const data = await cancelRestaurantTemporaryPause(loaded.restaurant.id);
+    return res.status(200).json({
+      status: true,
+      msg: 'Temporary pause cancelled',
+      data,
+    });
+  } catch (e: any) {
+    const code = e.statusCode === 404 ? 404 : 500;
+    return res.status(code).json({ status: false, msg: e.message });
   }
 };
 

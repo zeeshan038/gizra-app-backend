@@ -18,6 +18,7 @@ import { resolveFoodSellingTime } from './foodSellingTime';
 import { resolveFoodStockSnapshot } from './foodStock';
 import { parseFoodAttributes } from '../vendor/catalog/foodAttributes';
 import { comboDefinitionForClient } from './comboDefinition';
+import { DEFAULT_MENU_CATEGORY_ORDER } from '../vendor/catalog/menuSortOrder';
 
 type FoodRow = {
   id: bigint;
@@ -125,7 +126,7 @@ export async function loadRestaurantMenuCategories(
       id: { in: [...parentIds].map((id) => BigInt(id)) },
       status: true,
     },
-    orderBy: [{ priority: 'desc' }, { name: 'asc' }],
+    orderBy: DEFAULT_MENU_CATEGORY_ORDER,
     select: {
       id: true,
       name: true,

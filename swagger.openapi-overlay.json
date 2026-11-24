@@ -848,7 +848,7 @@
     "/vendor/restaurant/active-status": {
       "put": {
         "summary": "Open or temporarily close restaurant",
-        "description": "Vendor panel **temporary close** override. `closed: true` sets `restaurants.active` to false — consumer restaurant APIs return `is_temporarily_closed: true`, `can_order: false`, and place-order is blocked until reopened. Weekly hours are unchanged; this overrides accepting orders immediately.",
+        "description": "Vendor panel **indefinite** temporary close. `closed: true` sets `restaurants.active` to false — consumer APIs return `is_temporarily_closed: true`, `can_order: false`, until reopened. Weekly hours unchanged.\n\nFor **timed** pauses (30/60 min or early close for rest of shift), use `POST/GET/DELETE /vendor/restaurant/temporary-pause` instead.",
         "parameters": [
           {
             "$ref": "#/components/parameters/VendorAuthorizationHeader"
@@ -1675,6 +1675,49 @@
           },
           "400": {
             "description": "Validation or items not in category"
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      }
+    },
+    "/vendor/catalog/category/reorder": {
+      "put": {
+        "summary": "Reorder menu categories (drag-and-drop)",
+        "description": "Restaurant panel drag-and-drop: set display order for **category tabs** on the customer restaurant page. Body: `ordered_ids` top-to-bottom. Consumer `GET /consumer/restaurants/{id}/categories` sorts by `position` ascending.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ordered_ids"
+                ],
+                "properties": {
+                  "ordered_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "example": [
+                      3,
+                      1,
+                      7
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Order saved"
+          },
+          "400": {
+            "description": "Validation or categories invalid for this restaurant"
           }
         },
         "tags": [
@@ -5282,7 +5325,7 @@
     "/consumer/restaurants/specific/{id}": {
       "get": {
         "summary": "Restaurant details",
-        "description": "Single restaurant profile for the menu / details screen. Includes **server-computed availability** (`status`, `can_order`, `next_open_at`, `next_close_at`, `is_temporarily_closed`; legacy `open` = `can_order`), menu category chips, and vendor `active` (temporary close flag). Public; optional Bearer for visit tracking.",
+        "description": "Single restaurant profile for the menu / details screen. Includes **server-computed availability** (`status`, `can_order`, `next_open_at`, `next_close_at`, `is_temporarily_closed`, `paused_until`, `pause_message`, `pause_type`; legacy `open` = `can_order`), menu category chips, and vendor `active` (indefinite close flag). Timed pause fields are null when expired/unset. Public; optional Bearer for visit tracking.",
         "parameters": [
           {
             "name": "id",
@@ -5325,6 +5368,9 @@
                     "next_close_at": "2026-10-27T23:00:00+02:00",
                     "is_temporarily_closed": false,
                     "open": true,
+                    "paused_until": null,
+                    "pause_message": null,
+                    "pause_type": null,
                     "categories": [
                       {
                         "id": "1",
@@ -15141,7 +15187,33 @@
             "type": "string"
           },
           "active": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Indefinite open/close (`PUT /vendor/restaurant/active-status`)."
+          },
+          "temporary_pause": {
+            "type": "object",
+            "description": "Timed pause snapshot (same semantics as GET /vendor/restaurant/temporary-pause). Null fields when not paused.",
+            "properties": {
+              "is_paused": {
+                "type": "boolean"
+              },
+              "pause_type": {
+                "nullable": true,
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RestaurantPauseType"
+                  }
+                ]
+              },
+              "paused_until": {
+                "type": "string",
+                "nullable": true
+              },
+              "pause_message": {
+                "type": "string",
+                "nullable": true
+              }
+            }
           },
           "schedule_order": {
             "type": "boolean"
@@ -18179,7 +18251,7 @@
           "CLOSED",
           "OPENS_SOON"
         ],
-        "description": "Computed on the backend from weekly `restaurant_schedule`, admin business `timezone` (business_settings), and vendor temporary close (`restaurants.active` / PUT /vendor/restaurant/active-status)."
+        "description": "Computed from weekly `restaurant_schedule`, business timezone, indefinite vendor close (`restaurants.active` / PUT /vendor/restaurant/active-status), and timed pause (`paused_until` / POST /vendor/restaurant/temporary-pause)."
       },
       "ConsumerRestaurantAvailabilityFields": {
         "type": "object",
@@ -18189,7 +18261,10 @@
           "next_open_at",
           "next_close_at",
           "is_temporarily_closed",
-          "open"
+          "open",
+          "paused_until",
+          "pause_message",
+          "pause_type"
         ],
         "properties": {
           "status": {
@@ -18202,7 +18277,7 @@
           "next_open_at": {
             "type": "string",
             "nullable": true,
-            "description": "ISO-8601 datetime with offset; next opening instant (CLOSED, OPENS_SOON, or temporarily closed)."
+            "description": "ISO-8601 datetime with offset; next opening instant (CLOSED, OPENS_SOON, or temporarily closed). For timed pause with active=true, first schedule-open moment at/after pause expiry."
           },
           "next_close_at": {
             "type": "string",
@@ -18211,11 +18286,31 @@
           },
           "is_temporarily_closed": {
             "type": "boolean",
-            "description": "True when the vendor set temporary close (active=false)."
+            "description": "True when vendor indefinite close (`active=false`) OR an unexpired timed pause is active."
           },
           "open": {
             "type": "boolean",
             "description": "Legacy alias of can_order."
+          },
+          "paused_until": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-8601 with offset while a timed pause is active; null when expired or unset."
+          },
+          "pause_message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Customer-facing reason while timed pause is active; null when expired or unset."
+          },
+          "pause_type": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "EARLY_CLOSE",
+              "PAUSE_30",
+              "PAUSE_60"
+            ],
+            "description": "Timed pause type while active; null when expired or unset."
           }
         }
       },
@@ -21673,7 +21768,7 @@
     },
     {
       "name": "Vendor Restaurant Setup",
-      "description": "Restaurant Web Panel **Config** (business setup): GET/PUT /vendor/restaurant/business-setup, open/close PUT /vendor/restaurant/active-status, toggles PUT /vendor/restaurant/setting-toggle, SEO PUT /vendor/restaurant/meta-data, hours POST/DELETE /vendor/restaurant/schedules. Bearer from POST /vendor/login."
+      "description": "Restaurant Web Panel **Config**: GET/PUT /vendor/restaurant/business-setup, indefinite open/close PUT /vendor/restaurant/active-status, timed pause GET/POST/DELETE /vendor/restaurant/temporary-pause, toggles PUT /vendor/restaurant/setting-toggle, SEO PUT /vendor/restaurant/meta-data, hours POST/DELETE /vendor/restaurant/schedules. Bearer from POST /vendor/login. See `docs/FLUTTER_RESTAURANT_TEMPORARY_PAUSE.md`."
     },
     {
       "name": "Vendor Orders (Web Panel & POS)",

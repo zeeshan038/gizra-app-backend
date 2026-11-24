@@ -8,6 +8,7 @@ import {
   replayPosDelivery,
   revokePosApiKey,
   updatePosConnection,
+  viewPosApiKeyToken,
 } from '../../controllers/admin/pos';
 import { verifyAdmin } from '../../middlewares/verifyAdmin';
 import { verifySuperAdmin } from '../../middlewares/verifySuperAdmin';
@@ -18,6 +19,7 @@ router.use(verifyAdmin, verifySuperAdmin);
 
 router.post('/api-keys', createPosApiKey);
 router.get('/api-keys', listPosApiKeys);
+router.get('/api-keys/:id/token', viewPosApiKeyToken);
 router.post('/api-keys/:id/revoke', revokePosApiKey);
 
 router.post('/connections', createPosConnection);

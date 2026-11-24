@@ -30,12 +30,24 @@ function includedRegionCodes(): string[] {
 const COUNTRY_RECTANGLE_LOW = { latitude: 29.45, longitude: 34.15 };
 const COUNTRY_RECTANGLE_HIGH = { latitude: 33.45, longitude: 35.95 };
 
-function applyAutocompleteRegionScope(requestBody: Record<string, unknown>) {
+function applyAutocompleteRegionScope(
+  requestBody: Record<string, unknown>,
+  options?: PlaceAutocompleteOptions,
+  hasLocationBias = false
+) {
+  const requestCode = options?.regionCode?.trim().toUpperCase();
+  if (requestCode && /^[A-Z]{2}$/.test(requestCode)) {
+    requestBody.includedRegionCodes = [requestCode];
+    return;
+  }
   const codes = includedRegionCodes();
   if (codes.length) {
     requestBody.includedRegionCodes = codes;
     return;
   }
+  // New Places API: cannot combine locationRestriction with locationBias.
+  // When the app sends lat/lng bias, skip the rectangle.
+  if (hasLocationBias) return;
   // Default: worldwide — no rectangle. Opt-in via GOOGLE_PLACES_USE_COUNTRY_BOUNDS=1.
   if (process.env.GOOGLE_PLACES_USE_COUNTRY_BOUNDS === '1') {
     requestBody.locationRestriction = {
@@ -47,11 +59,16 @@ function applyAutocompleteRegionScope(requestBody: Record<string, unknown>) {
   }
 }
 
-/** Prefer delivery-area results (Hebron / Gush Etzion) over unrelated "Hebron Street" matches in TLV. */
+/**
+ * Prefer nearby results over global name matches.
+ * Pass the user's map/GPS as biasLat/biasLng (e.g. Islamabad → local KFC first).
+ */
 export type PlaceAutocompleteOptions = {
   biasLat?: number;
   biasLng?: number;
   biasRadiusKm?: number;
+  /** ISO-3166 alpha-2, e.g. PK / IL — limits suggestions to that country when set. */
+  regionCode?: string;
 };
 
 function parseFiniteNumber(raw: string | undefined): number | null {
@@ -175,14 +192,17 @@ async function placesNewAutocomplete(searchText: string, options?: PlaceAutocomp
   const requestBody: Record<string, unknown> = {
     input: searchText,
   };
-  applyAutocompleteRegionScope(requestBody);
+  applyAutocompleteRegionScope(requestBody, options, Boolean(bias));
   if (bias) {
+    // Rank nearby first (does not hard-block other countries unless region is also set).
     requestBody.locationBias = {
       circle: {
         center: { latitude: bias.lat, longitude: bias.lng },
         radius: bias.radiusM,
       },
     };
+    // Helps Google order by distance from the user.
+    requestBody.origin = { latitude: bias.lat, longitude: bias.lng };
   }
   const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
     method: 'POST',
@@ -261,6 +281,11 @@ async function legacyPlaceAutocomplete(searchText: string, options?: PlaceAutoco
     params.radius = String(Math.round(bias.radiusM));
     params.strictbounds = 'false';
   }
+  const region =
+    options?.regionCode?.trim().toUpperCase() ||
+    includedRegionCodes()[0] ||
+    undefined;
+  if (region) params.components = `country:${region.toLowerCase()}`;
   return googleGet('place/autocomplete/json', params);
 }
 

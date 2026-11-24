@@ -20,7 +20,7 @@
     },
     {
       "name": "Vendor Restaurant Setup",
-      "description": "Restaurant Web Panel **Config** (business setup): GET/PUT /vendor/restaurant/business-setup, open/close PUT /vendor/restaurant/active-status, toggles PUT /vendor/restaurant/setting-toggle, SEO PUT /vendor/restaurant/meta-data, hours POST/DELETE /vendor/restaurant/schedules. Bearer from POST /vendor/login."
+      "description": "Restaurant Web Panel **Config**: GET/PUT /vendor/restaurant/business-setup, indefinite open/close PUT /vendor/restaurant/active-status, timed pause GET/POST/DELETE /vendor/restaurant/temporary-pause, toggles PUT /vendor/restaurant/setting-toggle, SEO PUT /vendor/restaurant/meta-data, hours POST/DELETE /vendor/restaurant/schedules. Bearer from POST /vendor/login. See `docs/FLUTTER_RESTAURANT_TEMPORARY_PAUSE.md`."
     },
     {
       "name": "Vendor Orders (Web Panel & POS)",
@@ -58,6 +58,12 @@
         "scheme": "bearer",
         "bearerFormat": "JWT",
         "description": "**Customer JWT** — from POST `/consumer/login` or `/consumer/sign-in-with-google` (`data.token`). **Guest JWT** — from POST `/consumer/guest/request` (`data.token`, claim `role: guest`); valid for cart (and guest checkout flows), not for profile/favourites/addresses."
+      },
+      "posApiKeyAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "POS API Token",
+        "description": "Partner token from Admin Panel (shown once when created). Example: `gz_test_abcd1234.xxxxx`"
       }
     },
     "schemas": {
@@ -1987,7 +1993,33 @@
             "type": "string"
           },
           "active": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Indefinite open/close (`PUT /vendor/restaurant/active-status`)."
+          },
+          "temporary_pause": {
+            "type": "object",
+            "description": "Timed pause snapshot (same semantics as GET /vendor/restaurant/temporary-pause). Null fields when not paused.",
+            "properties": {
+              "is_paused": {
+                "type": "boolean"
+              },
+              "pause_type": {
+                "nullable": true,
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RestaurantPauseType"
+                  }
+                ]
+              },
+              "paused_until": {
+                "type": "string",
+                "nullable": true
+              },
+              "pause_message": {
+                "type": "string",
+                "nullable": true
+              }
+            }
           },
           "schedule_order": {
             "type": "boolean"
@@ -5025,7 +5057,7 @@
           "CLOSED",
           "OPENS_SOON"
         ],
-        "description": "Computed on the backend from weekly `restaurant_schedule`, admin business `timezone` (business_settings), and vendor temporary close (`restaurants.active` / PUT /vendor/restaurant/active-status)."
+        "description": "Computed from weekly `restaurant_schedule`, business timezone, indefinite vendor close (`restaurants.active` / PUT /vendor/restaurant/active-status), and timed pause (`paused_until` / POST /vendor/restaurant/temporary-pause)."
       },
       "ConsumerRestaurantAvailabilityFields": {
         "type": "object",
@@ -5035,7 +5067,10 @@
           "next_open_at",
           "next_close_at",
           "is_temporarily_closed",
-          "open"
+          "open",
+          "paused_until",
+          "pause_message",
+          "pause_type"
         ],
         "properties": {
           "status": {
@@ -5048,7 +5083,7 @@
           "next_open_at": {
             "type": "string",
             "nullable": true,
-            "description": "ISO-8601 datetime with offset; next opening instant (CLOSED, OPENS_SOON, or temporarily closed)."
+            "description": "ISO-8601 datetime with offset; next opening instant (CLOSED, OPENS_SOON, or temporarily closed). For timed pause with active=true, first schedule-open moment at/after pause expiry."
           },
           "next_close_at": {
             "type": "string",
@@ -5057,11 +5092,32 @@
           },
           "is_temporarily_closed": {
             "type": "boolean",
-            "description": "True when the vendor set temporary close (active=false)."
+            "description": "True when vendor indefinite close (`active=false`) OR an unexpired timed pause is active."
           },
           "open": {
             "type": "boolean",
             "description": "Legacy alias of can_order."
+          },
+          "paused_until": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-8601 with offset. Present only while a timed pause is active; null when expired or unset.",
+            "example": "2026-11-25T14:30:00+02:00"
+          },
+          "pause_message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Customer-facing reason while timed pause is active; null when expired or unset.",
+            "example": "We are currently busy. Please try again shortly."
+          },
+          "pause_type": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RestaurantPauseType"
+              }
+            ],
+            "description": "Timed pause type while active; null when expired or unset."
           }
         }
       },
@@ -10667,6 +10723,256 @@
             }
           }
         }
+      },
+      "PosRejectRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "example": "Out of stock"
+          },
+          "cancellation_reason": {
+            "type": "string",
+            "maxLength": 500,
+            "example": "Kitchen closed"
+          }
+        }
+      },
+      "PosOrderSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "1025"
+          },
+          "restaurant_id": {
+            "type": "string",
+            "example": "3"
+          },
+          "order_status": {
+            "type": "string",
+            "example": "pending"
+          },
+          "order_amount": {
+            "type": "number",
+            "example": 84.5
+          },
+          "payment_method": {
+            "type": "string",
+            "example": "cash_on_delivery"
+          },
+          "order_type": {
+            "type": "string",
+            "example": "delivery"
+          },
+          "customer_name": {
+            "type": "string"
+          },
+          "customer_phone": {
+            "type": "string"
+          }
+        }
+      },
+      "RestaurantPauseType": {
+        "type": "string",
+        "enum": [
+          "EARLY_CLOSE",
+          "PAUSE_30",
+          "PAUSE_60"
+        ],
+        "description": "Timed pause kind. Expiry is always computed on the server."
+      },
+      "VendorRestaurantTemporaryPauseBody": {
+        "type": "object",
+        "required": [
+          "pause_type"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "pause_type": {
+            "$ref": "#/components/schemas/RestaurantPauseType",
+            "example": "PAUSE_30"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255,
+            "description": "Optional custom customer-facing reason. Wins over message_preset when non-empty.",
+            "example": "Kitchen is slammed — back soon"
+          },
+          "message_preset": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "busy",
+              "break",
+              "early_close",
+              "kitchen"
+            ],
+            "description": "Optional preset reason key when message is omitted.",
+            "example": "busy"
+          }
+        }
+      },
+      "VendorRestaurantTemporaryPauseState": {
+        "type": "object",
+        "required": [
+          "is_paused",
+          "pause_type",
+          "paused_until",
+          "pause_message",
+          "active",
+          "availability"
+        ],
+        "properties": {
+          "is_paused": {
+            "type": "boolean",
+            "description": "True when an unexpired timed pause is active."
+          },
+          "pause_type": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RestaurantPauseType"
+              }
+            ]
+          },
+          "paused_until": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-8601 with offset while paused; null otherwise."
+          },
+          "pause_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Current `restaurants.active` (indefinite open/close). Independent of timed pause."
+          },
+          "availability": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityFields"
+          }
+        }
+      },
+      "VendorRestaurantTemporaryPauseResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Temporary pause status fetched"
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VendorRestaurantTemporaryPauseState"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "message_presets": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "Preset keys for UI chips on GET only.",
+                    "example": {
+                      "busy": "We are currently busy. Please try again shortly.",
+                      "break": "Taking a short break. Back soon!",
+                      "early_close": "We closed early for today. See you next shift!",
+                      "kitchen": "Kitchen temporarily unavailable. Back soon!"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "VendorRestaurantTemporaryPauseApplyResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Temporary pause applied"
+          },
+          "data": {
+            "$ref": "#/components/schemas/VendorRestaurantTemporaryPauseState"
+          }
+        }
+      },
+      "SocketRestaurantAvailabilityChangedPayload": {
+        "type": "object",
+        "description": "Socket.IO server → client event `restaurant_availability_changed` on room `restaurant_availability:{restaurantId}`. Vendors auto-join; customers emit `watch_restaurant` / `unwatch_restaurant`. HTTP availability remains source of truth.",
+        "required": [
+          "restaurant_id",
+          "status",
+          "can_order",
+          "open",
+          "next_open_at",
+          "next_close_at",
+          "is_temporarily_closed",
+          "paused_until",
+          "pause_message",
+          "pause_type",
+          "updated_at"
+        ],
+        "properties": {
+          "restaurant_id": {
+            "type": "integer",
+            "example": 12
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean"
+          },
+          "open": {
+            "type": "boolean"
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_temporarily_closed": {
+            "type": "boolean"
+          },
+          "paused_until": {
+            "type": "string",
+            "nullable": true
+          },
+          "pause_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "pause_type": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RestaurantPauseType"
+              }
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-25T14:00:05.123Z"
+          }
+        }
       }
     },
     "parameters": {
@@ -13337,6 +13643,156 @@
         "tags": [
           "Vendor Catalog"
         ]
+      }
+    },
+    "/vendor/catalog/category/reorder": {
+      "put": {
+        "description": "Restaurant panel drag-and-drop: set display order for **category tabs** on the customer restaurant page. Body: `ordered_ids` top-to-bottom. Consumer `GET /consumer/restaurants/{id}/categories` sorts by `position` ascending.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order saved",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Category order saved",
+                  "data": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Category order saved"
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Category order saved",
+                    "data": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or categories invalid for this restaurant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ],
+        "summary": "Reorder menu categories (drag-and-drop)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ordered_ids"
+                ],
+                "properties": {
+                  "ordered_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "example": [
+                      3,
+                      1,
+                      7
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/vendor/catalog/category/{id}": {
@@ -17547,7 +18003,7 @@
     },
     "/vendor/restaurant/active-status": {
       "put": {
-        "description": "Vendor panel **temporary close** override. `closed: true` sets `restaurants.active` to false — consumer restaurant APIs return `is_temporarily_closed: true`, `can_order: false`, and place-order is blocked until reopened. Weekly hours are unchanged; this overrides accepting orders immediately.",
+        "description": "Vendor panel **indefinite** temporary close. `closed: true` sets `restaurants.active` to false — consumer APIs return `is_temporarily_closed: true`, `can_order: false`, until reopened. Weekly hours unchanged.\n\nFor **timed** pauses (30/60 min or early close for rest of shift), use `POST/GET/DELETE /vendor/restaurant/temporary-pause` instead.",
         "parameters": [
           {
             "$ref": "#/components/parameters/VendorAuthorizationHeader"
@@ -17657,6 +18113,435 @@
             }
           }
         }
+      }
+    },
+    "/vendor/restaurant/temporary-pause": {
+      "get": {
+        "description": "Returns whether a **timed** pause is active (`PAUSE_30` / `PAUSE_60` / `EARLY_CLOSE`), plus `paused_until`, `pause_message`, and computed availability.\n\nDistinct from indefinite close via `PUT /vendor/restaurant/active-status`.\n\nExpired pauses are ignored automatically (fields null / `is_paused: false`).\n\nAlso mirrored on `GET /vendor/restaurant/business-setup` as `data.temporary_pause`.\n\n**Docs:** `docs/FLUTTER_RESTAURANT_TEMPORARY_PAUSE.md`",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/VendorAuthorizationHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current pause status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorRestaurantTemporaryPauseResponse"
+                },
+                "examples": {
+                  "idle": {
+                    "summary": "No timed pause",
+                    "value": {
+                      "status": true,
+                      "msg": "Temporary pause status fetched",
+                      "data": {
+                        "is_paused": false,
+                        "pause_type": null,
+                        "paused_until": null,
+                        "pause_message": null,
+                        "active": true,
+                        "availability": {
+                          "status": "OPEN",
+                          "can_order": true,
+                          "open": true,
+                          "next_open_at": null,
+                          "next_close_at": "2026-11-25T22:00:00+02:00",
+                          "is_temporarily_closed": false,
+                          "paused_until": null,
+                          "pause_message": null,
+                          "pause_type": null
+                        },
+                        "message_presets": {
+                          "busy": "We are currently busy. Please try again shortly.",
+                          "break": "Taking a short break. Back soon!",
+                          "early_close": "We closed early for today. See you next shift!",
+                          "kitchen": "Kitchen temporarily unavailable. Back soon!"
+                        }
+                      }
+                    }
+                  },
+                  "paused": {
+                    "summary": "Active PAUSE_30",
+                    "value": {
+                      "status": true,
+                      "msg": "Temporary pause status fetched",
+                      "data": {
+                        "is_paused": true,
+                        "pause_type": "PAUSE_30",
+                        "paused_until": "2026-11-25T14:30:00+02:00",
+                        "pause_message": "We are currently busy. Please try again shortly.",
+                        "active": true,
+                        "availability": {
+                          "status": "CLOSED",
+                          "can_order": false,
+                          "open": false,
+                          "next_open_at": "2026-11-25T14:30:00+02:00",
+                          "next_close_at": null,
+                          "is_temporarily_closed": true,
+                          "paused_until": "2026-11-25T14:30:00+02:00",
+                          "pause_message": "We are currently busy. Please try again shortly.",
+                          "pause_type": "PAUSE_30"
+                        },
+                        "message_presets": {
+                          "busy": "We are currently busy. Please try again shortly.",
+                          "break": "Taking a short break. Back soon!",
+                          "early_close": "We closed early for today. See you next shift!",
+                          "kitchen": "Kitchen temporarily unavailable. Back soon!"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Restaurant context not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Restaurant context not found for vendor"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Restaurant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Restaurant not found for this vendor"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Restaurant Setup"
+        ],
+        "summary": "Get current timed temporary pause",
+        "operationId": "getVendorRestaurantTemporaryPause",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "description": "Applies a **timed** pause. Expiry is calculated **only on the server** — do not send `paused_until`.\n\n| pause_type | Behaviour |\n|---|---|\n| `PAUSE_30` | Closed until now + 30 minutes |\n| `PAUSE_60` | Closed until now + 60 minutes |\n| `EARLY_CLOSE` | Closed until end of current operating shift (overnight-aware). **400** if not currently in a shift. |\n\nOptional reason: custom `message` (max 255) wins over `message_preset` (`busy` \\| `break` \\| `early_close` \\| `kitchen`).\n\nDoes **not** change `restaurants.active` or admin `status`. Weekly hours unchanged.\n\nEmits Socket.IO `restaurant_availability_changed` on room `restaurant_availability:{restaurantId}`.\n\n**Docs:** `docs/FLUTTER_RESTAURANT_TEMPORARY_PAUSE.md`",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/VendorAuthorizationHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pause applied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorRestaurantTemporaryPauseApplyResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Temporary pause applied",
+                  "data": {
+                    "is_paused": true,
+                    "pause_type": "PAUSE_30",
+                    "paused_until": "2026-11-25T14:30:00+02:00",
+                    "pause_message": "We are currently busy. Please try again shortly.",
+                    "active": true,
+                    "availability": {
+                      "status": "CLOSED",
+                      "can_order": false,
+                      "open": false,
+                      "next_open_at": "2026-11-25T14:30:00+02:00",
+                      "next_close_at": null,
+                      "is_temporarily_closed": true,
+                      "paused_until": "2026-11-25T14:30:00+02:00",
+                      "pause_message": "We are currently busy. Please try again shortly.",
+                      "pause_type": "PAUSE_30"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid body or EARLY_CLOSE outside an active shift",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "invalidType": {
+                    "value": {
+                      "status": false,
+                      "msg": "\"pause_type\" must be one of [EARLY_CLOSE, PAUSE_30, PAUSE_60]"
+                    }
+                  },
+                  "notInShift": {
+                    "value": {
+                      "status": false,
+                      "msg": "Early close is only available during an active operating shift with remaining time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Restaurant context not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Restaurant context not found for vendor"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Restaurant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Restaurant not found for this vendor"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Restaurant Setup"
+        ],
+        "summary": "Apply timed temporary pause / early close",
+        "operationId": "applyVendorRestaurantTemporaryPause",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VendorRestaurantTemporaryPauseBody"
+              },
+              "examples": {
+                "pause30": {
+                  "summary": "Pause 30 minutes with preset",
+                  "value": {
+                    "pause_type": "PAUSE_30",
+                    "message_preset": "busy"
+                  }
+                },
+                "pause60": {
+                  "summary": "Pause 60 minutes with custom message",
+                  "value": {
+                    "pause_type": "PAUSE_60",
+                    "message": "Kitchen is slammed — back in about an hour"
+                  }
+                },
+                "earlyClose": {
+                  "summary": "Close for remainder of current shift",
+                  "value": {
+                    "pause_type": "EARLY_CLOSE",
+                    "message_preset": "early_close"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Clears `paused_until`, `pause_message`, and `pause_type` only.\n\nDoes **not** change `restaurants.active` or admin `status`. If the restaurant was also indefinitely closed via `active-status`, it stays closed until reopened there.\n\nEmits Socket.IO `restaurant_availability_changed`.\n\n**Docs:** `docs/FLUTTER_RESTAURANT_TEMPORARY_PAUSE.md`",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/VendorAuthorizationHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Timed pause cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorRestaurantTemporaryPauseApplyResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Temporary pause cancelled",
+                  "data": {
+                    "is_paused": false,
+                    "pause_type": null,
+                    "paused_until": null,
+                    "pause_message": null,
+                    "active": true,
+                    "availability": {
+                      "status": "OPEN",
+                      "can_order": true,
+                      "open": true,
+                      "next_open_at": null,
+                      "next_close_at": "2026-11-25T22:00:00+02:00",
+                      "is_temporarily_closed": false,
+                      "paused_until": null,
+                      "pause_message": null,
+                      "pause_type": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Restaurant context not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Restaurant context not found for vendor"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Restaurant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Restaurant not found for this vendor"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Restaurant Setup"
+        ],
+        "summary": "Cancel timed temporary pause",
+        "operationId": "cancelVendorRestaurantTemporaryPause",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/vendor/restaurant/setting-toggle": {

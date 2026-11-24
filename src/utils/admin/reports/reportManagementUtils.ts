@@ -348,6 +348,96 @@ export async function foodWiseReportAdmin(query: ReportListQuery) {
   };
 }
 
+type RestaurantTxnAggRow = {
+  restaurant_id: number;
+  orders: number;
+  order_amount: number;
+  restaurant_amount: number;
+  restaurant_earned: number;
+  admin_commission: number;
+  tax: number;
+  discount: number;
+};
+
+function restaurantTxnDateFilter(range?: { gte?: Date; lte?: Date }) {
+  const parts: Prisma.Sql[] = [];
+  if (range?.gte) parts.push(Prisma.sql`AND ot.created_at >= ${range.gte}`);
+  if (range?.lte) parts.push(Prisma.sql`AND ot.created_at <= ${range.lte}`);
+  return parts.length ? Prisma.join(parts, ' ') : Prisma.empty;
+}
+
+async function aggregateRestaurantTransactions(
+  restaurantIds: number[],
+  range?: { gte?: Date; lte?: Date }
+): Promise<RestaurantTxnAggRow[]> {
+  if (restaurantIds.length === 0) return [];
+  const dateFilter = restaurantTxnDateFilter(range);
+  // Join via orders — order_transactions has vendor_id but not restaurant_id.
+  return prisma.$queryRaw<RestaurantTxnAggRow[]>`
+    SELECT
+      o.restaurant_id::int AS restaurant_id,
+      COUNT(*)::int AS orders,
+      COALESCE(SUM(ot.order_amount), 0)::double precision AS order_amount,
+      COALESCE(SUM(ot.restaurant_amount), 0)::double precision AS restaurant_amount,
+      COALESCE(SUM(ot.restaurant_amount - ot.tax), 0)::double precision AS restaurant_earned,
+      COALESCE(SUM(ot.admin_commission), 0)::double precision AS admin_commission,
+      COALESCE(SUM(ot.tax), 0)::double precision AS tax,
+      COALESCE(SUM(COALESCE(ot.discount_amount_by_restaurant, 0)), 0)::double precision AS discount
+    FROM order_transactions ot
+    INNER JOIN orders o ON o.id = ot.order_id
+    WHERE o.restaurant_id IN (${Prisma.join(restaurantIds)})
+      AND (ot.status IS NULL OR ot.status NOT IN (
+        'refunded_with_delivery_charge',
+        'refunded_without_delivery_charge'
+      ))
+      ${dateFilter}
+    GROUP BY o.restaurant_id
+  `;
+}
+
+async function summarizeRestaurantTransactions(
+  restaurantIds: number[],
+  range?: { gte?: Date; lte?: Date }
+) {
+  if (restaurantIds.length === 0) {
+    return {
+      total_orders: 0,
+      total_order_amount: 0,
+      total_restaurant_earned: 0,
+      total_admin_commission: 0,
+    };
+  }
+  const dateFilter = restaurantTxnDateFilter(range);
+  const [row] = await prisma.$queryRaw<
+    {
+      total_orders: number;
+      total_order_amount: number;
+      total_restaurant_earned: number;
+      total_admin_commission: number;
+    }[]
+  >`
+    SELECT
+      COUNT(*)::int AS total_orders,
+      COALESCE(SUM(ot.order_amount), 0)::double precision AS total_order_amount,
+      COALESCE(SUM(ot.restaurant_amount - ot.tax), 0)::double precision AS total_restaurant_earned,
+      COALESCE(SUM(ot.admin_commission), 0)::double precision AS total_admin_commission
+    FROM order_transactions ot
+    INNER JOIN orders o ON o.id = ot.order_id
+    WHERE o.restaurant_id IN (${Prisma.join(restaurantIds)})
+      AND (ot.status IS NULL OR ot.status NOT IN (
+        'refunded_with_delivery_charge',
+        'refunded_without_delivery_charge'
+      ))
+      ${dateFilter}
+  `;
+  return {
+    total_orders: Number(row?.total_orders ?? 0),
+    total_order_amount: num(row?.total_order_amount),
+    total_restaurant_earned: num(row?.total_restaurant_earned),
+    total_admin_commission: num(row?.total_admin_commission),
+  };
+}
+
 export async function restaurantReportAdmin(query: ReportListQuery) {
   const page = query.page ?? 1;
   const limit = query.limit ?? 25;
@@ -358,7 +448,7 @@ export async function restaurantReportAdmin(query: ReportListQuery) {
     restaurantWhere.name = { contains: query.search.trim(), mode: 'insensitive' };
   }
 
-  const [total, restaurants] = await Promise.all([
+  const [total, restaurants, allRestaurantIds] = await Promise.all([
     prisma.restaurants.count({ where: restaurantWhere }),
     prisma.restaurants.findMany({
       where: restaurantWhere,
@@ -367,34 +457,59 @@ export async function restaurantReportAdmin(query: ReportListQuery) {
       take: limit,
       select: { id: true, name: true, zone_id: true },
     }),
+    prisma.restaurants.findMany({
+      where: restaurantWhere,
+      select: { id: true },
+    }),
   ]);
 
-  const ids = restaurants.map((r) => Number(r.id));
-  const orderCounts = await Promise.all(
-    ids.map(async (id) => {
-      const count = await prisma.orders.count({
-        where: {
-          restaurant_id: id,
-          ...(range ? { created_at: range } : {}),
-          NOT: { order_type: 'pos' },
-        },
-      });
-      return [id, count] as const;
-    })
-  );
-  const countMap = new Map(orderCounts);
+  const pageIds = restaurants.map((r) => Number(r.id));
+  const allIds = allRestaurantIds.map((r) => Number(r.id));
+
+  const [pageRows, summaryAgg] = await Promise.all([
+    aggregateRestaurantTransactions(pageIds, range),
+    summarizeRestaurantTransactions(allIds, range),
+  ]);
+
+  const earningsByRestaurant = new Map<number, RestaurantTxnAggRow>();
+  for (const row of pageRows) {
+    earningsByRestaurant.set(Number(row.restaurant_id), {
+      restaurant_id: Number(row.restaurant_id),
+      orders: Number(row.orders ?? 0),
+      order_amount: num(row.order_amount),
+      restaurant_amount: num(row.restaurant_amount),
+      restaurant_earned: num(row.restaurant_earned),
+      admin_commission: num(row.admin_commission),
+      tax: num(row.tax),
+      discount: num(row.discount),
+    });
+  }
 
   return {
-    summary: { restaurants: total },
-    data: restaurants.map((r) => ({
-      id: String(r.id),
-      name: r.name,
-      orders: countMap.get(Number(r.id)) ?? 0,
-      zone_id: r.zone_id != null ? String(r.zone_id) : null,
-    })),
+    summary: {
+      restaurants: total,
+      ...summaryAgg,
+    },
+    data: restaurants.map((r) => {
+      const stats = earningsByRestaurant.get(Number(r.id));
+      return {
+        id: String(r.id),
+        name: r.name,
+        orders: stats?.orders ?? 0,
+        order_amount: stats?.order_amount ?? 0,
+        restaurant_earned: stats?.restaurant_earned ?? 0,
+        restaurant_amount: stats?.restaurant_amount ?? 0,
+        admin_commission: stats?.admin_commission ?? 0,
+        tax: stats?.tax ?? 0,
+        discount: stats?.discount ?? 0,
+        zone_id: r.zone_id != null ? String(r.zone_id) : null,
+      };
+    }),
     total,
     page,
     limit,
+    from: query.from ?? null,
+    to: query.to ?? null,
   };
 }
 

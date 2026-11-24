@@ -12,6 +12,16 @@ export const restaurantActiveSchema = Joi.object({
   closed: Joi.boolean().required(),
 });
 
+export const restaurantTemporaryPauseSchema = Joi.object({
+  pause_type: Joi.string().valid('EARLY_CLOSE', 'PAUSE_30', 'PAUSE_60').required(),
+  message: Joi.string().trim().max(255).allow('', null).optional(),
+  message_preset: Joi.string()
+    .trim()
+    .valid('busy', 'break', 'early_close', 'kitchen')
+    .allow('', null)
+    .optional(),
+});
+
 export const restaurantSetupSchema = Joi.object({
   minimum_order: Joi.number().min(0).max(100000).required(),
   gst_status: Joi.boolean().required(),

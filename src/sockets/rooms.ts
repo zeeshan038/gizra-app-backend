@@ -2,6 +2,14 @@ export function restaurantRoom(restaurantId: number): string {
   return `restaurant:${restaurantId}`;
 }
 
+/**
+ * Availability-only room (customers may join via watch_restaurant).
+ * Kept separate from `restaurant:` so customers never receive new_order.
+ */
+export function restaurantAvailabilityRoom(restaurantId: number | string): string {
+  return `restaurant_availability:${restaurantId}`;
+}
+
 export function orderRoom(orderId: number | string): string {
   return `order:${orderId}`;
 }

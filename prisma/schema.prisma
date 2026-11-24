@@ -1179,6 +1179,17 @@ model partner_api_keys {
   provider      String    @default("generic") @db.VarChar(64)
   /// Public prefix shown once after create, e.g. gz_test_ab12
   key_prefix    String?   @db.VarChar(32)
+  /// AES-GCM encrypted full token for Super Admin "View" in admin panel
+  token_encrypted String?
+  /// Dual-env credential (one row per restaurant): sandbox + live
+  sandbox_key_id            String? @db.VarChar(64)
+  sandbox_secret_hash       String?
+  sandbox_key_prefix        String? @db.VarChar(32)
+  sandbox_token_encrypted   String?
+  live_key_id               String? @db.VarChar(64)
+  live_secret_hash          String?
+  live_key_prefix           String? @db.VarChar(32)
+  live_token_encrypted      String?
 
   @@index([restaurant_id], map: "idx_17314_partner_api_keys_restaurant_id_index")
 }
@@ -1457,6 +1468,12 @@ model restaurants {
   zone_id                   Decimal?  @db.Decimal
   reviews_section           Boolean   @default(true)
   active                    Boolean   @default(true)
+  /// Timed temporary pause expiry (EARLY_CLOSE / PAUSE_30 / PAUSE_60). Null or past = no timed pause.
+  paused_until              DateTime? @db.Timestamptz(6)
+  /// Customer-facing reason while a timed pause is active.
+  pause_message             String?   @db.VarChar(255)
+  /// EARLY_CLOSE | PAUSE_30 | PAUSE_60 while a timed pause is active.
+  pause_type                String?   @db.VarChar(32)
   off_day                   String    @default(" ") @db.VarChar(191)
   gst                       String?   @db.VarChar(191)
   self_delivery_system      Boolean   @default(false)

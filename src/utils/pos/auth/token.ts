@@ -10,10 +10,16 @@ export type PosApiKeyRecord = {
   name: string;
   key_id: string;
   scopes: string;
+  /** Resolved env for this auth attempt */
   environment: string;
   provider: string;
   key_prefix: string | null;
   revoked_at: Date | null;
+  sandbox_key_prefix?: string | null;
+  live_key_prefix?: string | null;
+  sandbox_secret_hash?: string | null;
+  live_secret_hash?: string | null;
+  secret_hash?: string;
 };
 
 const TOKEN_BYTES = 32;
@@ -54,16 +60,36 @@ export function parseBearerToken(header: string | undefined): string | null {
 
 export async function findPosApiKeyByToken(token: string): Promise<PosApiKeyRecord | null> {
   const hash = hashPosToken(token);
-  // key_id is embedded in prefix before first underscore segment after gz_test/gz_live —
-  // look up by secret_hash only (unique enough via sha256).
-  const rows = await prisma.partner_api_keys.findMany({
+
+  const row = await prisma.partner_api_keys.findFirst({
     where: {
-      secret_hash: hash,
       revoked_at: null,
+      OR: [
+        { sandbox_secret_hash: hash },
+        { live_secret_hash: hash },
+        { secret_hash: hash },
+      ],
     },
-    take: 1,
   });
-  return rows[0] ?? null;
+  if (!row) return null;
+
+  let environment: PosEnvironment = 'live';
+  let keyPrefix: string | null = row.key_prefix;
+  if (row.sandbox_secret_hash === hash) {
+    environment = 'sandbox';
+    keyPrefix = row.sandbox_key_prefix ?? row.key_prefix;
+  } else if (row.live_secret_hash === hash) {
+    environment = 'live';
+    keyPrefix = row.live_key_prefix ?? row.key_prefix;
+  } else if ((row.environment || '').toLowerCase() === 'sandbox') {
+    environment = 'sandbox';
+  }
+
+  return {
+    ...row,
+    environment,
+    key_prefix: keyPrefix,
+  };
 }
 
 export async function touchPosApiKeyLastUsed(id: bigint): Promise<void> {
