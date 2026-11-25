@@ -41,7 +41,12 @@ export const getDispatchDeliveryFeeQuote = async (req: Request, res: Response): 
     });
 
     if (!result.ok) {
-      return res.status(result.status).json({ status: false, msg: result.msg });
+      return res.status(result.status).json({
+        status: false,
+        msg: result.msg,
+        code: result.code,
+        retryable: result.retryable,
+      });
     }
 
     const { ok: _ok, ...data } = result;

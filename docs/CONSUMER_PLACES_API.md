@@ -76,7 +76,8 @@ In [Google Cloud Console](https://console.cloud.google.com/) for that key’s pr
 
 - **Places API (New)** — autocomplete + place details (default backend path)
 - Geocoding API — optional; reverse geocode (`/geocode`) falls back to **Places (New) searchNearby** if Geocoding is off
-- Distance Matrix API — delivery distance fallback
+- **Routes API** — delivery fee / restriction driving distance (`computeRoutes`, `DRIVE`) via `resolveDeliveryDistanceKm`
+- Distance Matrix API — optional legacy `GET .../config/distance` (walking) proxy only
 
 Autocomplete region scope (env):
 

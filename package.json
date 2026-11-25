@@ -58,6 +58,7 @@
     "test:mixed-variation-groups": "node ./node_modules/ts-node/dist/bin.js scripts/test-mixed-variation-groups.ts",
     "test:app-version-config": "node ./node_modules/ts-node/dist/bin.js scripts/test-app-version-config.ts",
     "test:delivery-distance-restriction-e2e": "node ./node_modules/ts-node/dist/bin.js scripts/test-delivery-distance-time-restriction-e2e.ts",
+    "test:delivery-driving-distance": "node ./node_modules/ts-node/dist/bin.js scripts/test-delivery-driving-distance.ts",
     "test:restaurant-temporary-pause": "node ./node_modules/ts-node/dist/bin.js scripts/test-restaurant-temporary-pause.ts",
     "test:restaurant-temporary-pause:e2e": "node ./node_modules/ts-node/dist/bin.js scripts/test-restaurant-temporary-pause-e2e.ts",
     "test:consumer-places": "node scripts/test-consumer-places-api.js",

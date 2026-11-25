@@ -62,7 +62,7 @@ Authorization: Bearer <vendor_jwt>
 | `delivery_fee` | number | Prefill fee field (editable) |
 | `original_delivery_fee` | number | Fee before free-delivery (manual dispatch does not zero this) |
 | `distance_km` | number | Show distance |
-| `distance_source` | string | Debug / support |
+| `distance_source` | string | `google` or `cache` (Routes API DRIVE) — debug / support |
 | `pricing.base_fee` | number | Breakdown |
 | `pricing.base_distance_km` | number | Breakdown |
 | `pricing.extra_per_km` | number | Breakdown |

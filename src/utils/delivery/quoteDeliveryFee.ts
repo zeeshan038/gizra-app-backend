@@ -1,6 +1,7 @@
 import prisma from '../../config/database';
 import { parseRestaurantCoordinates } from '../consumer/restaurantDiscoverHelpers';
 import { resolveDeliveryDistanceKm } from './deliveryDistanceKm';
+import { isDeliveryDistanceUnavailableError } from './deliveryDistanceError';
 import { resolveTieredDeliveryPricing } from './resolveDeliveryPricing';
 import { computeTieredDeliveryFee } from './tieredDeliveryFee';
 import {
@@ -53,6 +54,7 @@ export type QuoteDeliveryFeeFailure = {
   status: number;
   msg: string;
   code?: string;
+  retryable?: boolean;
   description?: string | null;
   max_distance_km?: number | null;
   restriction_end_time?: string | null;
@@ -111,14 +113,30 @@ export async function quoteDeliveryFeeForDestination(
     return { ok: false, status: 403, msg: 'Restaurant location is not configured' };
   }
 
-  const resolved = await resolveDeliveryDistanceKm({
-    originLat: origin.latitude,
-    originLng: origin.longitude,
-    destinationLat: destLat,
-    destinationLng: destLng,
-  });
-  const distance_km = resolved.distance_km;
-  const distance_source = resolved.source;
+  let distance_km: number;
+  let distance_source: string;
+  try {
+    const resolved = await resolveDeliveryDistanceKm({
+      originLat: origin.latitude,
+      originLng: origin.longitude,
+      destinationLat: destLat,
+      destinationLng: destLng,
+    });
+    distance_km = resolved.distance_km;
+    distance_source = resolved.source;
+  } catch (err) {
+    if (isDeliveryDistanceUnavailableError(err)) {
+      return {
+        ok: false,
+        status: err.statusCode,
+        msg: err.message,
+        code: err.code,
+        retryable: true,
+        restaurant_id: Number(restaurant.id),
+      };
+    }
+    throw err;
+  }
 
   const emergencyPause = await evaluateEmergencyServicePause({
     orderType: 'delivery',

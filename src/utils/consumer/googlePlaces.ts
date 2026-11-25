@@ -324,6 +324,67 @@ export async function distanceMatrix(params: {
   });
 }
 
+type ComputeRoutesResponse = {
+  routes?: Array<{ distanceMeters?: number }>;
+  error?: { message?: string; status?: string };
+};
+
+/**
+ * Driving distance via Google Routes API `computeRoutes` (TRAVEL_MODE DRIVE).
+ * Uses TRAFFIC_UNAWARE for stable fee distances (not live traffic ETA).
+ */
+export async function computeDrivingRouteDistanceMeters(params: {
+  originLat: number;
+  originLng: number;
+  destinationLat: number;
+  destinationLng: number;
+}): Promise<number> {
+  const key = requireApiKey();
+  const url = 'https://routes.googleapis.com/directions/v2:computeRoutes';
+  const body = {
+    origin: {
+      location: {
+        latLng: {
+          latitude: params.originLat,
+          longitude: params.originLng,
+        },
+      },
+    },
+    destination: {
+      location: {
+        latLng: {
+          latitude: params.destinationLat,
+          longitude: params.destinationLng,
+        },
+      },
+    },
+    travelMode: 'DRIVE',
+    routingPreference: 'TRAFFIC_UNAWARE',
+  };
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': key,
+      'X-Goog-FieldMask': 'routes.distanceMeters',
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = (await res.json()) as ComputeRoutesResponse;
+  if (!res.ok) {
+    const msg = data?.error?.message || `Google Routes request failed (${res.status})`;
+    throw new Error(msg);
+  }
+
+  const meters = data?.routes?.[0]?.distanceMeters;
+  if (typeof meters !== 'number' || !Number.isFinite(meters) || meters < 0) {
+    throw new Error('Google Routes returned no driving distance');
+  }
+  return meters;
+}
+
 type LegacyGeocodeResult = {
   formatted_address: string;
   geometry: {

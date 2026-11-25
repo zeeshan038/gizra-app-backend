@@ -152,7 +152,9 @@ GET /consumer/config/delivery-fee?restaurant_id={id}&destination_lat={lat}&desti
 Authorization: Bearer {token}
 ```
 
-**200** — show fee; use `distance_km`, `delivery_fee`, `pricing` from body.
+**200** — show fee; use `distance_km`, `delivery_fee`, `pricing` from body. `distance_source` is `google` or `cache` (driving Routes API). Server fee is authoritative on place — do not undercut with a lower client `delivery_fee`.
+
+**503** — if `code == "DELIVERY_DISTANCE_UNAVAILABLE"` and `retryable: true`: driving distance could not be resolved; show retry (do not place the order).
 
 **403** — if `code == "DELIVERY_DISTANCE_TIME_RESTRICTED"`:
 

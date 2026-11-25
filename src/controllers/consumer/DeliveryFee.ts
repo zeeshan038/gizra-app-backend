@@ -35,6 +35,7 @@ export const getDeliveryFeeQuote = async (req: Request, res: Response): Promise<
         status: false,
         msg: result.msg,
         code: result.code,
+        retryable: result.retryable,
         description: result.description,
         max_distance_km: result.max_distance_km,
         restriction_end_time: result.restriction_end_time,

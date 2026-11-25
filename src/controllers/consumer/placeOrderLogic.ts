@@ -42,6 +42,7 @@ import {
   evaluateEmergencyServicePause,
 } from '../../utils/delivery/emergencyServicePause';
 import { resolveDeliveryDistanceKm } from '../../utils/delivery/deliveryDistanceKm';
+import { isDeliveryDistanceUnavailableError } from '../../utils/delivery/deliveryDistanceError';
 import { parseRestaurantCoordinates } from '../../utils/consumer/restaurantDiscoverHelpers';
 import {
   clampResolvedUnitToClientLine,
@@ -1127,13 +1128,22 @@ export async function executePlaceOrder(params: {
     if (!origin) {
       throw new PlaceOrderError('Restaurant location is not configured', 403, 'restaurant');
     }
-    const resolved = await resolveDeliveryDistanceKm({
-      originLat: origin.latitude,
-      originLng: origin.longitude,
-      destinationLat: dest.lat,
-      destinationLng: dest.lng,
-    });
-    distanceKmForOrder = resolved.distance_km;
+    try {
+      const resolved = await resolveDeliveryDistanceKm({
+        originLat: origin.latitude,
+        originLng: origin.longitude,
+        destinationLat: dest.lat,
+        destinationLng: dest.lng,
+      });
+      distanceKmForOrder = resolved.distance_km;
+    } catch (err) {
+      if (isDeliveryDistanceUnavailableError(err)) {
+        throw new PlaceOrderError(err.message, err.statusCode, err.code, {
+          retryable: true,
+        });
+      }
+      throw err;
+    }
 
     const timeRestrict = await evaluateDeliveryDistanceTimeRestriction({
       orderType: payload.order_type,
@@ -1167,29 +1177,35 @@ export async function executePlaceOrder(params: {
     throw new PlaceOrderError(deliveryFee.error, 403, 'coordinates');
   }
 
-  const quotedDeliveryFee = clientQuotedDeliveryFee(payload);
-  let freeDelivery: { delivery_charge: number; free_delivery_by: string | null };
-
-  if (!dryRun && payload.order_type === 'delivery' && quotedDeliveryFee != null) {
+  // Server-authoritative delivery pricing: always apply free-delivery rules.
+  // Client delivery_fee / delivery_charge are advisory only (tolerance match for float noise).
+  // Manual dispatch fees are set via vendor/admin request-driver body, not this path.
+  const freeDelivery = await applyFreeDeliveryRules({
+    productSubtotal: productPrice + totalAddonPrice,
+    couponDiscount: couponResult.discount,
+    restaurantDiscount: restaurantDiscountAmount,
+    distance: distanceKmForOrder,
+    restaurant,
+  });
+  if (freeDelivery.delivery_charge >= 0) {
     deliveryFee = {
       ...deliveryFee,
-      delivery_charge: quotedDeliveryFee,
+      delivery_charge: freeDelivery.delivery_charge,
     };
-    freeDelivery = { delivery_charge: quotedDeliveryFee, free_delivery_by: null };
-  } else {
-    freeDelivery = await applyFreeDeliveryRules({
-      productSubtotal: productPrice + totalAddonPrice,
-      couponDiscount: couponResult.discount,
-      restaurantDiscount: restaurantDiscountAmount,
-      distance: distanceKmForOrder,
-      restaurant,
-    });
-    if (freeDelivery.delivery_charge >= 0) {
-      deliveryFee = {
-        ...deliveryFee,
-        delivery_charge: freeDelivery.delivery_charge,
-      };
-    }
+  }
+
+  const quotedDeliveryFee = clientQuotedDeliveryFee(payload);
+  if (
+    !dryRun &&
+    payload.order_type === 'delivery' &&
+    quotedDeliveryFee != null &&
+    Math.abs(quotedDeliveryFee - deliveryFee.delivery_charge) > PRICE_TOLERANCE
+  ) {
+    console.warn(
+      '[place-order] ignoring client delivery_fee mismatch',
+      `client=${quotedDeliveryFee}`,
+      `server=${deliveryFee.delivery_charge}`
+    );
   }
 
   const additionalCharge = await resolveAdditionalCharge();
