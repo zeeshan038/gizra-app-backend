@@ -1,4 +1,9 @@
 import {
+  parseComboSelections,
+  slotSelectionGroups,
+  type ComboSlotSelection,
+} from './comboDefinition';
+import {
   inferListPriceFromRawVariations,
   resolveRawVariations,
 } from './legacyFoodVariations';
@@ -13,13 +18,39 @@ import { variationsForMobileClient } from './variationsForMobileClient';
 export function mergeCartLineVariations(line: {
   variations?: unknown[];
   variation_options?: unknown[];
+  combo_selections?: unknown;
 }): unknown[] {
+  const combo = parseComboSelections(line.combo_selections);
+  if (combo.length) {
+    // Flat list for callers that only need groups; prefer per-slot pricing via computeComboVariationExtra.
+    const flat: unknown[] = [];
+    for (const slot of combo) {
+      flat.push(...slotSelectionGroups(slot));
+    }
+    return flat;
+  }
   const vars = line.variations ?? [];
   const opts = line.variation_options ?? [];
   if (vars.length && opts.length) {
     return opts;
   }
   return opts.length ? opts : vars;
+}
+
+/** Sum variation extras across each combo slot (group names may repeat per slot). */
+export function computeComboVariationExtra(
+  productVariationsJson: string | null | undefined,
+  selections: ComboSlotSelection[] | unknown
+): number {
+  const slots = Array.isArray(selections)
+    ? (selections as ComboSlotSelection[])
+    : parseComboSelections(selections);
+  if (!slots.length) return 0;
+  let extra = 0;
+  for (const slot of slots) {
+    extra += computeVariationExtra(productVariationsJson, slotSelectionGroups(slot));
+  }
+  return extra;
 }
 
 function mobileMenuUnitBase(params: {
@@ -47,7 +78,19 @@ export function resolveCheckoutServerUnitBase(params: {
   productVariationsJson: string | null | undefined;
   legacyVariations?: unknown[];
   selectedVariations: unknown[] | null | undefined;
+  comboSelections?: unknown;
 }): number {
+  const combo = parseComboSelections(params.comboSelections);
+  if (combo.length) {
+    const raw = resolveRawVariations(params.productVariationsJson, params.legacyVariations);
+    let basePrice = Number(params.catalogBasePrice) || 0;
+    if (basePrice <= 0 && raw.length) {
+      basePrice = inferListPriceFromRawVariations(0, raw);
+    }
+    const mobileVariations = raw.length ? variationsForMobileClient(basePrice, raw) : [];
+    const extra = computeComboVariationExtra(JSON.stringify(mobileVariations), combo);
+    return roundOrderMoney(basePrice + extra);
+  }
   return mobileMenuUnitBase({
     ...params,
     selectedVariations: params.selectedVariations ?? [],

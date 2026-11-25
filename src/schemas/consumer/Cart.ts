@@ -1,5 +1,12 @@
 import Joi from 'joi';
 
+const comboSlotSchema = Joi.object({
+  slot_index: Joi.number().integer().min(1).required(),
+  slot_label: Joi.string().allow('').optional(),
+  variations: Joi.array().items(Joi.object()).optional().default([]),
+  variation_options: Joi.array().items(Joi.object()).optional().default([]),
+}).unknown(true);
+
 const cartLineFields = {
   item_id: Joi.number().required(),
   item_type: Joi.string().valid('Food', 'ItemCampaign').default('Food'),
@@ -13,6 +20,8 @@ const cartLineFields = {
     .default([]),
   variations: Joi.array().items(Joi.object()).optional().default([]),
   variation_options: Joi.array().items(Joi.object()).optional().default([]),
+  /** Per-slot modifiers for multi-item combos (Burger #1…#N). */
+  combo_selections: Joi.array().items(comboSlotSchema).optional().default([]),
 };
 
 export const addToCartSchema = Joi.object({

@@ -17,6 +17,7 @@ export type ParsedCartRow = {
   add_on_placements: unknown[];
   variations: unknown[];
   variation_options: unknown[];
+  combo_selections: unknown[];
 };
 
 export function parsePrismaCartRow(cart: carts): ParsedCartRow {
@@ -33,6 +34,7 @@ export function parsePrismaCartRow(cart: carts): ParsedCartRow {
     add_on_placements: cart.add_on_placements ? JSON.parse(cart.add_on_placements) : [],
     variations: cart.variations ? JSON.parse(cart.variations) : [],
     variation_options: cart.variation_options ? JSON.parse(cart.variation_options) : [],
+    combo_selections: cart.combo_selections ? JSON.parse(cart.combo_selections) : [],
   };
 }
 

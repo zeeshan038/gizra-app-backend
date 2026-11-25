@@ -2469,6 +2469,156 @@
         ]
       }
     },
+    "/vendor/catalog/category/reorder": {
+      "put": {
+        "description": "Restaurant panel drag-and-drop: set display order for **category tabs** on the customer restaurant page. Body: `ordered_ids` top-to-bottom. Consumer `GET /consumer/restaurants/{id}/categories` sorts by `position` ascending.",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order saved",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Category order saved",
+                  "data": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Category order saved"
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Category order saved",
+                    "data": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or categories invalid for this restaurant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ],
+        "summary": "Reorder menu categories (drag-and-drop)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ordered_ids"
+                ],
+                "properties": {
+                  "ordered_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "example": [
+                      3,
+                      1,
+                      7
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/vendor/catalog/category/{id}": {
       "patch": {
         "description": "",
@@ -6677,7 +6827,7 @@
     },
     "/vendor/restaurant/active-status": {
       "put": {
-        "description": "Vendor panel **temporary close** override. `closed: true` sets `restaurants.active` to false — consumer restaurant APIs return `is_temporarily_closed: true`, `can_order: false`, and place-order is blocked until reopened. Weekly hours are unchanged; this overrides accepting orders immediately.",
+        "description": "Vendor panel **indefinite** temporary close. `closed: true` sets `restaurants.active` to false — consumer APIs return `is_temporarily_closed: true`, `can_order: false`, until reopened. Weekly hours unchanged.\n\nFor **timed** pauses (30/60 min or early close for rest of shift), use `POST/GET/DELETE /vendor/restaurant/temporary-pause` instead.",
         "parameters": [
           {
             "$ref": "#/components/parameters/VendorAuthorizationHeader"
@@ -6787,6 +6937,435 @@
             }
           }
         }
+      }
+    },
+    "/vendor/restaurant/temporary-pause": {
+      "get": {
+        "description": "Returns whether a **timed** pause is active (`PAUSE_30` / `PAUSE_60` / `EARLY_CLOSE`), plus `paused_until`, `pause_message`, and computed availability.\n\nDistinct from indefinite close via `PUT /vendor/restaurant/active-status`.\n\nExpired pauses are ignored automatically (fields null / `is_paused: false`).\n\nAlso mirrored on `GET /vendor/restaurant/business-setup` as `data.temporary_pause`.\n\n**Docs:** `docs/FLUTTER_RESTAURANT_TEMPORARY_PAUSE.md`",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/VendorAuthorizationHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current pause status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorRestaurantTemporaryPauseResponse"
+                },
+                "examples": {
+                  "idle": {
+                    "summary": "No timed pause",
+                    "value": {
+                      "status": true,
+                      "msg": "Temporary pause status fetched",
+                      "data": {
+                        "is_paused": false,
+                        "pause_type": null,
+                        "paused_until": null,
+                        "pause_message": null,
+                        "active": true,
+                        "availability": {
+                          "status": "OPEN",
+                          "can_order": true,
+                          "open": true,
+                          "next_open_at": null,
+                          "next_close_at": "2026-11-25T22:00:00+02:00",
+                          "is_temporarily_closed": false,
+                          "paused_until": null,
+                          "pause_message": null,
+                          "pause_type": null
+                        },
+                        "message_presets": {
+                          "busy": "We are currently busy. Please try again shortly.",
+                          "break": "Taking a short break. Back soon!",
+                          "early_close": "We closed early for today. See you next shift!",
+                          "kitchen": "Kitchen temporarily unavailable. Back soon!"
+                        }
+                      }
+                    }
+                  },
+                  "paused": {
+                    "summary": "Active PAUSE_30",
+                    "value": {
+                      "status": true,
+                      "msg": "Temporary pause status fetched",
+                      "data": {
+                        "is_paused": true,
+                        "pause_type": "PAUSE_30",
+                        "paused_until": "2026-11-25T14:30:00+02:00",
+                        "pause_message": "We are currently busy. Please try again shortly.",
+                        "active": true,
+                        "availability": {
+                          "status": "CLOSED",
+                          "can_order": false,
+                          "open": false,
+                          "next_open_at": "2026-11-25T14:30:00+02:00",
+                          "next_close_at": null,
+                          "is_temporarily_closed": true,
+                          "paused_until": "2026-11-25T14:30:00+02:00",
+                          "pause_message": "We are currently busy. Please try again shortly.",
+                          "pause_type": "PAUSE_30"
+                        },
+                        "message_presets": {
+                          "busy": "We are currently busy. Please try again shortly.",
+                          "break": "Taking a short break. Back soon!",
+                          "early_close": "We closed early for today. See you next shift!",
+                          "kitchen": "Kitchen temporarily unavailable. Back soon!"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Restaurant context not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Restaurant context not found for vendor"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Restaurant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Restaurant not found for this vendor"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Restaurant Setup"
+        ],
+        "summary": "Get current timed temporary pause",
+        "operationId": "getVendorRestaurantTemporaryPause",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "description": "Applies a **timed** pause. Expiry is calculated **only on the server** — do not send `paused_until`.\n\n| pause_type | Behaviour |\n|---|---|\n| `PAUSE_30` | Closed until now + 30 minutes |\n| `PAUSE_60` | Closed until now + 60 minutes |\n| `EARLY_CLOSE` | Closed until end of current operating shift (overnight-aware). **400** if not currently in a shift. |\n\nOptional reason: custom `message` (max 255) wins over `message_preset` (`busy` \\| `break` \\| `early_close` \\| `kitchen`).\n\nDoes **not** change `restaurants.active` or admin `status`. Weekly hours unchanged.\n\nEmits Socket.IO `restaurant_availability_changed` on room `restaurant_availability:{restaurantId}`.\n\n**Docs:** `docs/FLUTTER_RESTAURANT_TEMPORARY_PAUSE.md`",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/VendorAuthorizationHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pause applied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorRestaurantTemporaryPauseApplyResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Temporary pause applied",
+                  "data": {
+                    "is_paused": true,
+                    "pause_type": "PAUSE_30",
+                    "paused_until": "2026-11-25T14:30:00+02:00",
+                    "pause_message": "We are currently busy. Please try again shortly.",
+                    "active": true,
+                    "availability": {
+                      "status": "CLOSED",
+                      "can_order": false,
+                      "open": false,
+                      "next_open_at": "2026-11-25T14:30:00+02:00",
+                      "next_close_at": null,
+                      "is_temporarily_closed": true,
+                      "paused_until": "2026-11-25T14:30:00+02:00",
+                      "pause_message": "We are currently busy. Please try again shortly.",
+                      "pause_type": "PAUSE_30"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid body or EARLY_CLOSE outside an active shift",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "examples": {
+                  "invalidType": {
+                    "value": {
+                      "status": false,
+                      "msg": "\"pause_type\" must be one of [EARLY_CLOSE, PAUSE_30, PAUSE_60]"
+                    }
+                  },
+                  "notInShift": {
+                    "value": {
+                      "status": false,
+                      "msg": "Early close is only available during an active operating shift with remaining time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Restaurant context not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Restaurant context not found for vendor"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Restaurant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Restaurant not found for this vendor"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Restaurant Setup"
+        ],
+        "summary": "Apply timed temporary pause / early close",
+        "operationId": "applyVendorRestaurantTemporaryPause",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VendorRestaurantTemporaryPauseBody"
+              },
+              "examples": {
+                "pause30": {
+                  "summary": "Pause 30 minutes with preset",
+                  "value": {
+                    "pause_type": "PAUSE_30",
+                    "message_preset": "busy"
+                  }
+                },
+                "pause60": {
+                  "summary": "Pause 60 minutes with custom message",
+                  "value": {
+                    "pause_type": "PAUSE_60",
+                    "message": "Kitchen is slammed — back in about an hour"
+                  }
+                },
+                "earlyClose": {
+                  "summary": "Close for remainder of current shift",
+                  "value": {
+                    "pause_type": "EARLY_CLOSE",
+                    "message_preset": "early_close"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "description": "Clears `paused_until`, `pause_message`, and `pause_type` only.\n\nDoes **not** change `restaurants.active` or admin `status`. If the restaurant was also indefinitely closed via `active-status`, it stays closed until reopened there.\n\nEmits Socket.IO `restaurant_availability_changed`.\n\n**Docs:** `docs/FLUTTER_RESTAURANT_TEMPORARY_PAUSE.md`",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/VendorAuthorizationHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Timed pause cancelled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VendorRestaurantTemporaryPauseApplyResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Temporary pause cancelled",
+                  "data": {
+                    "is_paused": false,
+                    "pause_type": null,
+                    "paused_until": null,
+                    "pause_message": null,
+                    "active": true,
+                    "availability": {
+                      "status": "OPEN",
+                      "can_order": true,
+                      "open": true,
+                      "next_open_at": null,
+                      "next_close_at": "2026-11-25T22:00:00+02:00",
+                      "is_temporarily_closed": false,
+                      "paused_until": null,
+                      "pause_message": null,
+                      "pause_type": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Restaurant context not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Restaurant context not found for vendor"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Restaurant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Restaurant not found for this vendor"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Restaurant Setup"
+        ],
+        "summary": "Cancel timed temporary pause",
+        "operationId": "cancelVendorRestaurantTemporaryPause",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/vendor/restaurant/setting-toggle": {
@@ -7613,6 +8192,129 @@
           },
           "500": {
             "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Vendor Auth"
+        ]
+      }
+    },
+    "/vendor/dispatch/delivery-fee": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Delivery fee quoted",
+                  "data": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Delivery fee quoted"
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Delivery fee quoted",
+                    "data": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
             "content": {
               "application/json": {
                 "schema": {
@@ -12796,6 +13498,147 @@
         ]
       }
     },
+    "/consumer/config/delivery-fee/batch": {
+      "post": {
+        "description": "Quote delivery fees for many restaurants in **one request** (home screen). Uses the same road-distance + tiered pricing path as **GET /consumer/config/delivery-fee** (`quoteDeliveryFeeForDestination`). Returns HTTP **200** with per-restaurant `quotes[]` (`ok: true|false`) so one failure does not fail the whole list. Max **50** `restaurant_ids`. Public; no Bearer.",
+        "responses": {
+          "200": {
+            "description": "Per-restaurant quotes (partial success allowed)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerDeliveryFeeBatchResponse"
+                },
+                "example": {
+                  "destination_lat": 32.0853,
+                  "destination_lng": 34.7818,
+                  "quotes": [
+                    {
+                      "restaurant_id": 3,
+                      "ok": true,
+                      "distance_km": 4.2,
+                      "distance_source": "cache",
+                      "delivery_fee": 9.4,
+                      "original_delivery_fee": 9.4,
+                      "pricing": {
+                        "base_fee": 5,
+                        "base_distance_km": 2,
+                        "extra_per_km": 2,
+                        "extra_km": 2.2,
+                        "subtotal_before_surge": 9.4,
+                        "surge_percent": 0
+                      }
+                    },
+                    {
+                      "restaurant_id": 7,
+                      "ok": false,
+                      "code": "DELIVERY_DISTANCE_TIME_RESTRICTED",
+                      "msg": "Main road blocked due to an accident — delivery limited to nearby addresses.",
+                      "delivery_fee": null,
+                      "distance_km": 14.02,
+                      "max_distance_km": 10,
+                      "restriction_end_time": "20:30",
+                      "timezone": "Asia/Jerusalem"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid or missing authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation error (missing coords, empty/too many restaurant_ids)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "\"restaurant_ids\" must contain less than or equal to 50 items"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Config"
+        ],
+        "summary": "Batch quote delivery fees (home cards)",
+        "operationId": "postConsumerConfigDeliveryFeeBatch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumerDeliveryFeeBatchRequest"
+              },
+              "example": {
+                "destination_lat": 32.0853,
+                "destination_lng": 34.7818,
+                "restaurant_ids": [
+                  3,
+                  7,
+                  12,
+                  19
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/consumer/config/extra-charge": {
       "get": {
         "description": "",
@@ -15938,6 +16781,7 @@
                         "id": "9001",
                         "name": "TEST Burger Box",
                         "price": 59,
+                        "combo_definition": null,
                         "variations": [
                           {
                             "name": "Ingredients to Remove",
@@ -15974,6 +16818,86 @@
                             "selectionMode": "opt_in",
                             "defaultSelectAll": false,
                             "priceDisplay": "price",
+                            "values": [
+                              {
+                                "label": "Extra Cheese",
+                                "optionPrice": 5,
+                                "price": 5,
+                                "showPrice": true
+                              },
+                              {
+                                "label": "Egg",
+                                "optionPrice": 4,
+                                "price": 4,
+                                "showPrice": true
+                              }
+                            ]
+                          }
+                        ],
+                        "add_ons": []
+                      },
+                      {
+                        "id": "9002",
+                        "name": "TEST 4-Burger Combo",
+                        "price": 120,
+                        "combo_definition": {
+                          "enabled": true,
+                          "slot_count": 4,
+                          "slot_label": "Burger",
+                          "slot_labels": [
+                            "Burger #1",
+                            "Burger #2",
+                            "Burger #3",
+                            "Burger #4"
+                          ],
+                          "steps": [
+                            {
+                              "slot_index": 1,
+                              "label": "Burger #1",
+                              "required": true
+                            },
+                            {
+                              "slot_index": 2,
+                              "label": "Burger #2",
+                              "required": true
+                            },
+                            {
+                              "slot_index": 3,
+                              "label": "Burger #3",
+                              "required": true
+                            },
+                            {
+                              "slot_index": 4,
+                              "label": "Burger #4",
+                              "required": true
+                            }
+                          ]
+                        },
+                        "variations": [
+                          {
+                            "name": "Doneness",
+                            "type": "single",
+                            "required": true,
+                            "selectionMode": "standard",
+                            "values": [
+                              {
+                                "label": "Medium",
+                                "optionPrice": 0,
+                                "price": 0
+                              },
+                              {
+                                "label": "Well Done",
+                                "optionPrice": 0,
+                                "price": 0
+                              }
+                            ]
+                          },
+                          {
+                            "name": "Paid Upgrades",
+                            "type": "multi",
+                            "required": false,
+                            "selectionMode": "opt_in",
+                            "max": "4",
                             "values": [
                               {
                                 "label": "Extra Cheese",
@@ -16356,7 +17280,7 @@
     },
     "/consumer/restaurants/specific/{id}": {
       "get": {
-        "description": "Single restaurant profile for the menu / details screen. Includes **server-computed availability** (`status`, `can_order`, `next_open_at`, `next_close_at`, `is_temporarily_closed`; legacy `open` = `can_order`), menu category chips, and vendor `active` (temporary close flag). Public; optional Bearer for visit tracking.",
+        "description": "Single restaurant profile for the menu / details screen. Includes **server-computed availability** (`status`, `can_order`, `next_open_at`, `next_close_at`, `is_temporarily_closed`, `paused_until`, `pause_message`, `pause_type`; legacy `open` = `can_order`), menu category chips, and vendor `active` (indefinite close flag). Timed pause fields are null when expired/unset. Public; optional Bearer for visit tracking.",
         "parameters": [
           {
             "name": "id",
@@ -16399,6 +17323,9 @@
                     "next_close_at": "2026-10-27T23:00:00+02:00",
                     "is_temporarily_closed": false,
                     "open": true,
+                    "paused_until": null,
+                    "pause_message": null,
+                    "pause_type": null,
                     "categories": [
                       {
                         "id": "1",
@@ -18359,7 +19286,7 @@
     },
     "/consumer/cart/add": {
       "post": {
-        "description": "Same auth as GET `/consumer/cart/`. Requires `restaurant_id` (one restaurant per cart). Duplicate line identity merges quantity (**200**); new line **201**. Response `data` is a full `ConsumerCartLineItem`.\n\nReturns **403** with `code: food_selling_time`, `code: food_stock`, or another restaurant in cart.",
+        "description": "Same auth as GET `/consumer/cart/`. Requires `restaurant_id` (one restaurant per cart). Duplicate line identity merges quantity (**200**); new line **201**. Response `data` is a full `ConsumerCartLineItem`.\n\nFor multi-slot combos (`food.combo_definition.enabled`), send complete `combo_selections` (one entry per slot). Incomplete combo → **400** `combo_incomplete` / `combo_slot_incomplete`.\n\nReturns **403** with `code: food_selling_time`, `code: food_stock`, or another restaurant in cart.",
         "responses": {
           "200": {
             "description": "Existing line quantity increased",
@@ -18416,15 +19343,28 @@
             }
           },
           "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
+            "description": "Bad Request — validation error or incomplete multi-slot combo",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
                 },
-                "example": {
-                  "status": false,
-                  "msg": "Bad Request"
+                "examples": {
+                  "validation": {
+                    "summary": "Invalid body",
+                    "value": {
+                      "status": false,
+                      "msg": "Bad Request"
+                    }
+                  },
+                  "combo_incomplete": {
+                    "summary": "Combo slots incomplete",
+                    "value": {
+                      "status": false,
+                      "msg": "Please complete all 4 burger selections",
+                      "code": "combo_incomplete"
+                    }
+                  }
                 }
               }
             }
@@ -18533,40 +19473,115 @@
           }
         ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "is_guest": {
-                    "example": "any"
-                  },
-                  "guest_id": {
-                    "example": "any"
-                  },
-                  "item_id": {
-                    "example": "any"
-                  },
-                  "variations": {
-                    "example": "any"
-                  },
-                  "item_type": {
-                    "example": "any"
-                  },
-                  "price": {
-                    "example": "any"
-                  },
-                  "quantity": {
-                    "example": "any"
-                  },
-                  "add_on_ids": {
-                    "example": "any"
-                  },
-                  "add_on_qtys": {
-                    "example": "any"
-                  },
-                  "variation_options": {
-                    "example": "any"
+                "$ref": "#/components/schemas/ConsumerCartAddBody"
+              },
+              "examples": {
+                "normalItem": {
+                  "summary": "Normal food with variations",
+                  "value": {
+                    "restaurant_id": 3,
+                    "item_id": 102,
+                    "item_type": "Food",
+                    "price": 68,
+                    "quantity": 1,
+                    "add_on_ids": [],
+                    "add_on_qtys": [],
+                    "variations": [],
+                    "variation_options": [
+                      {
+                        "name": "Paid Upgrades",
+                        "values": {
+                          "label": [
+                            "Extra Cheese"
+                          ]
+                        }
+                      }
+                    ],
+                    "combo_selections": []
+                  }
+                },
+                "fourBurgerCombo": {
+                  "summary": "4-burger combo (all slots required)",
+                  "value": {
+                    "restaurant_id": 3,
+                    "item_id": 9002,
+                    "item_type": "Food",
+                    "price": 129,
+                    "quantity": 1,
+                    "add_on_ids": [],
+                    "add_on_qtys": [],
+                    "variations": [],
+                    "variation_options": [],
+                    "combo_selections": [
+                      {
+                        "slot_index": 1,
+                        "slot_label": "Burger #1",
+                        "variation_options": [
+                          {
+                            "name": "Doneness",
+                            "values": {
+                              "label": [
+                                "Medium"
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "slot_index": 2,
+                        "slot_label": "Burger #2",
+                        "variation_options": [
+                          {
+                            "name": "Doneness",
+                            "values": {
+                              "label": [
+                                "Well Done"
+                              ]
+                            }
+                          },
+                          {
+                            "name": "Paid Upgrades",
+                            "values": {
+                              "label": [
+                                "Extra Cheese"
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "slot_index": 3,
+                        "slot_label": "Burger #3",
+                        "variation_options": [
+                          {
+                            "name": "Doneness",
+                            "values": {
+                              "label": [
+                                "Medium"
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "slot_index": 4,
+                        "slot_label": "Burger #4",
+                        "variation_options": [
+                          {
+                            "name": "Doneness",
+                            "values": {
+                              "label": [
+                                "Medium"
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    ]
                   }
                 }
               }
@@ -19087,6 +20102,176 @@
         "tags": [
           "Consumer Cart"
         ]
+      }
+    },
+    "/consumer/analytics/events": {
+      "post": {
+        "description": "Ingest Customer App funnel events. Prefer batch `events[]`.\n\n`added_to_cart` / `checkout_started` also refresh the abandoned-cart timer for **logged-in** users.\n\nSee `docs/FLUTTER-ANALYTICS-ABANDONED-CART.md`.",
+        "responses": {
+          "200": {
+            "description": "Events recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerAnalyticsEventsResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Events recorded",
+                  "data": {
+                    "recorded": 4
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "\"event_name\" is required"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing/invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not authorized, no token"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable"
+          }
+        },
+        "tags": [
+          "Consumer Analytics"
+        ],
+        "summary": "Track funnel events (batch or single)",
+        "operationId": "trackConsumerAnalyticsEvents",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Bearer consumer JWT (or guest JWT)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumerAnalyticsEventsRequest"
+              },
+              "examples": {
+                "batch": {
+                  "summary": "Batch (preferred)",
+                  "value": {
+                    "events": [
+                      {
+                        "event_name": "app_opened",
+                        "zone_id": 1,
+                        "client_session": "uuid-optional",
+                        "properties": {
+                          "lat": 32.08,
+                          "lng": 34.78
+                        }
+                      },
+                      {
+                        "event_name": "store_viewed",
+                        "restaurant_id": 12
+                      },
+                      {
+                        "event_name": "added_to_cart",
+                        "restaurant_id": 12,
+                        "properties": {
+                          "cart_total": 85.5
+                        }
+                      },
+                      {
+                        "event_name": "checkout_started",
+                        "restaurant_id": 12
+                      }
+                    ]
+                  }
+                },
+                "single": {
+                  "summary": "Single event",
+                  "value": {
+                    "event_name": "payment_failed",
+                    "properties": {
+                      "reason": "card_declined"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/consumer/coupon/restaurant-wise": {
@@ -49393,6 +50578,129 @@
         ]
       }
     },
+    "/admin/dispatch/delivery-fee": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Delivery fee quoted",
+                  "data": "…"
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Delivery fee quoted"
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Delivery fee quoted",
+                    "data": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
     "/admin/dispatch/request-driver": {
       "post": {
         "description": "",
@@ -49449,7 +50757,7 @@
             }
           },
           "403": {
-            "description": "Forbidden",
+            "description": "Forbidden - You do not have permission to access this resource",
             "content": {
               "application/json": {
                 "schema": {
@@ -52789,6 +54097,2170 @@
         }
       }
     },
+    "/admin/pos/api-keys": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Token created",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "data": {
+                    "id": "1",
+                    "token": "gz_test_ab12cd34.secret",
+                    "environment": "sandbox"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin POS Integration"
+        ],
+        "summary": "Create POS API key (token shown once)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "name"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "integer",
+                    "example": 3
+                  },
+                  "name": {
+                    "type": "string",
+                    "example": "Sandbox Verifone"
+                  },
+                  "provider": {
+                    "type": "string",
+                    "example": "verifone"
+                  },
+                  "environment": {
+                    "type": "string",
+                    "enum": [
+                      "sandbox",
+                      "live"
+                    ],
+                    "example": "sandbox"
+                  },
+                  "scopes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "example": [
+                      "orders:read",
+                      "orders:write"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Keys",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "data": []
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin POS Integration"
+        ],
+        "summary": "List POS API keys",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/pos/api-keys/{id}/token": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Operation successful"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin"
+        ]
+      }
+    },
+    "/admin/pos/api-keys/{id}/revoke": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Revoked",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "POS API key revoked"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin POS Integration"
+        ],
+        "summary": "Revoke POS API key",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/pos/connections": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "POS connection created"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "example": "1"
+                        },
+                        "restaurant_id": {
+                          "type": "number",
+                          "example": 1
+                        },
+                        "restaurant_name": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "url": {
+                          "type": "string",
+                          "example": "https://cdn.example.com/assets/file.png"
+                        },
+                        "provider": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "external_merchant_id": {
+                          "type": "number",
+                          "example": 1
+                        },
+                        "events": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "active": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "signing_secret": {
+                          "type": "string",
+                          "example": "…"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "example": "…"
+                        }
+                      },
+                      "example": {
+                        "id": "1",
+                        "restaurant_id": 1,
+                        "restaurant_name": "…",
+                        "url": "https://cdn.example.com/assets/file.png",
+                        "provider": "…",
+                        "external_merchant_id": 1,
+                        "events": "…",
+                        "active": "…",
+                        "signing_secret": "…",
+                        "created_at": "…"
+                      }
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "POS connection created",
+                    "data": {
+                      "id": "1",
+                      "restaurant_id": 1,
+                      "restaurant_name": "…",
+                      "url": "https://cdn.example.com/assets/file.png",
+                      "provider": "…",
+                      "external_merchant_id": 1,
+                      "events": "…",
+                      "active": "…",
+                      "signing_secret": "…",
+                      "created_at": "…"
+                    }
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "msg": "POS connection created",
+                  "data": {
+                    "id": "1",
+                    "restaurant_id": 1,
+                    "restaurant_name": "…",
+                    "url": "https://cdn.example.com/assets/file.png",
+                    "provider": "…",
+                    "external_merchant_id": 1,
+                    "events": "…",
+                    "active": "…",
+                    "signing_secret": "…",
+                    "created_at": "…"
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "data": {
+                    "id": "1"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin POS Integration"
+        ],
+        "summary": "Create POS webhook connection",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "restaurant_id",
+                  "url"
+                ],
+                "properties": {
+                  "restaurant_id": {
+                    "type": "integer"
+                  },
+                  "url": {
+                    "type": "string"
+                  },
+                  "provider": {
+                    "type": "string"
+                  },
+                  "external_merchant_id": {
+                    "type": "string"
+                  },
+                  "events": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "active": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Connections",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "data": []
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin POS Integration"
+        ],
+        "summary": "List POS connections",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/pos/connections/{id}": {
+      "patch": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "POS connection updated"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin POS Integration"
+        ],
+        "summary": "Update POS connection",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/pos/deliveries": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deliveries",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "data": []
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin POS Integration"
+        ],
+        "summary": "List webhook delivery attempts",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/pos/deliveries/{id}/replay": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Replay queued",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Delivery replay queued/processed"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin POS Integration"
+        ],
+        "summary": "Replay failed webhook delivery",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/analytics/funnel": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Funnel steps",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAnalyticsFunnelResponse"
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "from": "…",
+                    "to": "…",
+                    "funnel": "…",
+                    "config": {
+                      "abandoned_cart_enabled": "…",
+                      "abandoned_cart_minutes": "…",
+                      "whatsapp_recovery_enabled": "…"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin Analytics"
+        ],
+        "summary": "Conversion funnel (unique users per step)",
+        "operationId": "adminAnalyticsFunnel",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/analytics/events/summary": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Counts by event_name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "to": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "counts": {
+                          "type": "object",
+                          "additionalProperties": {
+                            "type": "integer"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "from": "…",
+                    "to": "…",
+                    "counts": 5,
+                    "rows": "…",
+                    "count": 5
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin Analytics"
+        ],
+        "summary": "Event volume by name",
+        "operationId": "adminAnalyticsEventsSummary",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/analytics/abandoned-carts": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "abandoned",
+                "recovered",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 25
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated sessions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAbandonedCartsResponse"
+                },
+                "example": {
+                  "status": true,
+                  "data": {
+                    "page": 1,
+                    "limit": 20,
+                    "total": 42,
+                    "items": "1",
+                    "user_id": 1,
+                    "status": "…",
+                    "restaurant_id": 0,
+                    "restaurant_name": "…",
+                    "customer_name": "…",
+                    "customer_phone": "+1234567890",
+                    "cart_total": "…",
+                    "last_activity_at": 0,
+                    "abandoned_at": 0,
+                    "recovered_at": 0,
+                    "recovered_order_id": 0,
+                    "deeplink": "…",
+                    "whatsapp_status": "…",
+                    "whatsapp_sent_at": 0,
+                    "whatsapp_attempts": "…",
+                    "whatsapp_last_error": "…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request - Invalid input or missing parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin Analytics"
+        ],
+        "summary": "List abandoned / recovery cart sessions",
+        "operationId": "adminAbandonedCartsList",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/pos/orders/": {
+      "get": {
+        "description": "Recover missed orders. Scoped to the restaurant linked to the POS API token.",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "example": "pending"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          },
+          {
+            "name": "updated_since",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order list",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "total": 2,
+                  "limit": 20,
+                  "offset": 0,
+                  "data": [
+                    {
+                      "id": "1025",
+                      "restaurant_id": "3",
+                      "order_status": "pending",
+                      "order_amount": 84.5
+                    }
+                  ]
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing/invalid POS token",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": false,
+                  "msg": "Invalid or revoked POS API token"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found - The requested resource could not be found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "summary": "List orders (reconciliation)",
+        "tags": [
+          "POS Partner Orders"
+        ],
+        "security": [
+          {
+            "posApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/pos/orders/{id}": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "1025"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order detail with items",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "data": {
+                    "id": "1025",
+                    "order_status": "pending",
+                    "order_amount": 84.5,
+                    "items": [
+                      {
+                        "food_name": "Burger",
+                        "quantity": 1,
+                        "price": 45
+                      }
+                    ]
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order not found for this POS credential",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": false,
+                  "msg": "Order not found for this POS credential"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get order details",
+        "tags": [
+          "POS Partner Orders"
+        ],
+        "security": [
+          {
+            "posApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/pos/orders/{id}/accept": {
+      "post": {
+        "description": "Marks order confirmed and triggers Gizra Socket.io / push / dispatch via existing order service.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "1025"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Accepted (idempotent if already confirmed/accepted)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Order accepted",
+                  "data": {
+                    "id": "1025",
+                    "order_status": "confirmed"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Illegal status transition",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": false,
+                  "msg": "Order is already canceled"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Accept order",
+        "tags": [
+          "POS Partner Orders"
+        ],
+        "security": [
+          {
+            "posApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/pos/orders/{id}/reject": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "1025"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rejected",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Order rejected",
+                  "data": {
+                    "id": "1025",
+                    "order_status": "canceled"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Bad Request"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Not Found"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Reject order",
+        "tags": [
+          "POS Partner Orders"
+        ],
+        "security": [
+          {
+            "posApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PosRejectRequest"
+              },
+              "example": {
+                "reason": "Out of stock"
+              }
+            }
+          }
+        }
+      }
+    },
     "/upload/": {
       "post": {
         "description": "Multipart upload. **Registration (recommended):** set `role`, `cloudflare_id` (from registration-init), and `category` (`restaurant` | `identity` | `profile` | `assets`). Use response `path` on register/apply. **Legacy:** `subfolder` only (defaults to `assets/`).",
@@ -53341,7 +56813,7 @@
       "get": {
         "summary": "Reverse geocode lat/lng (server proxy)",
         "operationId": "getConsumerConfigGeocode",
-        "description": "Map pin flow: user selects coordinates without a `place_id` → get human-readable address. Backend uses `GOOGLE_MAPS_API_KEY`. Returns Google Geocoding JSON. Use `results[0].formatted_address` and geometry when status is `OK`.",
+        "description": "Map pin / GPS flow: lat/lng → human-readable address.\n\nBackend uses `GOOGLE_MAPS_API_KEY` (Geocoding + Places Nearby). When a POI/business is within ~80m of the pin, the response includes `results[0].name` and prefixes it on `formatted_address` (e.g. `Palace Bakers, 2 Soan Ave…`).\n\n**Flutter:** keep the **request** `lat`/`lng` as delivery coordinates (source of truth). Use `name` + `formatted_address` for display only — do not move the pin to `geometry.location` unless the user picks that place.\n\nSee `docs/FLUTTER_PLACES_AND_DELIVERY_RESTRICTION.md` § A3.",
         "parameters": [
           {
             "name": "lat",
@@ -53349,7 +56821,7 @@
             "required": true,
             "schema": {
               "type": "number",
-              "example": 31.768319
+              "example": 33.565098
             }
           },
           {
@@ -53358,47 +56830,39 @@
             "required": true,
             "schema": {
               "type": "number",
-              "example": 35.21371
+              "example": 73.151956
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Google Geocoding payload (pass-through)",
+            "description": "Geocode payload (street address + optional nearby place `name`)",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/GoogleGeocodeResponse"
                 },
                 "example": {
+                  "status": "OK",
                   "results": [
                     {
-                      "formatted_address": "Jerusalem",
+                      "name": "Palace Bakers",
+                      "formatted_address": "Palace Bakers, 2 Soan Ave, Soan Gardens Block B Islamabad, Pakistan",
                       "geometry": {
                         "location": {
-                          "lat": 31.768319,
-                          "lng": 35.21371
+                          "lat": 33.5650926,
+                          "lng": 73.1519571
                         },
-                        "location_type": "APPROXIMATE",
-                        "viewport": {
-                          "northeast": {
-                            "lat": 31.882907,
-                            "lng": 35.261879
-                          },
-                          "southwest": {
-                            "lat": 31.709678,
-                            "lng": 35.085431
-                          }
-                        }
+                        "location_type": "ROOFTOP"
                       },
-                      "place_id": "ChIJecHC4jRkAhMRCpciZik3B00",
+                      "place_id": "ChIJmx6kh0zs3zgRVVvhr0MjOZ8",
                       "types": [
-                        "locality",
-                        "political"
+                        "establishment",
+                        "point_of_interest",
+                        "geocode"
                       ]
                     }
-                  ],
-                  "status": "OK"
+                  ]
                 }
               }
             }
@@ -53618,7 +57082,7 @@
       "get": {
         "summary": "Reverse geocode lat/lng (server proxy)",
         "operationId": "getVendorConfigGeocode",
-        "description": "Map pin flow: user selects coordinates without a `place_id` → get human-readable address. Backend uses `GOOGLE_MAPS_API_KEY`. Returns Google Geocoding JSON. Use `results[0].formatted_address` and geometry when status is `OK`. Same server proxy as consumer; use this prefix from the vendor app.",
+        "description": "Same as **GET /consumer/config/geocode**: street address + optional nearby POI `name` within ~80m. Keep request lat/lng as coordinates; use `name` + `formatted_address` for display. Vendor app prefix.",
         "parameters": [
           {
             "name": "lat",
@@ -53626,7 +57090,7 @@
             "required": true,
             "schema": {
               "type": "number",
-              "example": 31.768319
+              "example": 33.565098
             }
           },
           {
@@ -53635,47 +57099,39 @@
             "required": true,
             "schema": {
               "type": "number",
-              "example": 35.21371
+              "example": 73.151956
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Google Geocoding payload (pass-through)",
+            "description": "Geocode payload (street address + optional nearby place `name`)",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/GoogleGeocodeResponse"
                 },
                 "example": {
+                  "status": "OK",
                   "results": [
                     {
-                      "formatted_address": "Jerusalem",
+                      "name": "Palace Bakers",
+                      "formatted_address": "Palace Bakers, 2 Soan Ave, Soan Gardens Block B Islamabad, Pakistan",
                       "geometry": {
                         "location": {
-                          "lat": 31.768319,
-                          "lng": 35.21371
+                          "lat": 33.5650926,
+                          "lng": 73.1519571
                         },
-                        "location_type": "APPROXIMATE",
-                        "viewport": {
-                          "northeast": {
-                            "lat": 31.882907,
-                            "lng": 35.261879
-                          },
-                          "southwest": {
-                            "lat": 31.709678,
-                            "lng": 35.085431
-                          }
-                        }
+                        "location_type": "ROOFTOP"
                       },
-                      "place_id": "ChIJecHC4jRkAhMRCpciZik3B00",
+                      "place_id": "ChIJmx6kh0zs3zgRVVvhr0MjOZ8",
                       "types": [
-                        "locality",
-                        "political"
+                        "establishment",
+                        "point_of_interest",
+                        "geocode"
                       ]
                     }
-                  ],
-                  "status": "OK"
+                  ]
                 }
               }
             }
@@ -54131,7 +57587,7 @@
       "get": {
         "summary": "Reverse geocode lat/lng (server proxy)",
         "operationId": "getDeliveryManConfigGeocode",
-        "description": "Map pin flow: user selects coordinates without a `place_id` → get human-readable address. Backend uses `GOOGLE_MAPS_API_KEY`. Returns Google Geocoding JSON. Use `results[0].formatted_address` and geometry when status is `OK`. Same server proxy as consumer; use this prefix from the driver app.",
+        "description": "Same as **GET /consumer/config/geocode**: street address + optional nearby POI `name` within ~80m. Keep request lat/lng as coordinates; use `name` + `formatted_address` for display. Driver app prefix.",
         "parameters": [
           {
             "name": "lat",
@@ -54139,7 +57595,7 @@
             "required": true,
             "schema": {
               "type": "number",
-              "example": 31.768319
+              "example": 33.565098
             }
           },
           {
@@ -54148,47 +57604,39 @@
             "required": true,
             "schema": {
               "type": "number",
-              "example": 35.21371
+              "example": 73.151956
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Google Geocoding payload (pass-through)",
+            "description": "Geocode payload (street address + optional nearby place `name`)",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/GoogleGeocodeResponse"
                 },
                 "example": {
+                  "status": "OK",
                   "results": [
                     {
-                      "formatted_address": "Jerusalem",
+                      "name": "Palace Bakers",
+                      "formatted_address": "Palace Bakers, 2 Soan Ave, Soan Gardens Block B Islamabad, Pakistan",
                       "geometry": {
                         "location": {
-                          "lat": 31.768319,
-                          "lng": 35.21371
+                          "lat": 33.5650926,
+                          "lng": 73.1519571
                         },
-                        "location_type": "APPROXIMATE",
-                        "viewport": {
-                          "northeast": {
-                            "lat": 31.882907,
-                            "lng": 35.261879
-                          },
-                          "southwest": {
-                            "lat": 31.709678,
-                            "lng": 35.085431
-                          }
-                        }
+                        "location_type": "ROOFTOP"
                       },
-                      "place_id": "ChIJecHC4jRkAhMRCpciZik3B00",
+                      "place_id": "ChIJmx6kh0zs3zgRVVvhr0MjOZ8",
                       "types": [
-                        "locality",
-                        "political"
+                        "establishment",
+                        "point_of_interest",
+                        "geocode"
                       ]
                     }
-                  ],
-                  "status": "OK"
+                  ]
                 }
               }
             }
@@ -54578,6 +58026,12 @@
         "scheme": "bearer",
         "bearerFormat": "JWT",
         "description": "**Customer JWT** — from POST `/consumer/login` or `/consumer/sign-in-with-google` (`data.token`). **Guest JWT** — from POST `/consumer/guest/request` (`data.token`, claim `role: guest`); valid for cart (and guest checkout flows), not for profile/favourites/addresses."
+      },
+      "posApiKeyAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "POS API Token",
+        "description": "Partner token from Admin Panel (shown once when created). Example: `gz_test_abcd1234.xxxxx`"
       }
     },
     "schemas": {
@@ -54672,6 +58126,14 @@
             "type": "array",
             "items": {
               "type": "object"
+            },
+            "example": []
+          },
+          "combo_selections": {
+            "type": "array",
+            "description": "Per-slot modifiers for multi-item combos (food.combo_definition.enabled). Empty for normal items.",
+            "items": {
+              "$ref": "#/components/schemas/ComboSlotSelection"
             },
             "example": []
           }
@@ -54909,6 +58371,101 @@
           }
         }
       },
+      "ConsumerCartAddBody": {
+        "type": "object",
+        "required": [
+          "restaurant_id",
+          "item_id",
+          "price",
+          "quantity"
+        ],
+        "description": "Add a cart line. For combo foods send complete `combo_selections` (slot_index 1..N).",
+        "properties": {
+          "restaurant_id": {
+            "type": "number",
+            "example": 3
+          },
+          "item_id": {
+            "type": "number",
+            "example": 9002
+          },
+          "item_type": {
+            "type": "string",
+            "enum": [
+              "Food",
+              "ItemCampaign"
+            ],
+            "default": "Food"
+          },
+          "price": {
+            "type": "number",
+            "description": "Unit total: base + all slot extras + add-ons",
+            "example": 129
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 1
+          },
+          "add_on_ids": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "default": []
+          },
+          "add_on_qtys": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "default": []
+          },
+          "add_on_placements": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "whole",
+                "half_a",
+                "half_b"
+              ]
+            },
+            "default": []
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Normal items. For combos usually empty — use combo_selections instead.",
+            "default": []
+          },
+          "variation_options": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "default": []
+          },
+          "combo_selections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComboSlotSelection"
+            },
+            "description": "Required when food.combo_definition.enabled — one object per slot",
+            "default": []
+          },
+          "is_guest": {
+            "type": "boolean",
+            "default": false
+          },
+          "guest_id": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      },
       "ConsumerCartLineItem": {
         "type": "object",
         "description": "Server-authoritative cart line — display fields enriched on every GET/add/update/add-multiple response.",
@@ -55003,6 +58560,13 @@
             "type": "array",
             "items": {
               "type": "object"
+            }
+          },
+          "combo_selections": {
+            "type": "array",
+            "description": "Per-slot modifiers for multi-item combos. Empty for normal items. See docs/FLUTTER-COMBO-STEP-FLOW.md.",
+            "items": {
+              "$ref": "#/components/schemas/ComboSlotSelection"
             }
           },
           "is_available_now": {
@@ -56397,7 +59961,33 @@
             "type": "string"
           },
           "active": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Indefinite open/close (`PUT /vendor/restaurant/active-status`)."
+          },
+          "temporary_pause": {
+            "type": "object",
+            "description": "Timed pause snapshot (same semantics as GET /vendor/restaurant/temporary-pause). Null fields when not paused.",
+            "properties": {
+              "is_paused": {
+                "type": "boolean"
+              },
+              "pause_type": {
+                "nullable": true,
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RestaurantPauseType"
+                  }
+                ]
+              },
+              "paused_until": {
+                "type": "string",
+                "nullable": true
+              },
+              "pause_message": {
+                "type": "string",
+                "nullable": true
+              }
+            }
           },
           "schedule_order": {
             "type": "boolean"
@@ -58850,14 +62440,23 @@
       },
       "GoogleGeocodeResponse": {
         "type": "object",
+        "description": "Reverse geocode response. Street address from Google Geocoding, enriched with nearby POI `name` when found within ~80m.",
         "properties": {
           "results": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
+                "name": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Nearby place / business name when the pin is close to a POI (e.g. Palace Bakers). Null if none within ~80m.",
+                  "example": "Palace Bakers"
+                },
                 "formatted_address": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Human-readable address. Often prefixed with `name` when a nearby POI is found (e.g. `Palace Bakers, 2 Soan Ave…`).",
+                  "example": "Palace Bakers, 2 Soan Ave, Soan Gardens Block B Islamabad, Pakistan"
                 },
                 "geometry": {
                   "type": "object",
@@ -58866,7 +62465,9 @@
                       "$ref": "#/components/schemas/GoogleLatLng"
                     },
                     "location_type": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "`ROOFTOP` when a nearby place name was attached; otherwise often `APPROXIMATE`.",
+                      "example": "ROOFTOP"
                     }
                   }
                 },
@@ -59312,6 +62913,188 @@
           }
         }
       },
+      "ConsumerDeliveryFeeBatchRequest": {
+        "type": "object",
+        "required": [
+          "destination_lat",
+          "destination_lng",
+          "restaurant_ids"
+        ],
+        "properties": {
+          "destination_lat": {
+            "type": "number",
+            "description": "Customer delivery latitude",
+            "example": 32.0853
+          },
+          "destination_lng": {
+            "type": "number",
+            "description": "Customer delivery longitude",
+            "example": 34.7818
+          },
+          "restaurant_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Restaurant ids to quote (deduped server-side; max 50)",
+            "example": [
+              3,
+              7,
+              12,
+              19
+            ]
+          }
+        }
+      },
+      "ConsumerDeliveryFeeBatchQuoteOk": {
+        "type": "object",
+        "required": [
+          "restaurant_id",
+          "ok",
+          "distance_km",
+          "distance_source",
+          "delivery_fee",
+          "original_delivery_fee",
+          "pricing"
+        ],
+        "properties": {
+          "restaurant_id": {
+            "type": "integer",
+            "example": 3
+          },
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "distance_km": {
+            "type": "number",
+            "example": 4.2
+          },
+          "distance_source": {
+            "type": "string",
+            "enum": [
+              "google",
+              "cache"
+            ],
+            "example": "cache"
+          },
+          "delivery_fee": {
+            "type": "number",
+            "example": 9.4
+          },
+          "original_delivery_fee": {
+            "type": "number",
+            "example": 9.4
+          },
+          "pricing": {
+            "$ref": "#/components/schemas/ConsumerDeliveryFeePricingBreakdown"
+          }
+        }
+      },
+      "ConsumerDeliveryFeeBatchQuoteFail": {
+        "type": "object",
+        "required": [
+          "restaurant_id",
+          "ok",
+          "msg",
+          "delivery_fee"
+        ],
+        "properties": {
+          "restaurant_id": {
+            "type": "integer",
+            "example": 7
+          },
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "code": {
+            "type": "string",
+            "nullable": true,
+            "example": "DELIVERY_DISTANCE_TIME_RESTRICTED"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "retryable": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "max_distance_km": {
+            "type": "number",
+            "nullable": true
+          },
+          "restriction_end_time": {
+            "type": "string",
+            "nullable": true,
+            "example": "20:30"
+          },
+          "timezone": {
+            "type": "string",
+            "nullable": true,
+            "example": "Asia/Jerusalem"
+          },
+          "paused_zone_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "distance_km": {
+            "type": "number",
+            "nullable": true
+          },
+          "distance_source": {
+            "type": "string",
+            "nullable": true
+          },
+          "delivery_fee": {
+            "type": "number",
+            "nullable": true,
+            "example": null
+          }
+        }
+      },
+      "ConsumerDeliveryFeeBatchResponse": {
+        "type": "object",
+        "required": [
+          "destination_lat",
+          "destination_lng",
+          "quotes"
+        ],
+        "properties": {
+          "destination_lat": {
+            "type": "number",
+            "example": 32.0853
+          },
+          "destination_lng": {
+            "type": "number",
+            "example": 34.7818
+          },
+          "quotes": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ConsumerDeliveryFeeBatchQuoteOk"
+                },
+                {
+                  "$ref": "#/components/schemas/ConsumerDeliveryFeeBatchQuoteFail"
+                }
+              ]
+            }
+          }
+        }
+      },
       "ConsumerGetZoneIdResponse": {
         "type": "object",
         "properties": {
@@ -59424,7 +63207,7 @@
           "CLOSED",
           "OPENS_SOON"
         ],
-        "description": "Computed on the backend from weekly `restaurant_schedule`, admin business `timezone` (business_settings), and vendor temporary close (`restaurants.active` / PUT /vendor/restaurant/active-status)."
+        "description": "Computed from weekly `restaurant_schedule`, business timezone, indefinite vendor close (`restaurants.active` / PUT /vendor/restaurant/active-status), and timed pause (`paused_until` / POST /vendor/restaurant/temporary-pause)."
       },
       "ConsumerRestaurantAvailabilityFields": {
         "type": "object",
@@ -59434,7 +63217,10 @@
           "next_open_at",
           "next_close_at",
           "is_temporarily_closed",
-          "open"
+          "open",
+          "paused_until",
+          "pause_message",
+          "pause_type"
         ],
         "properties": {
           "status": {
@@ -59447,7 +63233,7 @@
           "next_open_at": {
             "type": "string",
             "nullable": true,
-            "description": "ISO-8601 datetime with offset; next opening instant (CLOSED, OPENS_SOON, or temporarily closed)."
+            "description": "ISO-8601 datetime with offset; next opening instant (CLOSED, OPENS_SOON, or temporarily closed). For timed pause with active=true, first schedule-open moment at/after pause expiry."
           },
           "next_close_at": {
             "type": "string",
@@ -59456,11 +63242,32 @@
           },
           "is_temporarily_closed": {
             "type": "boolean",
-            "description": "True when the vendor set temporary close (active=false)."
+            "description": "True when vendor indefinite close (`active=false`) OR an unexpired timed pause is active."
           },
           "open": {
             "type": "boolean",
             "description": "Legacy alias of can_order."
+          },
+          "paused_until": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-8601 with offset. Present only while a timed pause is active; null when expired or unset.",
+            "example": "2026-11-25T14:30:00+02:00"
+          },
+          "pause_message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Customer-facing reason while timed pause is active; null when expired or unset.",
+            "example": "We are currently busy. Please try again shortly."
+          },
+          "pause_type": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RestaurantPauseType"
+              }
+            ],
+            "description": "Timed pause type while active; null when expired or unset."
           }
         }
       },
@@ -61128,6 +64935,15 @@
             "type": "string",
             "description": "restaurant_order_ref if set, else gizra_order_id — use for list card title"
           },
+          "delivery_instruction": {
+            "type": "string",
+            "nullable": true,
+            "description": "Customer note to driver (הערה לשליח) from checkout"
+          },
+          "order_note": {
+            "type": "string",
+            "nullable": true
+          },
           "dispatch_summary": {
             "type": "object",
             "nullable": true,
@@ -61170,6 +64986,8 @@
           "restaurant_order_ref": "4521",
           "restaurant_order_number": "4521",
           "display_order_number": "4521",
+          "delivery_instruction": "Gate 2, call on arrival",
+          "order_note": null,
           "dispatch_summary": {
             "title": "Gizra ride — restaurant requested driver",
             "restaurant_order_ref": "4521",
@@ -61274,6 +65092,11 @@
           "order_note": {
             "type": "string",
             "nullable": true
+          },
+          "delivery_instruction": {
+            "type": "string",
+            "nullable": true,
+            "description": "Customer note to driver (הערה לשליח) from checkout"
           },
           "processing_time": {
             "type": "string",
@@ -64286,6 +68109,10 @@
               }
             ]
           },
+          "combo_definition": {
+            "$ref": "#/components/schemas/FoodComboDefinitionInput",
+            "description": "Multi-slot combo (e.g. 4-burger deal). When enabled, customer app shows step-by-step slots; `variations` are the shared template per slot."
+          },
           "status": {
             "type": "boolean",
             "example": true
@@ -64309,6 +68136,120 @@
             "nullable": true,
             "example": "11:00:00",
             "description": "End of selling window (inclusive), HH:mm:ss in business timezone."
+          }
+        }
+      },
+      "FoodComboDefinitionInput": {
+        "type": "object",
+        "nullable": true,
+        "required": [
+          "enabled"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          },
+          "slot_count": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 20,
+            "example": 4,
+            "description": "Required when enabled is true"
+          },
+          "slot_label": {
+            "type": "string",
+            "maxLength": 40,
+            "example": "Burger",
+            "description": "Becomes Burger #1 … Burger #N in the customer app"
+          }
+        },
+        "example": {
+          "enabled": true,
+          "slot_count": 4,
+          "slot_label": "Burger"
+        }
+      },
+      "FoodComboDefinition": {
+        "type": "object",
+        "nullable": true,
+        "description": "Present on consumer menu foods when the item is a multi-slot combo. Null when not a combo.",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true
+          },
+          "slot_count": {
+            "type": "integer",
+            "example": 4
+          },
+          "slot_label": {
+            "type": "string",
+            "example": "Burger"
+          },
+          "slot_labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [
+              "Burger #1",
+              "Burger #2",
+              "Burger #3",
+              "Burger #4"
+            ]
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "slot_index": {
+                  "type": "integer",
+                  "example": 1
+                },
+                "label": {
+                  "type": "string",
+                  "example": "Burger #1"
+                },
+                "required": {
+                  "type": "boolean",
+                  "example": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "ComboSlotSelection": {
+        "type": "object",
+        "required": [
+          "slot_index"
+        ],
+        "description": "One configured slot inside a multi-item combo cart/order line.",
+        "properties": {
+          "slot_index": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 1
+          },
+          "slot_label": {
+            "type": "string",
+            "example": "Burger #1"
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Same group shape as normal cart variations"
+          },
+          "variation_options": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Preferred StackFood-style picks for this slot"
           }
         }
       },
@@ -64357,6 +68298,10 @@
             "items": {
               "$ref": "#/components/schemas/FoodAddonExpanded"
             }
+          },
+          "combo_definition": {
+            "$ref": "#/components/schemas/FoodComboDefinition",
+            "nullable": true
           },
           "available_time_starts": {
             "type": "string",
@@ -64526,6 +68471,11 @@
               "$ref": "#/components/schemas/FoodAddonExpanded"
             }
           },
+          "combo_definition": {
+            "$ref": "#/components/schemas/FoodComboDefinition",
+            "nullable": true,
+            "description": "When enabled, customer app must use step-by-step slot UI. See docs/FLUTTER-COMBO-STEP-FLOW.md."
+          },
           "available_time_starts": {
             "type": "string",
             "nullable": true,
@@ -64679,6 +68629,498 @@
             "items": {
               "type": "integer"
             }
+          }
+        }
+      },
+      "ConsumerAnalyticsEventName": {
+        "type": "string",
+        "enum": [
+          "app_opened",
+          "store_viewed",
+          "product_viewed",
+          "added_to_cart",
+          "checkout_started",
+          "payment_failed",
+          "distance_blocked",
+          "order_completed"
+        ]
+      },
+      "ConsumerAnalyticsEventItem": {
+        "type": "object",
+        "required": [
+          "event_name"
+        ],
+        "properties": {
+          "event_name": {
+            "$ref": "#/components/schemas/ConsumerAnalyticsEventName"
+          },
+          "client_session": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 128
+          },
+          "restaurant_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "zone_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "properties": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true,
+            "description": "Free-form JSON (lat/lng, food_id, cart_total, error reason, …)"
+          },
+          "occurred_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Optional client timestamp (currently accepted; server uses ingest time)"
+          }
+        }
+      },
+      "ConsumerAnalyticsEventsRequest": {
+        "type": "object",
+        "description": "Send either `events` (batch) or top-level `event_name` (single).",
+        "properties": {
+          "events": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/ConsumerAnalyticsEventItem"
+            }
+          },
+          "event_name": {
+            "$ref": "#/components/schemas/ConsumerAnalyticsEventName"
+          },
+          "client_session": {
+            "type": "string",
+            "nullable": true
+          },
+          "restaurant_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "zone_id": {
+            "type": "number",
+            "nullable": true
+          },
+          "properties": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true
+          },
+          "is_guest": {
+            "type": "boolean"
+          },
+          "guest_id": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      },
+      "ConsumerAnalyticsEventsResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Events recorded"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "recorded": {
+                "type": "integer",
+                "example": 4
+              }
+            }
+          }
+        }
+      },
+      "AdminAnalyticsFunnelResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "to": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "funnel": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "step": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "users": {
+                      "type": "integer"
+                    },
+                    "conversion_from_previous": {
+                      "type": "number",
+                      "nullable": true
+                    },
+                    "conversion_from_open": {
+                      "type": "number",
+                      "nullable": true
+                    }
+                  }
+                }
+              },
+              "config": {
+                "type": "object",
+                "properties": {
+                  "abandoned_cart_enabled": {
+                    "type": "boolean"
+                  },
+                  "abandoned_cart_minutes": {
+                    "type": "integer"
+                  },
+                  "whatsapp_recovery_enabled": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "AdminAbandonedCartsResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "page": {
+                "type": "integer"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "total": {
+                "type": "integer"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "user_id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "restaurant_name": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customer_name": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "customer_phone": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "cart_total": {
+                      "type": "number"
+                    },
+                    "whatsapp_status": {
+                      "type": "string"
+                    },
+                    "deeplink": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "abandoned_at": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "last_activity_at": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "PosRejectRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "example": "Out of stock"
+          },
+          "cancellation_reason": {
+            "type": "string",
+            "maxLength": 500,
+            "example": "Kitchen closed"
+          }
+        }
+      },
+      "PosOrderSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "1025"
+          },
+          "restaurant_id": {
+            "type": "string",
+            "example": "3"
+          },
+          "order_status": {
+            "type": "string",
+            "example": "pending"
+          },
+          "order_amount": {
+            "type": "number",
+            "example": 84.5
+          },
+          "payment_method": {
+            "type": "string",
+            "example": "cash_on_delivery"
+          },
+          "order_type": {
+            "type": "string",
+            "example": "delivery"
+          },
+          "customer_name": {
+            "type": "string"
+          },
+          "customer_phone": {
+            "type": "string"
+          }
+        }
+      },
+      "RestaurantPauseType": {
+        "type": "string",
+        "enum": [
+          "EARLY_CLOSE",
+          "PAUSE_30",
+          "PAUSE_60"
+        ],
+        "description": "Timed pause kind. Expiry is always computed on the server."
+      },
+      "VendorRestaurantTemporaryPauseBody": {
+        "type": "object",
+        "required": [
+          "pause_type"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "pause_type": {
+            "$ref": "#/components/schemas/RestaurantPauseType",
+            "example": "PAUSE_30"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255,
+            "description": "Optional custom customer-facing reason. Wins over message_preset when non-empty.",
+            "example": "Kitchen is slammed — back soon"
+          },
+          "message_preset": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "busy",
+              "break",
+              "early_close",
+              "kitchen"
+            ],
+            "description": "Optional preset reason key when message is omitted.",
+            "example": "busy"
+          }
+        }
+      },
+      "VendorRestaurantTemporaryPauseState": {
+        "type": "object",
+        "required": [
+          "is_paused",
+          "pause_type",
+          "paused_until",
+          "pause_message",
+          "active",
+          "availability"
+        ],
+        "properties": {
+          "is_paused": {
+            "type": "boolean",
+            "description": "True when an unexpired timed pause is active."
+          },
+          "pause_type": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RestaurantPauseType"
+              }
+            ]
+          },
+          "paused_until": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-8601 with offset while paused; null otherwise."
+          },
+          "pause_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Current `restaurants.active` (indefinite open/close). Independent of timed pause."
+          },
+          "availability": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityFields"
+          }
+        }
+      },
+      "VendorRestaurantTemporaryPauseResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Temporary pause status fetched"
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VendorRestaurantTemporaryPauseState"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "message_presets": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "Preset keys for UI chips on GET only.",
+                    "example": {
+                      "busy": "We are currently busy. Please try again shortly.",
+                      "break": "Taking a short break. Back soon!",
+                      "early_close": "We closed early for today. See you next shift!",
+                      "kitchen": "Kitchen temporarily unavailable. Back soon!"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "VendorRestaurantTemporaryPauseApplyResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string",
+            "example": "Temporary pause applied"
+          },
+          "data": {
+            "$ref": "#/components/schemas/VendorRestaurantTemporaryPauseState"
+          }
+        }
+      },
+      "SocketRestaurantAvailabilityChangedPayload": {
+        "type": "object",
+        "description": "Socket.IO server → client event `restaurant_availability_changed` on room `restaurant_availability:{restaurantId}`. Vendors auto-join; customers emit `watch_restaurant` / `unwatch_restaurant`. HTTP availability remains source of truth.",
+        "required": [
+          "restaurant_id",
+          "status",
+          "can_order",
+          "open",
+          "next_open_at",
+          "next_close_at",
+          "is_temporarily_closed",
+          "paused_until",
+          "pause_message",
+          "pause_type",
+          "updated_at"
+        ],
+        "properties": {
+          "restaurant_id": {
+            "type": "integer",
+            "example": 12
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConsumerRestaurantAvailabilityStatus"
+          },
+          "can_order": {
+            "type": "boolean"
+          },
+          "open": {
+            "type": "boolean"
+          },
+          "next_open_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "next_close_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_temporarily_closed": {
+            "type": "boolean"
+          },
+          "paused_until": {
+            "type": "string",
+            "nullable": true
+          },
+          "pause_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "pause_type": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RestaurantPauseType"
+              }
+            ]
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-25T14:00:05.123Z"
           }
         }
       }
@@ -65025,7 +69467,7 @@
     },
     {
       "name": "Vendor Restaurant Setup",
-      "description": "Restaurant Web Panel **Config** (business setup): GET/PUT /vendor/restaurant/business-setup, open/close PUT /vendor/restaurant/active-status, toggles PUT /vendor/restaurant/setting-toggle, SEO PUT /vendor/restaurant/meta-data, hours POST/DELETE /vendor/restaurant/schedules. Bearer from POST /vendor/login."
+      "description": "Restaurant Web Panel **Config**: GET/PUT /vendor/restaurant/business-setup, indefinite open/close PUT /vendor/restaurant/active-status, timed pause GET/POST/DELETE /vendor/restaurant/temporary-pause, toggles PUT /vendor/restaurant/setting-toggle, SEO PUT /vendor/restaurant/meta-data, hours POST/DELETE /vendor/restaurant/schedules. Bearer from POST /vendor/login. See `docs/FLUTTER_RESTAURANT_TEMPORARY_PAUSE.md`."
     },
     {
       "name": "Vendor Orders (Web Panel & POS)",
@@ -65116,6 +69558,22 @@
     {
       "name": "Admin Coupons",
       "description": "Create and manage **private promo codes** for the customer app. Codes are **not** shown in the mobile coupon list — admin copies the `code` and shares it (video, SMS, etc.). Customers type it at checkout (`GET /consumer/coupon/apply`, `POST /consumer/order/place`).\n\n**Base URL:** `https://backend-dev.gizra.app/api` (paths relative to `/api`).\n\n**Auth:** Admin JWT on all routes (`verifyAdmin`).\n\n**Default:** `limit` = **1 use per customer** when omitted.\n\nSee `docs/ADMIN-COUPON-API.md`."
+    },
+    {
+      "name": "Consumer Analytics",
+      "description": "In-app funnel events for Super Admin + abandoned-cart timer.\n\n**Docs:** `docs/FLUTTER-ANALYTICS-ABANDONED-CART.md`\n\n**Auth:** Consumer Bearer JWT (or guest token / `is_guest` + `guest_id`).\n\nEvent names: `app_opened`, `store_viewed`, `product_viewed`, `added_to_cart`, `checkout_started`, `payment_failed`, `distance_blocked`, `order_completed`."
+    },
+    {
+      "name": "Admin Analytics",
+      "description": "Super Admin conversion funnel and abandoned-cart list. Auth: Admin JWT."
+    },
+    {
+      "name": "POS Partner Orders",
+      "description": "Third-party POS partner APIs. Auth with Bearer API token (`gz_test_…` / `gz_live_…`) created in Gizra Admin Panel → System → 3rd Party POS. Super Admin setup is not in this Swagger."
+    },
+    {
+      "name": "Admin POS Integration",
+      "description": "Super Admin POS partner setup (also available in Admin Panel → System → 3rd Party POS)."
     }
   ]
 }

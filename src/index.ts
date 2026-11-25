@@ -8,6 +8,8 @@ import apiRouter from './routes/index';
 import hyperPayRoutes from './routes/payment/hyperpay';
 import './config/firebase';
 import { connectDB, startKeepalive } from './config/database';
+import { startPosWebhookWorker } from './utils/pos/queue/worker';
+import { startAbandonedCartWorker } from './utils/analytics/worker';
 import swaggerUi from 'swagger-ui-express';
 import fs from 'fs';
 import path from 'path';
@@ -66,6 +68,7 @@ const swaggerCustomer = loadOpenApi('swagger-customer.json');
 const swaggerVendor = loadOpenApi('swagger-vendor.json');
 const swaggerDriver = loadOpenApi('swagger-driver.json');
 const swaggerAdmin = loadOpenApi('swagger-admin.json');
+const swaggerPos = loadOpenApi('swagger-pos.json');
 const swaggerCombined = loadOpenApi('swagger.json');
 
 const sendJson =
@@ -79,6 +82,7 @@ app.get('/swagger-customer.json', sendJson(swaggerCustomer));
 app.get('/swagger-vendor.json', sendJson(swaggerVendor));
 app.get('/swagger-driver.json', sendJson(swaggerDriver));
 app.get('/swagger-admin.json', sendJson(swaggerAdmin));
+app.get('/swagger-pos.json', sendJson(swaggerPos));
 app.get('/swagger.json', sendJson(swaggerCombined));
 
 // serveFiles embeds each spec in its own swagger-ui-init.js (shared swaggerUi.serve breaks multi-spec)
@@ -90,6 +94,7 @@ const swaggerExplorerOpts = {
       { url: '/swagger-vendor.json', name: 'Vendor' },
       { url: '/swagger-driver.json', name: 'Driver' },
       { url: '/swagger-admin.json', name: 'Admin' },
+      { url: '/swagger-pos.json', name: 'POS Partner' },
     ],
   },
 };
@@ -115,6 +120,11 @@ app.use(
   swaggerUi.setup(swaggerAdmin, { customSiteTitle: 'Gizra Admin API' })
 );
 app.use(
+  '/swagger/pos',
+  ...swaggerUi.serveFiles(swaggerPos),
+  swaggerUi.setup(swaggerPos, { customSiteTitle: 'Gizra Third-Party POS API' })
+);
+app.use(
   '/swagger',
   ...swaggerUi.serveFiles(undefined, swaggerExplorerOpts),
   swaggerUi.setup(null, { ...swaggerExplorerOpts, explorer: true, customSiteTitle: 'Gizra API' })
@@ -125,6 +135,8 @@ const port = process.env.PORT || 3000;
 connectDB()
   .then(async () => {
     startKeepalive();
+    startPosWebhookWorker();
+    startAbandonedCartWorker();
     const httpServer = http.createServer(app);
     await initSocketServer(httpServer);
     httpServer.listen(port, () => {

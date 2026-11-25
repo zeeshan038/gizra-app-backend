@@ -8,6 +8,9 @@ import {
 export const CLOSES_SOON_MINUTES = 30;
 export const OPENS_SOON_MINUTES = 30;
 
+export const RESTAURANT_PAUSE_TYPES = ['EARLY_CLOSE', 'PAUSE_30', 'PAUSE_60'] as const;
+export type RestaurantPauseType = (typeof RESTAURANT_PAUSE_TYPES)[number];
+
 export type RestaurantAvailabilityStatus = 'OPEN' | 'CLOSES_SOON' | 'CLOSED' | 'OPENS_SOON';
 
 export type WeeklyScheduleRow = {
@@ -16,12 +19,22 @@ export type WeeklyScheduleRow = {
   closing_time: Date | null;
 };
 
+export type RestaurantPauseFields = {
+  paused_until?: Date | null;
+  pause_message?: string | null;
+  pause_type?: string | null;
+};
+
 export type RestaurantAvailability = {
   status: RestaurantAvailabilityStatus;
   can_order: boolean;
   next_open_at: string | null;
   next_close_at: string | null;
   is_temporarily_closed: boolean;
+  /** Active (unexpired) timed pause only; null when expired or unset. */
+  paused_until: string | null;
+  pause_message: string | null;
+  pause_type: RestaurantPauseType | null;
 };
 
 type ParsedSlot = { day: number; openMin: number; closeMin: number };
@@ -55,6 +68,53 @@ export async function getDefaultRestaurantTimeZone(): Promise<string> {
   return cachedDefaultTimeZone;
 }
 
+export function isRestaurantPauseType(value: unknown): value is RestaurantPauseType {
+  return (
+    typeof value === 'string' &&
+    (RESTAURANT_PAUSE_TYPES as readonly string[]).includes(value)
+  );
+}
+
+/** True when paused_until is set and still in the future. */
+export function isTimedPauseActive(
+  pausedUntil: Date | null | undefined,
+  now: Date = new Date()
+): boolean {
+  if (pausedUntil == null) return false;
+  const ms = pausedUntil instanceof Date ? pausedUntil.getTime() : new Date(pausedUntil).getTime();
+  return Number.isFinite(ms) && ms > now.getTime();
+}
+
+function emptyPauseFields(): Pick<
+  RestaurantAvailability,
+  'paused_until' | 'pause_message' | 'pause_type'
+> {
+  return {
+    paused_until: null,
+    pause_message: null,
+    pause_type: null,
+  };
+}
+
+function activePauseResponseFields(
+  pause: RestaurantPauseFields | undefined,
+  now: Date,
+  timeZone: string
+): Pick<RestaurantAvailability, 'paused_until' | 'pause_message' | 'pause_type'> {
+  if (!isTimedPauseActive(pause?.paused_until, now) || pause?.paused_until == null) {
+    return emptyPauseFields();
+  }
+  const until =
+    pause.paused_until instanceof Date
+      ? pause.paused_until
+      : new Date(pause.paused_until);
+  return {
+    paused_until: formatIsoInTimeZone(until, timeZone),
+    pause_message: pause.pause_message?.trim() ? pause.pause_message.trim() : null,
+    pause_type: isRestaurantPauseType(pause.pause_type) ? pause.pause_type : null,
+  };
+}
+
 export function closedAvailability(isTemporarilyClosed = false): RestaurantAvailability {
   return {
     status: 'CLOSED',
@@ -62,6 +122,7 @@ export function closedAvailability(isTemporarilyClosed = false): RestaurantAvail
     next_open_at: null,
     next_close_at: null,
     is_temporarily_closed: isTemporarilyClosed,
+    ...emptyPauseFields(),
   };
 }
 
@@ -236,6 +297,18 @@ function closeInstantFromState(state: Extract<OpenState, { open: true }>, timeZo
   );
 }
 
+/** Current shift close instant when open now; null when closed. Exported for EARLY_CLOSE expiry. */
+export function resolveCurrentShiftCloseInstant(
+  schedules: WeeklyScheduleRow[],
+  timeZone: string,
+  now: Date = new Date()
+): Date | null {
+  const slots = parseSlots(schedules);
+  const openState = resolveOpenState(now, timeZone, slots);
+  if (!openState.open) return null;
+  return closeInstantFromState(openState, timeZone);
+}
+
 function findNextOpenInstant(now: Date, timeZone: string, slots: ParsedSlot[]): Date | null {
   if (!slots.length) return null;
 
@@ -264,30 +337,71 @@ function findNextOpenInstant(now: Date, timeZone: string, slots: ParsedSlot[]): 
   return null;
 }
 
+/**
+ * Next moment the restaurant can accept orders after a temporary block,
+ * respecting weekly hours (and overnight shifts).
+ */
+function findNextOrderableInstant(
+  from: Date,
+  timeZone: string,
+  slots: ParsedSlot[]
+): Date | null {
+  const openNow = resolveOpenState(from, timeZone, slots);
+  if (openNow.open) {
+    return from;
+  }
+  return findNextOpenInstant(from, timeZone, slots);
+}
+
 export function computeRestaurantAvailability(params: {
   active: boolean;
   schedules: WeeklyScheduleRow[];
   timeZone: string;
   now?: Date;
+  paused_until?: Date | null;
+  pause_message?: string | null;
+  pause_type?: string | null;
 }): RestaurantAvailability {
   const now = params.now ?? new Date();
   const slots = parseSlots(params.schedules);
-  const nextOpenInstant = findNextOpenInstant(now, params.timeZone, slots);
-  const nextOpenAt =
-    nextOpenInstant != null ? formatIsoInTimeZone(nextOpenInstant, params.timeZone) : null;
+  const pauseFields = activePauseResponseFields(params, now, params.timeZone);
+  const timedPauseActive = isTimedPauseActive(params.paused_until, now);
+  const temporarilyClosed = params.active === false || timedPauseActive;
 
-  if (!params.active) {
+  if (temporarilyClosed) {
+    // Indefinite active=false: next weekly open from now (existing behavior).
+    // Timed pause alone: first schedule-open moment at/after pause expiry.
+    let nextOpenInstant: Date | null = null;
+    if (params.active === false) {
+      nextOpenInstant = findNextOpenInstant(now, params.timeZone, slots);
+    } else if (timedPauseActive && params.paused_until != null) {
+      const until =
+        params.paused_until instanceof Date
+          ? params.paused_until
+          : new Date(params.paused_until);
+      nextOpenInstant = findNextOrderableInstant(until, params.timeZone, slots);
+    }
+
+    const nextOpenAt =
+      nextOpenInstant != null
+        ? formatIsoInTimeZone(nextOpenInstant, params.timeZone)
+        : null;
+
     return {
       status: 'CLOSED',
       can_order: false,
       next_open_at: nextOpenAt,
       next_close_at: null,
       is_temporarily_closed: true,
+      ...pauseFields,
     };
   }
 
   if (!slots.length) {
-    return closedAvailability(false);
+    return {
+      ...closedAvailability(false),
+      ...emptyPauseFields(),
+    };
   }
 
   const openState = resolveOpenState(now, params.timeZone, slots);
@@ -305,10 +419,13 @@ export function computeRestaurantAvailability(params: {
       next_open_at: null,
       next_close_at: nextCloseAt,
       is_temporarily_closed: false,
+      ...emptyPauseFields(),
     };
   }
 
+  const nextOpenInstant = findNextOpenInstant(now, params.timeZone, slots);
   if (nextOpenInstant) {
+    const nextOpenAt = formatIsoInTimeZone(nextOpenInstant, params.timeZone);
     const minutesUntilOpen = (nextOpenInstant.getTime() - now.getTime()) / 60_000;
     const opensSoon =
       minutesUntilOpen > 0 && minutesUntilOpen <= OPENS_SOON_MINUTES + 1 / 60;
@@ -318,6 +435,7 @@ export function computeRestaurantAvailability(params: {
       next_open_at: nextOpenAt,
       next_close_at: null,
       is_temporarily_closed: false,
+      ...emptyPauseFields(),
     };
   }
 
@@ -327,7 +445,23 @@ export function computeRestaurantAvailability(params: {
     next_open_at: null,
     next_close_at: null,
     is_temporarily_closed: false,
+    ...emptyPauseFields(),
   };
+}
+
+/**
+ * True when a scheduled order time falls inside an active timed pause window.
+ * Indefinite `active=false` is intentionally not handled here (existing behavior).
+ */
+export function isScheduleAtWithinTimedPause(
+  scheduleAt: Date,
+  pausedUntil: Date | null | undefined,
+  now: Date = new Date()
+): boolean {
+  if (!isTimedPauseActive(pausedUntil, now) || pausedUntil == null) return false;
+  const until =
+    pausedUntil instanceof Date ? pausedUntil.getTime() : new Date(pausedUntil).getTime();
+  return scheduleAt.getTime() < until;
 }
 
 export async function loadWeeklySchedulesByRestaurantId(
@@ -361,8 +495,16 @@ export async function loadWeeklySchedulesByRestaurantId(
   return map;
 }
 
+export type AvailabilityRestaurantRow = {
+  id: bigint;
+  active?: boolean | null;
+  paused_until?: Date | null;
+  pause_message?: string | null;
+  pause_type?: string | null;
+};
+
 export async function availabilityMapForRestaurants(
-  rows: { id: bigint; active?: boolean | null }[]
+  rows: AvailabilityRestaurantRow[]
 ): Promise<Map<string, RestaurantAvailability>> {
   const map = new Map<string, RestaurantAvailability>();
   if (!rows.length) return map;
@@ -380,6 +522,9 @@ export async function availabilityMapForRestaurants(
         active: row.active !== false,
         schedules: scheduleMap.get(key) ?? [],
         timeZone,
+        paused_until: row.paused_until ?? null,
+        pause_message: row.pause_message ?? null,
+        pause_type: row.pause_type ?? null,
       })
     );
   }
@@ -389,7 +534,8 @@ export async function availabilityMapForRestaurants(
 
 export async function computeAvailabilityForRestaurant(
   restaurantId: bigint,
-  active: boolean
+  active: boolean,
+  pause?: RestaurantPauseFields
 ): Promise<RestaurantAvailability> {
   const [timeZone, scheduleMap] = await Promise.all([
     getDefaultRestaurantTimeZone(),
@@ -399,5 +545,8 @@ export async function computeAvailabilityForRestaurant(
     active,
     schedules: scheduleMap.get(restaurantId.toString()) ?? [],
     timeZone,
+    paused_until: pause?.paused_until ?? null,
+    pause_message: pause?.pause_message ?? null,
+    pause_type: pause?.pause_type ?? null,
   });
 }

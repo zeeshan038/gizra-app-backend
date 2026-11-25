@@ -1,0 +1,209 @@
+{
+  "tags": [
+    {
+      "name": "Admin POS Integration",
+      "description": "Super Admin POS partner setup (also available in Admin Panel → System → 3rd Party POS)."
+    }
+  ],
+  "paths": {
+    "/admin/pos/api-keys": {
+      "post": {
+        "summary": "Create POS API key (token shown once)",
+        "tags": ["Admin POS Integration"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["restaurant_id", "name"],
+                "properties": {
+                  "restaurant_id": { "type": "integer", "example": 3 },
+                  "name": { "type": "string", "example": "Sandbox Verifone" },
+                  "provider": { "type": "string", "example": "verifone" },
+                  "environment": { "type": "string", "enum": ["sandbox", "live"], "example": "sandbox" },
+                  "scopes": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "example": ["orders:read", "orders:write"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Token created",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "data": {
+                    "id": "1",
+                    "token": "gz_test_ab12cd34.secret",
+                    "environment": "sandbox"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List POS API keys",
+        "tags": ["Admin POS Integration"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "restaurant_id", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Keys",
+            "content": {
+              "application/json": {
+                "example": { "status": true, "data": [] }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/pos/api-keys/{id}/revoke": {
+      "post": {
+        "summary": "Revoke POS API key",
+        "tags": ["Admin POS Integration"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Revoked",
+            "content": {
+              "application/json": {
+                "example": { "status": true, "msg": "POS API key revoked" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/pos/connections": {
+      "post": {
+        "summary": "Create POS webhook connection",
+        "tags": ["Admin POS Integration"],
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["restaurant_id", "url"],
+                "properties": {
+                  "restaurant_id": { "type": "integer" },
+                  "url": { "type": "string" },
+                  "provider": { "type": "string" },
+                  "external_merchant_id": { "type": "string" },
+                  "events": { "type": "array", "items": { "type": "string" } },
+                  "active": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "example": { "status": true, "data": { "id": "1" } }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List POS connections",
+        "tags": ["Admin POS Integration"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "restaurant_id", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Connections",
+            "content": {
+              "application/json": {
+                "example": { "status": true, "data": [] }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/pos/connections/{id}": {
+      "patch": {
+        "summary": "Update POS connection",
+        "tags": ["Admin POS Integration"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated",
+            "content": {
+              "application/json": {
+                "example": { "status": true, "msg": "POS connection updated" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/pos/deliveries": {
+      "get": {
+        "summary": "List webhook delivery attempts",
+        "tags": ["Admin POS Integration"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "order_id", "in": "query", "schema": { "type": "integer" } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deliveries",
+            "content": {
+              "application/json": {
+                "example": { "status": true, "data": [] }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/pos/deliveries/{id}/replay": {
+      "post": {
+        "summary": "Replay failed webhook delivery",
+        "tags": ["Admin POS Integration"],
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Replay queued",
+            "content": {
+              "application/json": {
+                "example": { "status": true, "msg": "Delivery replay queued/processed" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

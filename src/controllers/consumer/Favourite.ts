@@ -128,6 +128,9 @@ export const listFavourites = async (req: Request, res: Response): Promise<any> 
         select: {
           id: true,
           active: true,
+          paused_until: true,
+          pause_message: true,
+          pause_type: true,
           latitude: true,
           longitude: true,
           order_count: true,

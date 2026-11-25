@@ -48,14 +48,18 @@ Swagger: {BASE_URL}/swagger/customer — tags Consumer Config (Places, delivery-
 ### A1. Autocomplete (user typing)
 
 ```http
-GET /consumer/config/place-autocomplete?search_text={query}
+GET /consumer/config/place-autocomplete?search_text={query}&lat={userLat}&lng={userLng}
 ```
 
-Optional — rank results near the map / user (worldwide search by default):
+**Required for good ranking:** pass the user’s current map pin / GPS as `lat`+`lng` (or `bias_lat`+`bias_lng`).  
+Without location, Google returns worldwide matches (e.g. “McDonald Island” instead of local McDonald’s / KFC).
 
 ```http
-GET /consumer/config/place-autocomplete?search_text=hebron&bias_lat=31.53&bias_lng=35.10&bias_radius_km=85
+GET /consumer/config/place-autocomplete?search_text=KFC&lat=33.6844&lng=73.0479&bias_radius_km=40
+GET /vendor/config/place-autocomplete?search_text=KFC&lat=33.6844&lng=73.0479
 ```
+
+Optional `region=PK` (or `IL`) to limit to one country.
 
 - Debounce ~300ms; min length 1.
 - Parse body: Google shape — `status`, `predictions[]`, optional `error_message`.
@@ -80,7 +84,11 @@ GET /consumer/config/place-details?placeid={place_id}
 GET /consumer/config/geocode?lat={lat}&lng={lng}
 ```
 
-- On `status: "OK"`: use `results[0].formatted_address` and geometry.
+- On `status: "OK"`:
+  - **Keep the pin’s request `lat`/`lng` as the delivery coordinates** (source of truth).
+  - `results[0].formatted_address` — street address, often prefixed with a nearby place name when found (e.g. `Palace Bakers, 2 Soan Ave…`).
+  - `results[0].name` — nearby POI / shop name when within ~80m (may be `null`).
+  - Show `name` (if present) + address in the UI; never replace pin coords with `geometry.location` unless the user explicitly picked that place.
 
 ### Flow diagram
 
@@ -144,7 +152,9 @@ GET /consumer/config/delivery-fee?restaurant_id={id}&destination_lat={lat}&desti
 Authorization: Bearer {token}
 ```
 
-**200** — show fee; use `distance_km`, `delivery_fee`, `pricing` from body.
+**200** — show fee; use `distance_km`, `delivery_fee`, `pricing` from body. `distance_source` is `google` or `cache` (driving Routes API). Server fee is authoritative on place — do not undercut with a lower client `delivery_fee`.
+
+**503** — if `code == "DELIVERY_DISTANCE_UNAVAILABLE"` and `retryable: true`: driving distance could not be resolved; show retry (do not place the order).
 
 **403** — if `code == "DELIVERY_DISTANCE_TIME_RESTRICTED"`:
 

@@ -123,10 +123,22 @@ export async function buildRestaurantSetupPayload(
     if (row.name) suggestionSet.add(row.name);
   });
 
+  const timedPauseActive =
+    restaurant.paused_until != null &&
+    new Date(restaurant.paused_until).getTime() > Date.now();
+
   return {
     id: rid,
     name: restaurant.name,
     active: restaurant.active,
+    temporary_pause: {
+      is_paused: timedPauseActive,
+      pause_type: timedPauseActive ? restaurant.pause_type : null,
+      paused_until: timedPauseActive
+        ? new Date(restaurant.paused_until as Date).toISOString()
+        : null,
+      pause_message: timedPauseActive ? restaurant.pause_message : null,
+    },
     schedule_order: restaurant.schedule_order,
     delivery: restaurant.delivery,
     take_away: restaurant.take_away,

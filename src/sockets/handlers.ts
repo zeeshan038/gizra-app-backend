@@ -7,6 +7,8 @@ import type {
   ConversationSubscribePayload,
   OrderSubscribeAck,
   OrderSubscribePayload,
+  RestaurantSubscribeAck,
+  RestaurantSubscribePayload,
   SessionReadyPayload,
 } from '../types/sockets/realtime';
 import {
@@ -14,14 +16,17 @@ import {
   deliveryManRoom,
   fcmTopicRoom,
   orderRoom,
+  restaurantAvailabilityRoom,
   restaurantRoom,
   userRoom,
   vendorRoom,
 } from './rooms';
+import prisma from '../config/database';
 
 function joinDefaultRooms(socket: { join: (room: string) => void }, actor: SocketActor): void {
   if (actor.role === 'vendor') {
     socket.join(restaurantRoom(actor.restaurantId));
+    socket.join(restaurantAvailabilityRoom(actor.restaurantId));
     socket.join(vendorRoom(actor.vendorId));
   } else if (actor.role === 'customer') {
     socket.join(userRoom(actor.userId));
@@ -108,6 +113,38 @@ export function registerSocketHandlers(io: Server): void {
       const conversationId = Number(payload?.conversation_id);
       if (Number.isFinite(conversationId) && conversationId > 0) {
         socket.leave(conversationRoom(conversationId));
+      }
+    });
+
+    socket.on(
+      ClientEvents.WATCH_RESTAURANT,
+      async (
+        payload: RestaurantSubscribePayload,
+        ack?: (res: RestaurantSubscribeAck) => void
+      ) => {
+        const restaurantId = Number(payload?.restaurant_id);
+        if (!Number.isFinite(restaurantId) || restaurantId <= 0) {
+          ack?.({ ok: false, msg: 'Invalid restaurant_id' });
+          return;
+        }
+        // Public marketplace status — any authenticated actor may watch an approved restaurant.
+        const restaurant = await prisma.restaurants.findFirst({
+          where: { id: BigInt(restaurantId), status: true },
+          select: { id: true },
+        });
+        if (!restaurant) {
+          ack?.({ ok: false, msg: 'Restaurant not found' });
+          return;
+        }
+        socket.join(restaurantAvailabilityRoom(restaurantId));
+        ack?.({ ok: true, restaurant_id: String(restaurantId) });
+      }
+    );
+
+    socket.on(ClientEvents.UNWATCH_RESTAURANT, (payload: RestaurantSubscribePayload) => {
+      const restaurantId = Number(payload?.restaurant_id);
+      if (Number.isFinite(restaurantId) && restaurantId > 0) {
+        socket.leave(restaurantAvailabilityRoom(restaurantId));
       }
     });
   });

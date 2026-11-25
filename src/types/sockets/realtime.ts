@@ -6,6 +6,7 @@ export const SocketEvents = {
   ORDER_STATUS_CHANGED: 'order_status_changed',
   CHAT_MESSAGE: 'chat_message',
   WITHDRAW_STATUS: 'withdraw_status',
+  RESTAURANT_AVAILABILITY_CHANGED: 'restaurant_availability_changed',
 } as const;
 
 export type SocketServerEventName = (typeof SocketEvents)[keyof typeof SocketEvents];
@@ -16,6 +17,8 @@ export const ClientEvents = {
   UNWATCH_ORDER: 'unwatch_order',
   WATCH_CONVERSATION: 'watch_conversation',
   UNWATCH_CONVERSATION: 'unwatch_conversation',
+  WATCH_RESTAURANT: 'watch_restaurant',
+  UNWATCH_RESTAURANT: 'unwatch_restaurant',
 } as const;
 
 export type SocketClientEventName = (typeof ClientEvents)[keyof typeof ClientEvents];
@@ -103,3 +106,26 @@ export type ConversationSubscribePayload = {
 export type ConversationSubscribeAck =
   | { ok: true; conversation_id: string }
   | { ok: false; msg: string };
+
+export type RestaurantSubscribePayload = {
+  restaurant_id: string | number;
+};
+
+export type RestaurantSubscribeAck =
+  | { ok: true; restaurant_id: string }
+  | { ok: false; msg: string };
+
+/** Public availability snapshot — HTTP APIs remain source of truth. */
+export type RestaurantAvailabilityChangedPayload = {
+  restaurant_id: number;
+  status: 'OPEN' | 'CLOSES_SOON' | 'CLOSED' | 'OPENS_SOON';
+  can_order: boolean;
+  open: boolean;
+  next_open_at: string | null;
+  next_close_at: string | null;
+  is_temporarily_closed: boolean;
+  paused_until: string | null;
+  pause_message: string | null;
+  pause_type: 'EARLY_CLOSE' | 'PAUSE_30' | 'PAUSE_60' | null;
+  updated_at: string;
+};

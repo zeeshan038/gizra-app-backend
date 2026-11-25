@@ -10,7 +10,7 @@ import {
   getPaymentMethods,
   getVehicles,
 } from '../../controllers/consumer/Places';
-import { getDeliveryFeeQuote } from '../../controllers/consumer/DeliveryFee';
+import { getDeliveryFeeQuote, postDeliveryFeeBatch } from '../../controllers/consumer/DeliveryFee';
 import { getConsumerEmergencyServicePause } from '../../controllers/consumer/EmergencyServicePause';
 import { registerPlacesConfigRoutes } from '../shared/placesConfigRoutes';
 
@@ -22,6 +22,7 @@ router.get('/', getConsumerAppConfiguration);
 router.get('/zone-id', getZoneIdFromCoordinates);
 registerPlacesConfigRoutes(router);
 router.get('/delivery-fee', getDeliveryFeeQuote);
+router.post('/delivery-fee/batch', postDeliveryFeeBatch);
 router.get('/extra-charge', getExtraCharge);
 router.get('/vehicles', getVehicles);
 router.get('/payment-methods', getPaymentMethods);

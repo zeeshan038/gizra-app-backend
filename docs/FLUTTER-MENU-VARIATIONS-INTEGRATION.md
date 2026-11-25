@@ -297,5 +297,7 @@ First-time **Tour** / **Guide** on Listing Manager and Add Item drawer are **web
 - Re-save or create items with new variation group types so DB JSON includes `selectionMode`.
 - Pull latest `gizra_customer.openapi.json` after backend deploy and update Dart models accordingly.
 
+**Multi-slot combos (4-burger deal, step UI):** see [FLUTTER-COMBO-STEP-FLOW.md](./FLUTTER-COMBO-STEP-FLOW.md).
+
 **Questions:** Backend team — reference PR/files for Burger Box modifier groups and swagger.catalog.overlay.json schema updates.
 

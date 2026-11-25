@@ -52,7 +52,8 @@ export const getDashboardYearlyChart = async (req: Request, res: Response): Prom
   }
 
   try {
-    const data = await getVendorDashboardYearlyChart(ctx.vendorId);
+    // Per-restaurant (not vendor-wide) — a new outlet must not inherit another restaurant's earnings.
+    const data = await getVendorDashboardYearlyChart(ctx.restaurantId);
     return res.status(200).json({ status: true, data });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });

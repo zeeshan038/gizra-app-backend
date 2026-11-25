@@ -20,6 +20,7 @@ import {
 import {
   computeAvailabilityForRestaurant,
   getDefaultRestaurantTimeZone,
+  isScheduleAtWithinTimedPause,
 } from '../../utils/consumer/restaurantAvailability';
 import {
   foodSellingTimeErrorMessage,
@@ -41,6 +42,7 @@ import {
   evaluateEmergencyServicePause,
 } from '../../utils/delivery/emergencyServicePause';
 import { resolveDeliveryDistanceKm } from '../../utils/delivery/deliveryDistanceKm';
+import { isDeliveryDistanceUnavailableError } from '../../utils/delivery/deliveryDistanceError';
 import { parseRestaurantCoordinates } from '../../utils/consumer/restaurantDiscoverHelpers';
 import {
   clampResolvedUnitToClientLine,
@@ -48,6 +50,13 @@ import {
   mergeCartLineVariations,
   resolveCheckoutServerUnitBase,
 } from '../../utils/consumer/checkoutFoodUnitPrice';
+import { markAbandonedCartRecovered } from '../../utils/analytics/abandonedCart';
+import {
+  flattenComboSelectionsForKitchen,
+  parseComboDefinition,
+  parseComboSelections,
+  validateComboSelections,
+} from '../../utils/consumer/comboDefinition';
 import {
   applyBundledAddonLinePriceRule,
   resolveCartLineUnitFoodPrice,
@@ -461,6 +470,7 @@ type CartLineInput = {
   add_on_placements?: unknown[];
   variations?: unknown[];
   variation_options?: unknown[];
+  combo_selections?: unknown[];
 };
 
 type ResolvedCartLine = CartLineInput & {
@@ -487,6 +497,7 @@ function normalizeCartRow(row: {
   add_on_placements?: string | null;
   variations: string | null;
   variation_options: string | null;
+  combo_selections?: string | null;
 }): ResolvedCartLine {
   return {
     cart_id: row.id,
@@ -499,6 +510,7 @@ function normalizeCartRow(row: {
     add_on_placements: parseJsonField<unknown[]>(row.add_on_placements ?? null, []),
     variations: parseJsonField<unknown[]>(row.variations, []),
     variation_options: parseJsonField<unknown[]>(row.variation_options, []),
+    combo_selections: parseJsonField<unknown[]>(row.combo_selections ?? null, []),
   };
 }
 
@@ -814,10 +826,20 @@ export async function executePlaceOrder(params: {
   if (!payload.schedule_at) {
     const availability = await computeAvailabilityForRestaurant(
       restaurant.id,
-      restaurant.active
+      restaurant.active,
+      {
+        paused_until: restaurant.paused_until,
+        pause_message: restaurant.pause_message,
+        pause_type: restaurant.pause_type,
+      }
     );
     if (!availability.can_order) {
-      throw new PlaceOrderError('Restaurant is closed', 403, 'order_time');
+      throw new PlaceOrderError('Restaurant is closed', 403, 'order_time', {
+        is_temporarily_closed: availability.is_temporarily_closed,
+        paused_until: availability.paused_until,
+        pause_message: availability.pause_message,
+        pause_type: availability.pause_type,
+      });
     }
   }
 
@@ -828,6 +850,22 @@ export async function executePlaceOrder(params: {
     const scheduleDate = new Date(payload.schedule_at);
     if (scheduleDate.getTime() < Date.now() - 5 * 60 * 1000) {
       throw new PlaceOrderError('You cannot schedule an order in the past', 403, 'order_time');
+    }
+    // Timed pause only — indefinite active=false keeps existing scheduled-order behavior.
+    if (isScheduleAtWithinTimedPause(scheduleDate, restaurant.paused_until)) {
+      throw new PlaceOrderError(
+        'Restaurant is temporarily closed at the selected time',
+        403,
+        'order_time',
+        {
+          is_temporarily_closed: true,
+          paused_until: restaurant.paused_until
+            ? new Date(restaurant.paused_until).toISOString()
+            : null,
+          pause_message: restaurant.pause_message,
+          pause_type: restaurant.pause_type,
+        }
+      );
     }
   }
 
@@ -934,20 +972,39 @@ export async function executePlaceOrder(params: {
       throw new PlaceOrderError('Maximum cart quantity exceeded', 406, 'quantity');
     }
 
+    const comboDef = parseComboDefinition(
+      (food as { combo_definition?: string | null }).combo_definition ?? null
+    );
+    if (comboDef) {
+      const comboCheck = validateComboSelections({
+        definition: comboDef,
+        selections: line.combo_selections,
+        productVariationsJson: food.variations,
+      });
+      if (!comboCheck.ok) {
+        throw new PlaceOrderError(comboCheck.msg, 400, comboCheck.code);
+      }
+      line.combo_selections = comboCheck.selections;
+    }
+
     const selectedVariations = mergeCartLineVariations(line);
     const serverUnitBase = resolveCheckoutServerUnitBase({
       catalogBasePrice: Number(food.price),
       productVariationsJson: food.variations,
       legacyVariations: legacyVariationsByFoodId.get(Number(food.id)),
       selectedVariations,
+      comboSelections: line.combo_selections,
     });
     const addonData = await calculateAddonPrice(
       line.add_on_ids ?? [],
       line.add_on_qtys ?? [],
       line.add_on_placements
     );
+    const comboSlots = parseComboSelections(line.combo_selections);
     const variationForStorage = enrichVariationSelectionsForKitchen(
-      mergeCartLineVariations(line) ?? []
+      comboSlots.length
+        ? flattenComboSelectionsForKitchen(comboSlots, comboDef)
+        : mergeCartLineVariations(line) ?? []
     );
     const addonPerUnit = addonData.total_add_on_price;
     const clientLineUnit = coerceCartLinePriceToUnit({
@@ -1071,13 +1128,22 @@ export async function executePlaceOrder(params: {
     if (!origin) {
       throw new PlaceOrderError('Restaurant location is not configured', 403, 'restaurant');
     }
-    const resolved = await resolveDeliveryDistanceKm({
-      originLat: origin.latitude,
-      originLng: origin.longitude,
-      destinationLat: dest.lat,
-      destinationLng: dest.lng,
-    });
-    distanceKmForOrder = resolved.distance_km;
+    try {
+      const resolved = await resolveDeliveryDistanceKm({
+        originLat: origin.latitude,
+        originLng: origin.longitude,
+        destinationLat: dest.lat,
+        destinationLng: dest.lng,
+      });
+      distanceKmForOrder = resolved.distance_km;
+    } catch (err) {
+      if (isDeliveryDistanceUnavailableError(err)) {
+        throw new PlaceOrderError(err.message, err.statusCode, err.code, {
+          retryable: true,
+        });
+      }
+      throw err;
+    }
 
     const timeRestrict = await evaluateDeliveryDistanceTimeRestriction({
       orderType: payload.order_type,
@@ -1111,29 +1177,35 @@ export async function executePlaceOrder(params: {
     throw new PlaceOrderError(deliveryFee.error, 403, 'coordinates');
   }
 
-  const quotedDeliveryFee = clientQuotedDeliveryFee(payload);
-  let freeDelivery: { delivery_charge: number; free_delivery_by: string | null };
-
-  if (!dryRun && payload.order_type === 'delivery' && quotedDeliveryFee != null) {
+  // Server-authoritative delivery pricing: always apply free-delivery rules.
+  // Client delivery_fee / delivery_charge are advisory only (tolerance match for float noise).
+  // Manual dispatch fees are set via vendor/admin request-driver body, not this path.
+  const freeDelivery = await applyFreeDeliveryRules({
+    productSubtotal: productPrice + totalAddonPrice,
+    couponDiscount: couponResult.discount,
+    restaurantDiscount: restaurantDiscountAmount,
+    distance: distanceKmForOrder,
+    restaurant,
+  });
+  if (freeDelivery.delivery_charge >= 0) {
     deliveryFee = {
       ...deliveryFee,
-      delivery_charge: quotedDeliveryFee,
+      delivery_charge: freeDelivery.delivery_charge,
     };
-    freeDelivery = { delivery_charge: quotedDeliveryFee, free_delivery_by: null };
-  } else {
-    freeDelivery = await applyFreeDeliveryRules({
-      productSubtotal: productPrice + totalAddonPrice,
-      couponDiscount: couponResult.discount,
-      restaurantDiscount: restaurantDiscountAmount,
-      distance: distanceKmForOrder,
-      restaurant,
-    });
-    if (freeDelivery.delivery_charge >= 0) {
-      deliveryFee = {
-        ...deliveryFee,
-        delivery_charge: freeDelivery.delivery_charge,
-      };
-    }
+  }
+
+  const quotedDeliveryFee = clientQuotedDeliveryFee(payload);
+  if (
+    !dryRun &&
+    payload.order_type === 'delivery' &&
+    quotedDeliveryFee != null &&
+    Math.abs(quotedDeliveryFee - deliveryFee.delivery_charge) > PRICE_TOLERANCE
+  ) {
+    console.warn(
+      '[place-order] ignoring client delivery_fee mismatch',
+      `client=${quotedDeliveryFee}`,
+      `server=${deliveryFee.delivery_charge}`
+    );
   }
 
   const additionalCharge = await resolveAdditionalCharge();
@@ -1375,6 +1447,12 @@ export async function executePlaceOrder(params: {
     isGuest,
     isBuyNow: payload.is_buy_now ?? false,
     cartIds: cartLines.map((l) => l.cart_id).filter(Boolean) as bigint[],
+  });
+
+  void markAbandonedCartRecovered({
+    userId,
+    isGuest,
+    orderId: order.id,
   });
 
   return {

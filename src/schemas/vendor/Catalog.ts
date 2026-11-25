@@ -22,6 +22,11 @@ export const foodReorderSchema = Joi.object({
   category_id: Joi.number().integer().positive().optional(),
 });
 
+/** Category drag order for a restaurant menu. */
+export const categoryReorderSchema = Joi.object({
+  ordered_ids: Joi.array().items(Joi.number().integer().positive()).min(1).max(5000).required(),
+});
+
 export const createFoodSchema = Joi.object({
   name: Joi.string().required(),
   description: Joi.string().allow('').optional().default(''),
@@ -53,6 +58,17 @@ export const createFoodSchema = Joi.object({
   available_time_ends: Joi.string().allow('', null).optional(),
   veg: Joi.boolean().optional().default(false),
   addons_pizza_half_whole: Joi.boolean().optional(),
+  combo_definition: Joi.object({
+    enabled: Joi.boolean().required(),
+    slot_count: Joi.number().integer().min(2).max(20).when('enabled', {
+      is: true,
+      then: Joi.required(),
+      otherwise: Joi.optional(),
+    }),
+    slot_label: Joi.string().allow('').max(40).optional().default('Item'),
+  })
+    .optional()
+    .allow(null),
 });
 
 const foodAddOnsSchema = Joi.array()
@@ -88,6 +104,17 @@ export const updateFoodSchema = Joi.object({
   available_time_ends: Joi.string().allow('', null).optional(),
   veg: Joi.boolean().optional(),
   addons_pizza_half_whole: Joi.boolean().optional(),
+  combo_definition: Joi.object({
+    enabled: Joi.boolean().required(),
+    slot_count: Joi.number().integer().min(2).max(20).when('enabled', {
+      is: true,
+      then: Joi.required(),
+      otherwise: Joi.optional(),
+    }),
+    slot_label: Joi.string().allow('').max(40).optional(),
+  })
+    .optional()
+    .allow(null),
 });
 
 export const aiTextSchema = Joi.object({

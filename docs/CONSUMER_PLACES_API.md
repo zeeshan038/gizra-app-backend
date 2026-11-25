@@ -13,16 +13,17 @@ No `Authorization` header required (public).
 ### 1. Autocomplete (while typing)
 
 ```http
-GET /consumer/config/place-autocomplete?search_text=Tel%20Aviv
+GET /consumer/config/place-autocomplete?search_text=KFC&lat=33.6844&lng=73.0479
 ```
 
-Optional query (override server default bias near Hebron / Gush Etzion):
+**Always send the user’s map/GPS** as `lat`+`lng` (aliases: `bias_lat`+`bias_lng`, `latitude`+`longitude`). Without it, results are worldwide and local branches sort poorly.
 
 ```http
 GET /consumer/config/place-autocomplete?search_text=hebron&bias_lat=31.53&bias_lng=35.10&bias_radius_km=85
+GET /vendor/config/place-autocomplete?search_text=KFC&lat=33.6844&lng=73.0479&region=PK
 ```
 
-Server env defaults: `GOOGLE_PLACES_BIAS_LAT`, `GOOGLE_PLACES_BIAS_LNG`, `GOOGLE_PLACES_BIAS_RADIUS_KM`.
+Server env fallbacks (only when the app does not send lat/lng): `GOOGLE_PLACES_BIAS_LAT`, `GOOGLE_PLACES_BIAS_LNG`, `GOOGLE_PLACES_BIAS_RADIUS_KM`.
 
 Response: Google Places Autocomplete JSON (`predictions`, `status`, …).
 
@@ -75,7 +76,8 @@ In [Google Cloud Console](https://console.cloud.google.com/) for that key’s pr
 
 - **Places API (New)** — autocomplete + place details (default backend path)
 - Geocoding API — optional; reverse geocode (`/geocode`) falls back to **Places (New) searchNearby** if Geocoding is off
-- Distance Matrix API — delivery distance fallback
+- **Routes API** — delivery fee / restriction driving distance (`computeRoutes`, `DRIVE`) via `resolveDeliveryDistanceKm`
+- Distance Matrix API — optional legacy `GET .../config/distance` (walking) proxy only
 
 Autocomplete region scope (env):
 

@@ -848,7 +848,7 @@
     "/vendor/restaurant/active-status": {
       "put": {
         "summary": "Open or temporarily close restaurant",
-        "description": "Vendor panel **temporary close** override. `closed: true` sets `restaurants.active` to false — consumer restaurant APIs return `is_temporarily_closed: true`, `can_order: false`, and place-order is blocked until reopened. Weekly hours are unchanged; this overrides accepting orders immediately.",
+        "description": "Vendor panel **indefinite** temporary close. `closed: true` sets `restaurants.active` to false — consumer APIs return `is_temporarily_closed: true`, `can_order: false`, until reopened. Weekly hours unchanged.\n\nFor **timed** pauses (30/60 min or early close for rest of shift), use `POST/GET/DELETE /vendor/restaurant/temporary-pause` instead.",
         "parameters": [
           {
             "$ref": "#/components/parameters/VendorAuthorizationHeader"
@@ -1675,6 +1675,49 @@
           },
           "400": {
             "description": "Validation or items not in category"
+          }
+        },
+        "tags": [
+          "Vendor Catalog"
+        ]
+      }
+    },
+    "/vendor/catalog/category/reorder": {
+      "put": {
+        "summary": "Reorder menu categories (drag-and-drop)",
+        "description": "Restaurant panel drag-and-drop: set display order for **category tabs** on the customer restaurant page. Body: `ordered_ids` top-to-bottom. Consumer `GET /consumer/restaurants/{id}/categories` sorts by `position` ascending.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ordered_ids"
+                ],
+                "properties": {
+                  "ordered_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "example": [
+                      3,
+                      1,
+                      7
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Order saved"
+          },
+          "400": {
+            "description": "Validation or categories invalid for this restaurant"
           }
         },
         "tags": [
@@ -5282,7 +5325,7 @@
     "/consumer/restaurants/specific/{id}": {
       "get": {
         "summary": "Restaurant details",
-        "description": "Single restaurant profile for the menu / details screen. Includes **server-computed availability** (`status`, `can_order`, `next_open_at`, `next_close_at`, `is_temporarily_closed`; legacy `open` = `can_order`), menu category chips, and vendor `active` (temporary close flag). Public; optional Bearer for visit tracking.",
+        "description": "Single restaurant profile for the menu / details screen. Includes **server-computed availability** (`status`, `can_order`, `next_open_at`, `next_close_at`, `is_temporarily_closed`, `paused_until`, `pause_message`, `pause_type`; legacy `open` = `can_order`), menu category chips, and vendor `active` (indefinite close flag). Timed pause fields are null when expired/unset. Public; optional Bearer for visit tracking.",
         "parameters": [
           {
             "name": "id",
@@ -5325,6 +5368,9 @@
                     "next_close_at": "2026-10-27T23:00:00+02:00",
                     "is_temporarily_closed": false,
                     "open": true,
+                    "paused_until": null,
+                    "pause_message": null,
+                    "pause_type": null,
                     "categories": [
                       {
                         "id": "1",
@@ -5891,7 +5937,7 @@
     "/consumer/cart/add": {
       "post": {
         "summary": "Add to cart",
-        "description": "Same auth as GET `/consumer/cart/`. Requires `restaurant_id` (one restaurant per cart). Duplicate line identity merges quantity (**200**); new line **201**. Response `data` is a full `ConsumerCartLineItem`.\n\nReturns **403** with `code: food_selling_time`, `code: food_stock`, or another restaurant in cart.",
+        "description": "Same auth as GET `/consumer/cart/`. Requires `restaurant_id` (one restaurant per cart). Duplicate line identity merges quantity (**200**); new line **201**. Response `data` is a full `ConsumerCartLineItem`.\n\nFor multi-slot combos (`food.combo_definition.enabled`), send complete `combo_selections` (one entry per slot). Incomplete combo → **400** `combo_incomplete` / `combo_slot_incomplete`.\n\nReturns **403** with `code: food_selling_time`, `code: food_stock`, or another restaurant in cart.",
         "parameters": [
           {
             "$ref": "#/components/parameters/ConsumerCartAuthHeader"
@@ -5943,15 +5989,28 @@
             }
           },
           "400": {
-            "description": "Bad Request - Invalid input or missing parameters",
+            "description": "Bad Request — validation error or incomplete multi-slot combo",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiError"
                 },
-                "example": {
-                  "status": false,
-                  "msg": "Bad Request"
+                "examples": {
+                  "validation": {
+                    "summary": "Invalid body",
+                    "value": {
+                      "status": false,
+                      "msg": "Bad Request"
+                    }
+                  },
+                  "combo_incomplete": {
+                    "summary": "Combo slots incomplete",
+                    "value": {
+                      "status": false,
+                      "msg": "Please complete all 4 burger selections",
+                      "code": "combo_incomplete"
+                    }
+                  }
                 }
               }
             }
@@ -6048,40 +6107,115 @@
           }
         },
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "is_guest": {
-                    "example": "any"
-                  },
-                  "guest_id": {
-                    "example": "any"
-                  },
-                  "item_id": {
-                    "example": "any"
-                  },
-                  "variations": {
-                    "example": "any"
-                  },
-                  "item_type": {
-                    "example": "any"
-                  },
-                  "price": {
-                    "example": "any"
-                  },
-                  "quantity": {
-                    "example": "any"
-                  },
-                  "add_on_ids": {
-                    "example": "any"
-                  },
-                  "add_on_qtys": {
-                    "example": "any"
-                  },
-                  "variation_options": {
-                    "example": "any"
+                "$ref": "#/components/schemas/ConsumerCartAddBody"
+              },
+              "examples": {
+                "normalItem": {
+                  "summary": "Normal food with variations",
+                  "value": {
+                    "restaurant_id": 3,
+                    "item_id": 102,
+                    "item_type": "Food",
+                    "price": 68,
+                    "quantity": 1,
+                    "add_on_ids": [],
+                    "add_on_qtys": [],
+                    "variations": [],
+                    "variation_options": [
+                      {
+                        "name": "Paid Upgrades",
+                        "values": {
+                          "label": [
+                            "Extra Cheese"
+                          ]
+                        }
+                      }
+                    ],
+                    "combo_selections": []
+                  }
+                },
+                "fourBurgerCombo": {
+                  "summary": "4-burger combo (all slots required)",
+                  "value": {
+                    "restaurant_id": 3,
+                    "item_id": 9002,
+                    "item_type": "Food",
+                    "price": 129,
+                    "quantity": 1,
+                    "add_on_ids": [],
+                    "add_on_qtys": [],
+                    "variations": [],
+                    "variation_options": [],
+                    "combo_selections": [
+                      {
+                        "slot_index": 1,
+                        "slot_label": "Burger #1",
+                        "variation_options": [
+                          {
+                            "name": "Doneness",
+                            "values": {
+                              "label": [
+                                "Medium"
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "slot_index": 2,
+                        "slot_label": "Burger #2",
+                        "variation_options": [
+                          {
+                            "name": "Doneness",
+                            "values": {
+                              "label": [
+                                "Well Done"
+                              ]
+                            }
+                          },
+                          {
+                            "name": "Paid Upgrades",
+                            "values": {
+                              "label": [
+                                "Extra Cheese"
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "slot_index": 3,
+                        "slot_label": "Burger #3",
+                        "variation_options": [
+                          {
+                            "name": "Doneness",
+                            "values": {
+                              "label": [
+                                "Medium"
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "slot_index": 4,
+                        "slot_label": "Burger #4",
+                        "variation_options": [
+                          {
+                            "name": "Doneness",
+                            "values": {
+                              "label": [
+                                "Medium"
+                              ]
+                            }
+                          }
+                        ]
+                      }
+                    ]
                   }
                 }
               }
@@ -8794,6 +8928,105 @@
         ]
       }
     },
+    "/consumer/config/delivery-fee/batch": {
+      "post": {
+        "summary": "Batch quote delivery fees (home cards)",
+        "operationId": "postConsumerConfigDeliveryFeeBatch",
+        "description": "Quote delivery fees for many restaurants in **one request** (home screen). Uses the same road-distance + tiered pricing path as **GET /consumer/config/delivery-fee** (`quoteDeliveryFeeForDestination`). Returns HTTP **200** with per-restaurant `quotes[]` (`ok: true|false`) so one failure does not fail the whole list. Max **50** `restaurant_ids`. Public; no Bearer.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumerDeliveryFeeBatchRequest"
+              },
+              "example": {
+                "destination_lat": 32.0853,
+                "destination_lng": 34.7818,
+                "restaurant_ids": [
+                  3,
+                  7,
+                  12,
+                  19
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Per-restaurant quotes (partial success allowed)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsumerDeliveryFeeBatchResponse"
+                },
+                "example": {
+                  "destination_lat": 32.0853,
+                  "destination_lng": 34.7818,
+                  "quotes": [
+                    {
+                      "restaurant_id": 3,
+                      "ok": true,
+                      "distance_km": 4.2,
+                      "distance_source": "cache",
+                      "delivery_fee": 9.4,
+                      "original_delivery_fee": 9.4,
+                      "pricing": {
+                        "base_fee": 5,
+                        "base_distance_km": 2,
+                        "extra_per_km": 2,
+                        "extra_km": 2.2,
+                        "subtotal_before_surge": 9.4,
+                        "surge_percent": 0
+                      }
+                    },
+                    {
+                      "restaurant_id": 7,
+                      "ok": false,
+                      "code": "DELIVERY_DISTANCE_TIME_RESTRICTED",
+                      "msg": "Main road blocked due to an accident — delivery limited to nearby addresses.",
+                      "delivery_fee": null,
+                      "distance_km": 14.02,
+                      "max_distance_km": 10,
+                      "restriction_end_time": "20:30",
+                      "timezone": "Asia/Jerusalem"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Validation error (missing coords, empty/too many restaurant_ids)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "\"restaurant_ids\" must contain less than or equal to 50 items"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Consumer Config"
+        ]
+      }
+    },
     "/consumer/config/place-autocomplete": {
       "get": {
         "summary": "Places autocomplete (server proxy)",
@@ -8983,7 +9216,7 @@
       "get": {
         "summary": "Reverse geocode lat/lng (server proxy)",
         "operationId": "getConsumerConfigGeocode",
-        "description": "Map pin flow: user selects coordinates without a `place_id` → get human-readable address. Backend uses `GOOGLE_MAPS_API_KEY`. Returns Google Geocoding JSON. Use `results[0].formatted_address` and geometry when status is `OK`.",
+        "description": "Map pin / GPS flow: lat/lng → human-readable address.\n\nBackend uses `GOOGLE_MAPS_API_KEY` (Geocoding + Places Nearby). When a POI/business is within ~80m of the pin, the response includes `results[0].name` and prefixes it on `formatted_address` (e.g. `Palace Bakers, 2 Soan Ave…`).\n\n**Flutter:** keep the **request** `lat`/`lng` as delivery coordinates (source of truth). Use `name` + `formatted_address` for display only — do not move the pin to `geometry.location` unless the user picks that place.\n\nSee `docs/FLUTTER_PLACES_AND_DELIVERY_RESTRICTION.md` § A3.",
         "parameters": [
           {
             "name": "lat",
@@ -8991,7 +9224,7 @@
             "required": true,
             "schema": {
               "type": "number",
-              "example": 31.768319
+              "example": 33.565098
             }
           },
           {
@@ -9000,47 +9233,39 @@
             "required": true,
             "schema": {
               "type": "number",
-              "example": 35.21371
+              "example": 73.151956
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Google Geocoding payload (pass-through)",
+            "description": "Geocode payload (street address + optional nearby place `name`)",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/GoogleGeocodeResponse"
                 },
                 "example": {
+                  "status": "OK",
                   "results": [
                     {
-                      "formatted_address": "Jerusalem",
+                      "name": "Palace Bakers",
+                      "formatted_address": "Palace Bakers, 2 Soan Ave, Soan Gardens Block B Islamabad, Pakistan",
                       "geometry": {
                         "location": {
-                          "lat": 31.768319,
-                          "lng": 35.21371
+                          "lat": 33.5650926,
+                          "lng": 73.1519571
                         },
-                        "location_type": "APPROXIMATE",
-                        "viewport": {
-                          "northeast": {
-                            "lat": 31.882907,
-                            "lng": 35.261879
-                          },
-                          "southwest": {
-                            "lat": 31.709678,
-                            "lng": 35.085431
-                          }
-                        }
+                        "location_type": "ROOFTOP"
                       },
-                      "place_id": "ChIJecHC4jRkAhMRCpciZik3B00",
+                      "place_id": "ChIJmx6kh0zs3zgRVVvhr0MjOZ8",
                       "types": [
-                        "locality",
-                        "political"
+                        "establishment",
+                        "point_of_interest",
+                        "geocode"
                       ]
                     }
-                  ],
-                  "status": "OK"
+                  ]
                 }
               }
             }
@@ -10353,7 +10578,7 @@
       "get": {
         "summary": "Reverse geocode lat/lng (server proxy)",
         "operationId": "getVendorConfigGeocode",
-        "description": "Map pin flow: user selects coordinates without a `place_id` → get human-readable address. Backend uses `GOOGLE_MAPS_API_KEY`. Returns Google Geocoding JSON. Use `results[0].formatted_address` and geometry when status is `OK`. Same server proxy as consumer; use this prefix from the vendor app.",
+        "description": "Same as **GET /consumer/config/geocode**: street address + optional nearby POI `name` within ~80m. Keep request lat/lng as coordinates; use `name` + `formatted_address` for display. Vendor app prefix.",
         "parameters": [
           {
             "name": "lat",
@@ -10361,7 +10586,7 @@
             "required": true,
             "schema": {
               "type": "number",
-              "example": 31.768319
+              "example": 33.565098
             }
           },
           {
@@ -10370,47 +10595,39 @@
             "required": true,
             "schema": {
               "type": "number",
-              "example": 35.21371
+              "example": 73.151956
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Google Geocoding payload (pass-through)",
+            "description": "Geocode payload (street address + optional nearby place `name`)",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/GoogleGeocodeResponse"
                 },
                 "example": {
+                  "status": "OK",
                   "results": [
                     {
-                      "formatted_address": "Jerusalem",
+                      "name": "Palace Bakers",
+                      "formatted_address": "Palace Bakers, 2 Soan Ave, Soan Gardens Block B Islamabad, Pakistan",
                       "geometry": {
                         "location": {
-                          "lat": 31.768319,
-                          "lng": 35.21371
+                          "lat": 33.5650926,
+                          "lng": 73.1519571
                         },
-                        "location_type": "APPROXIMATE",
-                        "viewport": {
-                          "northeast": {
-                            "lat": 31.882907,
-                            "lng": 35.261879
-                          },
-                          "southwest": {
-                            "lat": 31.709678,
-                            "lng": 35.085431
-                          }
-                        }
+                        "location_type": "ROOFTOP"
                       },
-                      "place_id": "ChIJecHC4jRkAhMRCpciZik3B00",
+                      "place_id": "ChIJmx6kh0zs3zgRVVvhr0MjOZ8",
                       "types": [
-                        "locality",
-                        "political"
+                        "establishment",
+                        "point_of_interest",
+                        "geocode"
                       ]
                     }
-                  ],
-                  "status": "OK"
+                  ]
                 }
               }
             }
@@ -12293,7 +12510,7 @@
       "get": {
         "summary": "Reverse geocode lat/lng (server proxy)",
         "operationId": "getDeliveryManConfigGeocode",
-        "description": "Map pin flow: user selects coordinates without a `place_id` → get human-readable address. Backend uses `GOOGLE_MAPS_API_KEY`. Returns Google Geocoding JSON. Use `results[0].formatted_address` and geometry when status is `OK`. Same server proxy as consumer; use this prefix from the driver app.",
+        "description": "Same as **GET /consumer/config/geocode**: street address + optional nearby POI `name` within ~80m. Keep request lat/lng as coordinates; use `name` + `formatted_address` for display. Driver app prefix.",
         "parameters": [
           {
             "name": "lat",
@@ -12301,7 +12518,7 @@
             "required": true,
             "schema": {
               "type": "number",
-              "example": 31.768319
+              "example": 33.565098
             }
           },
           {
@@ -12310,47 +12527,39 @@
             "required": true,
             "schema": {
               "type": "number",
-              "example": 35.21371
+              "example": 73.151956
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Google Geocoding payload (pass-through)",
+            "description": "Geocode payload (street address + optional nearby place `name`)",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/GoogleGeocodeResponse"
                 },
                 "example": {
+                  "status": "OK",
                   "results": [
                     {
-                      "formatted_address": "Jerusalem",
+                      "name": "Palace Bakers",
+                      "formatted_address": "Palace Bakers, 2 Soan Ave, Soan Gardens Block B Islamabad, Pakistan",
                       "geometry": {
                         "location": {
-                          "lat": 31.768319,
-                          "lng": 35.21371
+                          "lat": 33.5650926,
+                          "lng": 73.1519571
                         },
-                        "location_type": "APPROXIMATE",
-                        "viewport": {
-                          "northeast": {
-                            "lat": 31.882907,
-                            "lng": 35.261879
-                          },
-                          "southwest": {
-                            "lat": 31.709678,
-                            "lng": 35.085431
-                          }
-                        }
+                        "location_type": "ROOFTOP"
                       },
-                      "place_id": "ChIJecHC4jRkAhMRCpciZik3B00",
+                      "place_id": "ChIJmx6kh0zs3zgRVVvhr0MjOZ8",
                       "types": [
-                        "locality",
-                        "political"
+                        "establishment",
+                        "point_of_interest",
+                        "geocode"
                       ]
                     }
-                  ],
-                  "status": "OK"
+                  ]
                 }
               }
             }
@@ -13470,6 +13679,101 @@
           }
         }
       },
+      "ConsumerCartAddBody": {
+        "type": "object",
+        "required": [
+          "restaurant_id",
+          "item_id",
+          "price",
+          "quantity"
+        ],
+        "description": "Add a cart line. For combo foods send complete `combo_selections` (slot_index 1..N).",
+        "properties": {
+          "restaurant_id": {
+            "type": "number",
+            "example": 3
+          },
+          "item_id": {
+            "type": "number",
+            "example": 9002
+          },
+          "item_type": {
+            "type": "string",
+            "enum": [
+              "Food",
+              "ItemCampaign"
+            ],
+            "default": "Food"
+          },
+          "price": {
+            "type": "number",
+            "description": "Unit total: base + all slot extras + add-ons",
+            "example": 129
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "example": 1
+          },
+          "add_on_ids": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "default": []
+          },
+          "add_on_qtys": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "default": []
+          },
+          "add_on_placements": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "whole",
+                "half_a",
+                "half_b"
+              ]
+            },
+            "default": []
+          },
+          "variations": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "description": "Normal items. For combos usually empty — use combo_selections instead.",
+            "default": []
+          },
+          "variation_options": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            },
+            "default": []
+          },
+          "combo_selections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComboSlotSelection"
+            },
+            "description": "Required when food.combo_definition.enabled — one object per slot",
+            "default": []
+          },
+          "is_guest": {
+            "type": "boolean",
+            "default": false
+          },
+          "guest_id": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      },
       "ConsumerCartLineItem": {
         "type": "object",
         "description": "Server-authoritative cart line — display fields enriched on every GET/add/update/add-multiple response.",
@@ -13564,6 +13868,13 @@
             "type": "array",
             "items": {
               "type": "object"
+            }
+          },
+          "combo_selections": {
+            "type": "array",
+            "description": "Per-slot modifiers for multi-item combos. Empty for normal items. See docs/FLUTTER-COMBO-STEP-FLOW.md.",
+            "items": {
+              "$ref": "#/components/schemas/ComboSlotSelection"
             }
           },
           "is_available_now": {
@@ -14975,7 +15286,33 @@
             "type": "string"
           },
           "active": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Indefinite open/close (`PUT /vendor/restaurant/active-status`)."
+          },
+          "temporary_pause": {
+            "type": "object",
+            "description": "Timed pause snapshot (same semantics as GET /vendor/restaurant/temporary-pause). Null fields when not paused.",
+            "properties": {
+              "is_paused": {
+                "type": "boolean"
+              },
+              "pause_type": {
+                "nullable": true,
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RestaurantPauseType"
+                  }
+                ]
+              },
+              "paused_until": {
+                "type": "string",
+                "nullable": true
+              },
+              "pause_message": {
+                "type": "string",
+                "nullable": true
+              }
+            }
           },
           "schedule_order": {
             "type": "boolean"
@@ -17428,14 +17765,23 @@
       },
       "GoogleGeocodeResponse": {
         "type": "object",
+        "description": "Reverse geocode response. Street address from Google Geocoding, enriched with nearby POI `name` when found within ~80m.",
         "properties": {
           "results": {
             "type": "array",
             "items": {
               "type": "object",
               "properties": {
+                "name": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Nearby place / business name when the pin is close to a POI (e.g. Palace Bakers). Null if none within ~80m.",
+                  "example": "Palace Bakers"
+                },
                 "formatted_address": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Human-readable address. Often prefixed with `name` when a nearby POI is found (e.g. `Palace Bakers, 2 Soan Ave…`).",
+                  "example": "Palace Bakers, 2 Soan Ave, Soan Gardens Block B Islamabad, Pakistan"
                 },
                 "geometry": {
                   "type": "object",
@@ -17444,7 +17790,9 @@
                       "$ref": "#/components/schemas/GoogleLatLng"
                     },
                     "location_type": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "`ROOFTOP` when a nearby place name was attached; otherwise often `APPROXIMATE`.",
+                      "example": "ROOFTOP"
                     }
                   }
                 },
@@ -17890,6 +18238,188 @@
           }
         }
       },
+      "ConsumerDeliveryFeeBatchRequest": {
+        "type": "object",
+        "required": [
+          "destination_lat",
+          "destination_lng",
+          "restaurant_ids"
+        ],
+        "properties": {
+          "destination_lat": {
+            "type": "number",
+            "description": "Customer delivery latitude",
+            "example": 32.0853
+          },
+          "destination_lng": {
+            "type": "number",
+            "description": "Customer delivery longitude",
+            "example": 34.7818
+          },
+          "restaurant_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Restaurant ids to quote (deduped server-side; max 50)",
+            "example": [
+              3,
+              7,
+              12,
+              19
+            ]
+          }
+        }
+      },
+      "ConsumerDeliveryFeeBatchQuoteOk": {
+        "type": "object",
+        "required": [
+          "restaurant_id",
+          "ok",
+          "distance_km",
+          "distance_source",
+          "delivery_fee",
+          "original_delivery_fee",
+          "pricing"
+        ],
+        "properties": {
+          "restaurant_id": {
+            "type": "integer",
+            "example": 3
+          },
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "distance_km": {
+            "type": "number",
+            "example": 4.2
+          },
+          "distance_source": {
+            "type": "string",
+            "enum": [
+              "google",
+              "cache"
+            ],
+            "example": "cache"
+          },
+          "delivery_fee": {
+            "type": "number",
+            "example": 9.4
+          },
+          "original_delivery_fee": {
+            "type": "number",
+            "example": 9.4
+          },
+          "pricing": {
+            "$ref": "#/components/schemas/ConsumerDeliveryFeePricingBreakdown"
+          }
+        }
+      },
+      "ConsumerDeliveryFeeBatchQuoteFail": {
+        "type": "object",
+        "required": [
+          "restaurant_id",
+          "ok",
+          "msg",
+          "delivery_fee"
+        ],
+        "properties": {
+          "restaurant_id": {
+            "type": "integer",
+            "example": 7
+          },
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "code": {
+            "type": "string",
+            "nullable": true,
+            "example": "DELIVERY_DISTANCE_TIME_RESTRICTED"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "retryable": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "max_distance_km": {
+            "type": "number",
+            "nullable": true
+          },
+          "restriction_end_time": {
+            "type": "string",
+            "nullable": true,
+            "example": "20:30"
+          },
+          "timezone": {
+            "type": "string",
+            "nullable": true,
+            "example": "Asia/Jerusalem"
+          },
+          "paused_zone_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "distance_km": {
+            "type": "number",
+            "nullable": true
+          },
+          "distance_source": {
+            "type": "string",
+            "nullable": true
+          },
+          "delivery_fee": {
+            "type": "number",
+            "nullable": true,
+            "example": null
+          }
+        }
+      },
+      "ConsumerDeliveryFeeBatchResponse": {
+        "type": "object",
+        "required": [
+          "destination_lat",
+          "destination_lng",
+          "quotes"
+        ],
+        "properties": {
+          "destination_lat": {
+            "type": "number",
+            "example": 32.0853
+          },
+          "destination_lng": {
+            "type": "number",
+            "example": 34.7818
+          },
+          "quotes": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ConsumerDeliveryFeeBatchQuoteOk"
+                },
+                {
+                  "$ref": "#/components/schemas/ConsumerDeliveryFeeBatchQuoteFail"
+                }
+              ]
+            }
+          }
+        }
+      },
       "ConsumerGetZoneIdResponse": {
         "type": "object",
         "properties": {
@@ -18002,7 +18532,7 @@
           "CLOSED",
           "OPENS_SOON"
         ],
-        "description": "Computed on the backend from weekly `restaurant_schedule`, admin business `timezone` (business_settings), and vendor temporary close (`restaurants.active` / PUT /vendor/restaurant/active-status)."
+        "description": "Computed from weekly `restaurant_schedule`, business timezone, indefinite vendor close (`restaurants.active` / PUT /vendor/restaurant/active-status), and timed pause (`paused_until` / POST /vendor/restaurant/temporary-pause)."
       },
       "ConsumerRestaurantAvailabilityFields": {
         "type": "object",
@@ -18012,7 +18542,10 @@
           "next_open_at",
           "next_close_at",
           "is_temporarily_closed",
-          "open"
+          "open",
+          "paused_until",
+          "pause_message",
+          "pause_type"
         ],
         "properties": {
           "status": {
@@ -18025,7 +18558,7 @@
           "next_open_at": {
             "type": "string",
             "nullable": true,
-            "description": "ISO-8601 datetime with offset; next opening instant (CLOSED, OPENS_SOON, or temporarily closed)."
+            "description": "ISO-8601 datetime with offset; next opening instant (CLOSED, OPENS_SOON, or temporarily closed). For timed pause with active=true, first schedule-open moment at/after pause expiry."
           },
           "next_close_at": {
             "type": "string",
@@ -18034,11 +18567,31 @@
           },
           "is_temporarily_closed": {
             "type": "boolean",
-            "description": "True when the vendor set temporary close (active=false)."
+            "description": "True when vendor indefinite close (`active=false`) OR an unexpired timed pause is active."
           },
           "open": {
             "type": "boolean",
             "description": "Legacy alias of can_order."
+          },
+          "paused_until": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO-8601 with offset while a timed pause is active; null when expired or unset."
+          },
+          "pause_message": {
+            "type": "string",
+            "nullable": true,
+            "description": "Customer-facing reason while timed pause is active; null when expired or unset."
+          },
+          "pause_type": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "EARLY_CLOSE",
+              "PAUSE_30",
+              "PAUSE_60"
+            ],
+            "description": "Timed pause type while active; null when expired or unset."
           }
         }
       },
@@ -19706,6 +20259,15 @@
             "type": "string",
             "description": "restaurant_order_ref if set, else gizra_order_id — use for list card title"
           },
+          "delivery_instruction": {
+            "type": "string",
+            "nullable": true,
+            "description": "Customer note to driver (הערה לשליח) from checkout"
+          },
+          "order_note": {
+            "type": "string",
+            "nullable": true
+          },
           "dispatch_summary": {
             "type": "object",
             "nullable": true,
@@ -19748,6 +20310,8 @@
           "restaurant_order_ref": "4521",
           "restaurant_order_number": "4521",
           "display_order_number": "4521",
+          "delivery_instruction": "Gate 2, call on arrival",
+          "order_note": null,
           "dispatch_summary": {
             "title": "Gizra ride — restaurant requested driver",
             "restaurant_order_ref": "4521",
@@ -19852,6 +20416,11 @@
           "order_note": {
             "type": "string",
             "nullable": true
+          },
+          "delivery_instruction": {
+            "type": "string",
+            "nullable": true,
+            "description": "Customer note to driver (הערה לשליח) from checkout"
           },
           "processing_time": {
             "type": "string",
@@ -21480,7 +22049,7 @@
     },
     {
       "name": "Vendor Restaurant Setup",
-      "description": "Restaurant Web Panel **Config** (business setup): GET/PUT /vendor/restaurant/business-setup, open/close PUT /vendor/restaurant/active-status, toggles PUT /vendor/restaurant/setting-toggle, SEO PUT /vendor/restaurant/meta-data, hours POST/DELETE /vendor/restaurant/schedules. Bearer from POST /vendor/login."
+      "description": "Restaurant Web Panel **Config**: GET/PUT /vendor/restaurant/business-setup, indefinite open/close PUT /vendor/restaurant/active-status, timed pause GET/POST/DELETE /vendor/restaurant/temporary-pause, toggles PUT /vendor/restaurant/setting-toggle, SEO PUT /vendor/restaurant/meta-data, hours POST/DELETE /vendor/restaurant/schedules. Bearer from POST /vendor/login. See `docs/FLUTTER_RESTAURANT_TEMPORARY_PAUSE.md`."
     },
     {
       "name": "Vendor Orders (Web Panel & POS)",

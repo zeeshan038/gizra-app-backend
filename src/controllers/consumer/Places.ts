@@ -21,12 +21,17 @@ import {
 import { publicMediaUrl } from '../../utils/mediaStorage';
 
 /**
- * @Description Places autocomplete proxy — user typing address search. Query: search_text. Uses backend GOOGLE_MAPS_API_KEY (not the mobile app).
+ * @Description Places autocomplete proxy — user typing address search.
+ * Query: search_text (required). Pass bias_lat+bias_lng (or lat+lng) = map/GPS so nearby results rank first.
+ * Uses backend GOOGLE_MAPS_API_KEY (not the mobile app).
  * @Route GET /api/consumer/config/place-autocomplete | /api/vendor/config/place-autocomplete | /api/delivery-man/config/place-autocomplete
  * @Access Public
  */
 export const getPlaceAutocomplete = async (req: Request, res: Response): Promise<any> => {
-  const validated = placeAutocompleteQuerySchema.validate(req.query, { stripUnknown: true });
+  const validated = placeAutocompleteQuerySchema.validate(req.query, {
+    stripUnknown: true,
+    convert: true,
+  });
   if (validated.error) {
     return sendApiError(res, 403, joiFirstMessage(validated.error));
   }
@@ -36,11 +41,13 @@ export const getPlaceAutocomplete = async (req: Request, res: Response): Promise
       bias_lat?: number;
       bias_lng?: number;
       bias_radius_km?: number;
+      region?: string;
     };
     const data = await placeAutocomplete(v.search_text, {
       biasLat: v.bias_lat,
       biasLng: v.bias_lng,
       biasRadiusKm: v.bias_radius_km,
+      regionCode: v.region,
     });
     return res.status(200).json(data);
   } catch (e: unknown) {

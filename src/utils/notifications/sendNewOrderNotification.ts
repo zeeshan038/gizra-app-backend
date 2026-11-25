@@ -1,5 +1,6 @@
 import prisma from '../../config/database';
 import { emitNewOrderRealtime } from '../../sockets/orderRealtime';
+import { enqueuePosOrderCreatedFromNotify } from '../pos/webhook/publisher';
 import { persistAndPushVendorNewOrder, sendOrderNotification } from './sendOrderNotification';
 
 export type NewOrderPushPayload = {
@@ -60,4 +61,10 @@ export async function sendNewOrderNotification(
   } catch (e) {
     console.error('[notify] sendOrderNotification failed', e);
   }
+
+  // Third-party POS: enqueue signed order.created webhook when restaurant has an active connection.
+  void enqueuePosOrderCreatedFromNotify({
+    order_id: payload.order_id,
+    restaurant_id: payload.restaurant_id,
+  });
 }

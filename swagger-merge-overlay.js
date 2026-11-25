@@ -9,6 +9,10 @@ const COUPON_OVERLAY_FILE = path.join(__dirname, 'swagger.coupon.overlay.json');
 const ADMIN_COUPON_OVERLAY_FILE = path.join(__dirname, 'swagger.admin.coupon.overlay.json');
 const CATALOG_OVERLAY_FILE = path.join(__dirname, 'swagger.catalog.overlay.json');
 const HOME_CATEGORIES_OVERLAY_FILE = path.join(__dirname, 'swagger.homeCategories.overlay.json');
+const ANALYTICS_OVERLAY_FILE = path.join(__dirname, 'swagger.analytics.overlay.json');
+const POS_OVERLAY_FILE = path.join(__dirname, 'swagger.pos.overlay.json');
+const ADMIN_POS_OVERLAY_FILE = path.join(__dirname, 'swagger.admin.pos.overlay.json');
+const TEMPORARY_PAUSE_OVERLAY_FILE = path.join(__dirname, 'swagger.temporary-pause.overlay.json');
 
 function normalizePathKey(routePath) {
   if (!routePath) return routePath;
@@ -101,6 +105,45 @@ function loadOverlay() {
     mergeComponents(main, homeCategories.components);
     if (Array.isArray(homeCategories.tags) && homeCategories.tags.length) {
       main.tags = [...(main.tags || []), ...homeCategories.tags];
+    }
+  }
+
+  const analytics = loadOverlayFile(ANALYTICS_OVERLAY_FILE, 'swagger.analytics.overlay.json');
+  if (analytics) {
+    main.paths = { ...(main.paths || {}), ...(analytics.paths || {}) };
+    mergeComponents(main, analytics.components);
+    if (Array.isArray(analytics.tags) && analytics.tags.length) {
+      main.tags = [...(main.tags || []), ...analytics.tags];
+    }
+  }
+
+  const pos = loadOverlayFile(POS_OVERLAY_FILE, 'swagger.pos.overlay.json');
+  if (pos) {
+    main.paths = { ...(main.paths || {}), ...(pos.paths || {}) };
+    mergeComponents(main, pos.components);
+    if (Array.isArray(pos.tags) && pos.tags.length) {
+      main.tags = [...(main.tags || []), ...pos.tags];
+    }
+  }
+
+  const adminPos = loadOverlayFile(ADMIN_POS_OVERLAY_FILE, 'swagger.admin.pos.overlay.json');
+  if (adminPos) {
+    main.paths = { ...(main.paths || {}), ...(adminPos.paths || {}) };
+    mergeComponents(main, adminPos.components);
+    if (Array.isArray(adminPos.tags) && adminPos.tags.length) {
+      main.tags = [...(main.tags || []), ...adminPos.tags];
+    }
+  }
+
+  const temporaryPause = loadOverlayFile(
+    TEMPORARY_PAUSE_OVERLAY_FILE,
+    'swagger.temporary-pause.overlay.json'
+  );
+  if (temporaryPause) {
+    main.paths = { ...(main.paths || {}), ...(temporaryPause.paths || {}) };
+    mergeComponents(main, temporaryPause.components);
+    if (Array.isArray(temporaryPause.tags) && temporaryPause.tags.length) {
+      main.tags = [...(main.tags || []), ...temporaryPause.tags];
     }
   }
 

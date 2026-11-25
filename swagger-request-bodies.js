@@ -8,7 +8,8 @@ const PLACE_ORDER_LINE_ITEM_EXAMPLE = {
   add_on_ids: [],
   add_on_qtys: [],
   variations: [],
-  variation_options: []
+  variation_options: [],
+  combo_selections: []
 };
 
 const PLACE_ORDER_BODY_EXAMPLE = {
@@ -52,7 +53,14 @@ function registerRequestBodySchemas(schemas) {
       add_on_ids: { type: 'array', items: { type: 'number' }, example: [] },
       add_on_qtys: { type: 'array', items: { type: 'number' }, example: [] },
       variations: { type: 'array', items: { type: 'object' }, example: [] },
-      variation_options: { type: 'array', items: { type: 'object' }, example: [] }
+      variation_options: { type: 'array', items: { type: 'object' }, example: [] },
+      combo_selections: {
+        type: 'array',
+        description:
+          'Per-slot modifiers for multi-item combos (food.combo_definition.enabled). Empty for normal items.',
+        items: { $ref: '#/components/schemas/ComboSlotSelection' },
+        example: []
+      }
     }
   };
 

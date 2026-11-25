@@ -1,0 +1,220 @@
+{
+  "tags": [
+    {
+      "name": "POS Partner Orders",
+      "description": "Third-party POS partner APIs. Auth with Bearer API token (`gz_test_…` / `gz_live_…`) created in Gizra Admin Panel → System → 3rd Party POS. Super Admin setup is not in this Swagger."
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "posApiKeyAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "POS API Token",
+        "description": "Partner token from Admin Panel (shown once when created). Example: `gz_test_abcd1234.xxxxx`"
+      }
+    },
+    "schemas": {
+      "PosRejectRequest": {
+        "type": "object",
+        "properties": {
+          "reason": { "type": "string", "maxLength": 500, "example": "Out of stock" },
+          "cancellation_reason": { "type": "string", "maxLength": 500, "example": "Kitchen closed" }
+        }
+      },
+      "PosOrderSummary": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "1025" },
+          "restaurant_id": { "type": "string", "example": "3" },
+          "order_status": { "type": "string", "example": "pending" },
+          "order_amount": { "type": "number", "example": 84.5 },
+          "payment_method": { "type": "string", "example": "cash_on_delivery" },
+          "order_type": { "type": "string", "example": "delivery" },
+          "customer_name": { "type": "string" },
+          "customer_phone": { "type": "string" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/v1/pos/orders": {
+      "get": {
+        "summary": "List orders (reconciliation)",
+        "description": "Recover missed orders. Scoped to the restaurant linked to the POS API token.",
+        "tags": ["POS Partner Orders"],
+        "security": [{ "posApiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": { "type": "string", "example": "pending" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 20, "maximum": 100 }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": { "type": "integer", "default": 0 }
+          },
+          {
+            "name": "updated_since",
+            "in": "query",
+            "schema": { "type": "string", "format": "date-time" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order list",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "total": 2,
+                  "limit": 20,
+                  "offset": 0,
+                  "data": [
+                    {
+                      "id": "1025",
+                      "restaurant_id": "3",
+                      "order_status": "pending",
+                      "order_amount": 84.5
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing/invalid POS token",
+            "content": {
+              "application/json": {
+                "example": { "status": false, "msg": "Invalid or revoked POS API token" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/pos/orders/{id}": {
+      "get": {
+        "summary": "Get order details",
+        "tags": ["POS Partner Orders"],
+        "security": [{ "posApiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "1025" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Order detail with items",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "data": {
+                    "id": "1025",
+                    "order_status": "pending",
+                    "order_amount": 84.5,
+                    "items": [{ "food_name": "Burger", "quantity": 1, "price": 45 }]
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order not found for this POS credential",
+            "content": {
+              "application/json": {
+                "example": { "status": false, "msg": "Order not found for this POS credential" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/pos/orders/{id}/accept": {
+      "post": {
+        "summary": "Accept order",
+        "description": "Marks order confirmed and triggers Gizra Socket.io / push / dispatch via existing order service.",
+        "tags": ["POS Partner Orders"],
+        "security": [{ "posApiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "1025" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Accepted (idempotent if already confirmed/accepted)",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Order accepted",
+                  "data": { "id": "1025", "order_status": "confirmed" }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Illegal status transition",
+            "content": {
+              "application/json": {
+                "example": { "status": false, "msg": "Order is already canceled" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/pos/orders/{id}/reject": {
+      "post": {
+        "summary": "Reject order",
+        "tags": ["POS Partner Orders"],
+        "security": [{ "posApiKeyAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "example": "1025" }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/PosRejectRequest" },
+              "example": { "reason": "Out of stock" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rejected",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": true,
+                  "msg": "Order rejected",
+                  "data": { "id": "1025", "order_status": "canceled" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -206,11 +206,12 @@ export async function getRestrictionEffectiveForRestaurant(
 }
 
 export type DistanceCheckResult =
-  | { ok: true; distance_km: number; source: 'google' | 'haversine' }
+  | { ok: true; distance_km: number; source: 'google' | 'cache' }
   | { ok: false; reason: 'origin' | 'destination' };
 
 /**
- * Server-authoritative km from restaurant to destination (Google + haversine fallback).
+ * Server-authoritative driving km from restaurant to destination (Routes API + Redis cache).
+ * Throws DeliveryDistanceUnavailableError when Google/cache cannot provide a driving distance.
  */
 export async function computeAuthoritativeDeliveryKm(params: {
   restaurantLat: string | null;

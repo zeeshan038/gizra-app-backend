@@ -10,6 +10,7 @@ import {
 
 export {
   availabilityMapForRestaurants,
+  closedAvailability,
   computeAvailabilityForRestaurant,
   restaurantAvailabilityResponseFields,
   type RestaurantAvailability,
@@ -158,6 +159,9 @@ export const DISCOVER_RESTAURANT_SELECT = {
   longitude: true,
   order_count: true,
   active: true,
+  paused_until: true,
+  pause_message: true,
+  pause_type: true,
 } as const;
 
 export type DiscoverRestaurantRow = {
@@ -174,6 +178,9 @@ export type DiscoverRestaurantRow = {
   longitude: string | null;
   order_count: bigint;
   active: boolean;
+  paused_until: Date | null;
+  pause_message: string | null;
+  pause_type: string | null;
 };
 
 /** Home / discover cards (Popular, Latest, etc.). */

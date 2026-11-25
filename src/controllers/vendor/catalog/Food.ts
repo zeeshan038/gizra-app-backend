@@ -23,6 +23,11 @@ import {
 import { publicFoodMediaUrl } from '../../../utils/mediaStorage';
 import { getFoodPublishQuota } from '../../../utils/vendor/catalog/foodPublishLimits';
 import { sanitizeVariationGroupsForStorage } from '../../../utils/consumer/variationGroupOptions';
+import {
+    comboDefinitionForClient,
+    parseComboDefinition,
+    serializeComboDefinition,
+} from '../../../utils/consumer/comboDefinition';
 import { mergeFoodAttributesPatch, parseFoodAttributes } from '../../../utils/vendor/catalog/foodAttributes';
 
 const FOOD_LIST_MAX_LIMIT = 5000;
@@ -118,8 +123,16 @@ function serializeFood(food: Record<string, unknown>) {
         position: food.position != null ? Number(food.position) : 0,
         image_full_url: publicFoodMediaUrl(imageStored),
         addons_pizza_half_whole: Boolean(attrs.addons_pizza_half_whole),
+        combo_definition: comboDefinitionForClient(
+            typeof food.combo_definition === 'string' ? food.combo_definition : null
+        ),
         ...detail,
     };
+}
+
+function resolveComboDefinitionForSave(raw: unknown): string | null {
+    if (raw == null) return null;
+    return serializeComboDefinition(parseComboDefinition(raw));
 }
 
 function serializeFoodWithAddons(
@@ -188,6 +201,9 @@ export const createFood = async (req: Request, res: Response): Promise<any> => {
             createData.attributes = mergeFoodAttributesPatch(null, {
                 addons_pizza_half_whole: Boolean(body.addons_pizza_half_whole),
             });
+        }
+        if (body.combo_definition !== undefined) {
+            createData.combo_definition = resolveComboDefinitionForSave(body.combo_definition);
         }
         createData.position = await nextFoodPosition(
             Number(body.restaurant_id),
@@ -262,6 +278,9 @@ export const updateFood = async (req: Request, res: Response): Promise<any> => {
             dataToUpdate.attributes = mergeFoodAttributesPatch(existing.attributes, {
                 addons_pizza_half_whole: Boolean(body.addons_pizza_half_whole),
             });
+        }
+        if (body.combo_definition !== undefined) {
+            dataToUpdate.combo_definition = resolveComboDefinitionForSave(body.combo_definition);
         }
 
         const food = await prisma.food.update({
@@ -428,6 +447,7 @@ export const duplicateFood = async (req: Request, res: Response): Promise<any> =
                 add_ons: source.add_ons,
                 attributes: source.attributes,
                 choice_options: source.choice_options,
+                combo_definition: (source as { combo_definition?: string | null }).combo_definition,
                 price: source.price,
                 tax: source.tax,
                 tax_type: source.tax_type,

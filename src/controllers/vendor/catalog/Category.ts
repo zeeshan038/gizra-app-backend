@@ -1,7 +1,15 @@
 import { Request, Response } from 'express';
 import prisma from '../../../config/database';
-import { createCategorySchema, updateCategorySchema } from '../../../schemas/vendor/Catalog';
-import { nextCategoryPosition } from '../../../utils/vendor/catalog/menuSortOrder';
+import {
+  categoryReorderSchema,
+  createCategorySchema,
+  updateCategorySchema,
+} from '../../../schemas/vendor/Catalog';
+import {
+  DEFAULT_MENU_CATEGORY_ORDER,
+  nextCategoryPosition,
+  reorderCategoriesForVendor,
+} from '../../../utils/vendor/catalog/menuSortOrder';
 import {
   consumerCategoryMediaFields,
   fitDbString,
@@ -222,7 +230,7 @@ export const getCategories = async (req: Request, res: Response): Promise<any> =
       where,
       skip,
       take: limit,
-      orderBy: { id: 'desc' },
+      orderBy: DEFAULT_MENU_CATEGORY_ORDER,
     });
 
     return res.status(200).json({
@@ -237,5 +245,44 @@ export const getCategories = async (req: Request, res: Response): Promise<any> =
     });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });
+  }
+};
+
+/**
+ * @Description Reorder menu categories (drag-and-drop)
+ * @Route PUT /api/vendor/catalog/category/reorder
+ * @Access Private (Vendor)
+ */
+export const reorderCategories = async (req: Request, res: Response): Promise<any> => {
+  const validated = categoryReorderSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({
+      status: false,
+      msg: validated.error.details.map((d) => d.message).join(', '),
+    });
+  }
+
+  const restaurantId = await vendorRestaurantId(req);
+  if (!restaurantId) {
+    return res.status(404).json({ status: false, msg: 'Restaurant not found for this vendor' });
+  }
+
+  try {
+    const body = validated.value as { ordered_ids: number[] };
+    const result = await reorderCategoriesForVendor({
+      restaurantId,
+      orderedIds: body.ordered_ids,
+    });
+
+    return res.status(200).json({
+      status: true,
+      msg: 'Category order saved',
+      data: result,
+    });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Reorder failed';
+    const status =
+      msg.includes('invalid') || msg.includes('required') || msg.includes('must') ? 400 : 500;
+    return res.status(status).json({ status: false, msg });
   }
 };

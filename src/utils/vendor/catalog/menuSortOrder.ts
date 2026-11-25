@@ -124,23 +124,37 @@ export async function reorderCategoriesForVendor(params: {
   const rows = await prisma.categories.findMany({
     where: {
       id: { in: uniqueIds.map((i) => BigInt(i)) },
-      restaurant_id: restaurantId,
       status: true,
+      OR: [{ restaurant_id: restaurantId }, { restaurant_id: null }, { restaurant_id: 0 }],
     },
-    select: { id: true },
+    select: { id: true, restaurant_id: true },
   });
   if (rows.length !== uniqueIds.length) {
     throw new Error('One or more categories are invalid');
   }
 
+  const ownedRows = await prisma.categories.findMany({
+    where: { restaurant_id: restaurantId, status: true },
+    select: { id: true },
+    orderBy: DEFAULT_MENU_CATEGORY_ORDER,
+  });
+  const ownedIds = ownedRows.map((r) => Number(r.id));
+  const sent = new Set(uniqueIds);
+  const missingOwned = ownedIds.filter((id) => !sent.has(id));
+  const finalOrder = [...uniqueIds, ...missingOwned];
+
   await prisma.$transaction(
-    uniqueIds.map((id, index) =>
+    finalOrder.map((id, index) =>
       prisma.categories.update({
         where: { id: BigInt(id) },
-        data: { position: BigInt(index + 1), updated_at: new Date() },
+        data: {
+          position: BigInt(index + 1),
+          restaurant_id: restaurantId,
+          updated_at: new Date(),
+        },
       })
     )
   );
 
-  return { updated: uniqueIds.length };
+  return { updated: finalOrder.length };
 }

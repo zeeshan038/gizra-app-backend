@@ -30,12 +30,24 @@ function includedRegionCodes(): string[] {
 const COUNTRY_RECTANGLE_LOW = { latitude: 29.45, longitude: 34.15 };
 const COUNTRY_RECTANGLE_HIGH = { latitude: 33.45, longitude: 35.95 };
 
-function applyAutocompleteRegionScope(requestBody: Record<string, unknown>) {
+function applyAutocompleteRegionScope(
+  requestBody: Record<string, unknown>,
+  options?: PlaceAutocompleteOptions,
+  hasLocationBias = false
+) {
+  const requestCode = options?.regionCode?.trim().toUpperCase();
+  if (requestCode && /^[A-Z]{2}$/.test(requestCode)) {
+    requestBody.includedRegionCodes = [requestCode];
+    return;
+  }
   const codes = includedRegionCodes();
   if (codes.length) {
     requestBody.includedRegionCodes = codes;
     return;
   }
+  // New Places API: cannot combine locationRestriction with locationBias.
+  // When the app sends lat/lng bias, skip the rectangle.
+  if (hasLocationBias) return;
   // Default: worldwide — no rectangle. Opt-in via GOOGLE_PLACES_USE_COUNTRY_BOUNDS=1.
   if (process.env.GOOGLE_PLACES_USE_COUNTRY_BOUNDS === '1') {
     requestBody.locationRestriction = {
@@ -47,11 +59,16 @@ function applyAutocompleteRegionScope(requestBody: Record<string, unknown>) {
   }
 }
 
-/** Prefer delivery-area results (Hebron / Gush Etzion) over unrelated "Hebron Street" matches in TLV. */
+/**
+ * Prefer nearby results over global name matches.
+ * Pass the user's map/GPS as biasLat/biasLng (e.g. Islamabad → local KFC first).
+ */
 export type PlaceAutocompleteOptions = {
   biasLat?: number;
   biasLng?: number;
   biasRadiusKm?: number;
+  /** ISO-3166 alpha-2, e.g. PK / IL — limits suggestions to that country when set. */
+  regionCode?: string;
 };
 
 function parseFiniteNumber(raw: string | undefined): number | null {
@@ -175,14 +192,17 @@ async function placesNewAutocomplete(searchText: string, options?: PlaceAutocomp
   const requestBody: Record<string, unknown> = {
     input: searchText,
   };
-  applyAutocompleteRegionScope(requestBody);
+  applyAutocompleteRegionScope(requestBody, options, Boolean(bias));
   if (bias) {
+    // Rank nearby first (does not hard-block other countries unless region is also set).
     requestBody.locationBias = {
       circle: {
         center: { latitude: bias.lat, longitude: bias.lng },
         radius: bias.radiusM,
       },
     };
+    // Helps Google order by distance from the user.
+    requestBody.origin = { latitude: bias.lat, longitude: bias.lng };
   }
   const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
     method: 'POST',
@@ -261,6 +281,11 @@ async function legacyPlaceAutocomplete(searchText: string, options?: PlaceAutoco
     params.radius = String(Math.round(bias.radiusM));
     params.strictbounds = 'false';
   }
+  const region =
+    options?.regionCode?.trim().toUpperCase() ||
+    includedRegionCodes()[0] ||
+    undefined;
+  if (region) params.components = `country:${region.toLowerCase()}`;
   return googleGet('place/autocomplete/json', params);
 }
 
@@ -299,6 +324,67 @@ export async function distanceMatrix(params: {
   });
 }
 
+type ComputeRoutesResponse = {
+  routes?: Array<{ distanceMeters?: number }>;
+  error?: { message?: string; status?: string };
+};
+
+/**
+ * Driving distance via Google Routes API `computeRoutes` (TRAVEL_MODE DRIVE).
+ * Uses TRAFFIC_UNAWARE for stable fee distances (not live traffic ETA).
+ */
+export async function computeDrivingRouteDistanceMeters(params: {
+  originLat: number;
+  originLng: number;
+  destinationLat: number;
+  destinationLng: number;
+}): Promise<number> {
+  const key = requireApiKey();
+  const url = 'https://routes.googleapis.com/directions/v2:computeRoutes';
+  const body = {
+    origin: {
+      location: {
+        latLng: {
+          latitude: params.originLat,
+          longitude: params.originLng,
+        },
+      },
+    },
+    destination: {
+      location: {
+        latLng: {
+          latitude: params.destinationLat,
+          longitude: params.destinationLng,
+        },
+      },
+    },
+    travelMode: 'DRIVE',
+    routingPreference: 'TRAFFIC_UNAWARE',
+  };
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': key,
+      'X-Goog-FieldMask': 'routes.distanceMeters',
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = (await res.json()) as ComputeRoutesResponse;
+  if (!res.ok) {
+    const msg = data?.error?.message || `Google Routes request failed (${res.status})`;
+    throw new Error(msg);
+  }
+
+  const meters = data?.routes?.[0]?.distanceMeters;
+  if (typeof meters !== 'number' || !Number.isFinite(meters) || meters < 0) {
+    throw new Error('Google Routes returned no driving distance');
+  }
+  return meters;
+}
+
 type LegacyGeocodeResult = {
   formatted_address: string;
   geometry: {
@@ -307,7 +393,12 @@ type LegacyGeocodeResult = {
   };
   place_id?: string;
   types?: string[];
+  /** Nearby POI / business name when reverse-geocode finds one close to the pin. */
+  name?: string | null;
 };
+
+/** Prefer a nearby place name when the pin is within this distance (meters). */
+const NEARBY_PLACE_NAME_MAX_M = 80;
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const r = 6371;
@@ -375,10 +466,37 @@ async function geocodeV4(lat: string, lng: string) {
 type NearbyPlace = {
   id?: string;
   formattedAddress?: string;
+  displayName?: { text?: string; languageCode?: string };
   location?: { latitude?: number; longitude?: number };
+  types?: string[];
+  primaryType?: string;
 };
 
-async function reverseGeocodePlacesNearby(lat: string, lng: string) {
+type NearbyLookup = {
+  status: string;
+  results: LegacyGeocodeResult[];
+  error_message?: string;
+  /** Closest place with a display name, if within NEARBY_PLACE_NAME_MAX_M. */
+  nearby_name?: string | null;
+  nearby_place_id?: string | null;
+  nearby_distance_m?: number | null;
+};
+
+function nearbyDisplayName(p: NearbyPlace): string | null {
+  const text = p.displayName?.text?.trim();
+  return text || null;
+}
+
+function buildFormattedWithName(name: string | null | undefined, address: string): string {
+  const addr = address.trim();
+  const n = name?.trim();
+  if (!n) return addr;
+  if (!addr) return n;
+  if (addr.toLowerCase().startsWith(n.toLowerCase())) return addr;
+  return `${n}, ${addr}`;
+}
+
+async function reverseGeocodePlacesNearby(lat: string, lng: string): Promise<NearbyLookup> {
   const key = requireApiKey();
   const latN = Number(lat);
   const lngN = Number(lng);
@@ -387,7 +505,8 @@ async function reverseGeocodePlacesNearby(lat: string, lng: string) {
     headers: {
       'Content-Type': 'application/json',
       'X-Goog-Api-Key': key,
-      'X-Goog-FieldMask': 'places.id,places.formattedAddress,places.location',
+      'X-Goog-FieldMask':
+        'places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType',
     },
     body: JSON.stringify({
       locationRestriction: {
@@ -396,7 +515,7 @@ async function reverseGeocodePlacesNearby(lat: string, lng: string) {
           radius: 150,
         },
       },
-      maxResultCount: 8,
+      maxResultCount: 10,
     }),
   });
   const body = (await res.json()) as { places?: NearbyPlace[]; error?: { message?: string } };
@@ -411,8 +530,12 @@ async function reverseGeocodePlacesNearby(lat: string, lng: string) {
   if (!places.length) {
     return { status: 'ZERO_RESULTS', results: [] as LegacyGeocodeResult[] };
   }
+
   let best: NearbyPlace | null = null;
   let bestKm = Infinity;
+  let bestNamed: NearbyPlace | null = null;
+  let bestNamedKm = Infinity;
+
   for (const p of places) {
     const plat = p.location?.latitude;
     const plng = p.location?.longitude;
@@ -422,20 +545,87 @@ async function reverseGeocodePlacesNearby(lat: string, lng: string) {
       bestKm = km;
       best = p;
     }
+    if (nearbyDisplayName(p) && km < bestNamedKm) {
+      bestNamedKm = km;
+      bestNamed = p;
+    }
   }
-  if (!best?.formattedAddress || best.location?.latitude == null || best.location?.longitude == null) {
+
+  const namedWithin =
+    bestNamed && bestNamedKm * 1000 <= NEARBY_PLACE_NAME_MAX_M ? bestNamed : null;
+  const placeName = namedWithin ? nearbyDisplayName(namedWithin) : null;
+  const namedDistM = namedWithin ? Math.round(bestNamedKm * 1000) : null;
+
+  // Prefer address from the named POI; else closest place with an address.
+  const addressSource =
+    namedWithin?.formattedAddress?.trim()
+      ? namedWithin
+      : best?.formattedAddress?.trim()
+        ? best
+        : null;
+
+  if (
+    !addressSource?.formattedAddress ||
+    addressSource.location?.latitude == null ||
+    addressSource.location?.longitude == null
+  ) {
     return { status: 'ZERO_RESULTS', results: [] as LegacyGeocodeResult[] };
   }
+
+  const idSource = namedWithin ?? addressSource;
   const result: LegacyGeocodeResult = {
-    formatted_address: best.formattedAddress,
+    formatted_address: buildFormattedWithName(placeName, addressSource.formattedAddress),
     geometry: {
-      location: { lat: best.location.latitude, lng: best.location.longitude },
-      location_type: 'APPROXIMATE',
+      // Keep returned geometry near the pin's nearest place; Flutter still uses request lat/lng as truth.
+      location: {
+        lat: addressSource.location.latitude,
+        lng: addressSource.location.longitude,
+      },
+      location_type: placeName ? 'ROOFTOP' : 'APPROXIMATE',
     },
-    place_id: best.id ? stripPlacesPrefix(best.id) : undefined,
-    types: ['geocode'],
+    place_id: idSource.id ? stripPlacesPrefix(idSource.id) : undefined,
+    types: idSource.types?.length
+      ? idSource.types
+      : placeName
+        ? ['establishment', 'point_of_interest', 'geocode']
+        : ['geocode'],
+    name: placeName,
   };
-  return { status: 'OK', results: [result] };
+  return {
+    status: 'OK',
+    results: [result],
+    nearby_name: placeName,
+    nearby_place_id: result.place_id ?? null,
+    nearby_distance_m: namedDistM ?? Math.round(bestKm * 1000),
+  };
+}
+
+/** Merge street geocode with a nearby business name when the pin is on/near a POI. */
+async function enrichGeocodeWithNearbyPlaceName(
+  lat: string,
+  lng: string,
+  base: { status: string; results: LegacyGeocodeResult[]; error_message?: string }
+): Promise<{ status: string; results: LegacyGeocodeResult[]; error_message?: string }> {
+  if (base.status !== 'OK' || !base.results.length) return base;
+  try {
+    const nearby = await reverseGeocodePlacesNearby(lat, lng);
+    const name = nearby.nearby_name?.trim();
+    if (!name) return base;
+
+    const top = { ...base.results[0] };
+    top.name = name;
+    top.formatted_address = buildFormattedWithName(name, top.formatted_address);
+    if (nearby.nearby_place_id) top.place_id = nearby.nearby_place_id;
+    const types = new Set([...(top.types ?? []), 'establishment', 'point_of_interest']);
+    top.types = [...types];
+    if (top.geometry) {
+      top.geometry = { ...top.geometry, location_type: 'ROOFTOP' };
+    }
+    return { status: 'OK', results: [top, ...base.results.slice(1)] };
+  } catch (err) {
+    console.warn('[geocode] nearby place-name enrich failed', err);
+    return base;
+  }
 }
 
 function useLegacyGeocode(): boolean {
@@ -444,7 +634,16 @@ function useLegacyGeocode(): boolean {
 
 export async function geocodeLatLng(lat: string, lng: string) {
   if (useLegacyGeocode()) {
-    return googleGet('geocode/json', { latlng: `${lat},${lng}` });
+    const legacy = (await googleGet('geocode/json', { latlng: `${lat},${lng}` })) as {
+      status: string;
+      results: LegacyGeocodeResult[];
+      error_message?: string;
+    };
+    return enrichGeocodeWithNearbyPlaceName(lat, lng, {
+      status: legacy.status,
+      results: legacy.results ?? [],
+      error_message: legacy.error_message,
+    });
   }
 
   const v4 = (await geocodeV4(lat, lng)) as {
@@ -455,13 +654,20 @@ export async function geocodeLatLng(lat: string, lng: string) {
   };
 
   if (v4.status === 'OK' && v4.results.length) {
-    return { status: v4.status, results: v4.results };
+    // Street geocode alone often misses shop names (e.g. "Palace Bakers") — enrich from Nearby.
+    return enrichGeocodeWithNearbyPlaceName(lat, lng, {
+      status: v4.status,
+      results: v4.results,
+    });
   }
 
   if (v4._v4Denied || v4.status === 'REQUEST_DENIED') {
     const nearby = await reverseGeocodePlacesNearby(lat, lng);
     if (nearby.status === 'OK' && nearby.results.length) {
-      return nearby;
+      return {
+        status: nearby.status,
+        results: nearby.results,
+      };
     }
     return {
       status: nearby.status,
@@ -472,7 +678,9 @@ export async function geocodeLatLng(lat: string, lng: string) {
 
   if (v4.status === 'ZERO_RESULTS') {
     const nearby = await reverseGeocodePlacesNearby(lat, lng);
-    if (nearby.status === 'OK') return nearby;
+    if (nearby.status === 'OK') {
+      return { status: nearby.status, results: nearby.results };
+    }
   }
 
   return { status: v4.status, results: v4.results, error_message: v4.error_message };

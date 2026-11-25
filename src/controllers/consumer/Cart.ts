@@ -20,6 +20,34 @@ import {
   CartRestaurantMismatchError,
 } from '../../utils/consumer/cartRestaurantGuard';
 import { cartRowOwnedBy, resolveCartSessionFromRequest } from '../../utils/consumer/cartSession';
+import {
+  parseComboDefinition,
+  validateComboSelections,
+} from '../../utils/consumer/comboDefinition';
+import {
+  cancelActiveAbandonedCartSessions,
+  touchAbandonedCartSession,
+} from '../../utils/analytics/abandonedCart';
+import { recordAnalyticsEvent } from '../../utils/analytics/events';
+
+async function afterCartMutation(session: {
+  user_id: number;
+  is_guest: boolean;
+}, sourceEvent: 'added_to_cart' | 'cart_updated') {
+  void touchAbandonedCartSession({
+    userId: session.user_id,
+    isGuest: session.is_guest,
+    sourceEvent,
+  });
+  if (!session.is_guest && sourceEvent === 'added_to_cart') {
+    void recordAnalyticsEvent({
+      event_name: 'added_to_cart',
+      user_id: session.user_id,
+      is_guest: false,
+      properties: { source: 'server_cart' },
+    });
+  }
+}
 
 function cartSellingTimeResponse(err: CartFoodSellingTimeError) {
   return {
@@ -57,6 +85,42 @@ async function assertFoodLineRules(params: {
     isGuest: params.isGuest,
     excludeCartId: params.excludeCartId,
   });
+}
+
+class CartComboValidationError extends Error {
+  code: string;
+  constructor(msg: string, code: string) {
+    super(msg);
+    this.code = code;
+  }
+}
+
+/** When food has combo_definition.enabled, require complete combo_selections. */
+async function assertComboSelectionsForFood(params: {
+  itemId: number;
+  itemType: string;
+  combo_selections?: unknown[];
+}): Promise<unknown[]> {
+  if (String(params.itemType).toLowerCase() !== 'food') {
+    return Array.isArray(params.combo_selections) ? params.combo_selections : [];
+  }
+  const food = await prisma.food.findUnique({
+    where: { id: BigInt(params.itemId) },
+    select: { combo_definition: true, variations: true },
+  });
+  const def = parseComboDefinition(food?.combo_definition ?? null);
+  if (!def) {
+    return Array.isArray(params.combo_selections) ? params.combo_selections : [];
+  }
+  const result = validateComboSelections({
+    definition: def,
+    selections: params.combo_selections,
+    productVariationsJson: food?.variations ?? null,
+  });
+  if (!result.ok) {
+    throw new CartComboValidationError(result.msg, result.code);
+  }
+  return result.selections;
 }
 
 /**
@@ -104,6 +168,21 @@ export const addToCart = async (req: Request, res: Response): Promise<any> => {
 
   const body = result.value;
   const itemType = String(body.item_type ?? 'Food');
+
+  let comboSelections: unknown[] = [];
+  try {
+    comboSelections = await assertComboSelectionsForFood({
+      itemId: Number(body.item_id),
+      itemType,
+      combo_selections: body.combo_selections,
+    });
+  } catch (e: unknown) {
+    if (e instanceof CartComboValidationError) {
+      return res.status(400).json({ status: false, msg: e.message, code: e.code });
+    }
+    throw e;
+  }
+  body.combo_selections = comboSelections;
 
   try {
     await assertSingleRestaurantCart({
@@ -156,6 +235,7 @@ export const addToCart = async (req: Request, res: Response): Promise<any> => {
         data: { quantity: newQty },
       });
       const data = await formatConsumerCartLine(parsePrismaCartRow(cart));
+      void afterCartMutation(session, 'added_to_cart');
       return res.status(200).json({
         status: true,
         msg: 'Cart updated successfully',
@@ -194,10 +274,12 @@ export const addToCart = async (req: Request, res: Response): Promise<any> => {
         add_on_placements: JSON.stringify(body.add_on_placements ?? []),
         variations: JSON.stringify(body.variations),
         variation_options: JSON.stringify(body.variation_options),
+        combo_selections: JSON.stringify(comboSelections),
       },
     });
 
     const data = await formatConsumerCartLine(parsePrismaCartRow(cart));
+    void afterCartMutation(session, 'added_to_cart');
     return res.status(201).json({
       status: true,
       msg: 'Added to cart successfully',
@@ -241,6 +323,7 @@ export const updateCart = async (req: Request, res: Response): Promise<any> => {
 
     if (Number(quantity) < 1) {
       await prisma.carts.delete({ where: { id: existing.id } });
+      void afterCartMutation(session, 'cart_updated');
       return res.status(200).json({ status: true, msg: 'Cart updated successfully', data: null });
     }
 
@@ -269,6 +352,7 @@ export const updateCart = async (req: Request, res: Response): Promise<any> => {
     });
 
     const data = await formatConsumerCartLine(parsePrismaCartRow(cart));
+    void afterCartMutation(session, 'cart_updated');
     return res.status(200).json({
       status: true,
       msg: 'Cart updated successfully',
@@ -300,6 +384,7 @@ export const removeCartItem = async (req: Request, res: Response): Promise<any> 
       return res.status(403).json({ status: false, msg: 'Forbidden' });
     }
     await prisma.carts.delete({ where: { id: existing.id } });
+    void afterCartMutation(session, 'cart_updated');
     return res.status(200).json({ status: true, msg: 'Removed' });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });
@@ -317,6 +402,7 @@ type AddMultipleLine = {
   add_on_placements?: unknown[];
   variations?: unknown[];
   variation_options?: unknown[];
+  combo_selections?: unknown[];
 };
 
 /**
@@ -389,11 +475,29 @@ export const addMultipleToCart = async (req: Request, res: Response): Promise<an
       }
     }
 
+    const normalizedItems: Array<(typeof items)[number] & { combo_selections: unknown[] }> = [];
+    for (const single of items) {
+      const itemType = String(single.item_type ?? single.model ?? 'Food');
+      try {
+        const combo_selections = await assertComboSelectionsForFood({
+          itemId: Number(single.item_id),
+          itemType,
+          combo_selections: single.combo_selections,
+        });
+        normalizedItems.push({ ...single, combo_selections });
+      } catch (e: unknown) {
+        if (e instanceof CartComboValidationError) {
+          return res.status(400).json({ status: false, msg: e.message, code: e.code });
+        }
+        throw e;
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
       await tx.carts.deleteMany({
         where: { user_id: session.user_id, is_guest: session.is_guest },
       });
-      for (const single of items) {
+      for (const single of normalizedItems) {
         const itemType = single.item_type ?? single.model ?? 'Food';
         await tx.carts.create({
           data: {
@@ -408,6 +512,7 @@ export const addMultipleToCart = async (req: Request, res: Response): Promise<an
             add_on_placements: JSON.stringify(single.add_on_placements ?? []),
             variations: JSON.stringify(single.variations ?? []),
             variation_options: JSON.stringify(single.variation_options ?? []),
+            combo_selections: JSON.stringify(single.combo_selections ?? []),
           },
         });
       }
@@ -417,6 +522,7 @@ export const addMultipleToCart = async (req: Request, res: Response): Promise<an
       where: { user_id: session.user_id, is_guest: session.is_guest },
     });
     const data = await formatConsumerCartLines(carts.map(parsePrismaCartRow));
+    void afterCartMutation(session, 'added_to_cart');
     return res.status(200).json({ status: true, data });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });
@@ -445,6 +551,9 @@ export const clearCart = async (req: Request, res: Response): Promise<any> => {
         is_guest: session.is_guest,
       },
     });
+    if (!session.is_guest) {
+      void cancelActiveAbandonedCartSessions(session.user_id, 'cart_cleared');
+    }
     return res.status(200).json({ status: true, msg: 'Cart cleared completely' });
   } catch (e: any) {
     return res.status(500).json({ status: false, msg: e.message });
