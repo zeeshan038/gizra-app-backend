@@ -18,6 +18,7 @@ const app = express();
 const origins =[
   "http://localhost:5174",
   "http://localhost:5173",
+  "http://localhost:5175",
   "https://vendor.gizra.app",
   "https://gizra-restaurant-pannel.vercel.app",
   'https://restaurant.gizra.app',

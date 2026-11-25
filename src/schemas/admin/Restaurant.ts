@@ -97,6 +97,21 @@ export const adminUpdateRestaurantSchema = Joi.object({
   cover_photo: Joi.string().trim().max(191).optional().allow('', null),
 });
 
+/** Duplicate restaurant + optional full menu into a new vendor account. */
+export const adminDuplicateRestaurantSchema = Joi.object({
+  f_name: Joi.string().trim().max(100).required(),
+  l_name: Joi.string().trim().max(100).optional().allow('', null),
+  phone: Joi.string().trim().max(20).required(),
+  email: Joi.string().trim().email().max(100).required(),
+  password: Joi.string().min(8).required(),
+  name: Joi.string().trim().max(191).optional().allow('', null),
+  address: Joi.string().trim().max(1000).optional().allow('', null),
+  latitude: Joi.number().min(-90).max(90).optional().allow(null),
+  longitude: Joi.number().min(-180).max(180).optional().allow(null),
+  zone_id: Joi.number().integer().positive().optional().allow(null),
+  include_menu: Joi.boolean().optional().default(true),
+});
+
 export const adminRestaurantStatusSchema = Joi.object({
   status: Joi.boolean().required(),
 });

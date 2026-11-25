@@ -5,6 +5,7 @@ import {
   bulkImportAdminRestaurants,
   createAdminRestaurantHandler,
   downloadBulkImportTemplate,
+  duplicateAdminRestaurantHandler,
   getAdminRestaurant,
   getAdminRestaurantStats,
   listAdminRestaurantCuisines,
@@ -28,6 +29,7 @@ router.post('/create', createAdminRestaurantHandler);
 router.post('/bulk-import', upload.single('upload_excel'), bulkImportAdminRestaurants);
 router.post('/bulk-export', bulkExportAdminRestaurants);
 router.get('/bulk-import/template', downloadBulkImportTemplate);
+router.post('/:id/duplicate', duplicateAdminRestaurantHandler);
 router.get('/:id', getAdminRestaurant);
 router.patch('/:id/status', patchAdminRestaurantStatus);
 router.patch('/:id', patchAdminRestaurant);

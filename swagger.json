@@ -39442,6 +39442,177 @@
         ]
       }
     },
+    "/admin/restaurants/{id}/duplicate": {
+      "post": {
+        "description": "Create a **new vendor + restaurant** by cloning an existing restaurant. Copies settings, schedules, configs, cuisines/tags, and (by default) the **full menu** (categories, add-ons with ID remap, foods, variations, food tags/allergies/translations). Does **not** copy orders, reviews, wallets, coupons, subscriptions, employees, or campaigns. Requires a new unique email/phone/password for the branch owner. Admin Bearer required.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "example": 3
+            },
+            "description": "Source restaurant id to clone"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "msg": {
+                      "type": "string",
+                      "example": "Restaurant duplicated successfully"
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "…"
+                    }
+                  },
+                  "example": {
+                    "status": true,
+                    "msg": "Restaurant duplicated successfully",
+                    "data": "…"
+                  }
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Restaurant duplicated successfully",
+                  "data": "…"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Restaurant duplicated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDuplicateRestaurantResponse"
+                },
+                "example": {
+                  "status": true,
+                  "msg": "Restaurant duplicated successfully",
+                  "data": {
+                    "source_restaurant_id": 3,
+                    "vendor_id": 88,
+                    "restaurant_id": 91,
+                    "include_menu": true,
+                    "categories_copied": 12,
+                    "addons_copied": 8,
+                    "foods_copied": 64
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or business rule error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Email or phone already exists"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - You do not have permission to access this resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Forbidden"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Source restaurant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error - Something went wrong on the server",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                },
+                "example": {
+                  "status": false,
+                  "msg": "Internal Server Error"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Admin Restaurants"
+        ],
+        "summary": "Duplicate restaurant with full menu",
+        "operationId": "postAdminRestaurantDuplicate",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminDuplicateRestaurantRequest"
+              },
+              "example": {
+                "f_name": "Branch",
+                "l_name": "Manager",
+                "phone": "+972501112233",
+                "email": "kfc-branch2@example.com",
+                "password": "password123",
+                "name": "KFC – Branch 2",
+                "include_menu": true
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/restaurants/{id}": {
       "get": {
         "description": "",
@@ -58296,6 +58467,105 @@
           },
           "is_guest": {
             "type": "boolean"
+          }
+        }
+      },
+      "AdminDuplicateRestaurantRequest": {
+        "type": "object",
+        "required": [
+          "f_name",
+          "phone",
+          "email",
+          "password"
+        ],
+        "properties": {
+          "f_name": {
+            "type": "string",
+            "example": "Branch"
+          },
+          "l_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "example": "+972501112233"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "kfc-branch2@example.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "example": "password123"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "description": "New restaurant name; default is \"{source name} (Copy)\""
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "nullable": true,
+            "description": "Defaults to source restaurant"
+          },
+          "longitude": {
+            "type": "number",
+            "nullable": true
+          },
+          "zone_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Defaults to source restaurant zone"
+          },
+          "include_menu": {
+            "type": "boolean",
+            "default": true,
+            "description": "Copy categories, add-ons, foods, variations (default true)"
+          }
+        }
+      },
+      "AdminDuplicateRestaurantResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "source_restaurant_id": {
+                "type": "integer"
+              },
+              "vendor_id": {
+                "type": "integer"
+              },
+              "restaurant_id": {
+                "type": "integer"
+              },
+              "include_menu": {
+                "type": "boolean"
+              },
+              "categories_copied": {
+                "type": "integer"
+              },
+              "addons_copied": {
+                "type": "integer"
+              },
+              "foods_copied": {
+                "type": "integer"
+              }
+            }
           }
         }
       },

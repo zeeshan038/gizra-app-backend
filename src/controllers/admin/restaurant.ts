@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../../config/database';
 import {
   adminCreateRestaurantSchema,
+  adminDuplicateRestaurantSchema,
   adminRestaurantBulkExportSchema,
   adminRestaurantJoinQuerySchema,
   adminRestaurantListQuerySchema,
@@ -15,6 +16,7 @@ import {
   updateAdminRestaurant,
 } from '../../utils/admin/restaurants/updateAdminRestaurant';
 import { createAdminRestaurant } from '../../utils/admin/restaurants/createAdminRestaurant';
+import { duplicateAdminRestaurant } from '../../utils/admin/restaurants/duplicateAdminRestaurant';
 import {
   bulkImportRestaurantsFromRows,
   parseImportWorkbook,
@@ -235,6 +237,34 @@ export const createAdminRestaurantHandler = async (req: Request, res: Response):
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Create failed';
     return res.status(400).json({ status: false, msg });
+  }
+};
+
+/**
+ * @Description Duplicate restaurant with full menu into a new vendor account (new branch).
+ * @Route POST /api/admin/restaurants/:id/duplicate
+ * @Access Private (Admin)
+ */
+export const duplicateAdminRestaurantHandler = async (req: Request, res: Response): Promise<any> => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id) || id <= 0) {
+    return res.status(400).json({ status: false, msg: 'Invalid restaurant id' });
+  }
+  const validated = adminDuplicateRestaurantSchema.validate(req.body, { stripUnknown: true });
+  if (validated.error) {
+    return res.status(400).json({ status: false, msg: validated.error.details[0]?.message });
+  }
+  try {
+    const data = await duplicateAdminRestaurant(id, validated.value);
+    return res.status(201).json({
+      status: true,
+      msg: 'Restaurant duplicated successfully',
+      data,
+    });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Duplicate failed';
+    const status = msg === 'Restaurant not found' ? 404 : 400;
+    return res.status(status).json({ status: false, msg });
   }
 };
 

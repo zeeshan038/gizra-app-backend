@@ -297,6 +297,105 @@
           }
         }
       },
+      "AdminDuplicateRestaurantRequest": {
+        "type": "object",
+        "required": [
+          "f_name",
+          "phone",
+          "email",
+          "password"
+        ],
+        "properties": {
+          "f_name": {
+            "type": "string",
+            "example": "Branch"
+          },
+          "l_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
+            "type": "string",
+            "example": "+972501112233"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "kfc-branch2@example.com"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "example": "password123"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "description": "New restaurant name; default is \"{source name} (Copy)\""
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "nullable": true,
+            "description": "Defaults to source restaurant"
+          },
+          "longitude": {
+            "type": "number",
+            "nullable": true
+          },
+          "zone_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Defaults to source restaurant zone"
+          },
+          "include_menu": {
+            "type": "boolean",
+            "default": true,
+            "description": "Copy categories, add-ons, foods, variations (default true)"
+          }
+        }
+      },
+      "AdminDuplicateRestaurantResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "boolean",
+            "example": true
+          },
+          "msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "source_restaurant_id": {
+                "type": "integer"
+              },
+              "vendor_id": {
+                "type": "integer"
+              },
+              "restaurant_id": {
+                "type": "integer"
+              },
+              "include_menu": {
+                "type": "boolean"
+              },
+              "categories_copied": {
+                "type": "integer"
+              },
+              "addons_copied": {
+                "type": "integer"
+              },
+              "foods_copied": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
       "ConsumerFoodAvailabilityStatus": {
         "type": "string",
         "enum": [
