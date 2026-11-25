@@ -4954,6 +4954,188 @@
           }
         }
       },
+      "ConsumerDeliveryFeeBatchRequest": {
+        "type": "object",
+        "required": [
+          "destination_lat",
+          "destination_lng",
+          "restaurant_ids"
+        ],
+        "properties": {
+          "destination_lat": {
+            "type": "number",
+            "description": "Customer delivery latitude",
+            "example": 32.0853
+          },
+          "destination_lng": {
+            "type": "number",
+            "description": "Customer delivery longitude",
+            "example": 34.7818
+          },
+          "restaurant_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Restaurant ids to quote (deduped server-side; max 50)",
+            "example": [
+              3,
+              7,
+              12,
+              19
+            ]
+          }
+        }
+      },
+      "ConsumerDeliveryFeeBatchQuoteOk": {
+        "type": "object",
+        "required": [
+          "restaurant_id",
+          "ok",
+          "distance_km",
+          "distance_source",
+          "delivery_fee",
+          "original_delivery_fee",
+          "pricing"
+        ],
+        "properties": {
+          "restaurant_id": {
+            "type": "integer",
+            "example": 3
+          },
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "distance_km": {
+            "type": "number",
+            "example": 4.2
+          },
+          "distance_source": {
+            "type": "string",
+            "enum": [
+              "google",
+              "cache"
+            ],
+            "example": "cache"
+          },
+          "delivery_fee": {
+            "type": "number",
+            "example": 9.4
+          },
+          "original_delivery_fee": {
+            "type": "number",
+            "example": 9.4
+          },
+          "pricing": {
+            "$ref": "#/components/schemas/ConsumerDeliveryFeePricingBreakdown"
+          }
+        }
+      },
+      "ConsumerDeliveryFeeBatchQuoteFail": {
+        "type": "object",
+        "required": [
+          "restaurant_id",
+          "ok",
+          "msg",
+          "delivery_fee"
+        ],
+        "properties": {
+          "restaurant_id": {
+            "type": "integer",
+            "example": 7
+          },
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "code": {
+            "type": "string",
+            "nullable": true,
+            "example": "DELIVERY_DISTANCE_TIME_RESTRICTED"
+          },
+          "msg": {
+            "type": "string"
+          },
+          "retryable": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "max_distance_km": {
+            "type": "number",
+            "nullable": true
+          },
+          "restriction_end_time": {
+            "type": "string",
+            "nullable": true,
+            "example": "20:30"
+          },
+          "timezone": {
+            "type": "string",
+            "nullable": true,
+            "example": "Asia/Jerusalem"
+          },
+          "paused_zone_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "distance_km": {
+            "type": "number",
+            "nullable": true
+          },
+          "distance_source": {
+            "type": "string",
+            "nullable": true
+          },
+          "delivery_fee": {
+            "type": "number",
+            "nullable": true,
+            "example": null
+          }
+        }
+      },
+      "ConsumerDeliveryFeeBatchResponse": {
+        "type": "object",
+        "required": [
+          "destination_lat",
+          "destination_lng",
+          "quotes"
+        ],
+        "properties": {
+          "destination_lat": {
+            "type": "number",
+            "example": 32.0853
+          },
+          "destination_lng": {
+            "type": "number",
+            "example": 34.7818
+          },
+          "quotes": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ConsumerDeliveryFeeBatchQuoteOk"
+                },
+                {
+                  "$ref": "#/components/schemas/ConsumerDeliveryFeeBatchQuoteFail"
+                }
+              ]
+            }
+          }
+        }
+      },
       "ConsumerGetZoneIdResponse": {
         "type": "object",
         "properties": {
